@@ -13,8 +13,8 @@ struct camera_session;
 struct camera_reader_count;
 
 struct camera_source_config {
-    std::string socket_dir_{"/tmp/camera_ai"};
-    std::uint32_t camera_id_{0};
+    // Exact activation-time route; frame receive must not infer product topology.
+    std::string socket_path_;
     // Required deployment identity; UINT32_MAX is an unset sentinel.
     std::uint32_t producer_uid_{UINT32_MAX};
     legacy_frame_limits limits_;

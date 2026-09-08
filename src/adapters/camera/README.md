@@ -10,6 +10,8 @@ Legacy third-stream media receiver source is now present (not built or board-tes
 - camera_control: Start/Stop lease state machine with ambiguous-outcome reconciliation.
 - dbus_rpc: optional private GIO binding for the current FW string-valued a{sv} contract.
 - source_lifecycle: combined acquisition/connect/receive/drain/release for one cycle.
+- raw_source_resolver: bounded activation-time mapping from opaque `raw_source_ref` to
+  the exact control identity/socket/producer/ABI route, with no Camera/Box branch.
 - src/app/camera_graph_pump connects this receiver to the Qualcomm graph while keeping
   this camera adapter free of GStreamer dependencies. No live FW inference run yet.
 
@@ -25,5 +27,7 @@ Read [implementation boundary](../../../docs/architecture/camera_legacy_adapter.
 and [FW baseline](../../../docs/contracts/fw_camera_integration_requirements.md).
 Caller must retain every frame owner until hardware completion, acquire the camera
 lease before connect and release it only after all readers/sessions drain.
-The process-level 1..16-source supervisor remains pending; one source lifecycle must be
-shared by compatible model/feature consumers rather than recreated per consumer.
+The process-level 1..16-source supervisor advances one source session per bounded
+round-robin call; one source lifecycle must be shared by compatible model/feature
+consumers rather than recreated per consumer. See
+[RAW-source resolution](../../../docs/architecture/raw_source_resolution.md).

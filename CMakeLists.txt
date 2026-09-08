@@ -107,7 +107,9 @@ if(VQEC_VISION_AI_ENABLE_CAMERA)
         message(FATAL_ERROR "Camera FD receiver requires Linux")
     endif()
     add_library(vqec_vision_ai_camera STATIC
-        src/adapters/camera/vqec_vision_frame_source.cpp src/adapters/camera/vqec_vision_source_lifecycle.cpp)
+        src/adapters/camera/vqec_vision_frame_source.cpp
+        src/adapters/camera/vqec_vision_source_lifecycle.cpp
+        src/adapters/camera/vqec_vision_raw_source_resolver.cpp)
     target_link_libraries(vqec_vision_ai_camera
         PUBLIC vqec_vision_ai_camera_wire vqec_vision_ai_camera_control)
     target_compile_definitions(vqec_vision_ai_camera PRIVATE _GNU_SOURCE)
@@ -365,6 +367,13 @@ if(BUILD_TESTING)
         set_tests_properties(dmabuf_memory_ownership PROPERTIES TIMEOUT 5)
     endif()
     if(VQEC_VISION_AI_ENABLE_CAMERA)
+        add_executable(vqec_vision_ai_raw_source_resolver_test
+            tests/unit/vqec_vision_raw_source_resolver_test.cpp)
+        target_link_libraries(vqec_vision_ai_raw_source_resolver_test
+            PRIVATE vqec_vision_ai_camera)
+        set_target_properties(vqec_vision_ai_raw_source_resolver_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME raw_source_resolution COMMAND vqec_vision_ai_raw_source_resolver_test)
         add_executable(vqec_vision_ai_camera_receiver_test tests/contract/vqec_vision_camera_receiver_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_receiver_test PRIVATE vqec_vision_ai_camera)
         target_compile_definitions(vqec_vision_ai_camera_receiver_test PRIVATE _GNU_SOURCE)
@@ -376,7 +385,8 @@ endif()
 
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
-        vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test vqec_vision_ai_camera_receiver_test
+        vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
+        vqec_vision_ai_camera_receiver_test vqec_vision_ai_raw_source_resolver_test
         vqec_vision_ai_camera_control vqec_vision_ai_camera_dbus vqec_vision_ai_camera_control_test
         vqec_vision_ai_gst_frame_bridge vqec_vision_ai_dmabuf_bridge_test
         vqec_vision_ai_submission_window_test vqec_vision_ai_plugin_graph_test

@@ -235,6 +235,7 @@ No AST naming enforcement is implied by the structural filename checker.
 | src/adapters/camera/vqec_vision_camera_rpc.hpp | cmrpc | vqec_vision_ai_camer_cmrpc_ |
 | src/adapters/camera/vqec_vision_dbus_rpc.cpp | dbrpc | vqec_vision_ai_camer_dbrpc_ |
 | src/adapters/camera/vqec_vision_source_lifecycle.cpp | srclc | vqec_vision_ai_camer_srclc_ |
+| src/adapters/camera/vqec_vision_raw_source_resolver.cpp | rsrsv | vqec_vision_ai_camer_rsrsv_ |
 | src/adapters/qualcomm/vqec_vision_dmabuf_bridge.cpp | dmbrg | vqec_vision_ai_qcom_dmbrg_ |
 | src/adapters/qualcomm/vqec_vision_tensor_output.cpp | tnout | vqec_vision_ai_qcom_tnout_ |
 | src/adapters/qualcomm/vqec_vision_frame_submission.cpp | frsub | vqec_vision_ai_qcom_frsub_ |
@@ -244,6 +245,7 @@ No AST naming enforcement is implied by the structural filename checker.
 | tests/contract/vqec_vision_plugin_graph_test.cpp | pgtst | vqec_vision_ai_ctest_pgtst_ |
 | tests/contract/vqec_vision_graph_lifecycle_test.cpp | gltst | vqec_vision_ai_ctest_gltst_ |
 | tests/unit/vqec_vision_camera_control_test.cpp | cctst | vqec_vision_ai_unit_cctst_ |
+| tests/unit/vqec_vision_raw_source_resolver_test.cpp | rsrst | vqec_vision_ai_unit_rsrst_ |
 
 vqec_vision_frame_source.cpp activates the reserved camer/frsrc owner. The received_frame
 accessors share that implementation owner. Tests' main uses the language exception.

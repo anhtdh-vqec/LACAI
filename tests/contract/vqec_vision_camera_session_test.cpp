@@ -118,6 +118,7 @@ int main() {
     camera.acquire_.consumer_id_ = "fixture-ai";
     camera.acquire_.request_id_ = "fixture-start";
     camera.stop_request_id_ = "fixture-stop";
+    camera.media_.socket_path_ = "/tmp/vqec-vision-fixture.sock";
     camera.media_.producer_uid_ = static_cast<std::uint32_t>(::getuid());
     camera.media_.limits_.nv12_format_value_ = 23;  // No packet is decoded by this fixture.
     source_lifecycle source(rpc, camera);

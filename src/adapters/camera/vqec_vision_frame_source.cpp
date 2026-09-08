@@ -89,19 +89,18 @@ status frame_source::vqec_vision_ai_camer_frsrc_connect(const camera_source_conf
         _config.limits_.max_allocation_bytes_ == 0 || next_epoch_ == UINT64_MAX) {
         return {status_code::invalid_argument, "producer identity, ABI or limits are invalid"};
     }
-    if (_config.socket_dir_.empty() || _config.socket_dir_.front() != '/' ||
-        _config.socket_dir_.find('\0') != std::string::npos) {
-        return {status_code::invalid_argument, "socket directory must be an absolute Linux path"};
+    if (_config.socket_path_.empty() || _config.socket_path_.front() != '/' ||
+        _config.socket_path_.find('\0') != std::string::npos) {
+        return {status_code::invalid_argument,
+                "RAW source socket must be an absolute Linux path"};
     }
-    const std::string path = _config.socket_dir_ + "/0_third_ai" +
-        (_config.camera_id_ == 0 ? std::string{} : "_cam" + std::to_string(_config.camera_id_)) +
-        ".sock";
     sockaddr_un address{};
-    if (path.size() >= sizeof(address.sun_path)) {
-        return {status_code::invalid_argument, "camera socket path exceeds sun_path"};
+    if (_config.socket_path_.size() >= sizeof(address.sun_path)) {
+        return {status_code::invalid_argument, "RAW source socket path exceeds sun_path"};
     }
     address.sun_family = AF_UNIX;
-    std::memcpy(address.sun_path, path.c_str(), path.size() + 1);
+    std::memcpy(address.sun_path, _config.socket_path_.c_str(),
+                _config.socket_path_.size() + 1);
     auto candidate = std::make_shared<camera_session>();
     candidate->socket_fd_ = ::socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (candidate->socket_fd_ < 0) {

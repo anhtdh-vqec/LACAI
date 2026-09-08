@@ -138,7 +138,7 @@ int main() {
     // Transport-only fixture: /dev/zero is NOT a DMA-BUF hardware compatibility test.
     fixture.payload_fd_ = ::open("/dev/zero", O_RDONLY | O_CLOEXEC);
     camera_source_config config;
-    config.socket_dir_ = fixture.directory_;
+    config.socket_path_ = fixture.path_;
     config.producer_uid_ = static_cast<std::uint32_t>(::getuid());
     config.limits_.nv12_format_value_ = 123;
     frame_source source;

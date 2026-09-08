@@ -41,7 +41,7 @@ status source_lifecycle::vqec_vision_ai_camer_srclc_start(int _timeout_ms) {
         return {};
     }
     if (state_ == camera_source_state::idle) {
-        if (config_.acquire_.camera_id_ != config_.media_.camera_id_ ||
+        if (config_.media_.socket_path_.empty() ||
             !vqec_vision_ai_camer_srclc_is_identifier(config_.stop_request_id_) ||
             !vqec_vision_ai_camer_srclc_is_identifier(config_.acquire_.request_id_) ||
             !vqec_vision_ai_camer_srclc_is_identifier(config_.acquire_.consumer_id_) ||

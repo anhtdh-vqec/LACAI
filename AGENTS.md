@@ -60,6 +60,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   read docs/architecture/camera_control_client.md before changing lease reconciliation.
   Combined source lifecycle now gates StopStream on cross-session frame-owner drain;
   read docs/architecture/camera_source_lifecycle.md before changing start/stop behavior.
+  FW RAW-source resolution is activation-only and product-origin agnostic; read
+  docs/architecture/raw_source_resolution.md before changing endpoint composition.
   Private GstMemory wrapping now retains the owner on root memory;
   read docs/architecture/dmabuf_memory_bridge.md before changing memory lifetime.
   No hardware completion validation, executable service runtime or active CI.

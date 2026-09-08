@@ -10,6 +10,12 @@ removed from contract, strict loader, schema, examples, tests and activation sna
 AI Camera and AI Box must present the same FW RAW descriptor/lease semantics. On AI Box,
 RTSP discovery/credential/demux/decode and decoder memory remain FW responsibility.
 
+Activation-time RAW-source resolution now maps an opaque `raw_source_ref` through a fixed
+16-slot registry to logical IDs, an exact Unix attachment path, producer UID and pinned
+NV12 ABI value. The receiver consumes the resolved path without inferring Camera/Box
+topology. A compatibility helper owns the released `third` socket naming rule; production
+FW registry RPC/authentication remains pending. Test source was added but not executed.
+
 Multi-source deployment contract/validator and strict bounded JSON loader source now
 represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source profiles,
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed
