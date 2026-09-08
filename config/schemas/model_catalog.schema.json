@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vqec:vision:ai:model-catalog:1",
+  "title": "VQEC Vision AI model-team catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "catalog_id", "models"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "catalog_id": { "$ref": "#/$defs/identifier" },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/model" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "rate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 240000 },
+        "denominator": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "dtype", "channel_order", "placement", "mean", "sigma"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 8, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 8, "maximum": 4096 },
+        "dtype": { "enum": ["uint8", "float32"] },
+        "channel_order": { "enum": ["rgb", "bgr"] },
+        "placement": { "enum": ["top_left", "centre", "stretch"] },
+        "mean": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number", "minimum": 0, "maximum": 255 }
+        },
+        "sigma": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 255 }
+        }
+      }
+    },
+    "source_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_width", "min_height", "max_width", "max_height", "min_fps_numerator", "min_fps_denominator"],
+      "properties": {
+        "min_width": { "type": "integer", "minimum": 2, "maximum": 8192, "multipleOf": 2 },
+        "min_height": { "type": "integer", "minimum": 2, "maximum": 8192, "multipleOf": 2 },
+        "max_width": { "type": "integer", "minimum": 2, "maximum": 8192, "multipleOf": 2 },
+        "max_height": { "type": "integer", "minimum": 2, "maximum": 8192, "multipleOf": 2 },
+        "min_fps_numerator": { "type": "integer", "minimum": 1, "maximum": 240000 },
+        "min_fps_denominator": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resident_bytes", "max_tensor_bytes_per_source", "output_queue_buffers", "max_concurrent_sources", "can_share_context_across_sources"],
+      "properties": {
+        "resident_bytes": { "type": "integer", "minimum": 1, "maximum": 2147483648 },
+        "max_tensor_bytes_per_source": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "output_queue_buffers": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "max_concurrent_sources": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "can_share_context_across_sources": { "type": "boolean" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
+        "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
+        "input", "inference_cadence", "source_constraints", "resources"
+      ],
+      "properties": {
+        "model_id": { "$ref": "#/$defs/identifier" },
+        "model_version": { "$ref": "#/$defs/identifier" },
+        "target_id": { "$ref": "#/$defs/identifier" },
+        "artifact_ref": { "$ref": "#/$defs/identifier" },
+        "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "output_manifest_ref": { "$ref": "#/$defs/identifier" },
+        "decoder_contract": { "$ref": "#/$defs/identifier" },
+        "preprocess_contract": { "$ref": "#/$defs/identifier" },
+        "graph_name": { "$ref": "#/$defs/identifier" },
+        "input": { "$ref": "#/$defs/input" },
+        "inference_cadence": { "$ref": "#/$defs/rate" },
+        "source_constraints": { "$ref": "#/$defs/source_constraints" },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    }
+  }
+}

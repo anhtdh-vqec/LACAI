@@ -1,0 +1,12 @@
+{
+    "schema_version": 1,
+    "model_id": "fixture",
+    "model_version": "1.0",
+    "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decoder_contract": "fixture.raw.v1",
+    "max_output_bytes": 20,
+    "outputs": [
+        {"name": "boxes", "dtype": "float32", "shape": [1, 4]},
+        {"name": "scores", "dtype": "float32", "shape": [1]}
+    ]
+}
