@@ -118,6 +118,10 @@ already-composed session per call. It supplies bounded round-robin fairness and 
 source error while that session drains; it does not resolve RAW sources or create threads.
 See [multi-source supervisor](multi_source_supervisor.md).
 
+Within each source, [model cadence](model_cadence.md) compiles Model-team rational inference
+rates into fixed numeric phase state and a 16-bit due mask. A skipped source-frame sequence
+advances cadence without generating a backlog burst.
+
 ## 5. Copy and zero-copy ledger
 
 “Zero-copy” is a per-boundary result, never a label for the whole pipeline.

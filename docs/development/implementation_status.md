@@ -35,6 +35,12 @@ to this port, while the supervisor target and fake test no longer require Camera
 Multi-model shared-frame fan-out remains pending and must use one FW source lease per
 logical source rather than constructing one acquisition per model.
 
+Portable model-cadence scheduler source now composes each source's ordered model IDs and
+rational rates into fixed 16-slot integer phase state. Selection returns a bit mask, accounts
+for skipped frame sequences without backlog bursts, checks arithmetic transactionally and
+performs no dynamic allocation/string lookup on the frame path. Fan-out integration and
+test execution remain pending.
+
 The separate AI Model-team catalog is now represented by a neutral contract, pure
 validator, strict 512 KiB/depth-16 JSON loader, reviewable schema/example and source-only
 tests. Cross-validation rejects unknown/incompatible assignments, concurrency excess,

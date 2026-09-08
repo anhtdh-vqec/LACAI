@@ -162,6 +162,13 @@ target_include_directories(vqec_vision_ai_source_supervisor PUBLIC
 target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_scheduler STATIC
+    src/runtime/scheduler/vqec_vision_model_cadence.cpp)
+target_include_directories(vqec_vision_ai_scheduler PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/scheduler>)
+target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_scheduler PROPERTIES CXX_EXTENSIONS OFF)
+
 include(CTest)
 if(VQEC_VISION_AI_ENABLE_FW_RING)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -194,6 +201,12 @@ target_include_directories(vqec_vision_ai_encoder_preparation PUBLIC
 target_link_libraries(vqec_vision_ai_encoder_preparation PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_encoder_preparation PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_model_cadence_test
+        tests/unit/vqec_vision_model_cadence_test.cpp)
+    target_link_libraries(vqec_vision_ai_model_cadence_test
+        PRIVATE vqec_vision_ai_scheduler)
+    set_target_properties(vqec_vision_ai_model_cadence_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME model_cadence_selection COMMAND vqec_vision_ai_model_cadence_test)
     add_executable(vqec_vision_ai_multi_source_supervisor_test
         tests/unit/vqec_vision_multi_source_supervisor_test.cpp)
     target_link_libraries(vqec_vision_ai_multi_source_supervisor_test
@@ -399,6 +412,7 @@ endif()
 
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
+        vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
         vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
         vqec_vision_ai_camera_receiver_test vqec_vision_ai_raw_source_resolver_test
