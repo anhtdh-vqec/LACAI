@@ -21,7 +21,7 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_check_time(
 }
 
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_bind_session(
-    std::uint16_t _source_index, camera_session& _session) {
+    std::uint16_t _source_index, source_session_port& _session) {
     if (state_ != multi_source_supervisor_state::binding) {
         return {status_code::invalid_state, "sessions can only bind before activation"};
     }
@@ -33,7 +33,8 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_bind_session(
     if (sessions_[_source_index] != nullptr) {
         return {status_code::invalid_state, "source index is already bound"};
     }
-    if (_session.vqec_vision_ai_appl_camsn_get_state() != camera_session_state::idle) {
+    if (_session.vqec_vision_ai_appl_srcsn_get_health().phase_ !=
+        source_session_phase::idle) {
         return {status_code::invalid_state, "bound session must be idle"};
     }
     for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
@@ -60,8 +61,8 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_activate() {
     }
     for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
         if (sessions_[index] == nullptr ||
-            sessions_[index]->vqec_vision_ai_appl_camsn_get_state() !=
-                camera_session_state::idle) {
+            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
+                source_session_phase::idle) {
             return {status_code::invalid_state, "activation requires every session idle"};
         }
     }
@@ -77,8 +78,8 @@ void multi_source_supervisor::vqec_vision_ai_appl_mssup_refresh_state() noexcept
     }
     for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
         if (sessions_[index] == nullptr ||
-            sessions_[index]->vqec_vision_ai_appl_camsn_get_state() !=
-                camera_session_state::stopped) {
+            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
+                source_session_phase::stopped) {
             return;
         }
     }
@@ -100,13 +101,13 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
         return {};
     }
 
-    camera_session* selected = nullptr;
+    source_session_port* selected = nullptr;
     std::uint16_t selected_index = g_invalid_source_index;
     for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
         const auto index = static_cast<std::uint16_t>(
             (static_cast<unsigned>(next_source_index_) + offset) % config_.source_count_);
-        if (sessions_[index]->vqec_vision_ai_appl_camsn_get_state() !=
-            camera_session_state::stopped) {
+        if (sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
+            source_session_phase::stopped) {
             selected = sessions_[index];
             selected_index = index;
             break;
@@ -119,16 +120,16 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
 
     next_source_index_ = static_cast<std::uint16_t>(
         (static_cast<unsigned>(selected_index) + 1U) % config_.source_count_);
-    camera_pump_report pump;
-    auto source_status = selected->vqec_vision_ai_appl_camsn_step(
-        _steady_now_ns, _result, pump);
+    source_session_progress progress;
+    auto source_status = selected->vqec_vision_ai_appl_srcsn_step(
+        _steady_now_ns, _result, progress);
     const auto source_code = source_status.code_;
     _report.source_index_ = selected_index;
     _report.source_status_ = std::move(source_status);
-    _report.source_snapshot_ = selected->vqec_vision_ai_appl_camsn_get_snapshot();
-    _report.pump_ = pump;
+    _report.source_health_ = selected->vqec_vision_ai_appl_srcsn_get_health();
+    _report.source_progress_ = progress;
     _report.has_source_ = true;
-    _report.has_result_ = pump.has_result_;
+    _report.has_result_ = progress.has_result_;
     vqec_vision_ai_appl_mssup_refresh_state();
 
     if (state_ == multi_source_supervisor_state::stopped) {
@@ -137,7 +138,7 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
     if (source_code != status_code::ok && source_code != status_code::pending) {
         return {status_code::pending, {}};
     }
-    return source_code == status_code::ok && pump.has_result_ ?
+    return source_code == status_code::ok && progress.has_result_ ?
         status{} : status{status_code::pending, {}};
 }
 
@@ -159,7 +160,7 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_request_stop(
     state_ = multi_source_supervisor_state::stopping;
     for (std::uint16_t index = 0;
          index < config_.source_count_ && index < sessions_.size(); ++index) {
-        const auto stopped = sessions_[index]->vqec_vision_ai_appl_camsn_request_stop(
+        const auto stopped = sessions_[index]->vqec_vision_ai_appl_srcsn_request_stop(
             _steady_now_ns);
         if (first_error.code_ == status_code::ok && stopped.code_ != status_code::ok) {
             first_error = stopped;
@@ -187,16 +188,15 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept
         if (sessions_[index] == nullptr) {
             continue;
         }
-        const auto source = sessions_[index]->vqec_vision_ai_appl_camsn_get_snapshot();
-        switch (source.session_state_) {
-            case camera_session_state::running:
+        const auto source = sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+        switch (source.phase_) {
+            case source_session_phase::running:
                 ++snapshot.running_sources_;
                 break;
-            case camera_session_state::draining_graph:
-            case camera_session_state::releasing_camera:
+            case source_session_phase::draining:
                 ++snapshot.stopping_sources_;
                 break;
-            case camera_session_state::stopped:
+            case source_session_phase::stopped:
                 ++snapshot.stopped_sources_;
                 break;
             default:

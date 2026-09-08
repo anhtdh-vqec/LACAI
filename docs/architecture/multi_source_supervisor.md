@@ -4,9 +4,10 @@ Status: source implementation delivered; Linux SDK compilation, integration and 
 qualification are pending.
 
 `multi_source_supervisor` is the process-level fairness and fault-isolation layer above
-one `camera_session` per admitted FW RAW source. Despite the legacy class name, every
-session consumes the same RAW NV12/FD descriptor/lease contract. The supervisor does not
-know whether FW produced that source from a sensor or an RTSP decoder.
+one `source_session_port` per admitted FW RAW source. The port may be implemented by the
+current single-model `camera_session` or a multi-model fan-out session. Every
+implementation consumes the same RAW NV12/FD descriptor/lease contract. The supervisor
+does not know whether FW produced that source from a sensor or an RTSP decoder.
 
 ## Ownership and activation
 
@@ -19,9 +20,11 @@ vendor graph, retention domain and session for each admitted slot. It then:
 3. activates only after all declared slots are present;
 4. transfers exclusive progress authority to the supervisor until every slot is stopped.
 
-The supervisor stores a fixed array of 16 borrowed pointers. It does not allocate a session,
-own an FD, load a model, call FW directly or make a string lookup on the running path. The
-composition owners must outlive it and must not call a bound session concurrently.
+The supervisor stores a fixed array of 16 borrowed `source_session_port` pointers. It does
+not allocate a session, own an FD, load a model, call FW directly or make a string lookup on
+the running path. The composition owners must outlive it and must not call a bound session
+concurrently. The interface reports a numeric model slot, so future multi-model sessions do
+not need hot-path string correlation.
 
 ## Progress and fairness
 
@@ -62,6 +65,9 @@ from being retagged as a new source cycle.
 - snapshots are serialized diagnostics, not concurrent synchronization primitives;
 - no zero-copy, throughput or 16-source board-capacity claim follows from this scheduler.
 
-The next runtime slice must resolve `raw_source_ref` through a versioned FW registry and
-construct these session owners transactionally. RTSP URI, credentials, codec and decoder
-state must remain outside AI APP.
+`raw_source_ref` now resolves through the bounded adapter described in
+[RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
+transactional session-owner construction remain pending. The next source-session slice
+must fan one received frame out to the due model graphs while holding one shared lease
+until every real device reader completes. RTSP URI, credentials, codec and decoder state
+must remain outside AI APP.

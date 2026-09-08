@@ -147,14 +147,20 @@ endif()
 
 if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
     add_library(vqec_vision_ai_camera_graph_pump STATIC
-        src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp
-        src/app/vqec_vision_multi_source_supervisor.cpp)
+        src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp)
     target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
     target_link_libraries(vqec_vision_ai_camera_graph_pump
         PUBLIC vqec_vision_ai_camera vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_camera_graph_pump PROPERTIES CXX_EXTENSIONS OFF)
 endif()
+
+add_library(vqec_vision_ai_source_supervisor STATIC
+    src/app/vqec_vision_multi_source_supervisor.cpp)
+target_include_directories(vqec_vision_ai_source_supervisor PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
 
 include(CTest)
 if(VQEC_VISION_AI_ENABLE_FW_RING)
@@ -188,6 +194,14 @@ target_include_directories(vqec_vision_ai_encoder_preparation PUBLIC
 target_link_libraries(vqec_vision_ai_encoder_preparation PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_encoder_preparation PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_multi_source_supervisor_test
+        tests/unit/vqec_vision_multi_source_supervisor_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_source_supervisor_test
+        PRIVATE vqec_vision_ai_source_supervisor)
+    set_target_properties(vqec_vision_ai_multi_source_supervisor_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_source_supervision
+        COMMAND vqec_vision_ai_multi_source_supervisor_test)
     add_executable(vqec_vision_ai_activation_snapshot_test
         tests/unit/vqec_vision_activation_snapshot_test.cpp)
     target_link_libraries(vqec_vision_ai_activation_snapshot_test
@@ -384,6 +398,7 @@ if(BUILD_TESTING)
 endif()
 
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
+        vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
         vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
         vqec_vision_ai_camera_receiver_test vqec_vision_ai_raw_source_resolver_test

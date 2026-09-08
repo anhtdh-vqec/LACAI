@@ -29,6 +29,12 @@ authentication, global board admission and output-registry resolution remain pen
 released FW output still limits preview to fixed detect0/detect1 identities. Source was not
 built or executed, per request to defer build/test work to the Linux SDK machine.
 
+Supervisor coupling is now through a vendor-neutral `source_session_port` with numeric
+model-slot progress and aggregate health. The current camera_session adapts its one graph
+to this port, while the supervisor target and fake test no longer require Camera/Qualcomm.
+Multi-model shared-frame fan-out remains pending and must use one FW source lease per
+logical source rather than constructing one acquisition per model.
+
 The separate AI Model-team catalog is now represented by a neutral contract, pure
 validator, strict 512 KiB/depth-16 JSON loader, reviewable schema/example and source-only
 tests. Cross-validation rejects unknown/incompatible assignments, concurrency excess,

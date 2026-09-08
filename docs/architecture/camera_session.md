@@ -6,6 +6,11 @@ It exclusively borrows one initially idle source_lifecycle and empty plugin_grap
 The application owns both and the shared graph_retention domain until stopped;
 destroying the coordinator does not issue RPCs, cancel readers or release a lease.
 
+camera_session implements the generic `source_session_port` as the current one-model
+compatibility path. The multi-source supervisor therefore does not depend on Camera or
+Qualcomm types. A future multi-model source session can replace this implementation
+without reacquiring the same FW RAW source per model.
+
 Progress semantics: successful intermediate startup/stop actions return pending until
 the session reaches running/stopped. Running step may return ok with a submission or
 result report; callers must inspect report.has_result before publishing a tensor.

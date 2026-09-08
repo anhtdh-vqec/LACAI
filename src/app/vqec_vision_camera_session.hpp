@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "vqec_vision_camera_graph_pump.hpp"
+#include "vqec_vision_source_session.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
 
 namespace vqec::vision::ai {
@@ -54,7 +55,7 @@ struct model_output_selection {
 
 // Exclusive borrowed source/graph, one cycle, serialized monotonic calls.
 // Explicit stopped state required before owners are destroyed; no destructor shutdown.
-class camera_session {
+class camera_session final : public source_session_port {
 public:
     camera_session(source_lifecycle& _source, plugin_graph& _graph,
         std::shared_ptr<graph_retention> _retention, camera_session_config _config);
@@ -68,6 +69,13 @@ public:
     [[nodiscard]] const status& vqec_vision_ai_appl_camsn_get_last_error() const noexcept;
     // Same serialized executor as step; no I/O or state transitions.
     [[nodiscard]] camera_session_snapshot vqec_vision_ai_appl_camsn_get_snapshot() const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
+        std::uint64_t _steady_now_ns, tensor_result& _result,
+        source_session_progress& _progress) override;
+    [[nodiscard]] status vqec_vision_ai_appl_srcsn_request_stop(
+        std::uint64_t _steady_now_ns) override;
+    [[nodiscard]] source_session_health
+    vqec_vision_ai_appl_srcsn_get_health() const noexcept override;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_camsn_check_time(std::uint64_t _steady_now_ns);

@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 
-#include "vqec_vision_camera_session.hpp"
+#include "vqec_vision_source_session.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
 
 namespace vqec::vision::ai {
@@ -27,8 +27,8 @@ struct multi_source_supervisor_config {
 struct multi_source_progress_report {
     std::uint16_t source_index_{g_invalid_source_index};
     status source_status_;
-    camera_session_snapshot source_snapshot_;
-    camera_pump_report pump_;
+    source_session_health source_health_;
+    source_session_progress source_progress_;
     bool has_source_{false};
     bool has_result_{false};
 };
@@ -57,7 +57,7 @@ public:
     multi_source_supervisor& operator=(const multi_source_supervisor& _other) = delete;
 
     [[nodiscard]] status vqec_vision_ai_appl_mssup_bind_session(
-        std::uint16_t _source_index, camera_session& _session);
+        std::uint16_t _source_index, source_session_port& _session);
     [[nodiscard]] status vqec_vision_ai_appl_mssup_activate();
     [[nodiscard]] status vqec_vision_ai_appl_mssup_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
@@ -75,7 +75,7 @@ private:
     void vqec_vision_ai_appl_mssup_refresh_state() noexcept;
 
     multi_source_supervisor_config config_;
-    std::array<camera_session*, deployment_limits::g_max_sources> sessions_{};
+    std::array<source_session_port*, deployment_limits::g_max_sources> sessions_{};
     multi_source_supervisor_state state_{multi_source_supervisor_state::binding};
     std::uint16_t bound_count_{0};
     std::uint16_t next_source_index_{0};

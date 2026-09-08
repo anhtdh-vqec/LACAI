@@ -72,6 +72,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   src/app/multi_source_supervisor binds 1..16 pre-composed sessions with bounded
   round-robin progress and per-source fault isolation; read
   docs/architecture/multi_source_supervisor.md before changing fairness or global stop.
+  The supervisor depends only on source_session_port; never reacquire one FW RAW source
+  per model. Multi-model implementations must fan out one retained frame owner.
   The optional output_manifest loader and manifest_check CLI validate metadata only.
   Read docs/architecture/model_output_manifest.md before changing schema or trust boundaries.
   The separate model_catalog loader declares model input/cadence/resource envelopes and

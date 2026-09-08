@@ -256,4 +256,47 @@ camera_session_snapshot camera_session::vqec_vision_ai_appl_camsn_get_snapshot()
             is_recovery_required_, last_error_.code_};
 }
 
+status camera_session::vqec_vision_ai_appl_srcsn_step(
+    std::uint64_t _steady_now_ns, tensor_result& _result,
+    source_session_progress& _progress) {
+    _progress = {};
+    camera_pump_report report;
+    const auto result = vqec_vision_ai_appl_camsn_step(_steady_now_ns, _result, report);
+    _progress.model_slot_ = report.has_result_ || report.has_submission_ ? 0 :
+        g_invalid_model_slot;
+    _progress.ticket_ = report.ticket_;
+    _progress.has_submission_ = report.has_submission_;
+    _progress.has_result_ = report.has_result_;
+    return result;
+}
+
+status camera_session::vqec_vision_ai_appl_srcsn_request_stop(
+    std::uint64_t _steady_now_ns) {
+    return vqec_vision_ai_appl_camsn_request_stop(_steady_now_ns);
+}
+
+source_session_health camera_session::vqec_vision_ai_appl_srcsn_get_health() const noexcept {
+    const auto snapshot = vqec_vision_ai_appl_camsn_get_snapshot();
+    source_session_health health;
+    if (snapshot.session_state_ == camera_session_state::idle) {
+        health.phase_ = source_session_phase::idle;
+    } else if (snapshot.session_state_ == camera_session_state::running) {
+        health.phase_ = source_session_phase::running;
+    } else if (snapshot.session_state_ == camera_session_state::draining_graph ||
+               snapshot.session_state_ == camera_session_state::releasing_camera) {
+        health.phase_ = source_session_phase::draining;
+    } else if (snapshot.session_state_ == camera_session_state::stopped) {
+        health.phase_ = source_session_phase::stopped;
+    } else {
+        health.phase_ = source_session_phase::starting;
+    }
+    health.model_graph_count_ = 1;
+    health.running_graph_count_ = snapshot.graph_state_ == plugin_graph_state::playing ? 1 : 0;
+    health.outstanding_jobs_ = snapshot.graph_jobs_;
+    health.source_readers_ = snapshot.camera_readers_;
+    health.is_recovery_required_ = snapshot.is_recovery_required_;
+    health.first_error_code_ = snapshot.first_error_code_;
+    return health;
+}
+
 }  // namespace vqec::vision::ai
