@@ -87,6 +87,7 @@ status camera_control::vqec_vision_ai_camer_cctrl_start(
     }
     if (state_ != camera_lease_state::idle &&
         (_request.camera_id_ != request_.camera_id_ ||
+         _request.channel_id_ != request_.channel_id_ ||
          _request.consumer_id_ != request_.consumer_id_ ||
          _request.request_id_ != request_.request_id_)) {
         return {status_code::invalid_state, "cannot replace an unresolved acquisition identity"};
@@ -100,7 +101,9 @@ status camera_control::vqec_vision_ai_camer_cctrl_start(
         state_ = camera_lease_state::start_pending;
     }
     camera_fields fields{{camera_protocol::g_camera_id_field, std::to_string(request_.camera_id_)},
-                         {camera_protocol::g_channel_id_field, camera_protocol::g_default_channel}, {camera_protocol::g_stream_id_field, camera_protocol::g_ai_stream},
+                         {camera_protocol::g_channel_id_field,
+                          std::to_string(request_.channel_id_)},
+                         {camera_protocol::g_stream_id_field, camera_protocol::g_ai_stream},
                          {camera_protocol::g_transport_field, camera_protocol::g_fd_transport}, {camera_protocol::g_consumer_id_field, request_.consumer_id_},
                          {camera_protocol::g_request_id_field, request_.request_id_}};
     camera_fields response;

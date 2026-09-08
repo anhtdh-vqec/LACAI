@@ -13,6 +13,7 @@ enum class camera_lease_state { idle, start_pending, acquired, stop_pending };
 
 struct camera_acquire_request {
     std::uint32_t camera_id_{0};
+    std::uint32_t channel_id_{0};
     std::string consumer_id_;
     std::string request_id_;
 };

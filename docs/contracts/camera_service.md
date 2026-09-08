@@ -33,6 +33,13 @@ that the current receiver may assume exist. P0 safety sign-off remains a product
 Chi tiết cấu hình và memory admission nằm tại
 [multi-source configuration](../architecture/multi_source_configuration.md).
 
+Compatibility note: the released Camera1 RPC carries both `camera_id` and `channel_id`,
+but current FW validates `channel_id=0`; multi-sensor Camera uses distinct `camera_id`
+values. AI acquisition now preserves both values in its request identity and sends the
+configured channel instead of hard-coding it. A non-zero channel therefore still fails
+closed against the current release until FW advertises support; this change does not
+invent a new FW topology.
+
 ## Control operations
 
 | Operation | Request -> Response |

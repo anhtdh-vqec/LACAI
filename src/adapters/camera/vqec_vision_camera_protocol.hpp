@@ -28,8 +28,6 @@ inline constexpr char g_fps_field[] = "fps";
 inline constexpr char g_raw_codec[] = "RAW";
 inline constexpr char g_ai_stream[] = "third";
 inline constexpr char g_fd_transport[] = "dmabuf";
-inline constexpr char g_default_channel[] = "0";
-
 // Fixed numeric values from FW common/result.hpp; wire represents them as strings.
 inline constexpr std::uint32_t g_code_ok = 0;
 inline constexpr std::uint32_t g_code_invalid_argument = 1001;

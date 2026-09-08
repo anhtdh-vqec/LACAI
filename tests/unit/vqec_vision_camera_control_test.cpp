@@ -59,7 +59,7 @@ int main() {
     };
     auto rpc = std::make_shared<scripted_rpc>();
     camera_control control(rpc);
-    camera_acquire_request request{0, "ai_app:instance_1:cam0", "instance_1:start_1"};
+    camera_acquire_request request{0, 0, "ai_app:instance_1:cam0", "instance_1:start_1"};
     rpc->transport_ = {status_code::timeout, "injected lost response"};
     check(control.vqec_vision_ai_camer_cctrl_start(request, 10).code_ == status_code::timeout);
     check(control.vqec_vision_ai_camer_cctrl_get_state() == camera_lease_state::start_pending);
@@ -68,6 +68,10 @@ int main() {
           original.at("channel_id") == "0" && original.at("camera_id") == "0");
     auto changed = request;
     changed.consumer_id_ = "another_instance";
+    check(control.vqec_vision_ai_camer_cctrl_start(changed, 10).code_ ==
+          status_code::invalid_state);
+    changed = request;
+    changed.channel_id_ = 1;
     check(control.vqec_vision_ai_camer_cctrl_start(changed, 10).code_ ==
           status_code::invalid_state);
     check(control.vqec_vision_ai_camer_cctrl_stop("stop_1", 10).code_ ==
