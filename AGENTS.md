@@ -67,6 +67,9 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/camera_graph_pump.md before modifying supervisor/stop ownership.
   src/app/camera_session coordinates one acquisition through start/drain/release;
   read docs/architecture/camera_session.md before changing deadlines or RPC cleanup.
+  src/app/multi_source_supervisor binds 1..16 pre-composed sessions with bounded
+  round-robin progress and per-source fault isolation; read
+  docs/architecture/multi_source_supervisor.md before changing fairness or global stop.
   The optional output_manifest loader and manifest_check CLI validate metadata only.
   Read docs/architecture/model_output_manifest.md before changing schema or trust boundaries.
   The separate model_catalog loader declares model input/cadence/resource envelopes and

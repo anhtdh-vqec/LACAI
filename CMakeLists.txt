@@ -145,7 +145,8 @@ endif()
 
 if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
     add_library(vqec_vision_ai_camera_graph_pump STATIC
-        src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp)
+        src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp
+        src/app/vqec_vision_multi_source_supervisor.cpp)
     target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
     target_link_libraries(vqec_vision_ai_camera_graph_pump

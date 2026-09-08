@@ -15,10 +15,13 @@ represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source 
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed
 from inference, legacy-wire and DMA-BUF limits: callers must supply an effective profile
 and allocation budget. JSON Schema/example and cross-team architecture are documented.
-No multi-source supervisor, FW RAW-source/catalog authentication, global
-board admission or output-registry resolver is implemented. The released FW output still
-limits preview to fixed detect0/detect1 identities. Test source was added but not built or
-executed, per request to defer all build/test work to the Linux SDK machine.
+The fixed-capacity multi-source supervisor now binds exactly 1..16 pre-composed sessions,
+advances one non-stopped source per round-robin call, isolates a source fault while its
+session drains, aggregates state and latches global stop. It deliberately does not resolve
+FW RAW references, create per-source executors or restart epochs. FW RAW-source/catalog
+authentication, global board admission and output-registry resolution remain pending. The
+released FW output still limits preview to fixed detect0/detect1 identities. Source was not
+built or executed, per request to defer build/test work to the Linux SDK machine.
 
 The separate AI Model-team catalog is now represented by a neutral contract, pure
 validator, strict 512 KiB/depth-16 JSON loader, reviewable schema/example and source-only
