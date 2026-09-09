@@ -23,6 +23,8 @@ public:
 
     [[nodiscard]] status vqec_vision_ai_appl_prstg_configure(
         const perception_result_config& _config);
+    [[nodiscard]] status vqec_vision_ai_appl_prstg_validate_config(
+        const perception_result_config& _expected) const;
     [[nodiscard]] status vqec_vision_ai_appl_prstg_process(
         const tensor_result& _result, const submission_ticket& _ticket,
         std::uint64_t _now_monotonic_ns, bool _is_source_gap,

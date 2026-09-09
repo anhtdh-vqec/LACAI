@@ -33,6 +33,20 @@ status perception_result_stage::vqec_vision_ai_appl_prstg_configure(
     return {};
 }
 
+status perception_result_stage::vqec_vision_ai_appl_prstg_validate_config(
+    const perception_result_config& _expected) const {
+    if (!is_configured_) {
+        return {status_code::invalid_state, "perception result stage is not configured"};
+    }
+    if (config_.camera_id_ != _expected.camera_id_ ||
+        config_.channel_id_ != _expected.channel_id_ ||
+        config_.geometry_.width_ != _expected.geometry_.width_ ||
+        config_.geometry_.height_ != _expected.geometry_.height_) {
+        return {status_code::invalid_state, "perception result stage source differs"};
+    }
+    return {};
+}
+
 status perception_result_stage::vqec_vision_ai_appl_prstg_process(
     const tensor_result& _result, const submission_ticket& _ticket,
     std::uint64_t _now_monotonic_ns, bool _is_source_gap,

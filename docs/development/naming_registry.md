@@ -247,9 +247,11 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |
 | src/app/vqec_vision_perception_result_stage.cpp | prstg | vqec_vision_ai_appl_prstg_ |
 | src/app/vqec_vision_feature_fanout.cpp | ftfan | vqec_vision_ai_appl_ftfan_ |
+| src/app/vqec_vision_multi_model_result_router.cpp | mmrrt | vqec_vision_ai_appl_mmrrt_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |
 | tests/contract/vqec_vision_perception_result_stage_test.cpp | prct | vqec_vision_ai_ctest_prct_ |
 | tests/contract/vqec_vision_feature_fanout_test.cpp | ffct | vqec_vision_ai_ctest_ffct_ |
+| tests/contract/vqec_vision_multi_model_result_router_test.cpp | mrrct | vqec_vision_ai_ctest_mrrct_ |
 
 Header contracts/vqec_vision_inference_plan.hpp declarations use implementation owner core_infpl.
 types/vqec_vision_status.hpp is not introduced: status types live in contracts/vqec_vision_status.hpp and

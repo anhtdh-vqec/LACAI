@@ -54,4 +54,5 @@ thermal limits are lower than the schema ceiling.
 See also [model cadence](model_cadence.md),
 [inference graph port](inference_graph_port.md),
 [RAW source port](raw_source_port.md), and
-[multi-source supervisor](multi_source_supervisor.md).
+[multi-source supervisor](multi_source_supervisor.md). Completed tensors are mapped to
+their decoder/tracker stage by the [multi-model result router](multi_model_result_router.md).

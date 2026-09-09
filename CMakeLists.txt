@@ -274,6 +274,13 @@ target_include_directories(vqec_vision_ai_perception_result_stage PUBLIC
 target_link_libraries(vqec_vision_ai_perception_result_stage
     PUBLIC vqec_vision_ai_detection vqec_vision_ai_tracking)
 set_target_properties(vqec_vision_ai_perception_result_stage PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_multi_model_result_router STATIC
+    src/app/vqec_vision_multi_model_result_router.cpp)
+target_include_directories(vqec_vision_ai_multi_model_result_router PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_multi_model_result_router
+    PUBLIC vqec_vision_ai_multi_model_pump vqec_vision_ai_perception_result_stage)
+set_target_properties(vqec_vision_ai_multi_model_result_router PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_feature_fanout STATIC
     src/app/vqec_vision_feature_fanout.cpp)
 target_include_directories(vqec_vision_ai_feature_fanout PUBLIC
@@ -282,6 +289,14 @@ target_include_directories(vqec_vision_ai_feature_fanout PUBLIC
 target_link_libraries(vqec_vision_ai_feature_fanout PUBLIC vqec_vision_ai_feature_runtime)
 set_target_properties(vqec_vision_ai_feature_fanout PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_multi_model_result_router_test
+        tests/contract/vqec_vision_multi_model_result_router_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_model_result_router_test
+        PRIVATE vqec_vision_ai_multi_model_result_router)
+    set_target_properties(vqec_vision_ai_multi_model_result_router_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_model_result_routing
+        COMMAND vqec_vision_ai_multi_model_result_router_test)
     add_executable(vqec_vision_ai_feature_fanout_test
         tests/contract/vqec_vision_feature_fanout_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_fanout_test
@@ -622,6 +637,8 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
+        vqec_vision_ai_multi_model_result_router vqec_vision_ai_multi_model_result_router_test
+        vqec_vision_ai_perception_result_stage vqec_vision_ai_perception_result_stage_test
         vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_session_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
         vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test

@@ -29,8 +29,9 @@ docs/architecture/multi_model_pump.md and docs/architecture/multi_model_session.
 
 `vqec_vision_perception_result_stage` reconstructs exact source frame identity from a
 completed submission ticket, validates tensor pipeline PTS, then composes the configured
-decoder and tracker transactionally. Multi-model routing selects this stage by immutable
-model slot.
+decoder and tracker transactionally. `vqec_vision_multi_model_result_router` selects one
+such stage by immutable model slot, keeps independent epoch/frame/PTS progress per slot and
+derives explicit tracker gaps without assuming round-robin results describe the same frame.
 
 `vqec_vision_feature_fanout` advances a fixed activation-time list of feature stages from
 one tracked batch. It records numeric per-slot success/failure and continues healthy
