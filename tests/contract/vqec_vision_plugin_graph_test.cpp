@@ -56,6 +56,14 @@ int main() {
     check(capabilities.size() == 1U && !capabilities.front().available_);
     check(graph.vqec_vision_ai_qcom_plgr_probe_factories(
               {std::string(129U, 'x')}, capabilities).code_ == status_code::invalid_argument);
+    std::vector<vqec::vision::ai::plugin_property_capability> properties;
+    check(graph.vqec_vision_ai_qcom_plgr_probe_properties(
+              "vqec_vision_ai_factory_that_does_not_exist", {"model"}, properties).code_ ==
+          status_code::missing_plugin);
+    check(properties.empty());
+    check(graph.vqec_vision_ai_qcom_plgr_probe_properties(
+              "qtimlqnn", {std::string(129U, 'x')}, properties).code_ ==
+          status_code::invalid_argument);
     vqec::vision::ai::inference_plan invalid;
     check(graph.vqec_vision_ai_qcom_plgr_configure_graph(invalid).code_ != status_code::ok);
     check(graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::empty);

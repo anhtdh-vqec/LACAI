@@ -259,6 +259,58 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_probe_factories(
     return {};
 }
 
+status plugin_graph::vqec_vision_ai_qcom_plgr_probe_properties(
+    const std::string& _factory_name, const std::vector<std::string>& _property_names,
+    std::vector<plugin_property_capability>& _capabilities) const {
+    _capabilities.clear();
+    if (_factory_name.empty() || _factory_name.size() > 128U || _property_names.size() > 64U) {
+        return {status_code::invalid_argument, "invalid bounded property probe request"};
+    }
+    for (const auto& property_name : _property_names) {
+        if (property_name.empty() || property_name.size() > 128U) {
+            return {status_code::invalid_argument, "property name is empty or too long"};
+        }
+    }
+    if (_property_names.empty()) {
+        return {};
+    }
+    GError* init_error = nullptr;
+    const auto is_initialized = gst_init_check(nullptr, nullptr, &init_error);
+    std::unique_ptr<GError, error_deleter> error(init_error);
+    if (!is_initialized) {
+        return {status_code::incompatible_plugin,
+                error ? error->message : "GStreamer initialization failed"};
+    }
+    auto* factory = gst_element_factory_find(_factory_name.c_str());
+    if (factory == nullptr) {
+        return {status_code::missing_plugin, "Cannot find factory: " + _factory_name};
+    }
+    const auto element_type = gst_element_factory_get_element_type(factory);
+    auto* object_class = G_OBJECT_CLASS(g_type_class_ref(element_type));
+    std::vector<plugin_property_capability> discovered;
+    discovered.reserve(_property_names.size());
+    status result;
+    for (const auto& property_name : _property_names) {
+        const auto* specification =
+            g_object_class_find_property(object_class, property_name.c_str());
+        if (specification == nullptr) {
+            result = {status_code::incompatible_plugin,
+                      "Missing property " + property_name + " on " + _factory_name};
+            break;
+        }
+        discovered.push_back({property_name, g_type_name(G_PARAM_SPEC_VALUE_TYPE(specification)),
+                              (specification->flags & G_PARAM_READABLE) != 0,
+                              (specification->flags & G_PARAM_WRITABLE) != 0});
+    }
+    g_type_class_unref(object_class);
+    gst_object_unref(factory);
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
+    _capabilities = std::move(discovered);
+    return {};
+}
+
 struct graph_retention::implementation {
     std::array<bool, 4> reserved_{};
     std::array<std::unique_ptr<plugin_graph::implementation>, 4> retained_{};

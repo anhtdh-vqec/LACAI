@@ -86,6 +86,9 @@ the source default `/usr/lib/libQnnCpu.so` is not an HTP selection.
 
 Set properties in NULL/READY according to the plugin's documented mutability, reject
 missing or type-mismatched properties, and fail closed on unsupported enum/caps.
+The Qualcomm adapter exposes bounded factory and property probes so deployment can
+record this inventory before graph construction. A property probe reports the GType and
+read/write flags; enum nicks and caps still require the target image inspection path.
 Deployment configuration and model catalog own artifact paths and tensor metadata;
 the adapter only translates them to plugin values. Do not silently fall back from
 FCV/HTP to CPU or OpenCV. A permitted degraded mode must be explicit and observable.

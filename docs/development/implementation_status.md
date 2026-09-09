@@ -75,8 +75,9 @@ FLOAT32 explicit plugin coefficients. Output extraction checks ordered FLOAT32 m
 and performs bounded CPU copies. Multiple application graph instances do not add native
 multi-graph/mixed-dtype support to the QNN wrapper. FD duplication/shared ownership does
 not establish end-to-end zero-copy or hardware completion.
-Factory probing reports availability from the target GStreamer registry without choosing a
-fallback backend; deployment policy remains responsible for selecting an admitted path.
+Factory and property probing report availability and mutability from the target GStreamer
+registry without choosing a fallback backend; deployment policy remains responsible for
+selecting an admitted path.
 
 ## Build and test inventory
 

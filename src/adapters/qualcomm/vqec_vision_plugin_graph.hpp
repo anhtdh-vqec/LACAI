@@ -51,6 +51,13 @@ struct plugin_factory_capability {
     bool available_{false};
 };
 
+struct plugin_property_capability {
+    std::string property_name_;
+    std::string value_type_name_;
+    bool readable_{false};
+    bool writable_{false};
+};
+
 // No vendor/GStreamer types cross this header. Serialized backend-worker calls only.
 // configure remains NULL-only; load_model may synchronously block in vendor SDK code.
 // Explicitly unload before destruction. Armed graphs use bounded retention, not forced NULL.
@@ -80,6 +87,9 @@ public:
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_probe_factories(
         const std::vector<std::string>& _factory_names,
         std::vector<plugin_factory_capability>& _capabilities) const;
+    [[nodiscard]] status vqec_vision_ai_qcom_plgr_probe_properties(
+        const std::string& _factory_name, const std::vector<std::string>& _property_names,
+        std::vector<plugin_property_capability>& _capabilities) const;
 
     [[nodiscard]] bool vqec_vision_ai_qcom_plgr_is_configured() const noexcept;
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_load_model();
