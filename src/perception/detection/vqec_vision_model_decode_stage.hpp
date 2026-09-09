@@ -16,6 +16,8 @@ public:
     [[nodiscard]] status vqec_vision_ai_detec_mdstg_decode_result(
         const tensor_result& _result, const preview_frame_key& _expected_frame,
         observation_batch& _observations);
+    [[nodiscard]] status vqec_vision_ai_detec_mdstg_validate_geometry(
+        const preview_geometry& _expected_geometry) const;
 
 private:
     model_decoder_port& decoder_;

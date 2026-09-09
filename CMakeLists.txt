@@ -265,7 +265,24 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_perception_result_stage STATIC
+    src/app/vqec_vision_perception_result_stage.cpp)
+target_include_directories(vqec_vision_ai_perception_result_stage PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/tracking>)
+target_link_libraries(vqec_vision_ai_perception_result_stage
+    PUBLIC vqec_vision_ai_detection vqec_vision_ai_tracking)
+set_target_properties(vqec_vision_ai_perception_result_stage PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_perception_result_stage_test
+        tests/contract/vqec_vision_perception_result_stage_test.cpp)
+    target_link_libraries(vqec_vision_ai_perception_result_stage_test
+        PRIVATE vqec_vision_ai_perception_result_stage)
+    set_target_properties(vqec_vision_ai_perception_result_stage_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME perception_result_correlation
+        COMMAND vqec_vision_ai_perception_result_stage_test)
     add_executable(vqec_vision_ai_feature_event_dispatch_test
         tests/contract/vqec_vision_feature_event_dispatch_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_event_dispatch_test

@@ -4,12 +4,15 @@
 It validates the catalog/output identity and decodes one owned tensor result into a bounded
 `observation_batch` tied to the expected frame key. Qualcomm/GStreamer types and model
 algorithms stay outside this contract. Concrete detector decoders, geometry/NMS semantics,
-tracking and feature integration remain unimplemented.
+and replay qualification remain unimplemented; portable tracking/feature boundaries are
+available separately.
 
 `model_decode_stage` is the first portable consumer of that boundary. It decodes into a
 temporary batch, validates frame identity/geometry and observation limits, then publishes
 the batch atomically. A decoder error or invalid observation never overwrites the previous
 published batch.
+Decoder exceptions are converted to `io_error`, and composition can verify that the
+stage's configured geometry matches its source activation before processing results.
 
 `model_decoder_registry` binds the catalog's immutable `decoder_contract` to a
 non-owning decoder implementation during activation. It has bounded capacity,

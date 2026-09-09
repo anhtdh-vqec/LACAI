@@ -7,12 +7,24 @@ namespace vqec::vision::ai {
 model_decode_stage::model_decode_stage(model_decoder_port& _decoder, preview_geometry _geometry)
     : decoder_(_decoder), geometry_(_geometry) {}
 
+status model_decode_stage::vqec_vision_ai_detec_mdstg_validate_geometry(
+    const preview_geometry& _expected_geometry) const {
+    const preview_frame_key frame{0, 0, 1, 1, 0};
+    return vqec_vision_ai_core_pvctr_validate_identity(
+        frame, frame, geometry_, _expected_geometry);
+}
+
 status model_decode_stage::vqec_vision_ai_detec_mdstg_decode_result(
     const tensor_result& _result, const preview_frame_key& _expected_frame,
     observation_batch& _observations) {
     observation_batch candidate;
-    const auto decoded = decoder_.vqec_vision_ai_cntr_mddec_decode(
-        _result, _expected_frame, candidate);
+    status decoded;
+    try {
+        decoded = decoder_.vqec_vision_ai_cntr_mddec_decode(
+            _result, _expected_frame, candidate);
+    } catch (...) {
+        return {status_code::io_error, "model decoder raised an exception"};
+    }
     if (decoded.code_ != status_code::ok) {
         return decoded;
     }

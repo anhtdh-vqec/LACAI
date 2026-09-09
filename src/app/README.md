@@ -26,3 +26,8 @@ with every accepting graph. It does not own graph/FW lifecycle; a multi-model so
 now supplies that orchestration: all graphs are preflighted before one FW acquisition,
 started by stable model slot, then drained/unloaded before source release. See
 docs/architecture/multi_model_pump.md and docs/architecture/multi_model_session.md.
+
+`vqec_vision_perception_result_stage` reconstructs exact source frame identity from a
+completed submission ticket, validates tensor pipeline PTS, then composes the configured
+decoder and tracker transactionally. Multi-model routing selects this stage by immutable
+model slot.
