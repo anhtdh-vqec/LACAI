@@ -20,3 +20,8 @@ This stage does not establish entitlement, resource admission, event delivery or
 effective state. The feature manager must gate activation and final output independently.
 Concrete processors remain responsible for preallocated bounded working memory and their
 algorithm-specific replay/golden evidence.
+
+A reset attempt records its epoch and monotonic time before calling the processor.
+Reset errors and exceptions quarantine that attempted epoch; neither same-epoch retry
+nor rollback to an earlier epoch is allowed. Recovery requires a strictly newer epoch
+and successful reset. No event batch is published after a failed reset.

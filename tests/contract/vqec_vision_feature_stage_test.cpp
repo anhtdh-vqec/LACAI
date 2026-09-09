@@ -1,5 +1,6 @@
 #include <cassert>
 #include <utility>
+#include <stdexcept>
 
 #include "vqec_vision_feature_stage.hpp"
 
@@ -23,6 +24,12 @@ public:
         std::uint64_t _source_epoch) override {
         ++reset_count_;
         epoch_ = _source_epoch;
+        if (throws_on_reset_) {
+            throw std::runtime_error("reset partially changed state");
+        }
+        if (fails_on_reset_) {
+            return {status_code::io_error, "reset partially changed state"};
+        }
         return {};
     }
 
@@ -55,6 +62,8 @@ public:
     std::uint64_t epoch_{0};
     unsigned reset_count_{0};
     bool is_invalid_output_{false};
+    bool throws_on_reset_{false};
+    bool fails_on_reset_{false};
 };
 
 observation_batch vqec_vision_ai_ctest_fsct_make_tracked(std::uint64_t _epoch) {
@@ -99,5 +108,27 @@ int main() {
     tracked = vqec_vision_ai_ctest_fsct_make_tracked(2);
     assert(stage.vqec_vision_ai_ftmgr_ftstg_process(tracked, 6, false, events).code_ ==
            status_code::invalid_state);
+    for (const bool throws : {false, true}) {
+        fake_feature_processor failing(config);
+        feature_stage guarded(failing, config);
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_activate().code_ == status_code::ok);
+        failing.throws_on_reset_ = throws;
+        failing.fails_on_reset_ = !throws;
+        auto input = vqec_vision_ai_ctest_fsct_make_tracked(8);
+        const auto preserved_epoch = events.frame_.source_epoch_;
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_process(input, 30, false, events).code_ == status_code::io_error);
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_is_faulted());
+        assert(events.frame_.source_epoch_ == preserved_epoch);
+        failing.throws_on_reset_ = false;
+        failing.fails_on_reset_ = false;
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_process(input, 31, false, events).code_ == status_code::invalid_state);
+        input = vqec_vision_ai_ctest_fsct_make_tracked(7);
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_process(input, 31, false, events).code_ == status_code::invalid_state);
+        input = vqec_vision_ai_ctest_fsct_make_tracked(9);
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_process(input, 29, false, events).code_ == status_code::invalid_argument);
+        assert(failing.reset_count_ == 1);
+        assert(guarded.vqec_vision_ai_ftmgr_ftstg_process(input, 32, false, events).code_ == status_code::ok);
+        assert(failing.reset_count_ == 2 && !guarded.vqec_vision_ai_ftmgr_ftstg_is_faulted());
+    }
     return 0;
 }

@@ -49,6 +49,9 @@ status feature_stage::vqec_vision_ai_ftmgr_ftstg_process(
         if (source_epoch_ != 0 && incoming_epoch < source_epoch_) {
             return {status_code::invalid_state, "feature stage rejected a stale source epoch"};
         }
+        source_epoch_ = incoming_epoch;
+        last_now_monotonic_ns_ = _now_monotonic_ns;
+        is_faulted_ = true;
         status reset;
         try {
             reset = processor_.vqec_vision_ai_ports_ftpro_reset_epoch(incoming_epoch);
