@@ -32,6 +32,15 @@ int main() {
     assert(prepared.rendered_scopes_[0].source_id_ == "source0");
     assert(prepared.rendered_scopes_[0].attributes_.size() == 1U);
     const auto prepared_label = prepared.overlay_.boxes_[0].label_;
+    policy.rules_.push_back({"source0", "count", {"total"}});
+    policy.revision_ = 2;
+    assert(gate.vqec_vision_ai_core_otgat_apply_policy(policy, 1).code_ == status_code::ok);
+    const std::vector<output_authorization> scopes{
+        {2, "source0", "detect", {"bbox"}},
+        {2, "source0", "count", {"total"}}};
+    assert(vqec_vision_ai_outpt_ovrpr_prepare_authorized_scopes(
+               observations, scopes, 20, 100, gate, prepared).code_ == status_code::ok);
+    assert(prepared.rendered_scopes_.size() == 2U);
 
     const auto previous = overlay;
     context.attributes_ = {"identity"};

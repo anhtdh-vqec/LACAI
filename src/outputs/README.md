@@ -24,3 +24,5 @@ or select a Qualcomm plugin.
 The authorized variant returns the exact scope list used for authorization together with
 the overlay, so encoded dispatch can reuse trusted scope context without inferring it
 from pixels or H264 bytes.
+The scoped variant supports several feature/attribute authorizations under one policy
+revision and rejects mixed revisions or more than the shared rendered-scope ceiling.

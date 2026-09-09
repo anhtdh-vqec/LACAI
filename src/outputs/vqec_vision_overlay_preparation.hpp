@@ -24,6 +24,12 @@ struct prepared_overlay {
     const observation_batch& _observations, const overlay_preparation_context& _context,
     output_gate& _gate, prepared_overlay& _prepared);
 
+[[nodiscard]] status vqec_vision_ai_outpt_ovrpr_prepare_authorized_scopes(
+    const observation_batch& _observations,
+    const std::vector<output_authorization>& _scopes,
+    std::uint64_t _prepared_monotonic_ns, std::uint64_t _max_age_ns,
+    output_gate& _gate, prepared_overlay& _prepared);
+
 // Converts validated observations into neutral overlay metadata only after the
 // complete rendered scope has been authorized. No pixel or vendor operation occurs here.
 [[nodiscard]] status vqec_vision_ai_outpt_ovrpr_prepare(
