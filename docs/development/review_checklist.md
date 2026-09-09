@@ -17,6 +17,11 @@
 - [ ] Tests happy/error/stop path; golden/replay nếu semantics thay đổi.
 - [ ] Docs/registry/manifest cập nhật; report tests not run và lý do.
 - [ ] Small reviewable change; không mix refactor rộng với behavior change.
+- [ ] Sau mỗi bước source hoàn chỉnh: kiểm tra `git status`, chỉ stage thay đổi thuộc
+      bước này, tạo focused commit và push lên tracking upstream (`@{upstream}`).
+      Nếu thiếu upstream hoặc push lỗi, ghi rõ blocker và chưa coi bước đã đồng bộ.
+- [ ] Không stage/commit thay đổi không thuộc task, secrets, model binaries, biometric
+      data hoặc private SDK libraries.
 
 ## Buffer/backend PR — lead + platform owner review
 
@@ -43,6 +48,7 @@ PR: formatter + AST naming + include/dependency rules + host unit/contracts.
 Merge: clean cross-build + package contents/dependencies validation.
 Nightly: golden/replay + host ASan/UBSan; TSan job riêng nếu toolchain hỗ trợ.
 Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
-Current source: **đã có plan test source/CMake, chưa build hay chạy test;
+Current source: **đã có unit/contract test source và CTest cho validators, session,
+cadence, ownership và output helpers; chưa có kết quả build/chạy C++ test;
 chưa có workflow CI hoặc AST naming checker**.
 .editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.

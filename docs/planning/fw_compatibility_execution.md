@@ -17,7 +17,7 @@ before broadening features. No additional vendor backend is claimed implemented.
 Three-person team: lead also owns runtime/control; four-person team separates those roles.
 These are dependencies and gates, not promises of dates without SDK/model availability.
 
-## Current integration backlog (source inventory, 2026-09-07)
+## Current integration backlog (source inventory, 2026-09-09)
 
 This table supersedes the chronological progress notes below. Existing source is not
 evidence of a running system. Inventory used `rg --files src include packaging config`
@@ -27,20 +27,21 @@ and current CMake targets; no C++ build or device test has been performed.
 |---|---|---|
 | Camera input | camera adapter, lease lifecycle, camera_session, graph pump source | Runnable composition, released FW RPC/FD/ACK tests, reconnect/profile supervisor, BSP completion signoff |
 | Preview preparation | CPU surface/pool, encoder_window, bound encoder_preparation | Full input copy/transform into private NV12; bounded rendering with authorized scope-to-pixel binding |
-| Encoder | Correlated ledger, immutable AU owner | Actual backend pipeline, sealed owner retention, input/result callbacks, bus faults, EOS/drain and quarantined hardware ownership |
+| Encoder | Neutral backend port, correlated ledger, sealed input submission/drain helpers, event polling/handling and immutable AU owner | Actual backend pipeline, sealed owner retention, input/result callbacks, bus faults, EOS/drain and quarantined hardware ownership |
 | Ring delivery | SDK options/header mapper, borrowed ring_sink, dispatch, ID issuer | Single-writer ownership, startup open, long-lived ring binding, ID publication, explicit migration policy and first-viewer RTSP test |
 | AI control | Camera client only; fw_control is README | Released AI D-Bus server methods/signals, task config persistence, one control owner; no invented license grants |
-| Runtime | Acquisition composition, bounded 1..16-source deployment loader, fixed-index activation snapshot and bounded round-robin session supervisor | authentication/FW RAW-source resolution, per-source executors, cameraai_app entrypoint, preview/inference cadence split, board capability admission and health |
-| Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, observations/tracking/attributes, model loading lifecycle |
+| Runtime | Acquisition composition, bounded 1..16-source deployment loader, fixed-index activation snapshot, RAW-reference resolver, cadence, multi-model session/fan-out and bounded round-robin supervisor | authenticated FW registry/owner construction, per-source executors, cameraai_app entrypoint, preview/inference cadence split, board capability admission and health |
+| Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, concrete observations/tracking/attributes and authenticated model loading composition |
 | Features | Thirteen feature directories and traffic contain READMEs | Shared perception contracts and feature lifecycle/dependency/entitlement integration; no claim features are implemented |
 | Delivery | Packaging/config README placeholders | Yocto/IPK metadata, launcher compatibility, permissions, upgrade/rollback and package tests |
 | Verification | Structural checker plus C++ test source | Executed host tests, pinned cross-build, SDK ABI tests, board replay/fault/performance/soak evidence |
 
 ### Next cohesive implementation sequence
 
-1. Complete the output backend lifecycle contract: actual memory owner handoff,
-   terminal completion, no-output proof and drain/fault retention. Couple it to the
-   existing encoder_window rather than introducing another uncorrelated job counter.
+1. Implement a concrete encoder conforming to the existing neutral lifecycle contract
+   and submit/poll/handle/drain helpers: retain actual input owners, report independent
+   input/terminal-output events and preserve faulted work until proven quiescence.
+   The interface and fake-backend test sources already exist; device conformance is open.
 2. Implement the reviewed Qualcomm encoder path and private surface population/rendering
    boundary; preserve original frame/PTS and released H264 metadata. Any CPU path must
    be explicitly labeled and budgeted, not described as vendor hardware acceleration.
@@ -59,52 +60,12 @@ integration sequence. Shared limits require one semantic owner; vendor propertie
 wire values require source provenance; runtime tuning requires validated configuration.
 Structural PASS cannot close any runtime, model, feature or release acceptance gate.
 
-## Historical source progress notes
+## Source inventory reference
 
-Latest hardening: ring wrapper now distinguishes SDK mapping counters from dispatch
-binding identity, and exposes tested-in-source transactional legacy header mapping.
-Runtime generation issuance and live ring/restart tests remain open; no board claim.
-
-Latest FW adapter slice: optional borrowed-ring sink wrapper source and closed-ring guard
-tests delivered. No live ring creation/write test, SDK linkage qualification or encoder
-runtime yet. See architecture/fw_ring_sink.md; earlier missing-wrapper notes are historical.
-
-Latest: synchronous encoded dispatch and fake-sink test source wire the pure policy
-gate into a delivery helper. No real ring/hardware output, signed policy provider,
-renderer-scope binding or board qualification. Tests are not executed.
-
-Latest output boundary: owned H264 copy and synchronous encoded_sink interface added
-with source-only tests. Ring SDK implementation, bounded output dispatch, actual encoder
-input/completion handoff and board verification remain open; no live delivery claim.
-
-Latest composition slice: reserve/acquire/rollback/cancel helper and portable contract-test
-source delivered, not executed. Real encoder owner handoff, rendering, ring/demand SDK
-and hardware validation remain pending. See architecture/encoder_preparation.md.
-
-Latest pool slice: bounded reusable CPU NV12 pool/lease source and unit tests delivered,
-not executed. Encoder job owner wiring, hardware renderer/encoder, ring port/SDK,
-runtime demand and global pool-generation admission remain open. R1 is not complete.
-
-Latest: encoder_window source provides bounded jobs/aggregate byte reservation, demand
-gating, exact AU correlation and separate input/result completion via submission_window.
-Not executed. Pool, backend input ownership/completion integration, ring sink/demand
-transport and FW SDK agreement remain pending. Earlier progress notes below are historical.
-
-Additional source: move-only CPU NV12 writer/shared sealed reader with per-allocation
-budget. Pool/global admission, encoder job ledger and ring/demand interfaces remain open.
-See architecture/preview_surface.md. Test source is not executed; R1 remains incomplete.
-
-Progress: preview metadata/borrowed-AU validators and unit-test source are delivered,
-not executed. Surface ownership, encoder completion, ring sink/demand interfaces and
-FW SDK agreement remain open; R1 is not complete. See preview_contract.md in architecture.
-
-- Register neutral contracts: overlay commands in source pixels + explicit transform,
-  bounded text/primitive counts, source epoch/frame/PTS, result freshness and policy revision.
-- Define preview surface owner and encoder input-completion separately from encoded result.
-- Define encoded AU view/owner, codec/framing, exact correlation, parameter sets and limits.
-- Define ring sink port and demand snapshot; SDK layout remains private to fw_output adapter.
-- Test invalid geometry, stale epoch/revision, AU limits and no-demand admission with fakes.
-- Do not implement model decoding without an approved model kit/output mapping.
+See [implementation status](../development/implementation_status.md) for the consolidated
+current module inventory and remaining boundaries. Earlier incremental slice notes have
+been removed here to avoid presenting superseded missing-component claims as backlog.
+No release gate is closed by this documentation refresh.
 
 ## Required integration scenarios
 

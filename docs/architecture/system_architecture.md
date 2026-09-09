@@ -1,11 +1,14 @@
 # Kiến trúc hệ thống v1
 
 Status: design baseline; cross-team contracts pending agreement.
-Implementation update: the private Qualcomm graph now has submit/result/drain source,
-and camera_session composes one acquisition lifecycle. A bounded deployment contract
-describes 1..16 sessions plus explicit source/model/memory assignments; the supervisor
-that instantiates them is not delivered. No runnable service, model
-decoder, hardware overlay/encoder integration or board validation is delivered yet.
+Source inventory update (2026-09-09): the private Qualcomm graph has submit/result/drain;
+camera_session and multi_model_session compose one acquisition lifecycle. The portable
+multi_model_pump shares one frame across due graphs using rational cadence, and
+multi_source_supervisor advances 1..16 pre-composed sessions with fault isolation.
+Deployment/catalog loaders and activation snapshots exist; authenticated construction of
+source/graph/session owners and a runnable service are still missing. Model decoder,
+hardware overlay/encoder integration and board validation are not delivered.
+See [current source inventory](../development/implementation_status.md).
 Preview ownership/pool, encoder ledger, authorized dispatch and an optional FW SDK
 ring sink are source-delivered; they do not yet form a running output pipeline.
 Normative external baseline: [FW release compatibility](../contracts/fw_release_compatibility.md).
@@ -30,6 +33,13 @@ thu; 13 feature không có nghĩa 13 model luôn chạy đồng thời hoặc m�
 - Internal trusted plugins; controlled restart khi update; chưa hot unload.
 
 ## 2. Luồng dữ liệu
+
+The diagrams describe the complete intended pipeline, not completed integration.
+Current orchestration source is `multi_source_supervisor -> source_session_port ->
+multi_model_session -> multi_model_pump -> raw_source_port / inference_graph_port`.
+Perception/features and hardware output stages below remain planned. The current Qualcomm
+inference implementation follows ADR 0002's private converter/QNN plugin graph; direct
+FastCV/QNN SDK modules in the conceptual flow are not separately implemented adapters.
 
 Mandatory released preview path (in addition to the feature/event design below).
 The diagram shows one source; runtime repeats the source-owned state for 1..16 admitted

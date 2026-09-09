@@ -236,7 +236,8 @@ External callbacks dùng context object; không dùng global để tìm instance
 
 - clang-format kiểm whitespace, KHÔNG chứng minh đúng tên hoặc ownership.
 - Naming cần AST checker hiểu declaration owner/override/ngoại lệ; regex chỉ lint sơ bộ.
-- Tuần 1 triển khai checker registry + CI; skeleton hiện chưa có checker.
+- Đã có structural filename/include/CMake checker; AST registry/naming checker và CI
+  vẫn chưa triển khai. Structural checker không chứng minh symbol naming đúng.
 - Reviewer kiểm 100% tên hàm/parameter/global trong thời gian chưa có AST checker.
 - Unit + contract + golden + replay; board test bắt buộc cho DMA/SDK/performance.
 - ASan/UBSan/TSan trên target hỗ trợ; host mock không chứng minh device sync.

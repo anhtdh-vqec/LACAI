@@ -13,8 +13,8 @@ See docs/architecture/fw_ring_sink.md for lifetime and remapping limitations.
 Not built/tested; closed-ring guard test source does not prove live reader compatibility.
 
 Neutral port is now include/vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp.
-Implement query_demand and synchronous write using a pinned FW SDK; retain the declaring
-interface function names. Reject stale mapping generation, do not store borrowed AU
+The wrapper implements query_demand and synchronous write using the pinned FW SDK and
+retains the declaring interface function names. Reject stale mapping generation, do not store borrowed AU
 pointers, and never report queued work as copied-to-ring success. The owned encoded
 output helper is available for bounded runtime queues, not yet wired to this adapter.
 See docs/architecture/encoded_output.md. No FW shared-memory layout was copied here.

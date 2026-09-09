@@ -1,53 +1,48 @@
 # Qualcomm stream control and output polling
 
-Current implementation: submit, internal ticket correlation and independent completion
-are now integrated. Read [current lifecycle](qualcomm_submission_lifecycle.md).
-The notes below describe prior slices; their no-submit/destructor limitations are
-superseded for explicitly armed graphs by the bounded retention-domain contract.
+Current source boundary — 2026-09-09. Submission, ticket correlation, independent
+input/result completion and bounded retention are integrated into plugin_graph.
+See [submission lifecycle](qualcomm_submission_lifecycle.md) for the normative ownership
+contract. Source and synthetic test fixtures are delivered; no executed build or board
+validation is claimed.
 
-Private frame_submission now implements the appsrc push transaction separately.
-plugin_graph does not call it yet; do not bypass the graph's closed input boundary.
-Its existing fallback destructor is pre-submission only. See
-[submission primitive](frame_submission.md) for ownership and integration prerequisites.
+## Startup and submission
 
-Update: READY -> bind_source -> start_stream is now mandatory. Source geometry/FPS
-must match the graph plan; bound colorimetry/chroma-site are applied to appsrc caps.
-Unload clears the binding. See [source binding](source_binding.md) for evidence
-requirements and limitations. This supersedes the missing-source-policy note below;
-bounded input submission and failure/destructor recovery remain unimplemented.
+Configure the private graph, load to READY, bind the admitted source, then start_stream.
+Source geometry/FPS must match the plan; bound colorimetry/chroma-site are applied to
+appsrc caps. Unload clears binding. start_stream validates ordered FLOAT32 output specs
+and a per-result byte budget. See [source binding](source_binding.md).
 
-This slice extends READY model loading with PLAYING, EOS/drain and appsink polling.
-It intentionally still exposes NO input push API. That boundary remains closed
-until root-memory completion is connected to submission_window and the source
-sync/color contract is explicit. Thus it cannot yet run a camera inference job.
+The graph uses frame_submission for reserve/wrap/commit/appsrc push. Arming reserves a
+retention-domain slot before input access. One outstanding job per graph bounds application
+submission; appsrc block=false alone does not bound hidden plugin allocations. The root
+GstMemory retains the shared RAW owner through downstream reads; hardware correctness
+still depends on the backend memory-retention/synchronization contract.
 
-States: ready -> starting -> playing -> draining -> drained -> unloading -> configured.
-start_stream accepts an ordered FLOAT32 model output contract and a per-result
-byte budget, validated before mutating state. appsink async=false avoids waiting
-for an input preroll before the caller can observe PLAYING. sync=false remains.
-The appsrc uses block=false in preparation for future externally bounded admission;
-block=false alone is NOT a bounded queue guarantee, so it is not exposed for pushing.
-appsink enable-last-sample=false avoids a hidden retained output sample.
+States include ready -> starting -> playing -> draining -> drained -> unloading ->
+configured. appsink async=false avoids waiting for input preroll to observe PLAYING;
+sync=false and enable-last-sample=false avoid clock waiting and last-sample retention.
 
-poll_state remains zero-wait with a 32-message drain budget. request_drain calls
-appsrc end_of_stream once; it does not set NULL or flush. EOS is expected only in
-draining. A drained state requires observed EOS and an empty appsink, not merely
-that the EOS request was accepted. Caller polls outputs during draining. Output
-sampling uses try_pull_sample(timeout=0), validates/copies to owned tensor_result
-and drops the GstSample reference before returning. This will eventually be the
-place to forward result completion to the job ledger; correlation is not wired yet.
+## Results and drain
 
-The output API checks the caller's expected pipeline PTS BEFORE copying. It is not
-a replacement for the ledger: caller must pass the current ticket's PTS, and future
-input completion must be reported independently. Invalid shape/PTS/GAP/map failure
-faults the graph; result destination stays unchanged. Success is a CPU copy, not
-device/cache synchronization or model accuracy validation.
+poll_state uses zero-wait state polling and a bounded 32-message bus drain. Result polling
+uses try_pull_sample(timeout=0), validates current ticket PTS and ordered tensor metadata,
+and copies bounded FLOAT32 output into owned tensor_result before releasing the sample.
+Internal pipeline PTS is distinct from the original source timestamp. Successful extraction
+is a CPU copy, not a device/cache synchronization or model-accuracy result.
 
-unload is rejected while starting/playing/draining. Request drain and consume queued
-outputs first. Fault recovery still supports NULL unload only because no input API
-exists; this allowance MUST be tightened before camera jobs can be submitted.
-Destructor fallback likewise remains pre-submission only and may synchronously
-block in SDK teardown. No output consumer thread or unbounded retry loop is added.
+The submission ledger tracks input and result completion independently. Invalid results
+fault the graph without fabricating completion or releasing submitted readers. request_drain
+sends EOS; EOS acceptance alone is insufficient. Drain requires actual output/input progress,
+observed EOS and no outstanding jobs. Unload is guarded while jobs or active transitions remain.
 
-Tests currently cover guards on an empty graph. Vendor model start/EOS, caps and
-bus fault integration are NOT tested. All new code remains unbuilt by request.
+Armed destruction transfers retained resources to the reserved supervisor-domain slot
+instead of assuming NULL teardown cancels DMA. Explicit restore supports late reconciliation.
+The four-slot domain must outlive retained work; a full domain rejects admission. Timeout,
+disconnect and destructor execution are not BSP recovery. Vendor state calls may still
+block internally; no bounded hardware teardown guarantee is supplied.
+
+Synthetic standard-GStreamer lifecycle/ownership fixtures and graph guard test sources are
+registered in CMake under the applicable options. Real plugin model start/EOS, negotiated
+caps, SDK faults and board synchronization remain unverified. A service event loop and
+model decoder are still missing.

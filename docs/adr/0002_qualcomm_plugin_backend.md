@@ -20,7 +20,15 @@ ADR 0001 direct-SDK preference and blueprint section 8 restriction on starting
 code without SDK are superseded for this plugin path. Direct SDK remains optional
 for model capabilities the plugin cannot provide; it is not implemented now.
 
-## Initial executable-source scope
+## Current implementation note — 2026-09-09
+
+The initial NULL-only slice below is historical. Source now includes READY/load, mandatory
+source binding, PLAYING, bounded submit/result/input-completion, EOS/drain/unload and
+armed retention-domain recovery bookkeeping. Neutral graph ports and portable multi-model
+sessions/supervision also exist. See [current inventory](../development/implementation_status.md).
+No build/test/board qualification or change to the plugin-backend decision is implied.
+
+## Initial executable-source scope (historical)
 
 Implement typed single-image plan validation and transactional NULL-state graph
 construction: appsrc -> qtimlvconverter -> tensor capsfilter -> qtimlqnn -> appsink.

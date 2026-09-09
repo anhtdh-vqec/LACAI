@@ -2,7 +2,9 @@
 
 vqec_vision_encoded_dispatch.cpp now provides synchronous one-AU dispatch through
 output_gate, freshness/correlation and ring generation/demand checks. No internal queue,
-retry. An optional private FW ring sink exists but is not runtime-wired.
+retry. It also supplies one-event backend polling/preflight and dispatch/ledger handling;
+delivery status is separate from event completion. An optional private FW ring sink exists
+but is not runtime-wired into a service event loop.
 Trusted renderer must supply complete scopes bound to pixels;
 that integration is missing. See docs/architecture/encoded_dispatch.md.
 

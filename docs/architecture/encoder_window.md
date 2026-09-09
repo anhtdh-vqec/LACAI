@@ -66,4 +66,5 @@ drain. Destroying this bookkeeping object cannot release pixels (it owns none), 
 would lose correlation; it is forbidden while outstanding jobs exist. Downstream
 hardware must independently retain sealed owners. This is NOT a pool, memory recycler,
 quiescence proof, process-crash recovery or global allocation limit outside this window.
-Shared FW ring ABI and encoder adapters remain unimplemented.
+An optional FW SDK ring sink exists in adapters/fw_output. The neutral encoder port and
+submission/event/drain helpers exist; concrete encoder and live ring lifecycle remain missing.

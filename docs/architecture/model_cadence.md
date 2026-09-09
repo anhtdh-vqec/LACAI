@@ -1,7 +1,7 @@
 # Per-source model cadence scheduler
 
 Status: portable source and test source delivered; integrated into the portable
-multi-model pump; build execution and full source-session integration pending.
+multi-model pump and multi_model_session; build execution and live integration pending.
 
 One RAW source may feed 1..16 assigned models, each with its own rational inference rate
 from the AI Model-team catalog. `model_cadence_scheduler` converts those cold configuration
@@ -31,7 +31,8 @@ the source frame rate is rejected.
 
 This scheduler decides eligibility only. `multi_model_pump` now checks graph capacity,
 skips a due selection when that graph remains busy, shares one received frame owner across
-accepted graphs and reports fixed-slot submission masks. The future multi-model source
-session still owns graph lifecycle, entitlement/admission and source drain. FW may ACK only
+accepted graphs and reports fixed-slot submission masks. The implemented multi_model_session
+owns graph lifecycle and source drain. Authenticated admission/entitlement activation remains
+external integration work; the session does not enforce grants. FW may ACK only
 after the last hardware reader completes. No throughput or hardware-acceleration claim
 follows from cadence selection.

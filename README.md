@@ -1,6 +1,6 @@
 # VQEC Vision AI Applications
 
-Camera integration update (2026-09-06): source now includes the existing FW third
+Source inventory update (2026-09-09): source includes the existing FW third
 NV12/FD receiver, strict legacy decoder and session-owned ACK; not built/tested yet.
 See [camera adapter implementation boundary](docs/architecture/camera_legacy_adapter.md).
 The released camera adapter follows FW effective profiles; the new deployment contract
@@ -18,7 +18,8 @@ end-to-end cameraai_app are still pending. Current status is maintained in
 [implementation status](docs/development/implementation_status.md).
 
 Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
-Trạng thái: **có source camera/session/Qualcomm inference; chưa build, chưa có app thay release**.
+Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference và output helpers;
+chưa có kết quả build/test hoặc app thay release**.
 
 Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
 and [replacement execution gates](docs/planning/fw_compatibility_execution.md).
@@ -63,8 +64,14 @@ Phiên bản binary/model cụ thể, camera transport và KPI workload cần pi
 Không yêu cầu sysroot để bắt đầu viết source. Các contract ở đây là đề xuất để bốn team ký,
 không phải API đã được FW cung cấp.
 
-Đã có typed plan validation, graph submit/drain, Camera lease bridge/session,
-CMake targets và unit/contract-test source. Chưa chạy build/C++ tests.
-Chưa có decoder/tracker thực tế, overlay/encoder/ring writer, ứng dụng/IPK,
-CI chạy tự động hoặc AST naming checker; structural filename checker đã có.
+Đã có validation/config loaders, activation snapshot, Camera lease bridge/session,
+Qualcomm graph submit/result/drain, cadence, shared-frame multi-model session và
+multi-source supervisor qua neutral ports. Nhánh output đã có CPU preview pool,
+encoder ledger/preparation/submit/drain helpers, authorized event dispatch và optional
+FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
+CMake targets và unit/contract-test source đã có; chưa có kết quả build/C++ tests.
+Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
+service cameraai_app/IPK, CI chạy tự động hoặc AST naming checker.
+Structural filename checker đã có. Xem bảng kiểm kê source và phần thiếu tại
+[implementation status](docs/development/implementation_status.md).
 Không có model, dữ liệu khuôn mặt, key/license thật hay vendor binary trong Git.

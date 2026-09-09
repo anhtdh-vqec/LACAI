@@ -45,6 +45,12 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 9. Do not copy vendor code without per-file license/provenance review.
 10. Preserve user work. Do not modify sibling repositories. Do not commit secrets,
     model binaries, biometric data, or private SDK libraries.
+11. After each coherent LACAI source implementation step is complete, inspect the
+    worktree, run the applicable checks, create a focused commit containing only
+    task-owned changes, and push it to the current branch's configured upstream
+    (`@{upstream}`). If no upstream is configured or push fails, report the exact
+    blocker and do not describe the step as synchronized. Never stage or commit
+    unrelated user changes, secrets, model binaries, biometric data or private SDKs.
 
 ## Change workflow
 

@@ -1,8 +1,8 @@
 # Multi-source configuration and memory architecture v1
 
 Status: source-level contract, bounded loader, activation snapshot and bounded session
-supervisor delivered; composition-root construction, authentication, FW RAW-source
-resolution and board qualification are pending. This document is normative for new
+supervisor, multi-model session/fan-out and bounded RAW-reference resolver delivered;
+composition-root construction, authenticated FW registry RPC and board qualification remain pending. This document is normative for new
 runtime work.
 
 ## 1. Deployment shape
@@ -132,7 +132,7 @@ advances cadence without generating a backlog burst.
 | raw frame -> preprocess | import compatible DMA-BUF where possible; transform writes a pooled model input | Qualcomm graph source exists; device import/copy path needs board tracing |
 | model input -> accelerator | backend-specific registered/shared buffer where supported | QNN buffer manager not delivered |
 | tensor output -> decoder | prefer borrowed view during synchronous decode or a pooled result buffer | current Qualcomm helper copies mapped FLOAT32 output into owned vectors |
-| camera frame -> burned-in preview | write/copy into an AI-owned surface; never modify FW read-only input | private preview pool contract exists; renderer pending |
+| camera frame -> burned-in preview | write/copy into an AI-owned surface; never modify FW read-only input | bounded CPU preview pool implementation exists; renderer pending |
 | encoded AU -> FW ring | bounded AU view into sink; ring SDK determines final copy | adapter exists for released ring API; no end-to-end zero-copy claim |
 
 Every optimized boundary must record allocator, memory type/modifier, ownership, cache/fence

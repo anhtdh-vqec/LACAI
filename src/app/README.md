@@ -1,9 +1,9 @@
 # app
 
 vqec_vision_encoder_preparation.cpp composes portable encoder admission with CPU pool
-acquisition/rollback and explicit cancellation before submission. It is a separate
-host-compatible target without Camera/GStreamer requirements. No encoder push or
-rendering is added. See docs/architecture/encoder_preparation.md; tests are unexecuted.
+acquisition/rollback, cancellation, sealed input handoff, guarded neutral-backend submission
+and combined backend/ledger drain. It is a separate host-compatible target without
+Camera/GStreamer requirements. Concrete hardware encoder and rendering remain missing. See docs/architecture/encoder_preparation.md; tests are unexecuted.
 
 Composition wiring belongs here; no feature rules in main.
 
@@ -19,8 +19,8 @@ fault is reported and drained without stopping healthy slots; a global stop is l
 all slots. The supervisor borrows sessions exclusively and performs no destructor shutdown,
 thread creation, FW RPC construction, source resolution or BSP reset. See
 multi_source_supervisor.md, camera_session.md and multi_source_configuration.md in
-docs/architecture. FW RAW-source resolution, service main and entitlement remain
-unimplemented. camera_session implements this port for one model. The separate portable
+docs/architecture. Bounded FW RAW-reference resolution exists in the camera adapter. Authenticated registry
+RPC, transactional owner construction, service main and full entitlement remain missing. camera_session implements this port for one model. The separate portable
 multi_model_pump now receives one frame, applies fixed-capacity cadence and shares the owner
 with every accepting graph. It does not own graph/FW lifecycle; a multi-model source session
 now supplies that orchestration: all graphs are preflighted before one FW acquisition,

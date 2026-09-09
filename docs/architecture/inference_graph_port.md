@@ -1,7 +1,8 @@
 # Vendor-neutral inference-graph port
 
 Status: interface, Qualcomm forwarding adapter and single-model app migration delivered;
-other platform adapters, multi-model fan-out and device verification are pending.
+multi-model fan-out/session integration is also source-delivered. Other platform adapters
+and device verification remain pending.
 
 `inference_graph_port` is the only model-execution dependency allowed in application
 orchestration. It exposes explicit configure/load/bind/start/arm/submit/poll/drain/unload
@@ -21,6 +22,7 @@ vendor submission. Retention capacity and armed-graph safety rules are unchanged
 
 The current `camera_session` and `camera_graph_pump` now depend on RAW-source and inference
 ports only and therefore build as portable orchestration source. Platform composition owns
-concrete adapters and must keep them alive until explicit stop/unload. The next fan-out
-session will bind 1..16 graph ports to one RAW-source port and use numeric model slots from
-the cadence scheduler.
+concrete adapters and must keep them alive until explicit stop/unload. The implemented
+multi_model_session binds 1..16 graph ports to one RAW-source port; multi_model_pump uses
+numeric cadence slots and shares each received owner across accepted graphs. Executable
+owner construction and live integration remain pending. See [multi-model session](multi_model_session.md).

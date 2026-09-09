@@ -66,7 +66,8 @@ not complete the result or reset the event owner. Recovery may explicitly discar
 known output and apply its completion without retrying the sink. A fake sink test throws
 after counting a write and checks retained accounting, stopped admission and no second
 write during explicit reconciliation; this test source has not been executed.
-Concrete backend polling, per-job context storage and hardware ownership remain pending.
+The one-event polling helper exists; concrete encoder polling implementation, retained
+per-job context storage and the process event loop remain pending.
 
 Contract test source covers successful delivery, policy denial, sink write error and
 no consumers through handle_event. Each outcome completes only the result half; input

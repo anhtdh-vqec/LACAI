@@ -1,6 +1,7 @@
 # Operations readiness — planned runbook requirements
 
-No service or operational commands exist in this scaffold yet.
+No runnable AI service or tested service-operation commands exist yet. The optional
+manifest_check CLI validates model metadata only; it is not a service readiness probe.
 Before release, replace this checklist with tested commands for the FW image.
 
 - Inventory: app/backend/model/SDK/image versions, active workload and config/license revision.

@@ -19,7 +19,7 @@ Source paths in this document are relative to that FW repository, not this repo.
 | FW06 | Consumer demand enables frame submission to preview encoder; inference is independent | output runtime missing | Cold boot, no viewer, first/last viewer, dead reader; main/sub unaffected |
 | FW07 | AI D-Bus model methods/signal and persisted task config | compatibility server missing | Request/reply/signal fixtures + restart persistence and failure cases |
 | FW08 | cameraai_app executable, bundle working directory, unique lease and ring per instance | service/package missing | Existing launcher starts/stops new executable with compatible arguments |
-| FW09 | Effective input profile changes rebuild media adapters; stale frame drain keeps live edge | supervisor recovery/scheduler missing | Resolution/FPS changes and source restart do not leak leases or reuse stale results |
+| FW09 | Effective input profile changes rebuild media adapters; stale frame drain keeps live edge | session supervisor and model cadence source exist; profile/reconnect recovery missing | Resolution/FPS changes and source restart do not leak leases or reuse stale results |
 
 ## Camera input and ownership
 
@@ -56,7 +56,8 @@ third_ai_consumers and third_ai_enabled.
   matching struct field names alone does not establish cross-process ABI compatibility.
 - Use a pinned FW contract/ring SDK with agreed toolchain/ABI. Do not copy pthread/
   std::atomic shared layouts into portable core or include sibling source by relative path.
-  No such SDK dependency is wired yet. Distribution/license review precedes code reuse.
+  An optional CMake ring target accepts an externally supplied pinned FW SDK target;
+  SDK packaging and ABI qualification are still pending. Distribution/license review precedes code reuse.
 
 Released writer uses v4l2h264enc, baseline profile, h264parse config-interval=-1,
 Annex B access units. Codec2 is an optional measured replacement, not a new wire contract.
