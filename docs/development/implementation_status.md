@@ -29,6 +29,13 @@ DMA-BUF handle, retains the shared frame owner on submit and carries graph_reten
 enables future shared-frame fan-out and alternate platform adapters without changing app
 orchestration. It does not prove zero-copy or hardware completion on board.
 
+Portable multi-model pump source now receives one RAW frame and fans its shared owner out
+to 1..16 due running inference_graph_port instances using the fixed cadence scheduler.
+Result polling is round-robin and returns one result per step; due busy graphs skip without
+queueing stale frames, and all-busy state prevents another FW receive. Fixed ticket/mask
+reporting and fake-port ownership tests were added. Graph/FW lifecycle composition remains
+for the multi-model session. Source was not compiled and tests were not executed by request.
+
 Multi-source deployment contract/validator and strict bounded JSON loader source now
 represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source profiles,
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed
@@ -480,8 +487,8 @@ GstMemory wrapping, graph submit/results/drain and camera pump are source-delive
 hardware completion guarantees and live FW inference validation remain pending.
 All new source is still unbuilt. Live D-Bus and board integration have not been run.
 
-Next: authenticate/resolve deployment, FW RAW sources and model catalogs, implement the
-process-level multi-source supervisor, then model-output decoder/output integration and
-executable service composition; BSP recovery execution remains unimplemented. Compile and execute the
-synthetic tests when builds are requested; board ownership/fault tests and cross-team
-contract review remain mandatory before production activation.
+Next: implement the multi-model source lifecycle around the delivered fan-out pump, then
+authenticate/resolve activation inputs, model-output decoder/output integration and
+executable service composition; BSP recovery execution remains unimplemented. Compile and
+execute the synthetic tests when builds are requested; board ownership/fault tests and
+cross-team contract review remain mandatory before production activation.

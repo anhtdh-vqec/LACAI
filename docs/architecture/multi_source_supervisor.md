@@ -67,7 +67,8 @@ from being retagged as a new source cycle.
 
 `raw_source_ref` now resolves through the bounded adapter described in
 [RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
-transactional session-owner construction remain pending. The next source-session slice
-must fan one received frame out to the due model graphs while holding one shared lease
-until every real device reader completes. RTSP URI, credentials, codec and decoder state
-must remain outside AI APP.
+transactional session-owner construction remain pending. The portable `multi_model_pump`
+now fans one received frame out to due running graphs while holding one shared lease until
+every graph releases it. The remaining source-session slice must configure/start/drain
+those graphs around one FW acquisition and expose the pump's numeric result slot through
+`source_session_port`. RTSP URI, credentials, codec and decoder state remain outside AI APP.

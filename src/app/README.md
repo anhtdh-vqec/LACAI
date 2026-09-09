@@ -20,5 +20,7 @@ all slots. The supervisor borrows sessions exclusively and performs no destructo
 thread creation, FW RPC construction, source resolution or BSP reset. See
 multi_source_supervisor.md, camera_session.md and multi_source_configuration.md in
 docs/architecture. FW RAW-source resolution, service main and entitlement remain
-unimplemented. camera_session implements this port for one model; multi-model frame fan-out
-is the next source-session implementation and must not reacquire RAW input per model.
+unimplemented. camera_session implements this port for one model. The separate portable
+multi_model_pump now receives one frame, applies fixed-capacity cadence and shares the owner
+with every accepting graph. It does not own graph/FW lifecycle; a multi-model source session
+remains the next orchestration slice. See docs/architecture/multi_model_pump.md.
