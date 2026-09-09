@@ -32,6 +32,12 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_trker_reset_epoch(
         std::uint64_t _source_epoch) override {
         ++reset_count_;
+        if (throw_on_reset_) {
+            throw std::runtime_error("partially mutated reset");
+        }
+        if (fail_on_reset_) {
+            return {status_code::io_error, "reset failed"};
+        }
         return _source_epoch == 0 ?
             status{status_code::invalid_argument, "epoch is zero"} : status{};
     }
@@ -40,6 +46,8 @@ public:
     unsigned reset_count_{0};
     bool return_invalid_track_{false};
     bool throw_on_update_{false};
+    bool throw_on_reset_{false};
+    bool fail_on_reset_{false};
 };
 
 observation_batch vqec_vision_ai_ctest_tstgt_make_detections(std::uint64_t _epoch) {
@@ -92,5 +100,26 @@ int main() {
     assert(stage.vqec_vision_ai_track_trkst_process(detections, 16, false, tracked).code_ ==
            status_code::invalid_state);
     assert(tracker.reset_count_ == 3U);
+    for (const bool throws : {false, true}) {
+        fake_tracker resetting;
+        tracking_stage guarded(resetting);
+        resetting.throw_on_reset_ = throws;
+        resetting.fail_on_reset_ = !throws;
+        auto input = vqec_vision_ai_ctest_tstgt_make_detections(8);
+        const auto preserved = tracked.frame_.source_epoch_;
+        assert(guarded.vqec_vision_ai_track_trkst_process(input, 30, false, tracked).code_ == status_code::io_error);
+        assert(guarded.vqec_vision_ai_track_trkst_is_faulted());
+        assert(tracked.frame_.source_epoch_ == preserved);
+        resetting.throw_on_reset_ = false;
+        resetting.fail_on_reset_ = false;
+        assert(guarded.vqec_vision_ai_track_trkst_process(input, 31, false, tracked).code_ == status_code::invalid_state);
+        input = vqec_vision_ai_ctest_tstgt_make_detections(7);
+        assert(guarded.vqec_vision_ai_track_trkst_process(input, 31, false, tracked).code_ == status_code::invalid_state);
+        input = vqec_vision_ai_ctest_tstgt_make_detections(9);
+        assert(guarded.vqec_vision_ai_track_trkst_process(input, 29, false, tracked).code_ == status_code::invalid_argument);
+        assert(resetting.reset_count_ == 1);
+        assert(guarded.vqec_vision_ai_track_trkst_process(input, 32, false, tracked).code_ == status_code::ok);
+        assert(resetting.reset_count_ == 2 && !guarded.vqec_vision_ai_track_trkst_is_faulted());
+    }
     return 0;
 }

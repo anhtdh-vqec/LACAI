@@ -31,7 +31,15 @@ status tracking_stage::vqec_vision_ai_track_trkst_process(
         if (source_epoch_ != 0 && incoming_epoch < source_epoch_) {
             return {status_code::invalid_state, "tracking stage rejected a stale source epoch"};
         }
-        const auto reset = tracker_.vqec_vision_ai_ports_trker_reset_epoch(incoming_epoch);
+        source_epoch_ = incoming_epoch;
+        last_now_monotonic_ns_ = _now_monotonic_ns;
+        is_faulted_ = true;
+        status reset;
+        try {
+            reset = tracker_.vqec_vision_ai_ports_trker_reset_epoch(incoming_epoch);
+        } catch (...) {
+            return {status_code::io_error, "tracker epoch reset raised an exception"};
+        }
         if (reset.code_ != status_code::ok) {
             is_faulted_ = true;
             return reset;

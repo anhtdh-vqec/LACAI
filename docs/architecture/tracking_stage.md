@@ -19,3 +19,8 @@ tracker applies its model-specific policy.
 This source does not implement ByteTrack, optical flow, cross-camera identity, persistence
 or feature decisions. A concrete tracker must document its class compatibility, cadence,
 gap policy, memory envelope and golden/replay evidence before activation.
+
+Reset failure is also ambiguous. Before invoking reset, the stage records the attempted
+epoch and monotonic time and latches a fault. A reset exception becomes io_error.
+Neither a returned error nor an exception permits retry in that same epoch or rollback
+to an older epoch. Only a strictly newer epoch with successful reset can recover.
