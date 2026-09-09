@@ -7,6 +7,9 @@ namespace vqec::vision::ai {
 status vqec_vision_ai_outpt_ovrpr_prepare(
     const observation_batch& _observations, const overlay_preparation_context& _context,
     output_gate& _gate, overlay_batch& _overlay) {
+    if (_context.max_age_ns_ == 0 || _context.max_age_ns_ == UINT64_MAX) {
+        return {status_code::invalid_argument, "overlay freshness budget is invalid"};
+    }
     const auto valid_observations = vqec_vision_ai_core_obval_validate_batch(
         _observations, _observations.frame_, _observations.geometry_);
     if (valid_observations.code_ != status_code::ok) {
@@ -34,7 +37,7 @@ status vqec_vision_ai_outpt_ovrpr_prepare(
     }
     const auto valid_overlay = vqec_vision_ai_core_pvctr_validate_overlay(
         candidate, _observations.frame_, _observations.geometry_, _context.policy_revision_,
-        _context.prepared_monotonic_ns_, 1);
+        _context.prepared_monotonic_ns_, _context.max_age_ns_);
     if (valid_overlay.code_ != status_code::ok) {
         return valid_overlay;
     }

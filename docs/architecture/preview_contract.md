@@ -29,6 +29,8 @@ monotonic now/max-age. Revisions must be nonzero and equal; future or expired ba
 are rejected. Revision equality is necessary but NOT sufficient authorization:
 upstream must scope/filter feature and attribute payloads using the real output gate.
 The batch timestamp is an app monotonic freshness timestamp, not source PTS.
+Overlay preparation receives the freshness budget from deployment/runtime context;
+it must not substitute a fixed age when building a batch.
 
 ## Encoded data
 

@@ -18,7 +18,7 @@ int main() {
     policy.expires_ns_ = 100;
     policy.rules_.push_back({"source0", "detect", {"bbox"}});
     assert(gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0).code_ == status_code::ok);
-    overlay_preparation_context context{"source0", "detect", 1, 20, {"bbox"}};
+    overlay_preparation_context context{"source0", "detect", 1, 20, 100, {"bbox"}};
     overlay_batch overlay;
     assert(vqec_vision_ai_outpt_ovrpr_prepare(observations, context, gate, overlay).code_ ==
            status_code::ok);
@@ -31,5 +31,8 @@ int main() {
            status_code::unauthorized);
     assert(overlay.boxes_.size() == previous.boxes_.size());
     assert(overlay.boxes_[0].label_ == previous.boxes_[0].label_);
+    context.max_age_ns_ = 0;
+    assert(vqec_vision_ai_outpt_ovrpr_prepare(observations, context, gate, overlay).code_ ==
+           status_code::invalid_argument);
     return 0;
 }

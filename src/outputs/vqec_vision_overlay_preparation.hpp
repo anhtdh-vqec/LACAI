@@ -11,6 +11,7 @@ struct overlay_preparation_context {
     std::string feature_id_;
     std::uint64_t policy_revision_{0};
     std::uint64_t prepared_monotonic_ns_{0};
+    std::uint64_t max_age_ns_{0};
     std::vector<std::string> attributes_;
 };
 
