@@ -11,7 +11,7 @@ current tree cross-compiled all configured targets to 100% with the eSDK AArch64
 Camera, GIO D-Bus, GStreamer bridge and Qualcomm adapter enabled. Optional JSON loaders,
 artifact digest and FW ring were disabled; the eSDK sysroot does not currently provide
 the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration ran 47 AArch64 tests through SDK QEMU:
-45 passed and two failed; see [emulation evidence](../testing/esdk_emulation.md).
+all 47 passed after correcting two stale fixtures; see [emulation evidence](../testing/esdk_emulation.md).
 There is no live FW/Qualcomm/board qualification report. A
 cross-build or fake port is not hardware completion, zero-copy, throughput, model-accuracy
 or release-compatibility evidence.

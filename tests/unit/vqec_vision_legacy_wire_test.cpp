@@ -52,6 +52,9 @@ int main() {
     using vqec::vision::ai::vqec_vision_ai_camer_lwire_decode_frame;
     legacy_frame_limits limits;
     limits.nv12_format_value_ = 123;
+    limits.max_width_ = 3840;
+    limits.max_height_ = 2160;
+    limits.max_allocation_bytes_ = 4096ULL * 2160 * 3 / 2 + 4096;
     frame_descriptor output;
     unsigned failures = 0;
     const auto check = [&failures](bool _condition) {
@@ -68,6 +71,12 @@ int main() {
                   static_cast<std::int32_t>(width + 64));
     }
     const auto valid = vqec_vision_ai_unit_lwtst_make_packet(3840, 2160, 4096);
+    // Unset policy must fail without publishing metadata.
+    legacy_frame_limits unset_limits;
+    output.buffer_id_ = 999;
+    check(vqec_vision_ai_camer_lwire_decode_frame(
+        valid.data(), valid.size(), unset_limits, output).code_ == status_code::invalid_argument);
+    check(output.buffer_id_ == 999);
     check(vqec_vision_ai_camer_lwire_decode_frame(
         valid.data(), valid.size(), limits, output).code_ == status_code::ok);
     check(vqec_vision_ai_camer_lwire_decode_frame(

@@ -233,9 +233,12 @@ vqec_vision_ai_unit_mmpst_make_bindings(
 int main() {
     using namespace vqec::vision::ai;
     unsigned failures = 0;
-    const auto check = [&failures](bool _condition) {
+    unsigned check_index = 0;
+    const auto check = [&failures, &check_index](bool _condition) {
+        ++check_index;
         if (!_condition) {
             ++failures;
+            std::cerr << "failed check " << check_index << "\n";
         }
     };
 
@@ -258,9 +261,9 @@ int main() {
           status_code::ok);
     check(source.receive_calls_ == 1 && report.due_model_mask_ == 3 &&
           report.submitted_model_mask_ == 3 && report.busy_model_mask_ == 0);
-    check(report.submitted_tickets_[0].source_epoch_ == 1 &&
+    check(report.submitted_tickets_[0].source_epoch_ == 7 &&
           report.submitted_tickets_[0].source_frame_id_ == 1 &&
-          report.submitted_tickets_[1].source_epoch_ == 1 &&
+          report.submitted_tickets_[1].source_epoch_ == 7 &&
           report.submitted_tickets_[1].source_frame_id_ == 1);
     check(first.arm_calls_ == 1 && second.arm_calls_ == 1 &&
           first.submit_calls_ == 1 && second.submit_calls_ == 1);
