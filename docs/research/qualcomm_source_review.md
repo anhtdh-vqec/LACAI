@@ -1,9 +1,13 @@
 # Qualcomm source review
 
-Review date: 2026-09-06.
-Local repository: C:/Users/anhtd/anhtdh/gst-plugins-qti-oss
-HEAD: dcb4b8252b66304545c5efb5cb7c8fecc26b6680.
+Review date: 2026-09-09.
+Local repository: `/home/a/Workspace/gst-plugins-qti-oss`
+HEAD: `0cdf24a99c625fa616564ebf82fd8813c744ed82`.
 git status --short tại lúc review: sạch. Không thay đổi repository tham khảo.
+
+Hướng dẫn tích hợp hiện hành được chuẩn hóa tại
+[qualcomm plugin adapter reference](../architecture/qualcomm_plugin_adapter_reference.md).
+Tài liệu này giữ các quan sát source và giới hạn bằng chứng để làm cơ sở review.
 
 ## Phạm vi và mức độ bằng chứng
 
@@ -14,6 +18,9 @@ postprocess module và tracker dependency. Đã khảo sát danh mục sample mu
 Không phải audit toàn bộ repository, codec/camera stack, mọi model decoder hoặc
 SDK proprietary. Chưa compile/run trên board, chưa đo throughput/accuracy.
 Source local là bằng chứng hành vi của bản plugin này, không là cam kết mọi SDK.
+
+Mọi build/test/CMake của LACAI dùng eSDK tại `/home/a/Workspace/eSDK`; việc đọc
+source plugin không thay thế kiểm tra runtime trên image QSC6490.
 
 Các đường dẫn dưới đây tương đối với repository trên; line number là snapshot.
 
