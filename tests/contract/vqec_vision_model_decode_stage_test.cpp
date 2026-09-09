@@ -23,7 +23,7 @@ public:
         _observations.frame_ = _expected_frame;
         _observations.geometry_ = {640, 360};
         _observations.observations_.push_back(
-            {_expected_frame, 1, "person", {10, 20, 30, 40, 0xffffffffU, "person"},
+            {_expected_frame, 0, "person", {10, 20, 30, 40, 0xffffffffU, "person"},
              0.9F, observation_quality::high, {}});
         return {};
     }

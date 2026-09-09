@@ -238,6 +238,11 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_tracker_port_test
+        tests/contract/vqec_vision_tracker_port_test.cpp)
+    target_link_libraries(vqec_vision_ai_tracker_port_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_tracker_port_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME tracker_port_contract COMMAND vqec_vision_ai_tracker_port_test)
     add_executable(vqec_vision_ai_tensor_reader_test
         tests/contract/vqec_vision_tensor_reader_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_reader_test PRIVATE vqec_vision_ai_detection)

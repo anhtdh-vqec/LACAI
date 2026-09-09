@@ -42,6 +42,8 @@ int main() {
     check(vqec_vision_ai_core_obval_validate_batch(wrong, frame, geometry).code_ ==
         status_code::invalid_state);
     batch.observations_[0].track_id_ = 0;
+    check(vqec_vision_ai_core_obval_validate_detections(batch, frame, geometry).code_ ==
+        status_code::ok);
     check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
         status_code::invalid_argument);
     std::cout << "observation failures: " << failures << '\n';

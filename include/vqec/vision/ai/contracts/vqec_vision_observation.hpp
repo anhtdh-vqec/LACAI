@@ -46,7 +46,13 @@ struct observation_batch {
     std::vector<observation> observations_;
 };
 
-// Validates model-independent observations; no model trust or entitlement decision.
+// Decoder output validation. Zero track_id means not yet associated.
+[[nodiscard]] status vqec_vision_ai_core_obval_validate_detections(
+    const observation_batch& _batch, const preview_frame_key& _expected_frame,
+    const preview_geometry& _expected_geometry);
+
+// Tracked/feature input validation. Every observation must have a nonzero track_id.
+// Neither function makes a model trust or entitlement decision.
 [[nodiscard]] status vqec_vision_ai_core_obval_validate_batch(
     const observation_batch& _batch, const preview_frame_key& _expected_frame,
     const preview_geometry& _expected_geometry);

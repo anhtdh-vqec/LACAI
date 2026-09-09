@@ -229,6 +229,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/contract/vqec_vision_model_decode_stage_test.cpp | mdsct | vqec_vision_ai_ctest_mdsct_ |
 | tests/contract/vqec_vision_model_decoder_registry_test.cpp | mdrct | vqec_vision_ai_ctest_mdrct_ |
 | tests/contract/vqec_vision_tensor_reader_test.cpp | trct | vqec_vision_ai_ctest_trct_ |
+| tests/contract/vqec_vision_tracker_port_test.cpp | trpct | vqec_vision_ai_ctest_trpct_ |
 | tests/contract/vqec_vision_overlay_preparation_test.cpp | oprct | vqec_vision_ai_ctest_oprct_ |
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |
@@ -260,6 +261,7 @@ No AST naming enforcement is implied by the structural filename checker.
 | src/adapters/camera/vqec_vision_raw_source_resolver.cpp | rsrsv | vqec_vision_ai_camer_rsrsv_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
 | include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
+| include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
 | src/adapters/qualcomm/vqec_vision_inference_graph.cpp | ifgr | vqec_vision_ai_qcom_ifgr_ |
 | src/adapters/qualcomm/vqec_vision_dmabuf_bridge.cpp | dmbrg | vqec_vision_ai_qcom_dmbrg_ |
 | src/adapters/qualcomm/vqec_vision_tensor_output.cpp | tnout | vqec_vision_ai_qcom_tnout_ |

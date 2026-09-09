@@ -16,7 +16,7 @@ status model_decode_stage::vqec_vision_ai_detec_mdstg_decode_result(
     if (decoded.code_ != status_code::ok) {
         return decoded;
     }
-    const auto validated = vqec_vision_ai_core_obval_validate_batch(
+    const auto validated = vqec_vision_ai_core_obval_validate_detections(
         candidate, _expected_frame, geometry_);
     if (validated.code_ != status_code::ok) {
         return validated;
