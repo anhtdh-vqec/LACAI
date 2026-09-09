@@ -72,12 +72,14 @@ không phải API đã được FW cung cấp.
 
 Đã có validation/config loaders, activation snapshot, Camera lease bridge/session,
 Qualcomm graph submit/result/drain, cadence, shared-frame multi-model session và
-multi-source supervisor qua neutral ports. Nhánh output đã có CPU preview pool,
-encoder ledger/preparation/submit/drain helpers, authorized event dispatch và optional
-FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
+multi-source supervisor qua neutral ports. Feature activation manager và tracker factory
+registry hiện đã tạo effective-state/owner boundary theo contract. Nhánh output đã có
+CPU preview pool, encoder ledger/preparation/submit/drain helpers, authorized event
+dispatch và optional FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
 Qualcomm plugin factory probing is available at the adapter boundary; it reports
 runtime availability without selecting a fallback backend.
-CMake targets và unit/contract-test source đã có; chưa có kết quả build/C++ tests.
+CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, target tests chưa
+chạy vì binary AArch64 và môi trường hiện tại không có emulator.
 Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
 service vqec_ai_vision_applications/IPK, CI chạy tự động hoặc AST naming checker.
 Structural filename checker đã có. Xem bảng kiểm kê source và phần thiếu tại
