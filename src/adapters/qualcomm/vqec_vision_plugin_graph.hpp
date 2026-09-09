@@ -56,6 +56,7 @@ struct plugin_property_capability {
     std::string value_type_name_;
     bool readable_{false};
     bool writable_{false};
+    std::vector<std::string> enum_nicks_;
 };
 
 // No vendor/GStreamer types cross this header. Serialized backend-worker calls only.

@@ -39,6 +39,8 @@ gst-inspect-1.0 qtimlpostprocess
 
 Ghi plugin filename/version, enum nick, pad caps/features và mutability. Kiểm tra
 GParamSpec qua code trước g_object_set; không dùng integer enum copy từ bản khác.
+Adapter Qualcomm hiện có bounded factory/property probes để ghi nhận GType,
+read/write flags và enum nick từ registry trước khi dựng graph.
 Property G_PARAM_READWRITE không tự chứng minh reconfigure an toàn lúc PLAYING.
 Chốt cấu hình trước state transition; version change phải rerun contract tests.
 

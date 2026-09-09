@@ -298,9 +298,27 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_probe_properties(
                       "Missing property " + property_name + " on " + _factory_name};
             break;
         }
-        discovered.push_back({property_name, g_type_name(G_PARAM_SPEC_VALUE_TYPE(specification)),
-                              (specification->flags & G_PARAM_READABLE) != 0,
-                              (specification->flags & G_PARAM_WRITABLE) != 0});
+        plugin_property_capability capability{
+            property_name, g_type_name(G_PARAM_SPEC_VALUE_TYPE(specification)),
+            (specification->flags & G_PARAM_READABLE) != 0,
+            (specification->flags & G_PARAM_WRITABLE) != 0, {}};
+        if (G_IS_PARAM_SPEC_ENUM(specification)) {
+            auto* enum_class = static_cast<GEnumClass*>(g_type_class_ref(
+                G_PARAM_SPEC_VALUE_TYPE(specification)));
+            if (enum_class->n_values > 64U) {
+                g_type_class_unref(enum_class);
+                result = {status_code::incompatible_plugin,
+                          "enum property has too many values: " + property_name};
+                break;
+            }
+            capability.enum_nicks_.reserve(enum_class->n_values);
+            for (guint enum_index = 0; enum_index < enum_class->n_values; ++enum_index) {
+                const auto* enum_value = &enum_class->values[enum_index];
+                capability.enum_nicks_.emplace_back(enum_value->value_nick);
+            }
+            g_type_class_unref(enum_class);
+        }
+        discovered.push_back(std::move(capability));
     }
     g_type_class_unref(object_class);
     gst_object_unref(factory);
