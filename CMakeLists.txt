@@ -277,7 +277,7 @@ add_library(vqec_vision_ai_application_composition STATIC
 target_include_directories(vqec_vision_ai_application_composition PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
-target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
+target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_source_supervisor)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_perception_result_stage STATIC
     src/app/vqec_vision_perception_result_stage.cpp

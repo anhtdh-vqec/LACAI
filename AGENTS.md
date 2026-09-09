@@ -163,3 +163,6 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/multi_model_feature_pipeline.md before changing result-to-feature composition.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.
+
+Application composition now retains one tensor/report until explicit take_result; read
+docs/architecture/application_composition.md before changing delivery or stop progress.

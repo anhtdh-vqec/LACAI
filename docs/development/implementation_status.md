@@ -144,3 +144,8 @@ Current contract details: [system architecture](../architecture/system_architect
 [encoder preparation](../architecture/encoder_preparation.md),
 [encoded dispatch](../architecture/encoded_dispatch.md),
 [FW release compatibility](../contracts/fw_release_compatibility.md).
+
+Application composition now wires admitted sessions to supervisor activation, progress
+and stop, with one pending tensor/report slot and session-derived recovery reporting.
+See [composition contract](../architecture/application_composition.md). Runtime service
+construction, target execution and owner review remain pending.

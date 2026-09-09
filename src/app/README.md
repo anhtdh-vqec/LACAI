@@ -42,3 +42,7 @@ explicit bounded temporal join.
 `vqec_vision_feature_fanout` advances a fixed activation-time list of feature stages from
 one tracked batch. It records numeric per-slot success/failure and continues healthy
 features after a peer faults; output delivery remains separate.
+
+`application_composition` binds admitted sessions and drives the supervisor with a
+one-result delivery slot. The executor must call `take_result` before further progress,
+including drain. See docs/architecture/application_composition.md.
