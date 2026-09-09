@@ -24,6 +24,11 @@ or artifact paths. A synthetic example enables no feature. A later trusted activ
 document binds source IDs and feature IDs, resolves feature-specific configuration and
 checks accumulated temporal resources before owner construction.
 
+Concrete compiled-in packages register a factory for `processor_contract`; see the
+[feature processor registry](feature_processor_registry.md). The factory validates the
+feature-specific configuration payload identified by `configuration_schema` and returns
+an independent stateful processor owner.
+
 | # | Feature ID / bài | Compute + state cần có | Output / nghiệm thu chính |
 |---|---|---|---|
 | 1 | abnormal_behavior / ẩu đả, xung đột | person + pose/action temporal, multi-person context | alarm episode; precision/recall + false alarms/hour + onset delay |

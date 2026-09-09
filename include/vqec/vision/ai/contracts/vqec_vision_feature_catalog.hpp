@@ -19,6 +19,7 @@ inline constexpr std::size_t g_max_model_dependencies =
 inline constexpr std::size_t g_max_attribute_dependencies =
     observation_limits::g_max_attributes;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
+inline constexpr std::size_t g_max_configuration_bytes = 256U * 1024U;
 }  // namespace feature_catalog_limits
 
 enum class feature_input_mode { single_model, temporal_join };
@@ -60,11 +61,22 @@ struct feature_catalog {
     std::vector<feature_catalog_entry> features_;
 };
 
+// Authenticated cold-path usecase configuration. Payload syntax is owned by the
+// feature package named by schema_id; generic runtime only validates the binding/bound.
+struct feature_configuration {
+    std::string schema_id_;
+    std::uint64_t revision_{0};
+    std::vector<std::uint8_t> payload_;
+};
+
 // Cold-path metadata validation. This does not authenticate catalogs or activate features.
 [[nodiscard]] status vqec_vision_ai_core_ftcat_validate_catalog(
     const feature_catalog& _catalog);
 [[nodiscard]] status vqec_vision_ai_core_ftcat_validate_model_dependencies(
     const feature_catalog& _features, const model_catalog& _models);
+[[nodiscard]] status vqec_vision_ai_core_ftcat_validate_configuration(
+    const feature_catalog_entry& _feature,
+    const feature_configuration& _configuration);
 
 // Creates the neutral stage configuration from a validated catalog entry and one
 // activation/source revision. Feature-specific settings remain owned by its processor.

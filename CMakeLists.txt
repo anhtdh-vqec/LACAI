@@ -61,7 +61,8 @@ target_link_libraries(vqec_vision_ai_attributes PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_attributes PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_feature_runtime STATIC
-    src/runtime/feature_manager/vqec_vision_feature_stage.cpp)
+    src/runtime/feature_manager/vqec_vision_feature_stage.cpp
+    src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp)
 target_include_directories(vqec_vision_ai_feature_runtime PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
 target_link_libraries(vqec_vision_ai_feature_runtime PUBLIC vqec_vision_ai_core)
@@ -296,6 +297,14 @@ target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline
     PUBLIC vqec_vision_ai_multi_model_result_router vqec_vision_ai_feature_fanout)
 set_target_properties(vqec_vision_ai_multi_model_feature_pipeline PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_processor_registry_test
+        tests/contract/vqec_vision_feature_processor_registry_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_processor_registry_test
+        PRIVATE vqec_vision_ai_feature_runtime)
+    set_target_properties(vqec_vision_ai_feature_processor_registry_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_processor_registry_contract
+        COMMAND vqec_vision_ai_feature_processor_registry_test)
     add_executable(vqec_vision_ai_feature_catalog_test
         tests/unit/vqec_vision_feature_catalog_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_catalog_test PRIVATE vqec_vision_ai_core)
@@ -655,6 +664,7 @@ endif()
 
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_feature_catalog_test
+        vqec_vision_ai_feature_runtime vqec_vision_ai_feature_processor_registry_test
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test

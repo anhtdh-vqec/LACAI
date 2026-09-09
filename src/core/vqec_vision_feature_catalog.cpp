@@ -161,6 +161,26 @@ status vqec_vision_ai_core_ftcat_validate_model_dependencies(
     return {};
 }
 
+status vqec_vision_ai_core_ftcat_validate_configuration(
+    const feature_catalog_entry& _feature,
+    const feature_configuration& _configuration) {
+    const auto valid_feature = vqec_vision_ai_core_ftcat_validate_entry(_feature);
+    if (valid_feature.code_ != status_code::ok) {
+        return valid_feature;
+    }
+    if (_configuration.schema_id_ != _feature.configuration_schema_ ||
+        _configuration.revision_ == 0 || _configuration.revision_ == UINT64_MAX) {
+        return {status_code::invalid_argument,
+            "feature configuration identity differs from catalog"};
+    }
+    if (_configuration.payload_.size() >
+        feature_catalog_limits::g_max_configuration_bytes) {
+        return {status_code::resource_exhausted,
+            "feature configuration payload exceeds limit"};
+    }
+    return {};
+}
+
 status vqec_vision_ai_core_ftcat_compose_processor_config(
     const feature_catalog_entry& _feature, const std::string& _source_id,
     std::uint64_t _activation_revision, feature_processor_config& _config) {

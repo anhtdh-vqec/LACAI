@@ -241,8 +241,11 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/contract/vqec_vision_attribute_reader_test.cpp | atrct | vqec_vision_ai_ctest_atrct_ |
 | tests/unit/vqec_vision_feature_event_test.cpp | fetst | vqec_vision_ai_unit_fetst_ |
 | include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |
+| include/vqec/vision/ai/ports/vqec_vision_feature_processor_factory.hpp | ftfac | vqec_vision_ai_ports_ftfac_ |
+| src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp | ftreg | vqec_vision_ai_ftmgr_ftreg_ |
 | include/vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp | fesnk | vqec_vision_ai_ports_fesnk_ |
 | tests/contract/vqec_vision_feature_processor_test.cpp | fpct | vqec_vision_ai_ctest_fpct_ |
+| tests/contract/vqec_vision_feature_processor_registry_test.cpp | fprct | vqec_vision_ai_ctest_fprct_ |
 | tests/contract/vqec_vision_feature_event_dispatch_test.cpp | fedct | vqec_vision_ai_ctest_fedct_ |
 | tests/contract/vqec_vision_feature_stage_test.cpp | fsct | vqec_vision_ai_ctest_fsct_ |
 | tests/contract/vqec_vision_overlay_preparation_test.cpp | oprct | vqec_vision_ai_ctest_oprct_ |

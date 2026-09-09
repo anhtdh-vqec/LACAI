@@ -135,6 +135,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/attribute_reader.md before changing attribute validation or freshness.
   Feature/model dependencies and processor/resource contracts come from the feature catalog;
   read docs/architecture/feature_catalog.md before changing usecase integration metadata.
+  Concrete usecase packages enter through the feature processor factory registry; read
+  docs/architecture/feature_processor_registry.md before changing processor construction.
   Feature algorithms emit configuration-bounded neutral events through feature_processor_port;
   read docs/architecture/feature_event_contract.md before changing feature output semantics.
   feature_stage validates processor output and faults ambiguous epochs; read
