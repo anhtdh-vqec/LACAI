@@ -17,3 +17,7 @@ rejects duplicate/invalid contracts and returns `unsupported` for an unknown
 contract; it never constructs a decoder or silently selects a fallback.
 It can also validate a parsed output manifest against the selected catalog identity
 and invoke the registered decoder's own manifest validation before activation.
+
+`tensor_reader` provides bounded name lookup and manifest shape/value-count checks for
+decoder implementations. It performs no model-specific postprocess and does not expose
+Qualcomm or GStreamer types.
