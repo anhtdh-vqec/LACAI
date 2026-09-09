@@ -197,6 +197,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_tensor_contract.cpp | tnctr | vqec_vision_ai_core_tnctr_ |
 | src/core/vqec_vision_output_gate.cpp | otgat | vqec_vision_ai_core_otgat_ |
 | src/core/vqec_vision_feature_event.cpp | ftevt | vqec_vision_ai_core_ftevt_ |
+| src/outputs/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
 | tests/unit/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
 | src/runtime/model_registry/vqec_vision_output_manifest.cpp | otman | vqec_vision_ai_mreg_otman_ |
 | src/runtime/model_registry/vqec_vision_artifact_digest.cpp | ardgt | vqec_vision_ai_mreg_ardgt_ |
@@ -238,7 +239,9 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/contract/vqec_vision_attribute_reader_test.cpp | atrct | vqec_vision_ai_ctest_atrct_ |
 | tests/unit/vqec_vision_feature_event_test.cpp | fetst | vqec_vision_ai_unit_fetst_ |
 | include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |
+| include/vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp | fesnk | vqec_vision_ai_ports_fesnk_ |
 | tests/contract/vqec_vision_feature_processor_test.cpp | fpct | vqec_vision_ai_ctest_fpct_ |
+| tests/contract/vqec_vision_feature_event_dispatch_test.cpp | fedct | vqec_vision_ai_ctest_fedct_ |
 | tests/contract/vqec_vision_feature_stage_test.cpp | fsct | vqec_vision_ai_ctest_fsct_ |
 | tests/contract/vqec_vision_overlay_preparation_test.cpp | oprct | vqec_vision_ai_ctest_oprct_ |
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |

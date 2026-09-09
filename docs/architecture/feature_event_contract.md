@@ -16,7 +16,9 @@ Activation selects per-processor event, track-reference and field ceilings insid
 AI safety maxima. Empty event batches are valid. Vectors must be reserved during
 activation and reused by the serialized per-source owner; the ceilings do not permit
 unbounded per-frame allocation. Validation rejects duplicate event IDs, track references,
-model versions or field schema/version pairs and preserves the caller's output contract.
+model versions or field schema IDs and preserves the caller's output contract. One event
+cannot contain two versions of the same field because output entitlement is keyed by its
+schema ID.
 
 `feature_processor_port` is the portable algorithm boundary. It validates one activation,
 resets temporal state on a nonzero source epoch and consumes only validated tracked

@@ -235,6 +235,12 @@ target_include_directories(vqec_vision_ai_encoded_dispatch PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
 target_link_libraries(vqec_vision_ai_encoded_dispatch PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_encoded_dispatch PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_feature_event_dispatch STATIC
+    src/outputs/vqec_vision_feature_event_dispatch.cpp)
+target_include_directories(vqec_vision_ai_feature_event_dispatch PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
+target_link_libraries(vqec_vision_ai_feature_event_dispatch PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_feature_event_dispatch PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_overlay_preparation STATIC
     src/outputs/vqec_vision_overlay_preparation.cpp)
 target_include_directories(vqec_vision_ai_overlay_preparation PUBLIC
@@ -260,6 +266,16 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_event_dispatch_test
+        tests/contract/vqec_vision_feature_event_dispatch_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_event_dispatch_test
+        PRIVATE vqec_vision_ai_feature_event_dispatch)
+    target_include_directories(vqec_vision_ai_feature_event_dispatch_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
+    set_target_properties(vqec_vision_ai_feature_event_dispatch_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_event_dispatch_authorization
+        COMMAND vqec_vision_ai_feature_event_dispatch_test)
     add_executable(vqec_vision_ai_feature_stage_test
         tests/contract/vqec_vision_feature_stage_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_stage_test

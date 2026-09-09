@@ -14,3 +14,7 @@ submission. Qualcomm implements it privately; application code must not call plu
 boundary. It consumes tracked observations, explicit monotonic time/source gaps and emits
 bounded neutral feature events. Feature admission, entitlement and delivery remain
 outside the algorithm port.
+
+`vqec_vision_feature_event_sink.hpp` is the synchronous borrowed-event delivery boundary.
+Successful return transfers delivery responsibility to the sink; retry retains the same
+event ID so an external transport can deduplicate ambiguous acknowledgements.

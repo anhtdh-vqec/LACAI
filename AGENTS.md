@@ -137,5 +137,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   read docs/architecture/feature_event_contract.md before changing feature output semantics.
   feature_stage validates processor output and faults ambiguous epochs; read
   docs/architecture/feature_stage.md before changing feature orchestration.
+  Feature-event delivery derives authorization from actual payload fields; read
+  docs/architecture/feature_event_dispatch.md before changing routing or retry semantics.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.

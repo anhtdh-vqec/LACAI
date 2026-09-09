@@ -43,6 +43,11 @@ int main() {
     check(vqec_vision_ai_core_ftevt_validate_batch(batch, frame, geometry, config).code_ ==
           status_code::invalid_argument);
     batch.events_[0].fields_[0].quality_ = observation_quality::high;
+    batch.events_[0].fields_.push_back(
+        {"zone.id", "2", "secondary", 1.0F, observation_quality::high});
+    check(vqec_vision_ai_core_ftevt_validate_batch(batch, frame, geometry, config).code_ ==
+          status_code::invalid_argument);
+    batch.events_[0].fields_.pop_back();
     batch.events_.push_back(batch.events_[0]);
     check(vqec_vision_ai_core_ftevt_validate_batch(batch, frame, geometry, config).code_ ==
           status_code::invalid_argument);

@@ -26,3 +26,7 @@ the overlay, so encoded dispatch can reuse trusted scope context without inferri
 from pixels or H264 bytes.
 The scoped variant supports several feature/attribute authorizations under one policy
 revision and rejects mixed revisions or more than the shared rendered-scope ceiling.
+
+`vqec_vision_feature_event_dispatch` validates one event and derives authorization from
+its actual field schema IDs immediately before synchronous sink delivery. It supplies no
+queue or FW transport; retry keeps the original event and policy revision.

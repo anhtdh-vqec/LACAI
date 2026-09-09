@@ -100,8 +100,7 @@ status vqec_vision_ai_core_ftevt_validate_event(
         }
         for (std::size_t previous = 0; previous < index; ++previous) {
             const auto& other = _event.fields_[previous];
-            if (other.schema_id_ == field.schema_id_ &&
-                other.schema_version_ == field.schema_version_) {
+            if (other.schema_id_ == field.schema_id_) {
                 return {status_code::invalid_argument, "duplicate feature event field"};
             }
         }
