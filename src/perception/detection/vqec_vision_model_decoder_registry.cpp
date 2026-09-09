@@ -1,5 +1,7 @@
 #include "vqec_vision_model_decoder_registry.hpp"
 
+#include <new>
+
 namespace vqec::vision::ai {
 
 status model_decoder_registry::vqec_vision_ai_detec_mdreg_register_decoder(
@@ -50,7 +52,13 @@ status model_decoder_registry::vqec_vision_ai_detec_mdreg_validate_model_outputs
     if (resolved.code_ != status_code::ok) {
         return resolved;
     }
-    return decoder->vqec_vision_ai_cntr_mddec_validate(_outputs);
+    try {
+        return decoder->vqec_vision_ai_cntr_mddec_validate(_outputs);
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "decoder validation allocation failed"};
+    } catch (...) {
+        return {status_code::io_error, "decoder validation raised an exception"};
+    }
 }
 
 void model_decoder_registry::vqec_vision_ai_detec_mdreg_clear() noexcept {

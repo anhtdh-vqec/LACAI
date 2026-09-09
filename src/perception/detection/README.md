@@ -24,3 +24,7 @@ and invoke the registered decoder's own manifest validation before activation.
 `tensor_reader` provides bounded name lookup and manifest shape/value-count checks for
 decoder implementations. It performs no model-specific postprocess and does not expose
 Qualcomm or GStreamer types.
+
+Decoder registry activation validation contains package exceptions: allocation failure
+returns resource_exhausted, other exceptions return io_error. Registrations remain
+unchanged. This callback is validation-only and must not mutate live decoder state.

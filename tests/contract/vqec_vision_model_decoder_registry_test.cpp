@@ -1,5 +1,7 @@
 #include <cassert>
 #include <string>
+#include <new>
+#include <stdexcept>
 
 #include "vqec_vision_model_decoder_registry.hpp"
 
@@ -9,8 +11,16 @@ namespace {
 
 class fake_decoder final : public model_decoder_port {
 public:
+    bool throws_{false};
+    bool fails_allocation_{false};
     [[nodiscard]] status vqec_vision_ai_cntr_mddec_validate(
         const model_outputs& _outputs) const override {
+        if (fails_allocation_) {
+            throw std::bad_alloc();
+        }
+        if (throws_) {
+            throw std::runtime_error("decoder package error");
+        }
         return _outputs.model_id_.empty() ?
             status{status_code::invalid_argument, "model id required"} : status{};
     }
@@ -49,6 +59,13 @@ int main() {
     outputs.decoder_contract_ = "person.detector.v1";
     assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ ==
            status_code::ok);
+    decoder.throws_ = true;
+    assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ == status_code::io_error);
+    decoder.throws_ = false;
+    decoder.fails_allocation_ = true;
+    assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ == status_code::resource_exhausted);
+    decoder.fails_allocation_ = false;
+    assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ == status_code::ok);
     outputs.decoder_contract_ = "other.decoder.v1";
     assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ ==
            status_code::invalid_argument);
