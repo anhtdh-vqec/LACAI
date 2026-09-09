@@ -5,6 +5,7 @@
 
 #include "vqec_vision_camera_session.hpp"
 #include "vqec_vision_inference_graph.hpp"
+#include "vqec_vision_source_lifecycle.hpp"
 
 namespace {
 

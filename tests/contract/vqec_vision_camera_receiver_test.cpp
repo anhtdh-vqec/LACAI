@@ -236,7 +236,7 @@ int main() {
     using vqec::vision::ai::camera_source_state;
     using vqec::vision::ai::source_lifecycle;
     camera_lifecycle_config lifecycle_config;
-    lifecycle_config.acquire_ = {0, "ai:test_cycle_1", "test_cycle_1:start"};
+    lifecycle_config.acquire_ = {0, 0, "ai:test_cycle_1", "test_cycle_1:start"};
     lifecycle_config.stop_request_id_ = "test_cycle_1:stop";
     lifecycle_config.media_ = config;
     auto rpc = std::make_shared<lifecycle_rpc>();
