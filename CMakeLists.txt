@@ -37,7 +37,8 @@ target_include_directories(vqec_vision_ai_core PUBLIC
 set_target_properties(vqec_vision_ai_core PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_detection STATIC
-    src/perception/detection/vqec_vision_model_decode_stage.cpp)
+    src/perception/detection/vqec_vision_model_decode_stage.cpp
+    src/perception/detection/vqec_vision_model_decoder_registry.cpp)
 target_include_directories(vqec_vision_ai_detection PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>)
 target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
@@ -230,6 +231,16 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_model_decoder_registry_test
+        tests/contract/vqec_vision_model_decoder_registry_test.cpp)
+    target_link_libraries(vqec_vision_ai_model_decoder_registry_test
+        PRIVATE vqec_vision_ai_detection)
+    target_include_directories(vqec_vision_ai_model_decoder_registry_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>)
+    set_target_properties(vqec_vision_ai_model_decoder_registry_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME model_decoder_registry_contract
+        COMMAND vqec_vision_ai_model_decoder_registry_test)
     add_executable(vqec_vision_ai_model_decode_stage_test
         tests/contract/vqec_vision_model_decode_stage_test.cpp)
     target_link_libraries(vqec_vision_ai_model_decode_stage_test

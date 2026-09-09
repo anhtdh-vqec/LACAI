@@ -10,3 +10,8 @@ tracking and feature integration remain unimplemented.
 temporary batch, validates frame identity/geometry and observation limits, then publishes
 the batch atomically. A decoder error or invalid observation never overwrites the previous
 published batch.
+
+`model_decoder_registry` binds the catalog's immutable `decoder_contract` to a
+non-owning decoder implementation during activation. It has bounded capacity,
+rejects duplicate/invalid contracts and returns `unsupported` for an unknown
+contract; it never constructs a decoder or silently selects a fallback.
