@@ -32,6 +32,9 @@ completed submission ticket, validates tensor pipeline PTS, then composes the co
 decoder and tracker transactionally. `vqec_vision_multi_model_result_router` selects one
 such stage by immutable model slot, keeps independent epoch/frame/PTS progress per slot and
 derives explicit tracker gaps without assuming round-robin results describe the same frame.
+`vqec_vision_perception_stage_factory` now constructs one owned decoder/tracker/result
+bundle per source/model binding from runtime registries. Decoder implementations remain
+borrowed; the bundle owns its tracker and all stage objects in safe destruction order.
 `vqec_vision_multi_model_feature_pipeline` then invokes only the optional feature fan-out
 bound to that result's model slot. Features that require several models still need an
 explicit bounded temporal join.

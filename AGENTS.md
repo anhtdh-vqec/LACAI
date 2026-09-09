@@ -100,6 +100,9 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   Tracker implementations are resolved through the bounded tracker_registry and must
   remain behind tracker_port; read docs/architecture/tracker_registry.md before adding
   tracker composition or ownership.
+  Source/model perception chains are constructed by perception_stage_factory; read
+  docs/architecture/perception_stage_factory.md before changing decoder/tracker lifetime
+  or activation-time contract selection.
   Per-source model cadence is fixed-capacity rational phase arithmetic; read
   docs/architecture/model_cadence.md before changing frame selection or skip policy.
   Multi-model RAW fan-out receives once, uses fixed 16-slot storage and shares one frame

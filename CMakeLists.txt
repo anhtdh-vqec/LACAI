@@ -280,7 +280,8 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_perception_result_stage STATIC
-    src/app/vqec_vision_perception_result_stage.cpp)
+    src/app/vqec_vision_perception_result_stage.cpp
+    src/app/vqec_vision_perception_stage_factory.cpp)
 target_include_directories(vqec_vision_ai_perception_result_stage PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>
@@ -379,6 +380,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME perception_result_correlation
         COMMAND vqec_vision_ai_perception_result_stage_test)
+    add_executable(vqec_vision_ai_perception_stage_factory_test
+        tests/contract/vqec_vision_perception_stage_factory_test.cpp)
+    target_link_libraries(vqec_vision_ai_perception_stage_factory_test
+        PRIVATE vqec_vision_ai_perception_result_stage)
+    set_target_properties(vqec_vision_ai_perception_stage_factory_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME perception_stage_factory_contract
+        COMMAND vqec_vision_ai_perception_stage_factory_test)
     add_executable(vqec_vision_ai_feature_event_dispatch_test
         tests/contract/vqec_vision_feature_event_dispatch_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_event_dispatch_test
@@ -714,6 +723,7 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_multi_model_feature_pipeline
         vqec_vision_ai_multi_model_feature_pipeline_test
         vqec_vision_ai_perception_result_stage vqec_vision_ai_perception_result_stage_test
+        vqec_vision_ai_perception_stage_factory_test
         vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_session_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
         vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
