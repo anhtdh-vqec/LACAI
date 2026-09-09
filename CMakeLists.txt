@@ -215,6 +215,13 @@ target_include_directories(vqec_vision_ai_encoder_preparation PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
 target_link_libraries(vqec_vision_ai_encoder_preparation PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_encoder_preparation PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_application_composition STATIC
+    src/app/vqec_vision_application_composition.cpp)
+target_include_directories(vqec_vision_ai_application_composition PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
     add_executable(vqec_vision_ai_model_cadence_test
         tests/unit/vqec_vision_model_cadence_test.cpp)
