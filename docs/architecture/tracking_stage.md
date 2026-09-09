@@ -4,7 +4,8 @@
 concrete tracker. It owns no association algorithm and exposes no vendor types.
 
 The stage validates decoder output as detections, where `track_id=0` is permitted. It
-resets the tracker when the source epoch changes, supplies monotonic process time and the
+resets the tracker on the first epoch and each strictly newer source epoch; a stale epoch
+is rejected rather than reset backward. It supplies monotonic process time and the
 explicit source-gap flag, then validates the returned batch as tracked observations where
 every track ID must be nonzero. Publication is transactional: an error never overwrites
 the caller's prior tracked batch.

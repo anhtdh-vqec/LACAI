@@ -135,5 +135,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/attribute_reader.md before changing attribute validation or freshness.
   Feature algorithms emit configuration-bounded neutral events through feature_processor_port;
   read docs/architecture/feature_event_contract.md before changing feature output semantics.
+  feature_stage validates processor output and faults ambiguous epochs; read
+  docs/architecture/feature_stage.md before changing feature orchestration.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.

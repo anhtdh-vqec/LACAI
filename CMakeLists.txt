@@ -60,6 +60,13 @@ target_include_directories(vqec_vision_ai_attributes PUBLIC
 target_link_libraries(vqec_vision_ai_attributes PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_attributes PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_feature_runtime STATIC
+    src/runtime/feature_manager/vqec_vision_feature_stage.cpp)
+target_include_directories(vqec_vision_ai_feature_runtime PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
+target_link_libraries(vqec_vision_ai_feature_runtime PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_feature_runtime PROPERTIES CXX_EXTENSIONS OFF)
+
 if(VQEC_VISION_AI_ENABLE_MODEL_CATALOG)
     add_library(vqec_vision_ai_model_catalog_config STATIC
         src/runtime/model_registry/vqec_vision_model_catalog.cpp)
@@ -253,6 +260,14 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_stage_test
+        tests/contract/vqec_vision_feature_stage_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_stage_test
+        PRIVATE vqec_vision_ai_feature_runtime)
+    target_include_directories(vqec_vision_ai_feature_stage_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
+    set_target_properties(vqec_vision_ai_feature_stage_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_stage_contract COMMAND vqec_vision_ai_feature_stage_test)
     add_executable(vqec_vision_ai_feature_processor_test
         tests/contract/vqec_vision_feature_processor_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_processor_test PRIVATE vqec_vision_ai_core)

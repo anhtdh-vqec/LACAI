@@ -26,9 +26,11 @@ status tracking_stage::vqec_vision_ai_track_trkst_process(
         _now_monotonic_ns < last_now_monotonic_ns_) {
         return {status_code::invalid_argument, "tracking stage requires monotonic time"};
     }
-    last_now_monotonic_ns_ = _now_monotonic_ns;
     const auto incoming_epoch = _detections.frame_.source_epoch_;
     if (incoming_epoch != source_epoch_) {
+        if (source_epoch_ != 0 && incoming_epoch < source_epoch_) {
+            return {status_code::invalid_state, "tracking stage rejected a stale source epoch"};
+        }
         const auto reset = tracker_.vqec_vision_ai_ports_trker_reset_epoch(incoming_epoch);
         if (reset.code_ != status_code::ok) {
             is_faulted_ = true;
@@ -39,6 +41,7 @@ status tracking_stage::vqec_vision_ai_track_trkst_process(
     } else if (is_faulted_) {
         return {status_code::invalid_state, "tracker is faulted for the current epoch"};
     }
+    last_now_monotonic_ns_ = _now_monotonic_ns;
     observation_batch candidate;
     status updated;
     try {

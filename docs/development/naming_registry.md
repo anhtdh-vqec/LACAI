@@ -225,6 +225,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/perception/detection/vqec_vision_tensor_reader.cpp | tnrd | vqec_vision_ai_detec_tnrd_ |
 | src/perception/tracking/vqec_vision_tracking_stage.cpp | trkst | vqec_vision_ai_track_trkst_ |
 | src/perception/attributes/vqec_vision_attribute_reader.cpp | atrdr | vqec_vision_ai_attr_atrdr_ |
+| src/runtime/feature_manager/vqec_vision_feature_stage.cpp | ftstg | vqec_vision_ai_ftmgr_ftstg_ |
 | tests/unit/vqec_vision_inference_plan_test.cpp | iptst | vqec_vision_ai_unit_iptst_ |
 | include/vqec/vision/ai/contracts/vqec_vision_application_composition.hpp | acomp | vqec_vision_ai_cntr_acomp_ |
 | include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp | mddec | vqec_vision_ai_cntr_mddec_ |
@@ -238,6 +239,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_feature_event_test.cpp | fetst | vqec_vision_ai_unit_fetst_ |
 | include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |
 | tests/contract/vqec_vision_feature_processor_test.cpp | fpct | vqec_vision_ai_ctest_fpct_ |
+| tests/contract/vqec_vision_feature_stage_test.cpp | fsct | vqec_vision_ai_ctest_fsct_ |
 | tests/contract/vqec_vision_overlay_preparation_test.cpp | oprct | vqec_vision_ai_ctest_oprct_ |
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |

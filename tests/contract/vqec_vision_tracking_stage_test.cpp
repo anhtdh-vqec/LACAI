@@ -88,5 +88,9 @@ int main() {
     assert(stage.vqec_vision_ai_track_trkst_process(detections, 15, false, tracked).code_ ==
            status_code::ok);
     assert(tracker.reset_count_ == 3U);
+    detections = vqec_vision_ai_ctest_tstgt_make_detections(2);
+    assert(stage.vqec_vision_ai_track_trkst_process(detections, 16, false, tracked).code_ ==
+           status_code::invalid_state);
+    assert(tracker.reset_count_ == 3U);
     return 0;
 }
