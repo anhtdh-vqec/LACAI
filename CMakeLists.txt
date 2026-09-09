@@ -48,7 +48,8 @@ target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_detection PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_tracking STATIC
-    src/perception/tracking/vqec_vision_tracking_stage.cpp)
+    src/perception/tracking/vqec_vision_tracking_stage.cpp
+    src/perception/tracking/vqec_vision_tracker_registry.cpp)
 target_include_directories(vqec_vision_ai_tracking PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/tracking>)
 target_link_libraries(vqec_vision_ai_tracking PUBLIC vqec_vision_ai_core)
@@ -325,6 +326,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME feature_activation_manager_contract
         COMMAND vqec_vision_ai_feature_activation_manager_test)
+    add_executable(vqec_vision_ai_tracker_registry_test
+        tests/contract/vqec_vision_tracker_registry_test.cpp)
+    target_link_libraries(vqec_vision_ai_tracker_registry_test
+        PRIVATE vqec_vision_ai_tracking)
+    set_target_properties(vqec_vision_ai_tracker_registry_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME tracker_registry_contract
+        COMMAND vqec_vision_ai_tracker_registry_test)
     if(TARGET vqec_vision_ai_feature_catalog_config)
         add_executable(vqec_vision_ai_feature_catalog_loader_test
             tests/unit/vqec_vision_feature_catalog_loader_test.cpp)
@@ -696,6 +705,7 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_feature_catalog_test
         vqec_vision_ai_feature_runtime vqec_vision_ai_feature_processor_registry_test
         vqec_vision_ai_feature_activation_manager_test
+        vqec_vision_ai_tracker_registry_test
         vqec_vision_ai_feature_catalog_config vqec_vision_ai_feature_catalog_loader_test
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test

@@ -97,6 +97,9 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   resource and model-dependency gates before creating one owned processor and stage per
   source/feature association; read docs/architecture/feature_activation_manager.md
   before changing activation policy.
+  Tracker implementations are resolved through the bounded tracker_registry and must
+  remain behind tracker_port; read docs/architecture/tracker_registry.md before adding
+  tracker composition or ownership.
   Per-source model cadence is fixed-capacity rational phase arithmetic; read
   docs/architecture/model_cadence.md before changing frame selection or skip policy.
   Multi-model RAW fan-out receives once, uses fixed 16-slot storage and shares one frame
