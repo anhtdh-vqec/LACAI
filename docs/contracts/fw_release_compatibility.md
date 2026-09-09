@@ -18,7 +18,7 @@ Source paths in this document are relative to that FW repository, not this repo.
 | FW05 | detect0/detect1 rings and v4 shared-memory ABI | guarded ring adapter source exists; runtime/open integration missing | Released RTSP reader consumes new writer without modification |
 | FW06 | Consumer demand enables frame submission to preview encoder; inference is independent | output runtime missing | Cold boot, no viewer, first/last viewer, dead reader; main/sub unaffected |
 | FW07 | AI D-Bus model methods/signal and persisted task config | compatibility server missing | Request/reply/signal fixtures + restart persistence and failure cases |
-| FW08 | cameraai_app executable, bundle working directory, unique lease and ring per instance | service/package missing | Existing launcher starts/stops new executable with compatible arguments |
+| FW08 | LACAI executable `vqec_ai_vision_applications`, package manifest, unique lease and ring per instance | service/package missing | Launcher resolves executable and runtime values from the versioned manifest |
 | FW09 | Effective input profile changes rebuild media adapters; stale frame drain keeps live edge | session supervisor and model cadence source exist; profile/reconnect recovery missing | Resolution/FPS changes and source restart do not leak leases or reuse stale results |
 
 ## Camera input and ownership
@@ -114,9 +114,10 @@ application/ai_app/ai_models/ai_pipeline.json; shared/common/src/rpc_endpoint_ca
 
 ## Deployment and next-stage inputs
 
-Preserve launcher-visible cameraai_app, default ai_pipeline.json/model-relative paths,
-camera selection, output-ring selection, consumer identity and shutdown behavior.
-Inventory exact CLI flags before writing main; do not rename binary with the source prefix.
+Launch `vqec_ai_vision_applications` through a versioned package/deployment manifest.
+Do not hardcode executable paths, camera selection, profile, output ring, consumer identity
+or model-relative paths in FW. The manifest supplies these values and defines migration
+compatibility. Inventory exact CLI flags before composing the service.
 Evidence: scripts/run_services.py, application/ai_app/README.md and apps/dmabuf_main.cpp.
 
 FW BSP/FW software review requests (not implemented here):

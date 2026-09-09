@@ -14,7 +14,7 @@ see [source lifecycle](docs/architecture/camera_source_lifecycle.md).
 FD-to-GstMemory wrapping is now source-delivered; see
 [memory bridge contract](docs/architecture/dmabuf_memory_bridge.md).
 Submission/result/drain source is present; hardware completion validation and a runnable
-end-to-end cameraai_app are still pending. Current status is maintained in
+end-to-end vqec_ai_vision_applications are still pending. Current status is maintained in
 [implementation status](docs/development/implementation_status.md).
 
 Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
@@ -72,7 +72,7 @@ encoder ledger/preparation/submit/drain helpers, authorized event dispatch và o
 FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
 CMake targets và unit/contract-test source đã có; chưa có kết quả build/C++ tests.
 Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
-service cameraai_app/IPK, CI chạy tự động hoặc AST naming checker.
+service vqec_ai_vision_applications/IPK, CI chạy tự động hoặc AST naming checker.
 Structural filename checker đã có. Xem bảng kiểm kê source và phần thiếu tại
 [implementation status](docs/development/implementation_status.md).
 Không có model, dữ liệu khuôn mặt, key/license thật hay vendor binary trong Git.

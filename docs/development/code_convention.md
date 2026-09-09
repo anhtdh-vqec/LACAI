@@ -14,7 +14,7 @@ Header/source pairs use the same logical name. Rename includes, CMake references
 tests and documentation together; do not leave duplicate forwarding headers silently.
 Public header path changes require downstream rebuild/migration; no stable installed
 SDK is delivered yet. This change does not rename wire keys, D-Bus methods, ring IDs,
-RTSP paths, CMake targets or the required external executable `cameraai_app`.
+RTSP paths, CMake targets or the required external executable `vqec_ai_vision_applications`.
 
 Finite file-category exceptions: Markdown documents (including README.md/AGENTS.md),
 tool-defined configuration/build names (CMakeLists.txt, dotfiles), manifests/config

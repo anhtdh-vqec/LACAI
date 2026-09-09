@@ -25,7 +25,8 @@ or depend on FW-private headers. LACAI must not modify FW-owned RAW memory in pl
 
 ## Input and lease contract
 
-The baseline endpoint is `StartStream`/`StopStream` on Camera1:
+The FW must expose a versioned Camera control endpoint. The current legacy
+`StartStream`/`StopStream` on Camera1 is a migration compatibility path:
 
 - bus `com.vnpt.camera.Camera`, object `/com/vnpt/camera/Camera`, interface `Camera1`;
 - request identifies `camera_id`, `channel_id`, `stream_id=third`, `transport=dmabuf`,
@@ -35,10 +36,12 @@ The baseline endpoint is `StartStream`/`StopStream` on Camera1:
   and consumer identity;
 - a restart invalidates old handles and requires a new acquisition.
 
-FW exports one logical source through the existing RAW transport: Unix `SOCK_SEQPACKET`,
-one 104-byte metadata packet plus one `SCM_RIGHTS` FD, and an 8-byte `buf_id` ACK.
-Metadata includes dimensions, format, plane count, offset/stride/size, memory bounds and
-timestamps. The current camera-0 socket is `/tmp/camera_ai/0_third_ai.sock`.
+FW exports each admitted logical source through a versioned RAW transport negotiated at
+activation. The legacy transport is Unix `SOCK_SEQPACKET`, one 104-byte metadata packet
+plus one `SCM_RIGHTS` FD, and an 8-byte `buf_id` ACK. Metadata includes dimensions,
+format, plane count, offset/stride/size, memory bounds and timestamps. Socket paths,
+packet sizes and ACK formats come from the negotiated descriptor; no camera number,
+profile, path or byte size may be hardcoded.
 
 The producer must cap each consumer at four unacknowledged buffers and drop new frames
 when that bound is reached. It must bound slow-client handling and keep one client from
@@ -51,10 +54,14 @@ completion signal and recovery behavior. A received FD is not evidence of zero-c
 
 ## Output contract
 
-LACAI writes H264 byte-stream access units to the released version-4 shared rings:
+LACAI writes H264 byte-stream access units to sinks selected by the active versioned
+output registry. The current legacy mapping is:
 
 - `encoded_ai_detect0_cam0_ch0` → `/live/ai/detect0`;
 - `encoded_ai_detect1_cam0_ch0` → `/live/ai/detect1`.
+
+These identifiers are compatibility examples, not LACAI defaults. New deployments resolve
+ring ID, mount, geometry, capacity and generation from the output registry.
 
 The ring ABI, sequence/seqlock, consumer registration, wakeup, keyframe and SPS/PPS
 behavior must remain compatible. Exactly one writer owns each ring. FW must advertise
@@ -72,9 +79,10 @@ The replacement must retain the existing AI1 endpoint:
 - `ListModels()`;
 - `ModelStateChanged(task, enabled)`.
 
-Fields remain string-valued as currently defined. Existing launcher-visible executable
-name `cameraai_app`, configuration location and consumer identity remain compatible during
-migration. FW must provide one control owner and must not assume one process per feature.
+Fields remain string-valued as currently defined. The LACAI executable is
+`vqec_ai_vision_applications`; FW must launch it through a versioned package/deployment
+manifest and must not hardcode its path, profile, ring or consumer identity. FW must
+provide one control owner and must not assume one process per feature.
 
 ## Acceptance gates
 

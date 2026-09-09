@@ -85,7 +85,7 @@ not establish end-to-end zero-copy or hardware completion.
   Crypto. FW ring requires an existing version-pinned SDK target. CMake does not acquire a
   sibling source tree or download these dependencies.
 - The optional `vqec_vision_ai_manifest_check` executable checks metadata only. There is
-  no `cameraai_app` service entrypoint/target, installed IPK or active CI workflow.
+  no `vqec_ai_vision_applications` service entrypoint/target, installed IPK or active CI workflow.
 - Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.

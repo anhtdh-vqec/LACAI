@@ -10,7 +10,7 @@ before broadening features. No additional vendor backend is claimed implemented.
 | R1 | Neutral preview/overlay/encoded-AU contracts, fixtures, pinned FW SDK agreement | Lead + runtime engineer | FW03–FW05 reviewed; no Gst/shared-ring ABI leaks into core |
 | R2 | Bounded writable preview surfaces, renderer/encoder adapter, FW ring writer | Qualcomm engineer | Released RTSP reads deterministic synthetic overlays; no early ACK |
 | R3 | Approved detector kit + decoder + geometry + tracking + cadence split | Model integration engineer | Golden results; preview independent of inference backpressure |
-| R4 | Single cameraai_app main, config migration, legacy D-Bus, profile/reconnect supervisor | Runtime engineer | FW01–FW09, real UI first-viewer and restart scenarios pass |
+| R4 | Single vqec_ai_vision_applications main, config migration, legacy D-Bus, profile/reconnect supervisor | Runtime engineer | FW01–FW09, real UI first-viewer and restart scenarios pass |
 | R5 | Packaging, permissions, install/rollback, board fault/performance/soak | Lead + FW owners | Jointly signed workload and release report |
 | R6 | Shared perception + 13 feature/attribute scopes; traffic extension | Whole team | Model/dataset/business acceptance per feature |
 
@@ -30,7 +30,7 @@ and current CMake targets; no C++ build or device test has been performed.
 | Encoder | Neutral backend port, correlated ledger, sealed input submission/drain helpers, event polling/handling and immutable AU owner | Actual backend pipeline, sealed owner retention, input/result callbacks, bus faults, EOS/drain and quarantined hardware ownership |
 | Ring delivery | SDK options/header mapper, borrowed ring_sink, dispatch, ID issuer | Single-writer ownership, startup open, long-lived ring binding, ID publication, explicit migration policy and first-viewer RTSP test |
 | AI control | Camera client only; fw_control is README | Released AI D-Bus server methods/signals, task config persistence, one control owner; no invented license grants |
-| Runtime | Acquisition composition, bounded 1..16-source deployment loader, fixed-index activation snapshot, RAW-reference resolver, cadence, multi-model session/fan-out and bounded round-robin supervisor | authenticated FW registry/owner construction, per-source executors, cameraai_app entrypoint, preview/inference cadence split, board capability admission and health |
+| Runtime | Acquisition composition, bounded 1..16-source deployment loader, fixed-index activation snapshot, RAW-reference resolver, cadence, multi-model session/fan-out and bounded round-robin supervisor | authenticated FW registry/owner construction, per-source executors, vqec_ai_vision_applications entrypoint, preview/inference cadence split, board capability admission and health |
 | Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, concrete observations/tracking/attributes and authenticated model loading composition |
 | Features | Thirteen feature directories and traffic contain READMEs | Shared perception contracts and feature lifecycle/dependency/entitlement integration; no claim features are implemented |
 | Delivery | Packaging/config README placeholders | Yocto/IPK metadata, launcher compatibility, permissions, upgrade/rollback and package tests |
