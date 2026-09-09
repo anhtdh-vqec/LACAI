@@ -133,5 +133,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   before changing tracker orchestration.
   Feature algorithms use exact schema/version attribute lookup; read
   docs/architecture/attribute_reader.md before changing attribute validation or freshness.
+  Feature algorithms emit configuration-bounded neutral events through feature_processor_port;
+  read docs/architecture/feature_event_contract.md before changing feature output semantics.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.

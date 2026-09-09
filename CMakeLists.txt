@@ -30,7 +30,8 @@ add_library(vqec_vision_ai_core STATIC
     src/core/vqec_vision_encoder_window.cpp src/core/vqec_vision_preview_pool.cpp
     src/core/vqec_vision_encoded_output.cpp src/core/vqec_vision_output_generation.cpp
     src/core/vqec_vision_encoder_contract.cpp src/core/vqec_vision_observation.cpp
-    src/core/vqec_vision_deployment_config.cpp src/core/vqec_vision_model_catalog.cpp)
+    src/core/vqec_vision_deployment_config.cpp src/core/vqec_vision_model_catalog.cpp
+    src/core/vqec_vision_feature_event.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -252,6 +253,16 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_processor_test
+        tests/contract/vqec_vision_feature_processor_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_processor_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_feature_processor_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_processor_contract COMMAND vqec_vision_ai_feature_processor_test)
+    add_executable(vqec_vision_ai_feature_event_test
+        tests/unit/vqec_vision_feature_event_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_event_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_feature_event_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_event_contract COMMAND vqec_vision_ai_feature_event_test)
     add_executable(vqec_vision_ai_attribute_reader_test
         tests/contract/vqec_vision_attribute_reader_test.cpp)
     target_link_libraries(vqec_vision_ai_attribute_reader_test
