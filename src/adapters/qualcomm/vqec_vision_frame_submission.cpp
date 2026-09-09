@@ -46,7 +46,8 @@ status vqec_vision_ai_qcom_frsub_push_frame(
     }
     prepared_submission prepared{_window, {}};
     const auto reserved = _window.vqec_vision_ai_core_subwn_reserve(
-        _descriptor.session_epoch_, _descriptor.pts_ns_, _steady_now_ns, prepared.ticket_);
+        _descriptor.session_epoch_, _descriptor.buffer_id_, _descriptor.pts_ns_,
+        _steady_now_ns, prepared.ticket_);
     if (reserved.code_ != status_code::ok) {
         return reserved;
     }

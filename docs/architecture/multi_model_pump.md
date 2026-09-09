@@ -38,7 +38,8 @@ coherence, hardware completion or end-to-end zero-copy on a board.
   must stop acquisition, drain all graphs and reconcile the FW lease.
 
 The report includes due/submitted/busy masks, one indexed ticket per accepted graph, the
-single result slot/ticket and an error slot. It contains no model strings and allocates no
+single result slot/ticket and an error slot. Each ticket preserves source epoch/frame
+ID/PTS as well as the mapped pipeline PTS. It contains no model strings and allocates no
 container on the frame path. Tensor extraction remains owned by each graph adapter and
 currently may allocate/copy in the Qualcomm implementation.
 

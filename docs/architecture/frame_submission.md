@@ -37,6 +37,11 @@ correlation/bookkeeping only; it cannot establish that proof. Duplicate results 
 stale tokens fail. A record can be reset only after both events; repeated input polling
 is idempotent. Fault/timeout stops new admission without cancelling existing work.
 
+The retained ticket carries the RAW descriptor's session epoch, buffer ID as source frame
+ID, original source PTS and mapped pipeline PTS. Result consumers reconstruct frame
+identity from these recorded values plus activation-time camera/channel identity; they
+must not infer source identity from pipeline PTS.
+
 Do not destroy the appsrc/pipeline to manufacture input completion. The helper owns
 neither the graph nor its shutdown. Graph integration now provides explicit retained
 fault state, drain gates and a four-slot retention domain. Direct callers of this

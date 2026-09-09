@@ -41,6 +41,8 @@ status vqec_vision_ai_core_encct_validate_input(
     const auto& ticket = _input.ticket_;
     if (!_input.pixels_ || frame.source_epoch_ == 0 || frame.source_pts_ns_ == UINT64_MAX ||
         ticket.token_.cycle_id_ == 0 || ticket.token_.job_id_ == 0 ||
+        ticket.source_epoch_ != frame.source_epoch_ ||
+        ticket.source_frame_id_ != frame.frame_id_ ||
         ticket.source_pts_ns_ != frame.source_pts_ns_ || ticket.pipeline_pts_ns_ == UINT64_MAX ||
         _input.dispatch_generation_ == 0 || _expected_generation == 0 ||
         geometry.width_ == 0 || geometry.height_ == 0 ||
@@ -58,6 +60,8 @@ status vqec_vision_ai_core_encct_validate_input(
         geometry.height_ != _expected_geometry.height_ ||
         ticket.token_.cycle_id_ != _expected_ticket.token_.cycle_id_ ||
         ticket.token_.job_id_ != _expected_ticket.token_.job_id_ ||
+        ticket.source_epoch_ != _expected_ticket.source_epoch_ ||
+        ticket.source_frame_id_ != _expected_ticket.source_frame_id_ ||
         ticket.source_pts_ns_ != _expected_ticket.source_pts_ns_ ||
         ticket.pipeline_pts_ns_ != _expected_ticket.pipeline_pts_ns_ ||
         _input.dispatch_generation_ != _expected_generation) {

@@ -18,7 +18,7 @@ int main() {
     check(window.vqec_vision_ai_core_encwn_configure(config).code_ == status_code::ok);
     check(window.vqec_vision_ai_core_encwn_configure(config).code_ == status_code::invalid_state);
     preview_frame_key frame{0, 0, 1, 42, 10};
-    submission_ticket ticket{{99, 99}, 99, 99};
+    submission_ticket ticket{{99, 99}, 99, 99, 99, 99};
     check(window.vqec_vision_ai_core_encwn_reserve(frame, false, 0, ticket).code_ ==
         status_code::pending);
     check(ticket.token_.job_id_ == 99 && window.vqec_vision_ai_core_encwn_reserved_bytes() == 0);

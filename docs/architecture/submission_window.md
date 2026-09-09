@@ -29,16 +29,18 @@ Frame owners remain in backend/GstMemory until actual last input read completion
 the ledger is deliberately not their resource owner. Destroying the ledger is not
 a resource cancellation mechanism. Its owner must reconcile jobs first.
 
-Source timestamps must be present and strictly increasing among accepted jobs.
-Missing, repeated, backward, stale epoch or overflow timestamps are rejected;
+Every accepted ticket preserves the exact source epoch, source frame ID and source PTS
+supplied with the reservation. Source timestamps must be present and strictly increasing
+among accepted jobs. Missing, repeated, backward, stale epoch or overflow timestamps are rejected;
 no fabricated cadence or receive-time fallback. This is a single-source raw image
 policy, not a generic reordered/B-frame video policy. Rejected reservations do not
 advance the clock. Canceled reservations leave a permitted time gap.
 
 The caller supplies the graph running-time anchor after graph clock/base time are
 known. First accepted source PTS maps to that anchor; later PTS maps to anchor plus
-source delta with checked arithmetic. Original source PTS remains in the ticket for
-correlation. This establishes relative timing, not UTC/capture-time accuracy. No
+source delta with checked arithmetic. Original source epoch/frame ID/PTS remain in the
+ticket for decoder and output correlation. This establishes relative timing, not
+UTC/capture-time accuracy. No
 wall clock is used. A separate steady-clock value is used for deadline checks and
 must never be compared directly against source/pipeline timestamps.
 

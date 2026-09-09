@@ -35,7 +35,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 
 | Area / source owner | Delivered source behavior | Remaining boundary |
 |---|---|---|
-| `src/core/`, `include/vqec/vision/ai/contracts/` | Status, explicit frame/tensor metadata, inference/source-binding validation, submission ledger, observation validation, output policy, preview and encoder contracts | Portable detection decoder, tracker and feature algorithms; device completion evidence |
+| `src/core/`, `include/vqec/vision/ai/contracts/` | Status, explicit frame/tensor metadata, inference/source-binding validation, source-frame-correlated submission ledger, observation/feature-event validation, output policy, preview and encoder contracts | Concrete decoder/tracker/feature algorithms; device completion evidence |
 | `include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp` | Neutral model-decoder port keeps model output identity and expected frame key at the tensor-to-observation boundary; contract test source is registered in CMake | Concrete detector decoders, model-specific geometry/NMS and tensor-to-observation implementation |
 | `src/perception/detection/vqec_vision_model_decode_stage.cpp` | Transactional portable decoder stage validates decoded observations before publication | Concrete model decoder registry and detector geometry/NMS semantics |
 | `src/perception/detection/vqec_vision_model_decoder_registry.cpp` | Bounded activation-time mapping from catalog decoder contracts to non-owning decoder ports; validates output-manifest identity through the selected decoder | Trusted decoder loading, lifecycle ownership and concrete model implementations |

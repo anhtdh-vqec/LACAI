@@ -128,7 +128,7 @@ status encoder_window::vqec_vision_ai_core_encwn_reserve(
     }
     submission_ticket ticket;
     const auto result = ledger_.vqec_vision_ai_core_subwn_reserve(
-        _frame.source_epoch_, _frame.source_pts_ns_, _now_ns, ticket);
+        _frame.source_epoch_, _frame.frame_id_, _frame.source_pts_ns_, _now_ns, ticket);
     if (result.code_ != status_code::ok) {
         return result;
     }
@@ -193,7 +193,8 @@ status encoder_window::vqec_vision_ai_core_encwn_begin_input(
         return {status_code::invalid_state, "encoder input has no reservation"};
     }
     const submission_ticket expected_ticket{
-        item->token_, item->frame_.source_pts_ns_, item->pipeline_pts_ns_};
+        item->token_, item->frame_.source_epoch_, item->frame_.frame_id_,
+        item->frame_.source_pts_ns_, item->pipeline_pts_ns_};
     const auto valid = vqec_vision_ai_core_encct_validate_input(
         _input, item->frame_, config_.geometry_, expected_ticket, _expected_generation);
     if (valid.code_ != status_code::ok) {

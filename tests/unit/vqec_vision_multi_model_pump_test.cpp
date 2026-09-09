@@ -131,6 +131,8 @@ public:
         owner_ = _frame.owner_;
         ticket_.token_.cycle_id_ = cycle_id_;
         ticket_.token_.job_id_ = _frame.descriptor_.buffer_id_;
+        ticket_.source_epoch_ = _frame.descriptor_.session_epoch_;
+        ticket_.source_frame_id_ = _frame.descriptor_.buffer_id_;
         ticket_.source_pts_ns_ = _frame.descriptor_.pts_ns_;
         ticket_.pipeline_pts_ns_ = _frame.descriptor_.pts_ns_;
         _ticket = ticket_;
@@ -256,6 +258,10 @@ int main() {
           status_code::ok);
     check(source.receive_calls_ == 1 && report.due_model_mask_ == 3 &&
           report.submitted_model_mask_ == 3 && report.busy_model_mask_ == 0);
+    check(report.submitted_tickets_[0].source_epoch_ == 1 &&
+          report.submitted_tickets_[0].source_frame_id_ == 1 &&
+          report.submitted_tickets_[1].source_epoch_ == 1 &&
+          report.submitted_tickets_[1].source_frame_id_ == 1);
     check(first.arm_calls_ == 1 && second.arm_calls_ == 1 &&
           first.submit_calls_ == 1 && second.submit_calls_ == 1);
     check(first.vqec_vision_ai_unit_mmpst_get_owner() ==

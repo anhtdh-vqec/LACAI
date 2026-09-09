@@ -12,7 +12,7 @@ int main() {
     };
     const preview_frame_key frame{0, 0, 1, 0, 0};
     const preview_geometry geometry{4, 2};
-    const submission_ticket ticket{{1, 1}, 0, 0};
+    const submission_ticket ticket{{1, 1}, 1, 0, 0, 0};
     encoder_input input{frame, geometry, ticket, 7,
         std::make_shared<const std::vector<std::uint8_t>>(12)};
     const auto validate = [&]() {
@@ -24,6 +24,12 @@ int main() {
     input.dispatch_generation_ = 7;
     ++input.ticket_.token_.job_id_;
     check(validate().code_ == status_code::invalid_state);
+    input.ticket_ = ticket;
+    ++input.ticket_.source_epoch_;
+    check(validate().code_ == status_code::invalid_argument);
+    input.ticket_ = ticket;
+    ++input.ticket_.source_frame_id_;
+    check(validate().code_ == status_code::invalid_argument);
     input.ticket_ = ticket;
     input.geometry_ = {2, 4}; // Same byte count, wrong shape.
     check(validate().code_ == status_code::invalid_state);

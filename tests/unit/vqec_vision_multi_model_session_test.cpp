@@ -135,6 +135,8 @@ public:
         owner_ = _frame.owner_;
         ticket_.token_.cycle_id_ = cycle_id_;
         ticket_.token_.job_id_ = _frame.descriptor_.buffer_id_;
+        ticket_.source_epoch_ = _frame.descriptor_.session_epoch_;
+        ticket_.source_frame_id_ = _frame.descriptor_.buffer_id_;
         ticket_.source_pts_ns_ = _frame.descriptor_.pts_ns_;
         ticket_.pipeline_pts_ns_ = _frame.descriptor_.pts_ns_;
         _ticket = ticket_;

@@ -22,6 +22,8 @@ struct submission_token {
 
 struct submission_ticket {
     submission_token token_;
+    std::uint64_t source_epoch_{0};
+    std::uint64_t source_frame_id_{0};
     std::uint64_t source_pts_ns_{0};
     std::uint64_t pipeline_pts_ns_{0};
 };
@@ -43,7 +45,8 @@ public:
     submission_window& operator=(const submission_window&) = delete;
     [[nodiscard]] status vqec_vision_ai_core_subwn_configure(const submission_config& _config);
     [[nodiscard]] status vqec_vision_ai_core_subwn_reserve(
-        std::uint64_t _source_epoch, std::uint64_t _source_pts_ns,
+        std::uint64_t _source_epoch, std::uint64_t _source_frame_id,
+        std::uint64_t _source_pts_ns,
         std::uint64_t _steady_now_ns, submission_ticket& _ticket);
     [[nodiscard]] status vqec_vision_ai_core_subwn_commit(submission_token _token);
     [[nodiscard]] status vqec_vision_ai_core_subwn_cancel_reserved(submission_token _token);

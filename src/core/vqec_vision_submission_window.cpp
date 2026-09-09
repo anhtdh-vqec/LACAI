@@ -17,6 +17,7 @@ status submission_window::vqec_vision_ai_core_subwn_configure(const submission_c
 }
 
 status submission_window::vqec_vision_ai_core_subwn_reserve(std::uint64_t _source_epoch,
+                                                            std::uint64_t _source_frame_id,
                                                             std::uint64_t _source_pts_ns,
                                                             std::uint64_t _steady_now_ns,
                                                             submission_ticket& _ticket) {
@@ -50,6 +51,8 @@ status submission_window::vqec_vision_ai_core_subwn_reserve(std::uint64_t _sourc
     available->job_id_ = next_job_id_++;
     available->deadline_ns_ = _steady_now_ns + config_.job_timeout_ns_;
     _ticket = {{config_.cycle_id_, available->job_id_},
+               _source_epoch,
+               _source_frame_id,
                _source_pts_ns,
                config_.pipeline_anchor_ns_ + delta};
     return {};

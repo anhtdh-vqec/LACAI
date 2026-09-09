@@ -25,7 +25,8 @@ holds an extra unsubmitted frame across calls. No-data timeout maps to pending.
 Submit failures report whether a ticket was committed; a failure is latched and stops
 future receives. Rejected unsubmitted frames may release normally. Outstanding work
 is still polled after a fault, but its outputs are not published by the pump.
-Successful result output includes the stored source/pipeline/job ticket for correlation.
+Successful result output includes the stored source epoch/frame ID/source PTS plus
+pipeline/job ticket for correlation.
 The report is reset on every call; tensor output is modified only when has_result is true.
 
 begin_stop permanently stops receives, without a RPC or forced graph teardown.

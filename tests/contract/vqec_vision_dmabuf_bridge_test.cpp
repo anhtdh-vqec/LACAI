@@ -68,6 +68,8 @@ int main() {
     descriptor.view_size_bytes_ = 1024;
     descriptor.memory_offset_bytes_ = 128;
     descriptor.allocation_size_bytes_ = 4096;
+    descriptor.buffer_id_ = 7;
+    descriptor.session_epoch_ = 1;
     descriptor.pts_ns_ = 123456;
     descriptor.duration_ns_ = 40000000;
     dmabuf_bridge_profile profile{32, 8, 4096};
@@ -97,11 +99,20 @@ int main() {
     std::unique_ptr<vqec::vision::ai::read_completion> completion;
     if (window.vqec_vision_ai_core_subwn_configure({42, 1, 200000, 100, 1}).code_ !=
             status_code::ok ||
-        window.vqec_vision_ai_core_subwn_reserve(1, descriptor.pts_ns_, 0, ticket).code_ !=
+        window.vqec_vision_ai_core_subwn_reserve(
+            1, descriptor.buffer_id_, descriptor.pts_ns_, 0, ticket).code_ !=
             status_code::ok) {
         return 1;
     }
     auto wrong_ticket = ticket;
+    wrong_ticket.source_frame_id_++;
+    if (vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
+            descriptor, original_fd, owner, profile, wrong_ticket,
+            buffers.original_, completion).code_ != status_code::invalid_argument ||
+        buffers.original_ != nullptr || completion) {
+        return 1;
+    }
+    wrong_ticket = ticket;
     wrong_ticket.source_pts_ns_++;
     if (vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
             descriptor, original_fd, owner, profile, wrong_ticket,

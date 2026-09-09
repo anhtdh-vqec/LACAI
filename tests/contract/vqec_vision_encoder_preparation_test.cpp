@@ -51,7 +51,7 @@ int main() {
     check(pool.vqec_vision_ai_core_pvpol_configure({4, 2}, 1, 12).code_ == status_code::ok);
     writable_preview_surface writer;
     preview_frame_key frame{0, 0, 1, 1, 10};
-    submission_ticket ticket{{9, 9}, 9, 9};
+    submission_ticket ticket{{9, 9}, 9, 9, 9, 9};
     check(vqec_vision_ai_appl_enprp_prepare_input(window, pool, frame, false, 0, ticket, writer).code_ ==
         status_code::pending);
     check(ticket.token_.job_id_ == 9 && pool.vqec_vision_ai_core_pvpol_available() == 1);
@@ -131,7 +131,7 @@ int main() {
     check(preparation.vqec_vision_ai_appl_enprp_prepare(pool, frame, true, 1).code_ ==
         status_code::ok);
     auto occupied = std::make_shared<const std::vector<std::uint8_t>>(1);
-    submission_ticket handed_ticket{{99, 99}, 99, 99};
+    submission_ticket handed_ticket{{99, 99}, 99, 99, 99, 99};
     check(preparation.vqec_vision_ai_appl_enprp_commit_input(handed_ticket, occupied).code_ ==
         status_code::invalid_state);
     check(handed_ticket.token_.job_id_ == 99 && occupied->size() == 1);
@@ -165,7 +165,7 @@ int main() {
             stopping_window.vqec_vision_ai_core_encwn_begin_drain();
         }
         std::shared_ptr<const std::vector<std::uint8_t>> rejected_owner;
-        submission_ticket unchanged{{99, 99}, 99, 99};
+        submission_ticket unchanged{{99, 99}, 99, 99, 99, 99};
         check(stopping.vqec_vision_ai_appl_enprp_commit_input(unchanged, rejected_owner).code_ ==
             status_code::invalid_state);
         check(!rejected_owner && unchanged.token_.job_id_ == 99);

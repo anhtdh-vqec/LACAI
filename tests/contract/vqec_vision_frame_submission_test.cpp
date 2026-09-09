@@ -60,6 +60,7 @@ int main() {
     descriptor.view_size_bytes_ = 1024;
     descriptor.memory_offset_bytes_ = 128;
     descriptor.allocation_size_bytes_ = 4096;
+    descriptor.buffer_id_ = 9;
     descriptor.session_epoch_ = 7;
     descriptor.pts_ns_ = 100;
     const dmabuf_bridge_profile profile{32, 8, 4096};
@@ -115,6 +116,9 @@ int main() {
     if (push(job).code_ != status_code::ok) {
         return 1;
     }
+    const auto submitted_epoch = descriptor.session_epoch_;
+    const auto submitted_frame_id = descriptor.buffer_id_;
+    const auto submitted_pts_ns = descriptor.pts_ns_;
     check(job.vqec_vision_ai_qcom_frsub_has_submission());
     check(job.vqec_vision_ai_qcom_frsub_reset().code_ == status_code::pending);
     frame_submission excess;
@@ -126,6 +130,9 @@ int main() {
         return 1;
     }
     const auto ticket = job.vqec_vision_ai_qcom_frsub_get_ticket();
+    check(ticket.source_epoch_ == submitted_epoch &&
+          ticket.source_frame_id_ == submitted_frame_id &&
+          ticket.source_pts_ns_ == submitted_pts_ns);
     check(GST_BUFFER_PTS(gst_sample_get_buffer(fixture.sample_)) == ticket.pipeline_pts_ns_);
     std::weak_ptr<test_frame> lifetime = owner;
     check(owner.use_count() > 1);  // Sample memory, not only this test, retains the frame.

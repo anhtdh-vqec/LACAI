@@ -17,7 +17,8 @@ those separately and invoke validation before device access. Unit source is unex
 
 The caller commits encoder_window before submit. Request includes original frame,
 geometry, ticket, dispatch generation and sealed tightly packed CPU NV12 owner.
-Backend validates source/profile/cycle, nonzero generation/token, ticket source PTS
+Backend validates source/profile/cycle, nonzero generation/token, ticket source
+epoch/frame ID/PTS
 matching frame PTS, image byte count and admission before touching a device. No mutable
 borrow may survive sealing. This v1 CPU surface port is not a DMA-BUF import contract.
 

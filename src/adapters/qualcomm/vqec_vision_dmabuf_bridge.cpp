@@ -191,8 +191,10 @@ status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
     GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion) {
     if (_buffer != nullptr || _completion || !_owner || _ticket.token_.cycle_id_ == 0 ||
         _ticket.token_.job_id_ == 0 || _ticket.pipeline_pts_ns_ == UINT64_MAX ||
+        _ticket.source_epoch_ != _descriptor.session_epoch_ ||
+        _ticket.source_frame_id_ != _descriptor.buffer_id_ ||
         _ticket.source_pts_ns_ == UINT64_MAX || _ticket.source_pts_ns_ != _descriptor.pts_ns_) {
-        return {status_code::invalid_argument, "invalid output, owner or timestamp ticket"};
+        return {status_code::invalid_argument, "invalid output, owner or source ticket"};
     }
     auto observer = std::make_unique<read_completion>();
     observer->signal_ = std::make_shared<input_release_signal>();
