@@ -83,6 +83,9 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   Multi-model RAW fan-out receives once, uses fixed 16-slot storage and shares one frame
   owner across accepted graphs; read docs/architecture/multi_model_pump.md before changing
   result fairness, busy-skip policy or model submission ownership.
+  multi_model_session validates every graph before one FW acquisition and releases FW only
+  after all graphs reconcile; read docs/architecture/multi_model_session.md before changing
+  partial-start rollback, deadline or graph drain ordering.
   The optional output_manifest loader and manifest_check CLI validate metadata only.
   Read docs/architecture/model_output_manifest.md before changing schema or trust boundaries.
   The separate model_catalog loader declares model input/cadence/resource envelopes and

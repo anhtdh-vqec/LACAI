@@ -153,6 +153,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     _report.due_model_mask_ = selection.due_model_mask_;
     _report.skipped_cadence_intervals_ = selection.skipped_intervals_;
 
+    // Reserve every newly due graph before the first submit. In particular, a shared
+    // backend retention domain must fail before any graph starts reading this frame.
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         const auto bit = static_cast<std::uint16_t>(1U << slot);
         if ((selection.due_model_mask_ & bit) == 0) {
@@ -175,6 +177,15 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             }
             is_armed_[slot] = true;
         }
+    }
+
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        const auto bit = static_cast<std::uint16_t>(1U << slot);
+        if ((selection.due_model_mask_ & bit) == 0 ||
+            (_report.busy_model_mask_ & bit) != 0) {
+            continue;
+        }
+        auto& graph = *bindings_[slot].graph_;
         submission_ticket ticket;
         const auto submitted = graph.vqec_vision_ai_ports_infgr_submit_frame(
             frame, _steady_now_ns, ticket);

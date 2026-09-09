@@ -111,6 +111,10 @@ public:
         std::uint64_t _job_timeout_ns) override {
         (void)_source_epoch;
         (void)_job_timeout_ns;
+        if (!can_arm_) {
+            return {vqec::vision::ai::status_code::resource_exhausted,
+                    "fixture retention domain is full"};
+        }
         cycle_id_ = _cycle_id;
         ++arm_calls_;
         return {};
@@ -195,6 +199,7 @@ public:
     unsigned submit_calls_{0};
     bool is_outstanding_{false};
     bool is_result_ready_{false};
+    bool can_arm_{true};
 };
 
 vqec::vision::ai::model_cadence_config
@@ -304,6 +309,22 @@ int main() {
     check(stopped_pump.vqec_vision_ai_appl_mmump_pump_step(
               300, result, report).code_ == status_code::pending);
     check(stopped_source.receive_calls_ == 0);
+
+    fake_raw_source arm_source;
+    fake_inference_graph armed_graph;
+    fake_inference_graph rejected_graph;
+    rejected_graph.can_arm_ = false;
+    multi_model_pump arm_pump(arm_source);
+    const auto arm_bindings =
+        vqec_vision_ai_unit_mmpst_make_bindings(armed_graph, rejected_graph);
+    check(arm_pump.vqec_vision_ai_appl_mmump_configure(
+              cadence, arm_bindings, 2).code_ == status_code::ok);
+    arm_source.vqec_vision_ai_unit_mmpst_supply_frame(
+        1, std::make_shared<int>(11));
+    check(arm_pump.vqec_vision_ai_appl_mmump_pump_step(
+              400, result, report).code_ == status_code::resource_exhausted);
+    check(armed_graph.arm_calls_ == 1 && armed_graph.submit_calls_ == 0 &&
+          rejected_graph.submit_calls_ == 0 && report.submitted_model_mask_ == 0);
 
     fake_raw_source invalid_source;
     multi_model_pump invalid_pump(invalid_source);

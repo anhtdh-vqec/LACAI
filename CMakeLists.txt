@@ -176,6 +176,14 @@ target_link_libraries(vqec_vision_ai_multi_model_pump
     PUBLIC vqec_vision_ai_core vqec_vision_ai_scheduler)
 set_target_properties(vqec_vision_ai_multi_model_pump PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_multi_model_session STATIC
+    src/app/vqec_vision_multi_model_session.cpp)
+target_include_directories(vqec_vision_ai_multi_model_session PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_multi_model_session
+    PUBLIC vqec_vision_ai_multi_model_pump)
+set_target_properties(vqec_vision_ai_multi_model_session PROPERTIES CXX_EXTENSIONS OFF)
+
 include(CTest)
 if(VQEC_VISION_AI_ENABLE_FW_RING)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -221,6 +229,14 @@ if(BUILD_TESTING)
     set_target_properties(vqec_vision_ai_multi_model_pump_test
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME multi_model_frame_fanout COMMAND vqec_vision_ai_multi_model_pump_test)
+    add_executable(vqec_vision_ai_multi_model_session_test
+        tests/unit/vqec_vision_multi_model_session_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_model_session_test
+        PRIVATE vqec_vision_ai_multi_model_session)
+    set_target_properties(vqec_vision_ai_multi_model_session_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_model_source_lifecycle
+        COMMAND vqec_vision_ai_multi_model_session_test)
     add_executable(vqec_vision_ai_multi_source_supervisor_test
         tests/unit/vqec_vision_multi_source_supervisor_test.cpp)
     target_link_libraries(vqec_vision_ai_multi_source_supervisor_test
@@ -430,6 +446,7 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
+        vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_session_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
         vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
         vqec_vision_ai_camera_receiver_test vqec_vision_ai_raw_source_resolver_test

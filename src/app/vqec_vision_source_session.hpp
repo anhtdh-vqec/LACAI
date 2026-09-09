@@ -21,6 +21,10 @@ enum class source_session_phase {
 
 struct source_session_progress {
     std::uint16_t model_slot_{g_invalid_model_slot};
+    std::uint16_t due_model_mask_{0};
+    std::uint16_t submitted_model_mask_{0};
+    std::uint16_t busy_model_mask_{0};
+    std::uint16_t error_model_slot_{g_invalid_model_slot};
     submission_ticket ticket_;
     bool has_submission_{false};
     bool has_result_{false};

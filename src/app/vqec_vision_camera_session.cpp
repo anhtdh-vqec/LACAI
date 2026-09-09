@@ -275,6 +275,8 @@ status camera_session::vqec_vision_ai_appl_srcsn_step(
     const auto result = vqec_vision_ai_appl_camsn_step(_steady_now_ns, _result, report);
     _progress.model_slot_ = report.has_result_ || report.has_submission_ ? 0 :
         g_invalid_model_slot;
+    _progress.due_model_mask_ = report.has_submission_ ? 1 : 0;
+    _progress.submitted_model_mask_ = report.has_submission_ ? 1 : 0;
     _progress.ticket_ = report.ticket_;
     _progress.has_submission_ = report.has_submission_;
     _progress.has_result_ = report.has_result_;

@@ -23,4 +23,6 @@ docs/architecture. FW RAW-source resolution, service main and entitlement remain
 unimplemented. camera_session implements this port for one model. The separate portable
 multi_model_pump now receives one frame, applies fixed-capacity cadence and shares the owner
 with every accepting graph. It does not own graph/FW lifecycle; a multi-model source session
-remains the next orchestration slice. See docs/architecture/multi_model_pump.md.
+now supplies that orchestration: all graphs are preflighted before one FW acquisition,
+started by stable model slot, then drained/unloaded before source release. See
+docs/architecture/multi_model_pump.md and docs/architecture/multi_model_session.md.

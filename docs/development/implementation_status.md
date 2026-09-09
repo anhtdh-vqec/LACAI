@@ -36,6 +36,13 @@ queueing stale frames, and all-busy state prevents another FW receive. Fixed tic
 reporting and fake-port ownership tests were added. Graph/FW lifecycle composition remains
 for the multi-model session. Source was not compiled and tests were not executed by request.
 
+Portable multi_model_session source now validates all 1..16 graph plans/bindings/outputs,
+unique graph/cycle identities and cadence before acquiring one FW source. It starts graphs
+serially by stable model slot, delegates running work to the shared-frame fan-out pump, and
+drains/unloads every partial or running graph before releasing the FW source. Fixed health
+snapshots and expanded source progress masks support the existing multi-source supervisor.
+Fake-port lifecycle tests were added but not compiled or executed by request.
+
 Multi-source deployment contract/validator and strict bounded JSON loader source now
 represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source profiles,
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed
@@ -487,8 +494,8 @@ GstMemory wrapping, graph submit/results/drain and camera pump are source-delive
 hardware completion guarantees and live FW inference validation remain pending.
 All new source is still unbuilt. Live D-Bus and board integration have not been run.
 
-Next: implement the multi-model source lifecycle around the delivered fan-out pump, then
-authenticate/resolve activation inputs, model-output decoder/output integration and
+Next: implement authenticated composition from activation snapshot to source/graph/session
+owners, then model-output decoder/output integration and
 executable service composition; BSP recovery execution remains unimplemented. Compile and
 execute the synthetic tests when builds are requested; board ownership/fault tests and
 cross-team contract review remain mandatory before production activation.

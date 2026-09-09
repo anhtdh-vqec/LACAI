@@ -204,6 +204,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_tensor_contract_test.cpp | tctst | vqec_vision_ai_unit_tctst_ |
 | src/app/vqec_vision_camera_graph_pump.cpp | cgpmp | vqec_vision_ai_appl_cgpmp_ |
 | src/app/vqec_vision_multi_model_pump.cpp | mmump | vqec_vision_ai_appl_mmump_ |
+| src/app/vqec_vision_multi_model_session.cpp | mmses | vqec_vision_ai_appl_mmses_ |
 | src/app/vqec_vision_camera_session.cpp | camsn | vqec_vision_ai_appl_camsn_ |
 | src/app/vqec_vision_source_session.hpp | srcsn | vqec_vision_ai_appl_srcsn_ |
 | src/app/vqec_vision_multi_source_supervisor.cpp | mssup | vqec_vision_ai_appl_mssup_ |
@@ -211,6 +212,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/runtime/scheduler/vqec_vision_model_cadence.cpp | mdcad | vqec_vision_ai_sched_mdcad_ |
 | tests/unit/vqec_vision_model_cadence_test.cpp | mctst | vqec_vision_ai_unit_mctst_ |
 | tests/unit/vqec_vision_multi_model_pump_test.cpp | mmpst | vqec_vision_ai_unit_mmpst_ |
+| tests/unit/vqec_vision_multi_model_session_test.cpp | mmsts | vqec_vision_ai_unit_mmsts_ |
 | tests/contract/vqec_vision_camera_session_test.cpp | cstst | vqec_vision_ai_ctest_cstst_ |
 | tests/contract/vqec_vision_camera_graph_pump_test.cpp | cgtst | vqec_vision_ai_ctest_cgtst_ |
 | tests/unit/vqec_vision_source_binding_test.cpp | sbtst | vqec_vision_ai_unit_sbtst_ |

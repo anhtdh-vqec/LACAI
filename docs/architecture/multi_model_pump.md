@@ -32,6 +32,8 @@ coherence, hardware completion or end-to-end zero-copy on a board.
 - a due but busy graph skips the current frame and is recorded in `busy_model_mask`; it
   never creates a stale-frame backlog or burst retry;
 - cadence advances once a frame is received, including skipped/busy selections;
+- every newly due graph is armed before the first submit, so shared retention-capacity
+  rejection cannot occur after an earlier graph has already accepted that frame;
 - first hard source, cadence or graph error latches pump failure; the owning source session
   must stop acquisition, drain all graphs and reconcile the FW lease.
 
@@ -42,7 +44,7 @@ currently may allocate/copy in the Qualcomm implementation.
 
 ## Composition boundary
 
-The pump does not configure/load/start/drain/unload graphs or acquire/release FW. A future
+The pump does not configure/load/start/drain/unload graphs or acquire/release FW.
 `multi_model_session` owns that lifecycle once per source, validates each graph before the
 first FW acquisition, then supplies running owners to this pump. Per-board admission must
 reduce configured model/source counts when measured graph, memory, accelerator, encoder or

@@ -35,7 +35,9 @@ graph state changes and FW RPCs may still block for their explicitly bounded bac
 timeout; true wall-time isolation requires one serialized executor per source and will be
 added at the service-runtime layer.
 
-The report always carries the numeric source index and the source's original status. A
+The report always carries the numeric source index and the source's original status.
+Per-source progress has fixed due/submitted/busy masks plus a primary numeric model slot;
+no model string lookup is needed on the running path. A
 source-level error is isolated: its session already enters its own drain path, healthy
 slots continue to progress, and the supervisor returns `pending` rather than converting
 that source fault into a process-wide failure. The caller must publish the reported fault
@@ -69,6 +71,7 @@ from being retagged as a new source cycle.
 [RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
 transactional session-owner construction remain pending. The portable `multi_model_pump`
 now fans one received frame out to due running graphs while holding one shared lease until
-every graph releases it. The remaining source-session slice must configure/start/drain
-those graphs around one FW acquisition and expose the pump's numeric result slot through
-`source_session_port`. RTSP URI, credentials, codec and decoder state remain outside AI APP.
+every graph releases it. `multi_model_session` configures, starts and drains those graphs
+around one FW acquisition and exposes the pump's numeric result slot through
+`source_session_port`. Executable composition, live integration and recovery are still
+pending. RTSP URI, credentials, codec and decoder state remain outside AI APP.
