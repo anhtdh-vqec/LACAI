@@ -4,9 +4,9 @@
 
 namespace vqec::vision::ai {
 
-status vqec_vision_ai_outpt_ovrpr_prepare(
+status vqec_vision_ai_outpt_ovrpr_prepare_authorized(
     const observation_batch& _observations, const overlay_preparation_context& _context,
-    output_gate& _gate, overlay_batch& _overlay) {
+    output_gate& _gate, prepared_overlay& _prepared) {
     if (_context.max_age_ns_ == 0 || _context.max_age_ns_ == UINT64_MAX) {
         return {status_code::invalid_argument, "overlay freshness budget is invalid"};
     }
@@ -41,8 +41,23 @@ status vqec_vision_ai_outpt_ovrpr_prepare(
     if (valid_overlay.code_ != status_code::ok) {
         return valid_overlay;
     }
-    _overlay = std::move(candidate);
+    prepared_overlay candidate_prepared;
+    candidate_prepared.overlay_ = std::move(candidate);
+    candidate_prepared.rendered_scopes_.push_back(authorization);
+    std::swap(_prepared, candidate_prepared);
     return {};
+}
+
+status vqec_vision_ai_outpt_ovrpr_prepare(
+    const observation_batch& _observations, const overlay_preparation_context& _context,
+    output_gate& _gate, overlay_batch& _overlay) {
+    prepared_overlay prepared;
+    const auto result = vqec_vision_ai_outpt_ovrpr_prepare_authorized(
+        _observations, _context, _gate, prepared);
+    if (result.code_ == status_code::ok) {
+        _overlay = std::move(prepared.overlay_);
+    }
+    return result;
 }
 
 }  // namespace vqec::vision::ai

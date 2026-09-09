@@ -24,6 +24,14 @@ int main() {
            status_code::ok);
     assert(overlay.boxes_.size() == 1U);
     assert(overlay.boxes_[0].label_ == "person");
+    prepared_overlay prepared;
+    assert(vqec_vision_ai_outpt_ovrpr_prepare_authorized(
+               observations, context, gate, prepared).code_ == status_code::ok);
+    assert(prepared.overlay_.boxes_.size() == 1U);
+    assert(prepared.rendered_scopes_.size() == 1U);
+    assert(prepared.rendered_scopes_[0].source_id_ == "source0");
+    assert(prepared.rendered_scopes_[0].attributes_.size() == 1U);
+    const auto prepared_label = prepared.overlay_.boxes_[0].label_;
 
     const auto previous = overlay;
     context.attributes_ = {"identity"};
@@ -31,6 +39,7 @@ int main() {
            status_code::unauthorized);
     assert(overlay.boxes_.size() == previous.boxes_.size());
     assert(overlay.boxes_[0].label_ == previous.boxes_[0].label_);
+    assert(prepared.overlay_.boxes_[0].label_ == prepared_label);
     context.max_age_ns_ = 0;
     assert(vqec_vision_ai_outpt_ovrpr_prepare(observations, context, gate, overlay).code_ ==
            status_code::invalid_argument);

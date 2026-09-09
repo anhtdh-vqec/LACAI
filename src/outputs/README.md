@@ -21,3 +21,6 @@ See docs/contracts/fw_release_compatibility.md and docs/planning/fw_compatibilit
 renderer adapter. It authorizes the complete requested scope, validates observations,
 maps boxes to overlay metadata and publishes transactionally. It does not render pixels
 or select a Qualcomm plugin.
+The authorized variant returns the exact scope list used for authorization together with
+the overlay, so encoded dispatch can reuse trusted scope context without inferring it
+from pixels or H264 bytes.

@@ -15,6 +15,15 @@ struct overlay_preparation_context {
     std::vector<std::string> attributes_;
 };
 
+struct prepared_overlay {
+    overlay_batch overlay_;
+    std::vector<output_authorization> rendered_scopes_;
+};
+
+[[nodiscard]] status vqec_vision_ai_outpt_ovrpr_prepare_authorized(
+    const observation_batch& _observations, const overlay_preparation_context& _context,
+    output_gate& _gate, prepared_overlay& _prepared);
+
 // Converts validated observations into neutral overlay metadata only after the
 // complete rendered scope has been authorized. No pixel or vendor operation occurs here.
 [[nodiscard]] status vqec_vision_ai_outpt_ovrpr_prepare(

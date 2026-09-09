@@ -10,6 +10,8 @@ generation, monotonic creation time/max age, and ALL rendered feature/attribute 
 Scope extraction is a TRUSTED renderer responsibility, not external request metadata.
 H264 bytes cannot reveal what attributes were drawn. This helper does not prove that
 the scope list is complete or implement the renderer/physical-to-logical source mapping.
+The authorized overlay preparation result is the preferred source for this trusted scope
+list; callers must retain it with the per-job render context.
 Do not expose it directly to remote callers. A production renderer must bind these
 claims to the pixels before seal/encode; this integration remains missing.
 
