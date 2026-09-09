@@ -6,7 +6,7 @@ revision semantics.
 `deployment.schema.json` is the reviewable JSON Schema companion for the bounded C++
 loader. Runtime acceptance remains authoritative because it also checks cross-field
 identity uniqueness, packed-NV12 allocation size and aggregate memory arithmetic.
-Authentication, model-catalog resolution, FW RAW-source resolution and board admission
+Authentication, model-catalog/feature-catalog resolution, FW RAW-source resolution and board admission
 are deliberately outside JSON parsing.
 
 `model_catalog.schema.json` describes the separate Model-team handoff. Its bounded C++

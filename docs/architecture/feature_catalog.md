@@ -29,6 +29,11 @@ Concrete compiled-in packages register a factory for `processor_contract`; see t
 feature-specific configuration payload identified by `configuration_schema` and returns
 an independent stateful processor owner.
 
+The optional `feature_catalog` JSON loader applies the same bounded 512 KiB/depth-16,
+duplicate-key and unknown-key checks as the deployment/model loaders before invoking the
+core validator. Parsing is a metadata step: it does not authenticate the package, payload,
+entitlement or artifact.
+
 | # | Feature ID / bài | Compute + state cần có | Output / nghiệm thu chính |
 |---|---|---|---|
 | 1 | abnormal_behavior / ẩu đả, xung đột | person + pose/action temporal, multi-person context | alarm episode; precision/recall + false alarms/hour + onset delay |

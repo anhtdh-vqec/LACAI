@@ -11,6 +11,7 @@ option(VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE "Enable Linux FD to GstMemory brid
 option(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST "Enable bounded JSON output manifest loading" OFF)
 option(VQEC_VISION_AI_ENABLE_MODEL_CATALOG "Enable bounded JSON model catalog loading" OFF)
 option(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG "Enable bounded JSON deployment configuration loading" OFF)
+option(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG "Enable bounded JSON feature catalog loading" OFF)
 option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata checker" OFF)
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
 
@@ -19,7 +20,7 @@ if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK AND NOT VQEC_VISION_AI_ENABLE_MODEL_MANIF
 endif()
 
 if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST OR VQEC_VISION_AI_ENABLE_MODEL_CATALOG OR
-   VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG)
+   VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG OR VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
     find_package(nlohmann_json 3.12.0 EXACT CONFIG REQUIRED)
 endif()
 
@@ -111,6 +112,16 @@ if(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG)
     target_link_libraries(vqec_vision_ai_deployment_config
         PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
     set_target_properties(vqec_vision_ai_deployment_config PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
+if(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
+    add_library(vqec_vision_ai_feature_catalog_config STATIC
+        src/runtime/feature_manager/vqec_vision_feature_catalog.cpp)
+    target_include_directories(vqec_vision_ai_feature_catalog_config PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
+    target_link_libraries(vqec_vision_ai_feature_catalog_config
+        PUBLIC vqec_vision_ai_feature_runtime PRIVATE nlohmann_json::nlohmann_json)
+    set_target_properties(vqec_vision_ai_feature_catalog_config PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 add_library(vqec_vision_ai_camera_wire STATIC src/adapters/camera/vqec_vision_legacy_wire.cpp)
@@ -305,6 +316,16 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME feature_processor_registry_contract
         COMMAND vqec_vision_ai_feature_processor_registry_test)
+    if(TARGET vqec_vision_ai_feature_catalog_config)
+        add_executable(vqec_vision_ai_feature_catalog_loader_test
+            tests/unit/vqec_vision_feature_catalog_loader_test.cpp)
+        target_link_libraries(vqec_vision_ai_feature_catalog_loader_test
+            PRIVATE vqec_vision_ai_feature_catalog_config)
+        set_target_properties(vqec_vision_ai_feature_catalog_loader_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME feature_catalog_loading
+            COMMAND vqec_vision_ai_feature_catalog_loader_test)
+    endif()
     add_executable(vqec_vision_ai_feature_catalog_test
         tests/unit/vqec_vision_feature_catalog_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_catalog_test PRIVATE vqec_vision_ai_core)
@@ -665,6 +686,7 @@ endif()
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_feature_catalog_test
         vqec_vision_ai_feature_runtime vqec_vision_ai_feature_processor_registry_test
+        vqec_vision_ai_feature_catalog_config vqec_vision_ai_feature_catalog_loader_test
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
