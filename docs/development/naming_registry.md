@@ -229,6 +229,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/perception/tracking/vqec_vision_tracking_stage.cpp | trkst | vqec_vision_ai_track_trkst_ |
 | src/perception/attributes/vqec_vision_attribute_reader.cpp | atrdr | vqec_vision_ai_attr_atrdr_ |
 | src/runtime/feature_manager/vqec_vision_feature_stage.cpp | ftstg | vqec_vision_ai_ftmgr_ftstg_ |
+| src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp | famgr | vqec_vision_ai_ftmgr_famgr_ |
 | tests/unit/vqec_vision_inference_plan_test.cpp | iptst | vqec_vision_ai_unit_iptst_ |
 | include/vqec/vision/ai/contracts/vqec_vision_application_composition.hpp | acomp | vqec_vision_ai_cntr_acomp_ |
 | include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp | mddec | vqec_vision_ai_cntr_mddec_ |
@@ -238,6 +239,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/contract/vqec_vision_tensor_reader_test.cpp | trct | vqec_vision_ai_ctest_trct_ |
 | tests/contract/vqec_vision_tracker_port_test.cpp | trpct | vqec_vision_ai_ctest_trpct_ |
 | tests/contract/vqec_vision_tracking_stage_test.cpp | tstgt | vqec_vision_ai_ctest_tstgt_ |
+| tests/contract/vqec_vision_feature_activation_manager_test.cpp | famct | vqec_vision_ai_ctest_famct_ |
 | tests/contract/vqec_vision_attribute_reader_test.cpp | atrct | vqec_vision_ai_ctest_atrct_ |
 | tests/unit/vqec_vision_feature_event_test.cpp | fetst | vqec_vision_ai_unit_fetst_ |
 | include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |

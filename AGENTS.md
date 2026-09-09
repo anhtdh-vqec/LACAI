@@ -93,6 +93,10 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/multi_source_supervisor.md before changing fairness or global stop.
   The supervisor depends only on source_session_port; never reacquire one FW RAW source
   per model. Multi-model implementations must fan out one retained frame owner.
+  Feature activation uses feature_activation_manager to reconcile desired, entitlement,
+  resource and model-dependency gates before creating one owned processor and stage per
+  source/feature association; read docs/architecture/feature_activation_manager.md
+  before changing activation policy.
   Per-source model cadence is fixed-capacity rational phase arithmetic; read
   docs/architecture/model_cadence.md before changing frame selection or skip policy.
   Multi-model RAW fan-out receives once, uses fixed 16-slot storage and shares one frame
