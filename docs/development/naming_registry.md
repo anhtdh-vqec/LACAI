@@ -321,3 +321,10 @@ accessors share that implementation owner. Tests' main uses the language excepti
 External callbacks chỉ được miễn prefix nếu framework lookup tên cố định;
 callback function pointer tự đặt tên KHÔNG được miễn.
 Không có ngoại lệ mutable global hoặc production OpenCV.
+
+Source perception factory registrations (source delivered):
+
+| Logical owner path | file_id | Prefix |
+|---|---|---|
+| src/app/vqec_vision_source_perception_factory.cpp | spfac | vqec_vision_ai_appl_spfac_ |
+| tests/contract/vqec_vision_source_perception_factory_test.cpp | spfct | vqec_vision_ai_ctest_spfct_ |
