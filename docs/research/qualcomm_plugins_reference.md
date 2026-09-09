@@ -1,16 +1,23 @@
 # Qualcomm plugins reference — QSC6490 / Qualcomm Linux 1.8
 
-Ngày: 2026-09-06. Repository: `C:/Users/anhtd/anhtdh/gst-plugins-qti-oss`.
-Source snapshot: `dcb4b8252b66304545c5efb5cb7c8fecc26b6680`.
+Ngày cập nhật: 2026-09-09. Repository được đọc trực tiếp:
+`/home/a/Workspace/gst-plugins-qti-oss`.
+Source snapshot đã kiểm tra: `0cdf24a99c625fa616564ebf82fd8813c744ed82`.
+
+Phần hướng dẫn tích hợp và ranh giới adapter hiện hành nằm tại
+[qualcomm plugin adapter reference](../architecture/qualcomm_plugin_adapter_reference.md).
+Tài liệu này giữ inventory/evidence chi tiết; không được dùng các default trong
+phụ lục như cấu hình triển khai cố định.
 
 ## 1. Baseline và phạm vi sử dụng tài liệu
 
 Người dùng xác nhận các plugin đã chạy và được tối ưu trên **QSC6490,
 Qualcomm Linux 1.8**. Đây là baseline thiết bị do người dùng cung cấp, không phải
 benchmark do agent chạy. Giữ nguyên tên QSC6490 như cung cấp; không tự sửa SoC ID.
-Không cần sysroot để viết source đợt này; sysroot chỉ cần ở bước build/validation.
+Không cần sysroot để viết source; mọi CMake/build/test của LACAI phải dùng eSDK
+tại `/home/a/Workspace/eSDK` theo rule dự án.
 
-Tài liệu kiểm kê **47 factory** từ mọi lời gọi gst_element_register trong checkout;
+Tài liệu kiểm kê **54 lời gọi đăng ký factory** trong checkout hiện tại;
 đọc registration/properties/pads toàn bộ và đọc sâu converter/QNN/metadata/batch/
 sample wiring phục vụ AI. Đây là reference API/source, không phải audit đầy đủ
 mọi thuật toán, camera HAL, codec hoặc proprietary SDK. Không tuyên bố hiểu hay

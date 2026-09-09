@@ -43,7 +43,7 @@ Source filenames use `vqec_vision_`; run the structural check with
 8. [13 bài AI và traffic](docs/architecture/feature_catalog.md).
 9. [Kế hoạch 12 tuần](docs/planning/delivery_plan.md).
 10. [Review và nghiệm thu](docs/development/review_checklist.md).
-11. [Tra cứu toàn bộ 47 plugin Qualcomm](docs/research/qualcomm_plugins_reference.md).
+11. [Tra cứu inventory plugin Qualcomm](docs/research/qualcomm_plugins_reference.md).
 12. [Ranh giới adapter và cách dùng plugin Qualcomm](docs/architecture/qualcomm_plugin_adapter_reference.md).
 13. [Quyết định dùng plugin backend](docs/adr/0002_qualcomm_plugin_backend.md).
 14. [Source đã có và phần chưa triển khai](docs/development/implementation_status.md).
