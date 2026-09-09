@@ -16,14 +16,17 @@ embeddings or face identity require a separate reviewed storage/output contract 
 not automatically drawable or publishable.
 
 Observed and expiry timestamps are in the producer's declared source clock. Expiry must
-not precede observation. `unknown` quality is allowed and must not be treated as a
-positive classification by feature rules. Confidence is bounded but is not calibration
-or business acceptance.
+not precede observation and must be finite; `UINT64_MAX` is not a permanent-value
+shortcut. `unknown` quality is allowed and must not be treated as a positive
+classification by feature rules. Confidence is bounded but is not calibration or
+business acceptance.
 
 The detection validator checks identity, geometry through the existing preview contract,
 bounded observation/attribute counts, identifier syntax, confidence and time ordering;
-it permits zero track IDs. The tracked validator applies the same checks and additionally
-requires every track ID to be nonzero. Feature rules that depend on continuity must accept
-only the tracked form. Neither validator verifies model artifact authenticity, decoder
-semantics, calibration, continuity, entitlement or dataset quality. Model integration
-must provide those checks and golden/replay evidence before usecase rollout.
+it permits zero track IDs. Opaque attribute values have a 512-byte safety ceiling;
+duplicate schema-ID/version pairs and duplicate nonzero track IDs are rejected. The
+tracked validator applies the same checks and additionally requires every track ID to be
+nonzero. Feature rules that depend on continuity must accept only the tracked form.
+Neither validator verifies model artifact authenticity, decoder semantics, calibration,
+continuity, entitlement or dataset quality. Model integration must provide those checks
+and golden/replay evidence before usecase rollout.

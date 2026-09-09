@@ -14,6 +14,7 @@ namespace observation_limits {
 inline constexpr std::size_t g_max_observations = 256;
 inline constexpr std::size_t g_max_attributes = 32;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
+inline constexpr std::size_t g_max_attribute_value_bytes = 512;
 inline constexpr float g_min_confidence = 0.0F;
 inline constexpr float g_max_confidence = 1.0F;
 }  // namespace observation_limits

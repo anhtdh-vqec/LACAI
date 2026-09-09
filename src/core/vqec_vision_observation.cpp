@@ -32,7 +32,8 @@ status vqec_vision_ai_core_obval_validate_observations(
     if (_batch.observations_.size() > observation_limits::g_max_observations) {
         return {status_code::resource_exhausted, "observation count exceeds safety limit"};
     }
-    for (const auto& item : _batch.observations_) {
+    for (std::size_t item_index = 0; item_index < _batch.observations_.size(); ++item_index) {
+        const auto& item = _batch.observations_[item_index];
         const auto item_identity = vqec_vision_ai_core_pvctr_validate_identity(
             item.frame_, _batch.frame_, _batch.geometry_, _batch.geometry_);
         if (item_identity.code_ != status_code::ok) {
@@ -50,14 +51,32 @@ status vqec_vision_ai_core_obval_validate_observations(
             item.attributes_.size() > observation_limits::g_max_attributes) {
             return {status_code::invalid_argument, "invalid observation identity or confidence"};
         }
-        for (const auto& attribute : item.attributes_) {
+        if (item.track_id_ != 0) {
+            for (std::size_t previous = 0; previous < item_index; ++previous) {
+                if (_batch.observations_[previous].track_id_ == item.track_id_) {
+                    return {status_code::invalid_argument, "duplicate nonzero track ID"};
+                }
+            }
+        }
+        for (std::size_t attribute_index = 0;
+             attribute_index < item.attributes_.size(); ++attribute_index) {
+            const auto& attribute = item.attributes_[attribute_index];
             if (!vqec_vision_ai_core_obval_valid_identifier(attribute.schema_id_) ||
                 !vqec_vision_ai_core_obval_valid_identifier(attribute.schema_version_) ||
+                attribute.value_.size() > observation_limits::g_max_attribute_value_bytes ||
                 !std::isfinite(attribute.confidence_) ||
                 attribute.confidence_ < observation_limits::g_min_confidence ||
                 attribute.confidence_ > observation_limits::g_max_confidence ||
-                attribute.observed_at_ns_ > attribute.expires_at_ns_) {
+                attribute.observed_at_ns_ > attribute.expires_at_ns_ ||
+                attribute.expires_at_ns_ == UINT64_MAX) {
                 return {status_code::invalid_argument, "invalid observation attribute"};
+            }
+            for (std::size_t previous = 0; previous < attribute_index; ++previous) {
+                const auto& other = item.attributes_[previous];
+                if (other.schema_id_ == attribute.schema_id_ &&
+                    other.schema_version_ == attribute.schema_version_) {
+                    return {status_code::invalid_argument, "duplicate observation attribute"};
+                }
             }
         }
     }
