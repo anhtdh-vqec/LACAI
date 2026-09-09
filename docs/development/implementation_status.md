@@ -23,6 +23,12 @@ shares the same control block so legacy ACK remains tied to the final reader. ca
 and camera_graph_pump now consume only this source port; other platform source adapters
 remain pending.
 
+A vendor-neutral inference-graph port now removes Qualcomm types from camera_session and
+camera_graph_pump. The Qualcomm adapter privately maps state, validates/converts the Linux
+DMA-BUF handle, retains the shared frame owner on submit and carries graph_retention. This
+enables future shared-frame fan-out and alternate platform adapters without changing app
+orchestration. It does not prove zero-copy or hardware completion on board.
+
 Multi-source deployment contract/validator and strict bounded JSON loader source now
 represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source profiles,
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed

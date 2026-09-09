@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "vqec_vision_camera_session.hpp"
+#include "vqec_vision_inference_graph.hpp"
 
 namespace {
 
@@ -124,11 +125,12 @@ int main() {
     source_lifecycle source(rpc, camera);
     plugin_graph graph;
     auto domain = std::make_shared<graph_retention>();
+    qualcomm_inference_graph graph_port(graph, domain);
     tensor_result result;
     result.pipeline_pts_ns_ = 777;
     camera_pump_report report;
     {
-        camera_session invalid(source, graph, domain, {});
+        camera_session invalid(source, graph_port, {});
         check(invalid.vqec_vision_ai_appl_camsn_step(0, result, report).code_ ==
               status_code::invalid_argument);
         check(rpc->starts_ == 0 && rpc->stops_ == 0);
@@ -138,18 +140,29 @@ int main() {
     {
         auto malformed = vqec_vision_ai_ctest_cstst_make_config();
         malformed.outputs_ = {{"duplicate", {1}}, {"duplicate", {1}}};
-        camera_session rejected(source, graph, domain, malformed);
+        camera_session rejected(source, graph_port, malformed);
         check(rejected.vqec_vision_ai_appl_camsn_step(0, result, report).code_ ==
               status_code::invalid_argument);
         check(rejected.vqec_vision_ai_appl_camsn_get_state() == camera_session_state::idle);
         check(source.vqec_vision_ai_camer_srclc_get_state() == camera_source_state::idle);
         check(rpc->starts_ == 0 && rpc->stops_ == 0);
     }
-    camera_session session(source, graph, domain, vqec_vision_ai_ctest_cstst_make_config());
+    {
+        plugin_graph unsafe_graph;
+        qualcomm_inference_graph unsafe_port(unsafe_graph, {});
+        camera_session rejected(source, unsafe_port,
+            vqec_vision_ai_ctest_cstst_make_config());
+        check(rejected.vqec_vision_ai_appl_camsn_step(0, result, report).code_ ==
+              status_code::invalid_argument);
+        check(source.vqec_vision_ai_camer_srclc_get_state() == camera_source_state::idle);
+        check(rpc->starts_ == 0 && rpc->stops_ == 0);
+        check(rejected.vqec_vision_ai_appl_camsn_request_stop(0).code_ == status_code::ok);
+    }
+    camera_session session(source, graph_port, vqec_vision_ai_ctest_cstst_make_config());
     const auto initial = session.vqec_vision_ai_appl_camsn_get_snapshot();
     check(initial.session_state_ == camera_session_state::idle);
     check(initial.source_state_ == raw_source_state::idle);
-    check(initial.graph_state_ == plugin_graph_state::empty);
+    check(initial.graph_state_ == inference_graph_state::empty);
     check(initial.graph_jobs_ == 0 && initial.source_readers_ == 0);
     check(initial.first_error_code_ == status_code::ok && !initial.is_recovery_required_);
     check(rpc->starts_ == 0 && rpc->stops_ == 0);
@@ -195,9 +208,10 @@ int main() {
         auto startup_rpc = std::make_shared<test_rpc>();
         source_lifecycle startup_source(startup_rpc, camera);
         plugin_graph startup_graph;
+        qualcomm_inference_graph startup_graph_port(startup_graph, domain);
         auto config = vqec_vision_ai_ctest_cstst_make_config();
         config.startup_timeout_ns_ = 10;
-        camera_session startup(startup_source, startup_graph, domain, config);
+        camera_session startup(startup_source, startup_graph_port, config);
         check(startup.vqec_vision_ai_appl_camsn_step(0, result, report).code_ ==
               status_code::pending);
         check(startup.vqec_vision_ai_appl_camsn_step(1, result, report).code_ ==

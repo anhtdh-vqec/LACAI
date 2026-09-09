@@ -8,6 +8,8 @@ Read docs/research/qualcomm_plugins_reference.md and ADR 0002.
 - vqec_vision_plugin_graph.cpp: factory/property validation, explicit FastCV/QNN
   configuration, READY source binding, PLAYING, bounded submission and result polling,
   independent input/result completion, EOS/drain and unload guards.
+- vqec_vision_inference_graph.cpp: vendor-neutral inference_graph_port adapter; owns the
+  retention reference and is the only app-facing conversion from native handle to Linux FD.
 - One outstanding job per graph; internal ticket PTS is separate from source timestamp.
   Armed destruction retains resources in a four-slot supervisor domain. Restoration
   supports late completion, not cancellation or BSP recovery.

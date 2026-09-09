@@ -30,11 +30,10 @@ status vqec_vision_ai_appl_camsn_bind_model_outputs(
     return {};
 }
 
-camera_session::camera_session(raw_source_port& _source, plugin_graph& _graph,
-    std::shared_ptr<graph_retention> _retention, camera_session_config _config)
-    : source_(_source), graph_(_graph), retention_(std::move(_retention)),
-      config_(std::move(_config)),
-      pump_(source_, graph_, retention_, config_.cycle_id_, config_.job_timeout_ns_) {}
+camera_session::camera_session(raw_source_port& _source, inference_graph_port& _graph,
+    camera_session_config _config)
+    : source_(_source), graph_(_graph), config_(std::move(_config)),
+      pump_(source_, graph_, config_.cycle_id_, config_.job_timeout_ns_) {}
 
 status camera_session::vqec_vision_ai_appl_camsn_check_time(std::uint64_t _steady_now_ns) {
     if (_steady_now_ns == UINT64_MAX || _steady_now_ns < last_now_ns_) {
@@ -65,27 +64,28 @@ status camera_session::vqec_vision_ai_appl_camsn_request_stop(std::uint64_t _ste
 
 status camera_session::vqec_vision_ai_appl_camsn_stop_graph(std::uint64_t _steady_now_ns) {
     // EOS may be necessary to release downstream-held input; do not wait for zero jobs first.
-    if (graph_.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::playing) {
-        return graph_.vqec_vision_ai_qcom_plgr_request_drain();
+    if (graph_.vqec_vision_ai_ports_infgr_get_state() == inference_graph_state::running) {
+        return graph_.vqec_vision_ai_ports_infgr_request_drain();
     }
-    if (graph_.vqec_vision_ai_qcom_plgr_get_outstanding() != 0) {
+    if (graph_.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
         tensor_result discarded;
-        const auto result = graph_.vqec_vision_ai_qcom_plgr_poll_result(_steady_now_ns, discarded);
-        if (graph_.vqec_vision_ai_qcom_plgr_get_outstanding() != 0) {
+        const auto result = graph_.vqec_vision_ai_ports_infgr_poll_result(
+            _steady_now_ns, discarded);
+        if (graph_.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
             return result.code_ == status_code::ok ?
                 status{status_code::pending, "waiting for graph readers"} : result;
         }
     }
-    const auto state = graph_.vqec_vision_ai_qcom_plgr_get_state();
-    if (state == plugin_graph_state::empty || state == plugin_graph_state::configured) {
+    const auto state = graph_.vqec_vision_ai_ports_infgr_get_state();
+    if (state == inference_graph_state::empty || state == inference_graph_state::configured) {
         state_ = camera_session_state::releasing_camera;
         return {status_code::pending, "graph released; next step reconciles camera lease"};
     }
-    if (state == plugin_graph_state::starting || state == plugin_graph_state::draining ||
-        state == plugin_graph_state::unloading) {
-        return graph_.vqec_vision_ai_qcom_plgr_poll_state();
+    if (state == inference_graph_state::starting || state == inference_graph_state::draining ||
+        state == inference_graph_state::unloading) {
+        return graph_.vqec_vision_ai_ports_infgr_poll_state();
     }
-    return graph_.vqec_vision_ai_qcom_plgr_unload_model();
+    return graph_.vqec_vision_ai_ports_infgr_unload();
 }
 
 status camera_session::vqec_vision_ai_appl_camsn_step(
@@ -99,7 +99,7 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
         return {};
     }
     if (state_ == camera_session_state::idle) {
-        if (!retention_ || config_.cycle_id_ == 0 || config_.rpc_timeout_ms_ < 1 ||
+        if (config_.cycle_id_ == 0 || config_.rpc_timeout_ms_ < 1 ||
             config_.rpc_timeout_ms_ > 60000 || config_.job_timeout_ns_ == 0 ||
             config_.job_timeout_ns_ == UINT64_MAX || config_.startup_timeout_ns_ == 0 ||
             config_.startup_timeout_ns_ == UINT64_MAX || config_.stop_timeout_ns_ == 0 ||
@@ -109,13 +109,18 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
             return {status_code::invalid_argument, "invalid session configuration"};
         }
         if (source_.vqec_vision_ai_ports_rawsr_get_state() != raw_source_state::idle ||
-            graph_.vqec_vision_ai_qcom_plgr_get_state() != plugin_graph_state::empty) {
+            graph_.vqec_vision_ai_ports_infgr_get_state() != inference_graph_state::empty) {
             return {status_code::invalid_state, "session requires idle camera and empty graph"};
         }
         const auto valid =
             vqec_vision_ai_core_srcbd_validate_binding(config_.binding_, config_.plan_);
         if (valid.code_ != status_code::ok) {
             return valid;
+        }
+        const auto graph_activation =
+            graph_.vqec_vision_ai_ports_infgr_validate_activation();
+        if (graph_activation.code_ != status_code::ok) {
+            return graph_activation;
         }
         std::uint64_t required_bytes = 0;
         const auto outputs = vqec_vision_ai_core_tnctr_validate_outputs(
@@ -166,7 +171,7 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
                 progress = {status_code::unsupported, "FW effective profile differs from plan"};
                 break;
             }
-            progress = graph_.vqec_vision_ai_qcom_plgr_configure_graph(config_.plan_);
+            progress = graph_.vqec_vision_ai_ports_infgr_configure(config_.plan_);
             if (progress.code_ == status_code::ok) {
                 state_ = camera_session_state::loading;
             }
@@ -174,25 +179,29 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
         }
         case camera_session_state::loading:
             progress =
-                graph_.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::configured ?
-                graph_.vqec_vision_ai_qcom_plgr_load_model() :
-                graph_.vqec_vision_ai_qcom_plgr_poll_state();
-            if (graph_.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::ready) {
+                graph_.vqec_vision_ai_ports_infgr_get_state() ==
+                        inference_graph_state::configured ?
+                graph_.vqec_vision_ai_ports_infgr_load() :
+                graph_.vqec_vision_ai_ports_infgr_poll_state();
+            if (graph_.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::ready) {
                 state_ = camera_session_state::binding;
             }
             break;
         case camera_session_state::binding:
-            progress = graph_.vqec_vision_ai_qcom_plgr_bind_source(config_.binding_);
+            progress = graph_.vqec_vision_ai_ports_infgr_bind_source(config_.binding_);
             if (progress.code_ == status_code::ok) {
                 state_ = camera_session_state::starting;
             }
             break;
         case camera_session_state::starting:
-            progress = graph_.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::ready ?
-                graph_.vqec_vision_ai_qcom_plgr_start_stream(
+            progress = graph_.vqec_vision_ai_ports_infgr_get_state() ==
+                    inference_graph_state::ready ?
+                graph_.vqec_vision_ai_ports_infgr_start(
                     config_.outputs_, config_.max_output_bytes_) :
-                graph_.vqec_vision_ai_qcom_plgr_poll_state();
-            if (graph_.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::playing) {
+                graph_.vqec_vision_ai_ports_infgr_poll_state();
+            if (graph_.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::running) {
                 state_ = camera_session_state::running;
             }
             break;
@@ -252,8 +261,8 @@ const status& camera_session::vqec_vision_ai_appl_camsn_get_last_error() const n
 
 camera_session_snapshot camera_session::vqec_vision_ai_appl_camsn_get_snapshot() const noexcept {
     return {state_, source_.vqec_vision_ai_ports_rawsr_get_state(),
-            graph_.vqec_vision_ai_qcom_plgr_get_state(),
-            graph_.vqec_vision_ai_qcom_plgr_get_outstanding(),
+            graph_.vqec_vision_ai_ports_infgr_get_state(),
+            graph_.vqec_vision_ai_ports_infgr_get_outstanding(),
             source_.vqec_vision_ai_ports_rawsr_get_outstanding(),
             is_recovery_required_, last_error_.code_};
 }
@@ -293,7 +302,8 @@ source_session_health camera_session::vqec_vision_ai_appl_srcsn_get_health() con
         health.phase_ = source_session_phase::starting;
     }
     health.model_graph_count_ = 1;
-    health.running_graph_count_ = snapshot.graph_state_ == plugin_graph_state::playing ? 1 : 0;
+    health.running_graph_count_ =
+        snapshot.graph_state_ == inference_graph_state::running ? 1 : 0;
     health.outstanding_jobs_ = snapshot.graph_jobs_;
     health.source_readers_ = snapshot.source_readers_;
     health.is_recovery_required_ = snapshot.is_recovery_required_;

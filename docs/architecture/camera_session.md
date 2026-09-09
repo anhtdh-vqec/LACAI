@@ -2,9 +2,10 @@
 
 Source candidate; ownership review and board validation pending. camera_session is
 composition-level orchestration, not process supervision or an executable service.
-It exclusively borrows one initially idle raw_source_port and empty plugin_graph.
-The application owns both and the shared graph_retention domain until stopped;
-destroying the coordinator does not issue RPCs, cancel readers or release a lease.
+It exclusively borrows one initially idle raw_source_port and empty inference_graph_port.
+The platform composition owns both concrete adapters and any private safety-retention
+domain until stopped; destroying the coordinator does not issue RPCs, cancel readers or
+release a lease.
 
 camera_session implements the generic `source_session_port` as the current one-model
 compatibility path. The multi-source supervisor therefore does not depend on Camera or

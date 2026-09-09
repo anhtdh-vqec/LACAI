@@ -136,7 +136,9 @@ endif()
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0)
-    add_library(vqec_vision_ai_qualcomm STATIC src/adapters/qualcomm/vqec_vision_plugin_graph.cpp)
+    add_library(vqec_vision_ai_qualcomm STATIC
+        src/adapters/qualcomm/vqec_vision_plugin_graph.cpp
+        src/adapters/qualcomm/vqec_vision_inference_graph.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
@@ -145,15 +147,12 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
-if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
-    add_library(vqec_vision_ai_camera_graph_pump STATIC
-        src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp)
-    target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
-    target_link_libraries(vqec_vision_ai_camera_graph_pump
-        PUBLIC vqec_vision_ai_qualcomm)
-    set_target_properties(vqec_vision_ai_camera_graph_pump PROPERTIES CXX_EXTENSIONS OFF)
-endif()
+add_library(vqec_vision_ai_camera_graph_pump STATIC
+    src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp)
+target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_camera_graph_pump PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_camera_graph_pump PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_source_supervisor STATIC
     src/app/vqec_vision_multi_source_supervisor.cpp)
@@ -322,17 +321,19 @@ if(BUILD_TESTING)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME tensor_contract_validation COMMAND vqec_vision_ai_tensor_contract_test)
-    if(TARGET vqec_vision_ai_camera_graph_pump)
+    if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
         add_executable(vqec_vision_ai_camera_session_test tests/contract/vqec_vision_camera_session_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_session_test
-            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera)
+            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera
+                    vqec_vision_ai_qualcomm)
         set_target_properties(vqec_vision_ai_camera_session_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME camera_session_coordination COMMAND vqec_vision_ai_camera_session_test)
         set_tests_properties(camera_session_coordination PROPERTIES TIMEOUT 5)
         add_executable(vqec_vision_ai_camera_graph_pump_test
             tests/contract/vqec_vision_camera_graph_pump_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_graph_pump_test
-            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera)
+            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera
+                    vqec_vision_ai_qualcomm)
         set_target_properties(vqec_vision_ai_camera_graph_pump_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME camera_graph_pump_guards COMMAND vqec_vision_ai_camera_graph_pump_test)
     endif()

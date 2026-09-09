@@ -242,6 +242,8 @@ No AST naming enforcement is implied by the structural filename checker.
 | src/adapters/camera/vqec_vision_source_lifecycle.cpp | srclc | vqec_vision_ai_camer_srclc_ |
 | src/adapters/camera/vqec_vision_raw_source_resolver.cpp | rsrsv | vqec_vision_ai_camer_rsrsv_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
+| include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
+| src/adapters/qualcomm/vqec_vision_inference_graph.cpp | ifgr | vqec_vision_ai_qcom_ifgr_ |
 | src/adapters/qualcomm/vqec_vision_dmabuf_bridge.cpp | dmbrg | vqec_vision_ai_qcom_dmbrg_ |
 | src/adapters/qualcomm/vqec_vision_tensor_output.cpp | tnout | vqec_vision_ai_qcom_tnout_ |
 | src/adapters/qualcomm/vqec_vision_frame_submission.cpp | frsub | vqec_vision_ai_qcom_frsub_ |

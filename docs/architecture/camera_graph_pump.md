@@ -3,7 +3,8 @@
 Source candidate, no live FW/board execution. This is composition wiring in src/app,
 not a vendor dependency in neutral runtime/core and not an executable service.
 
-Supervisor owns a raw_source_port implementation, plugin_graph and one shared graph_retention domain
+Supervisor owns raw_source_port/inference_graph_port implementations; the platform adapter
+owns any vendor graph and safety-retention domain.
 and camera_graph_pump for one acquisition cycle. It first starts Camera control/media,
 uses the effective FW profile to configure/load/bind/start the graph, then calls
 pump_step with steady-clock nanoseconds. The first received descriptor supplies the

@@ -64,6 +64,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/raw_source_resolution.md before changing endpoint composition.
   New source-session code depends on the vendor-neutral raw_source_port, never directly on
   Camera Service wire or product origin; read docs/architecture/raw_source_port.md.
+  Application orchestration depends on inference_graph_port, not Qualcomm/plugin types;
+  read docs/architecture/inference_graph_port.md before changing model submission.
   Private GstMemory wrapping now retains the owner on root memory;
   read docs/architecture/dmabuf_memory_bridge.md before changing memory lifetime.
   No hardware completion validation, executable service runtime or active CI.

@@ -8,7 +8,7 @@ rendering is added. See docs/architecture/encoder_preparation.md; tests are unex
 Composition wiring belongs here; no feature rules in main.
 
 camera_graph_pump now connects an already-started raw_source_port to a configured,
-bound PLAYING plugin_graph, arms from the first receiver epoch and polls/submits one
+running inference_graph_port, arms from the first receiver epoch and polls/submits one
 bounded step at a time. No thread, per-frame RPC or executable service is added.
 See docs/architecture/camera_graph_pump.md for supervisor ownership and stop ordering.
 camera_session now drives one acquisition through validation/start/pump/drain/release
