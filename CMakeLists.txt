@@ -31,7 +31,7 @@ add_library(vqec_vision_ai_core STATIC
     src/core/vqec_vision_encoded_output.cpp src/core/vqec_vision_output_generation.cpp
     src/core/vqec_vision_encoder_contract.cpp src/core/vqec_vision_observation.cpp
     src/core/vqec_vision_deployment_config.cpp src/core/vqec_vision_model_catalog.cpp
-    src/core/vqec_vision_feature_event.cpp)
+    src/core/vqec_vision_feature_event.cpp src/core/vqec_vision_feature_catalog.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -296,6 +296,11 @@ target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline
     PUBLIC vqec_vision_ai_multi_model_result_router vqec_vision_ai_feature_fanout)
 set_target_properties(vqec_vision_ai_multi_model_feature_pipeline PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_catalog_test
+        tests/unit/vqec_vision_feature_catalog_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_catalog_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_feature_catalog_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_catalog_contract COMMAND vqec_vision_ai_feature_catalog_test)
     add_executable(vqec_vision_ai_multi_model_feature_pipeline_test
         tests/contract/vqec_vision_multi_model_feature_pipeline_test.cpp)
     target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline_test
@@ -649,6 +654,7 @@ if(BUILD_TESTING)
 endif()
 
 foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
+        vqec_vision_ai_feature_catalog_test
         vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test

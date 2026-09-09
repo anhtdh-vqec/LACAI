@@ -7,7 +7,10 @@ multi_model_pump shares one frame across due graphs using rational cadence, and
 multi_source_supervisor advances 1..16 pre-composed sessions with fault isolation.
 Deployment/catalog loaders and activation snapshots exist; authenticated construction of
 source/graph/session owners and a runnable service are still missing. Model decoder,
-hardware overlay/encoder integration and board validation are not delivered.
+feature dependency catalog and model-to-feature routing contracts exist; concrete model,
+tracker/feature algorithms, hardware overlay/encoder integration and board validation are
+not delivered. Configured AArch64 eSDK targets cross-build, but target tests are not run in
+the x86 workspace.
 See [current source inventory](../development/implementation_status.md).
 Preview ownership/pool, encoder ledger, authorized dispatch and an optional FW SDK
 ring sink are source-delivered; they do not yet form a running output pipeline.

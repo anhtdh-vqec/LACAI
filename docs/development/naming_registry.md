@@ -197,6 +197,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_tensor_contract.cpp | tnctr | vqec_vision_ai_core_tnctr_ |
 | src/core/vqec_vision_output_gate.cpp | otgat | vqec_vision_ai_core_otgat_ |
 | src/core/vqec_vision_feature_event.cpp | ftevt | vqec_vision_ai_core_ftevt_ |
+| src/core/vqec_vision_feature_catalog.cpp | ftcat | vqec_vision_ai_core_ftcat_ |
+| tests/unit/vqec_vision_feature_catalog_test.cpp | fctst | vqec_vision_ai_unit_fctst_ |
 | src/outputs/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
 | tests/unit/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
 | src/runtime/model_registry/vqec_vision_output_manifest.cpp | otman | vqec_vision_ai_mreg_otman_ |

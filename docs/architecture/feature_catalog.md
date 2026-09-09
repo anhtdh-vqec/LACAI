@@ -1,7 +1,28 @@
 # Feature catalog — 13 bài tối thiểu và extensions
 
-Status mọi feature: planned, chưa implemented/qualified.
+Status: the generic feature integration catalog contract, pure validator and synthetic
+schema/example are source-delivered and cross-compiled with the AArch64 eSDK. Every
+concrete feature remains unimplemented and unqualified; target tests are not executed on
+the x86 host.
 Feature ID ổn định độc lập model ID/package. Dependencies chỉ share khi compatible.
+
+## Integration catalog boundary
+
+`feature_catalog` is the authenticated-package projection used before constructing a
+specific usecase. It identifies each feature version, processor contract, configuration
+schema, named model roles, exact attribute schema/version freshness requirements and
+bounded temporal/event resources. The root pins the model catalog identity, and the pure
+cross-validator rejects missing model dependencies.
+
+`single_model` requires exactly one model role and can use the current per-model feature
+pipeline. `temporal_join` requires at least two distinct model roles and declares that a
+separate bounded source/frame join is necessary. The catalog never treats adjacent
+round-robin results as synchronized.
+
+The catalog does not express entitlement, desired state, per-source configuration values
+or artifact paths. A synthetic example enables no feature. A later trusted activation
+document binds source IDs and feature IDs, resolves feature-specific configuration and
+checks accumulated temporal resources before owner construction.
 
 | # | Feature ID / bài | Compute + state cần có | Output / nghiệm thu chính |
 |---|---|---|---|

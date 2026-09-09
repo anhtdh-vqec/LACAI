@@ -6,11 +6,14 @@ must not be interpreted as the current missing-feature list.
 
 ## Evidence level
 
-Source and CMake/CTest declarations exist for the components below. The recorded baseline
-has no executed C++ build/test or live FW/Qualcomm/board qualification report. This
-documentation refresh performed static inspection only; it adds no execution evidence.
-A test source, fake port or successful metadata validation is not a hardware completion,
-zero-copy, throughput, model-accuracy or release-compatibility result.
+Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
+current tree cross-compiled all configured targets to 100% with the eSDK AArch64 compiler,
+Camera, GIO D-Bus, GStreamer bridge and Qualcomm adapter enabled. Optional JSON loaders,
+artifact digest and FW ring were disabled; the eSDK sysroot does not currently provide
+the required nlohmann_json 3.12.0 CMake package. ARM test executables were not run on the
+x86 development host, and there is no live FW/Qualcomm/board qualification report. A
+cross-build or fake port is not hardware completion, zero-copy, throughput, model-accuracy
+or release-compatibility evidence.
 
 ## Current architecture
 
@@ -44,6 +47,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/perception/tracking/vqec_vision_tracking_stage.cpp` | Transactional detection-to-tracker coordinator with monotonic-time enforcement, epoch reset and ambiguous-failure isolation | Concrete association/tracking implementation and replay qualification |
 | `src/perception/attributes/vqec_vision_attribute_reader.cpp` | Exact tracked-attribute lookup with schema/version identity, bounded values, source-clock freshness and borrowed-result lifetime | Concrete typed attribute producers, temporal fusion and calibration |
 | `include/vqec/vision/ai/contracts/vqec_vision_feature_event.hpp`, `include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp` | Config-bounded neutral feature events and serialized algorithm port with source/frame/config/schema provenance | Effective-state manager, concrete rules, output router, replay and delivery qualification |
+| `include/vqec/vision/ai/contracts/vqec_vision_feature_catalog.hpp`, `src/core/vqec_vision_feature_catalog.cpp` | Versioned feature integration metadata validates processor/configuration contracts, model roles, attribute freshness and bounded temporal/event resources against the model catalog | Authenticated loader, per-source desired/entitled activation, processor registry and concrete feature packages |
 | `src/runtime/feature_manager/vqec_vision_feature_stage.cpp` | Activation-validated transactional processor coordinator with monotonic time, strictly increasing epoch reset and ambiguous-failure isolation | Full effective-state manager, concrete rules, output router and replay qualification |
 | `src/outputs/vqec_vision_feature_event_dispatch.cpp` | Validates one feature event, derives exact field scopes, rechecks captured policy revision and synchronously dispatches through a neutral sink | Bounded durable queue/retry, FW transport, dedup persistence and evidence service integration |
 | `src/runtime/lifecycle/vqec_vision_deployment_config.cpp` | Optional strict bounded deployment JSON loader; schemas/examples; pure deployment validation in core | Authenticated configuration activation and service lifecycle |
@@ -105,6 +109,8 @@ selecting an admitted path.
 - Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
+  The configured AArch64 targets cross-build; their CTest executables have not been
+  executed in this x86 workspace.
 - Golden, replay, integration and board test directories remain planned scaffolding.
   No executed test result is inferred from CTest registration.
 - `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include

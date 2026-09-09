@@ -1,7 +1,8 @@
 # VQEC Vision AI Applications
 
 Source inventory update (2026-09-09): source includes the existing FW third
-NV12/FD receiver, strict legacy decoder and session-owned ACK; not built/tested yet.
+NV12/FD receiver, strict legacy decoder and session-owned ACK; configured targets now
+cross-build with the AArch64 eSDK, while target tests and board behavior remain unexecuted.
 See [camera adapter implementation boundary](docs/architecture/camera_legacy_adapter.md).
 The released camera adapter follows FW effective profiles; the new deployment contract
 requires explicit per-source dimensions/FPS and supports 1..16 unified FW RAW inputs on
@@ -13,15 +14,16 @@ Combined control/media lifecycle is now source-delivered with explicit drain/rel
 see [source lifecycle](docs/architecture/camera_source_lifecycle.md).
 FD-to-GstMemory wrapping is now source-delivered; see
 [memory bridge contract](docs/architecture/dmabuf_memory_bridge.md).
-Submission/result/drain source is present; hardware completion validation and a runnable
-end-to-end vqec_ai_vision_applications are still pending. Current status is maintained in
-[implementation status](docs/development/implementation_status.md).
+Submission/result/drain source is present and cross-builds; hardware completion validation
+and a runnable end-to-end vqec_ai_vision_applications are still pending. Current status is
+maintained in [implementation status](docs/development/implementation_status.md).
 
 Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
 Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host compiler không
 được dùng làm bằng chứng xác nhận target.
-Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference và output helpers;
-chưa có kết quả build/test hoặc app thay release**.
+Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference, feature
+integration catalog/pipeline và output helpers; eSDK cross-build đạt, chưa chạy target
+tests hoặc có app thay release**.
 
 Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
 and [replacement execution gates](docs/planning/fw_compatibility_execution.md).

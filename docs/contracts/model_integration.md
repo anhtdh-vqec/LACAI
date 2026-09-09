@@ -24,6 +24,11 @@ preserve the expected source frame key, and write observations transactionally. 
 not infer geometry, labels, quantization or model version from an untrusted tensor alone.
 Không nhận binary đơn lẻ làm deliverable hoàn tất.
 
+Feature packages reference model entries through the versioned
+[feature catalog](../architecture/feature_catalog.md). Model IDs therefore remain stable
+integration identities; feature source does not select a graph from a product name or
+hardcoded feature table.
+
 ## Catalog boundary for multi-source deployment
 
 AI Model delivers one authenticated catalog/package that may contain several model
