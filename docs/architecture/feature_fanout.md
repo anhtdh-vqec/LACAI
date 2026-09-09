@@ -19,4 +19,5 @@ cross-feature atomic publication claim. Slots outside the configured count are u
 The fan-out borrows unique stage owners and performs no activation, entitlement, output
 delivery or automatic replacement. Feature manager composition must keep slot identity
 stable for its immutable configuration revision and replace the whole owner set for a new
-revision.
+revision. Direct single-model dependencies are connected by the
+[multi-model feature pipeline](multi_model_feature_pipeline.md).

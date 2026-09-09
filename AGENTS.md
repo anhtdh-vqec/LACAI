@@ -145,5 +145,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/feature_fanout.md before changing feature scheduling.
   Multi-model results route by stable numeric slot with independent source progress; read
   docs/architecture/multi_model_result_router.md before changing result routing or gap detection.
+  Single-model feature dependencies bind by immutable model slot; read
+  docs/architecture/multi_model_feature_pipeline.md before changing result-to-feature composition.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.

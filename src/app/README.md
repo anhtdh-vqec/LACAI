@@ -32,6 +32,9 @@ completed submission ticket, validates tensor pipeline PTS, then composes the co
 decoder and tracker transactionally. `vqec_vision_multi_model_result_router` selects one
 such stage by immutable model slot, keeps independent epoch/frame/PTS progress per slot and
 derives explicit tracker gaps without assuming round-robin results describe the same frame.
+`vqec_vision_multi_model_feature_pipeline` then invokes only the optional feature fan-out
+bound to that result's model slot. Features that require several models still need an
+explicit bounded temporal join.
 
 `vqec_vision_feature_fanout` advances a fixed activation-time list of feature stages from
 one tracked batch. It records numeric per-slot success/failure and continues healthy

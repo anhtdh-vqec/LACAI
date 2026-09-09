@@ -248,10 +248,12 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/app/vqec_vision_perception_result_stage.cpp | prstg | vqec_vision_ai_appl_prstg_ |
 | src/app/vqec_vision_feature_fanout.cpp | ftfan | vqec_vision_ai_appl_ftfan_ |
 | src/app/vqec_vision_multi_model_result_router.cpp | mmrrt | vqec_vision_ai_appl_mmrrt_ |
+| src/app/vqec_vision_multi_model_feature_pipeline.cpp | mmfpl | vqec_vision_ai_appl_mmfpl_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |
 | tests/contract/vqec_vision_perception_result_stage_test.cpp | prct | vqec_vision_ai_ctest_prct_ |
 | tests/contract/vqec_vision_feature_fanout_test.cpp | ffct | vqec_vision_ai_ctest_ffct_ |
 | tests/contract/vqec_vision_multi_model_result_router_test.cpp | mrrct | vqec_vision_ai_ctest_mrrct_ |
+| tests/contract/vqec_vision_multi_model_feature_pipeline_test.cpp | mfpct | vqec_vision_ai_ctest_mfpct_ |
 
 Header contracts/vqec_vision_inference_plan.hpp declarations use implementation owner core_infpl.
 types/vqec_vision_status.hpp is not introduced: status types live in contracts/vqec_vision_status.hpp and

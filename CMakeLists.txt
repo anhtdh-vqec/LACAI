@@ -288,7 +288,22 @@ target_include_directories(vqec_vision_ai_feature_fanout PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
 target_link_libraries(vqec_vision_ai_feature_fanout PUBLIC vqec_vision_ai_feature_runtime)
 set_target_properties(vqec_vision_ai_feature_fanout PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_multi_model_feature_pipeline STATIC
+    src/app/vqec_vision_multi_model_feature_pipeline.cpp)
+target_include_directories(vqec_vision_ai_multi_model_feature_pipeline PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline
+    PUBLIC vqec_vision_ai_multi_model_result_router vqec_vision_ai_feature_fanout)
+set_target_properties(vqec_vision_ai_multi_model_feature_pipeline PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_multi_model_feature_pipeline_test
+        tests/contract/vqec_vision_multi_model_feature_pipeline_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline_test
+        PRIVATE vqec_vision_ai_multi_model_feature_pipeline)
+    set_target_properties(vqec_vision_ai_multi_model_feature_pipeline_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_model_feature_pipeline
+        COMMAND vqec_vision_ai_multi_model_feature_pipeline_test)
     add_executable(vqec_vision_ai_multi_model_result_router_test
         tests/contract/vqec_vision_multi_model_result_router_test.cpp)
     target_link_libraries(vqec_vision_ai_multi_model_result_router_test
@@ -638,6 +653,8 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
         vqec_vision_ai_multi_model_result_router vqec_vision_ai_multi_model_result_router_test
+        vqec_vision_ai_multi_model_feature_pipeline
+        vqec_vision_ai_multi_model_feature_pipeline_test
         vqec_vision_ai_perception_result_stage vqec_vision_ai_perception_result_stage_test
         vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_session_test
         vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire

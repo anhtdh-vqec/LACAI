@@ -89,4 +89,9 @@ status multi_model_result_router::vqec_vision_ai_appl_mmrrt_route_result(
     return {};
 }
 
+std::uint16_t multi_model_result_router::
+vqec_vision_ai_appl_mmrrt_get_stage_count() const noexcept {
+    return stage_count_;
+}
+
 }  // namespace vqec::vision::ai

@@ -32,4 +32,5 @@ results describe the same frame.
 
 See [multi-model pump](multi_model_pump.md),
 [perception result stage](perception_result_stage.md) and
-[tracking stage](tracking_stage.md).
+[tracking stage](tracking_stage.md). Direct feature consumers are composed by the
+[multi-model feature pipeline](multi_model_feature_pipeline.md).

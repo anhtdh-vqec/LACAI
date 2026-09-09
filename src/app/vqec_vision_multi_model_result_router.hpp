@@ -33,6 +33,8 @@ public:
         std::array<observation_batch, deployment_limits::g_max_models_per_source>&
             _tracked_by_model,
         multi_model_result_report& _report);
+    [[nodiscard]] std::uint16_t
+    vqec_vision_ai_appl_mmrrt_get_stage_count() const noexcept;
 
 private:
     std::array<perception_result_stage*, deployment_limits::g_max_models_per_source>
