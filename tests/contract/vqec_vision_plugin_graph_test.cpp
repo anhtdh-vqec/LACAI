@@ -1,4 +1,6 @@
 #include <iostream>
+#include <string>
+#include <vector>
 
 #include "vqec_vision_plugin_graph.hpp"
 
@@ -44,6 +46,16 @@ int main() {
     check(output.pipeline_pts_ns_ == 777);
     check(graph.vqec_vision_ai_qcom_plgr_get_warning_count() == 0);
     check(graph.vqec_vision_ai_qcom_plgr_get_last_error().message_.empty());
+    std::vector<vqec::vision::ai::plugin_factory_capability> capabilities;
+    check(graph.vqec_vision_ai_qcom_plgr_probe_factories({}, capabilities).code_ ==
+          status_code::ok);
+    check(capabilities.empty());
+    check(graph.vqec_vision_ai_qcom_plgr_probe_factories(
+              {"vqec_vision_ai_factory_that_does_not_exist"}, capabilities).code_ ==
+          status_code::ok);
+    check(capabilities.size() == 1U && !capabilities.front().available_);
+    check(graph.vqec_vision_ai_qcom_plgr_probe_factories(
+              {std::string(129U, 'x')}, capabilities).code_ == status_code::invalid_argument);
     vqec::vision::ai::inference_plan invalid;
     check(graph.vqec_vision_ai_qcom_plgr_configure_graph(invalid).code_ != status_code::ok);
     check(graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::empty);

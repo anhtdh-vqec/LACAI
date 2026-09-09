@@ -46,6 +46,11 @@ struct plugin_graph_error {
     std::string message_;
 };
 
+struct plugin_factory_capability {
+    std::string factory_name_;
+    bool available_{false};
+};
+
 // No vendor/GStreamer types cross this header. Serialized backend-worker calls only.
 // configure remains NULL-only; load_model may synchronously block in vendor SDK code.
 // Explicitly unload before destruction. Armed graphs use bounded retention, not forced NULL.
@@ -69,6 +74,12 @@ public:
 
     [[nodiscard]] status
     vqec_vision_ai_qcom_plgr_configure_graph(const inference_plan& _plan);
+
+    // Runtime-only inventory. The caller supplies factory names from deployment
+    // policy; this method never substitutes a backend or a plugin default.
+    [[nodiscard]] status vqec_vision_ai_qcom_plgr_probe_factories(
+        const std::vector<std::string>& _factory_names,
+        std::vector<plugin_factory_capability>& _capabilities) const;
 
     [[nodiscard]] bool vqec_vision_ai_qcom_plgr_is_configured() const noexcept;
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_load_model();

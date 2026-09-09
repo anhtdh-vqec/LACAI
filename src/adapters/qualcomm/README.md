@@ -5,7 +5,7 @@ Read docs/research/qualcomm_plugins_reference.md and ADR 0002.
 
 ## Source delivered, not built/tested
 
-- vqec_vision_plugin_graph.cpp: factory/property validation, explicit FastCV/QNN
+- vqec_vision_plugin_graph.cpp: runtime factory probing, factory/property validation, explicit FastCV/QNN
   configuration, READY source binding, PLAYING, bounded submission and result polling,
   independent input/result completion, EOS/drain and unload guards.
 - vqec_vision_inference_graph.cpp: vendor-neutral inference_graph_port adapter; owns the

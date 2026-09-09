@@ -226,6 +226,39 @@ struct plugin_graph::implementation {
 
 plugin_graph::plugin_graph() = default;
 
+status plugin_graph::vqec_vision_ai_qcom_plgr_probe_factories(
+    const std::vector<std::string>& _factory_names,
+    std::vector<plugin_factory_capability>& _capabilities) const {
+    _capabilities.clear();
+    if (_factory_names.size() > 64U) {
+        return {status_code::invalid_argument, "factory probe list exceeds bounded capacity"};
+    }
+    for (const auto& factory_name : _factory_names) {
+        if (factory_name.empty() || factory_name.size() > 128U) {
+            return {status_code::invalid_argument, "factory name is empty or too long"};
+        }
+    }
+    if (_factory_names.empty()) {
+        return {};
+    }
+    GError* init_error = nullptr;
+    const auto is_initialized = gst_init_check(nullptr, nullptr, &init_error);
+    std::unique_ptr<GError, error_deleter> error(init_error);
+    if (!is_initialized) {
+        return {status_code::incompatible_plugin,
+                error ? error->message : "GStreamer initialization failed"};
+    }
+    _capabilities.reserve(_factory_names.size());
+    for (const auto& factory_name : _factory_names) {
+        auto* factory = gst_element_factory_find(factory_name.c_str());
+        _capabilities.push_back({factory_name, factory != nullptr});
+        if (factory != nullptr) {
+            gst_object_unref(factory);
+        }
+    }
+    return {};
+}
+
 struct graph_retention::implementation {
     std::array<bool, 4> reserved_{};
     std::array<std::unique_ptr<plugin_graph::implementation>, 4> retained_{};

@@ -10,7 +10,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 - The relevant contract and module README.
 - For Qualcomm: docs/research/qualcomm_source_review.md and
   docs/architecture/qualcomm_adapter.md.
-  Also read docs/research/qualcomm_plugins_reference.md and
+  Also read docs/research/qualcomm_plugins_reference.md,
+  docs/architecture/qualcomm_plugin_adapter_reference.md and
   docs/adr/0002_qualcomm_plugin_backend.md. The user-confirmed target is QSC6490
   / Qualcomm Linux 1.8. Do not block source implementation on missing sysroot.
 

@@ -44,10 +44,11 @@ Source filenames use `vqec_vision_`; run the structural check with
 9. [Kế hoạch 12 tuần](docs/planning/delivery_plan.md).
 10. [Review và nghiệm thu](docs/development/review_checklist.md).
 11. [Tra cứu toàn bộ 47 plugin Qualcomm](docs/research/qualcomm_plugins_reference.md).
-12. [Quyết định dùng plugin backend](docs/adr/0002_qualcomm_plugin_backend.md).
-13. [Source đã có và phần chưa triển khai](docs/development/implementation_status.md).
-14. [Cấu hình 1..16 source và memory/zero-copy ledger](docs/architecture/multi_source_configuration.md).
-15. [Model-team catalog và cross-admission](docs/architecture/model_catalog.md).
+12. [Ranh giới adapter và cách dùng plugin Qualcomm](docs/architecture/qualcomm_plugin_adapter_reference.md).
+13. [Quyết định dùng plugin backend](docs/adr/0002_qualcomm_plugin_backend.md).
+14. [Source đã có và phần chưa triển khai](docs/development/implementation_status.md).
+15. [Cấu hình 1..16 source và memory/zero-copy ledger](docs/architecture/multi_source_configuration.md).
+16. [Model-team catalog và cross-admission](docs/architecture/model_catalog.md).
 
 ## Phạm vi
 
@@ -72,6 +73,8 @@ Qualcomm graph submit/result/drain, cadence, shared-frame multi-model session v�
 multi-source supervisor qua neutral ports. Nhánh output đã có CPU preview pool,
 encoder ledger/preparation/submit/drain helpers, authorized event dispatch và optional
 FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
+Qualcomm plugin factory probing is available at the adapter boundary; it reports
+runtime availability without selecting a fallback backend.
 CMake targets và unit/contract-test source đã có; chưa có kết quả build/C++ tests.
 Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
 service vqec_ai_vision_applications/IPK, CI chạy tự động hoặc AST naming checker.
