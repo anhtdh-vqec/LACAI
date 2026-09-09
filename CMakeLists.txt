@@ -290,7 +290,8 @@ target_link_libraries(vqec_vision_ai_perception_result_stage
     PUBLIC vqec_vision_ai_detection vqec_vision_ai_tracking)
 set_target_properties(vqec_vision_ai_perception_result_stage PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_multi_model_result_router STATIC
-    src/app/vqec_vision_multi_model_result_router.cpp)
+    src/app/vqec_vision_multi_model_result_router.cpp
+    src/app/vqec_vision_source_perception_factory.cpp)
 target_include_directories(vqec_vision_ai_multi_model_result_router PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
 target_link_libraries(vqec_vision_ai_multi_model_result_router
@@ -366,6 +367,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME multi_model_result_routing
         COMMAND vqec_vision_ai_multi_model_result_router_test)
+    add_executable(vqec_vision_ai_source_perception_factory_test
+        tests/contract/vqec_vision_source_perception_factory_test.cpp)
+    target_link_libraries(vqec_vision_ai_source_perception_factory_test
+        PRIVATE vqec_vision_ai_multi_model_result_router)
+    set_target_properties(vqec_vision_ai_source_perception_factory_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME source_perception_factory_contract
+        COMMAND vqec_vision_ai_source_perception_factory_test)
     add_executable(vqec_vision_ai_feature_fanout_test
         tests/contract/vqec_vision_feature_fanout_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_fanout_test
@@ -720,6 +729,7 @@ foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
         vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
         vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
         vqec_vision_ai_multi_model_result_router vqec_vision_ai_multi_model_result_router_test
+        vqec_vision_ai_source_perception_factory_test
         vqec_vision_ai_multi_model_feature_pipeline
         vqec_vision_ai_multi_model_feature_pipeline_test
         vqec_vision_ai_perception_result_stage vqec_vision_ai_perception_result_stage_test
