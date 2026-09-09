@@ -36,6 +36,23 @@ status model_decoder_registry::vqec_vision_ai_detec_mdreg_resolve_decoder(
     return {status_code::unsupported, "decoder contract is not registered"};
 }
 
+status model_decoder_registry::vqec_vision_ai_detec_mdreg_validate_model_outputs(
+    const model_catalog_entry& _model, const model_outputs& _outputs) const {
+    if (_model.model_id_.empty() || _model.model_version_.empty() ||
+        _model.decoder_contract_.empty() || _outputs.model_id_ != _model.model_id_ ||
+        _outputs.model_version_ != _model.model_version_ ||
+        _outputs.decoder_contract_ != _model.decoder_contract_) {
+        return {status_code::invalid_argument, "model output identity differs from catalog"};
+    }
+    model_decoder_port* decoder = nullptr;
+    const auto resolved = vqec_vision_ai_detec_mdreg_resolve_decoder(
+        _model.decoder_contract_, decoder);
+    if (resolved.code_ != status_code::ok) {
+        return resolved;
+    }
+    return decoder->vqec_vision_ai_cntr_mddec_validate(_outputs);
+}
+
 void model_decoder_registry::vqec_vision_ai_detec_mdreg_clear() noexcept {
     for (std::size_t index = 0; index < count_; ++index) {
         entries_[index] = {};

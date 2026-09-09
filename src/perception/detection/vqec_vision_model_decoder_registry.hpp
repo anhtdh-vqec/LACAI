@@ -6,6 +6,7 @@
 #include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 
 namespace vqec::vision::ai {
 
@@ -26,6 +27,8 @@ public:
         const std::string& _contract, model_decoder_port& _decoder);
     [[nodiscard]] status vqec_vision_ai_detec_mdreg_resolve_decoder(
         const std::string& _contract, model_decoder_port*& _decoder) const noexcept;
+    [[nodiscard]] status vqec_vision_ai_detec_mdreg_validate_model_outputs(
+        const model_catalog_entry& _model, const model_outputs& _outputs) const;
     void vqec_vision_ai_detec_mdreg_clear() noexcept;
     [[nodiscard]] std::size_t
     vqec_vision_ai_detec_mdreg_get_count() const noexcept;

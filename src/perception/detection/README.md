@@ -15,3 +15,5 @@ published batch.
 non-owning decoder implementation during activation. It has bounded capacity,
 rejects duplicate/invalid contracts and returns `unsupported` for an unknown
 contract; it never constructs a decoder or silently selects a fallback.
+It can also validate a parsed output manifest against the selected catalog identity
+and invoke the registered decoder's own manifest validation before activation.

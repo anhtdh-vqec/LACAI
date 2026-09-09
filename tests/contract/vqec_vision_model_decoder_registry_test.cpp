@@ -39,6 +39,19 @@ int main() {
     assert(registry.vqec_vision_ai_detec_mdreg_resolve_decoder(
                "person.detector.v1", resolved).code_ == status_code::ok);
     assert(resolved == &decoder);
+    model_catalog_entry model;
+    model.model_id_ = "person";
+    model.model_version_ = "1";
+    model.decoder_contract_ = "person.detector.v1";
+    model_outputs outputs;
+    outputs.model_id_ = "person";
+    outputs.model_version_ = "1";
+    outputs.decoder_contract_ = "person.detector.v1";
+    assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ ==
+           status_code::ok);
+    outputs.decoder_contract_ = "other.decoder.v1";
+    assert(registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(model, outputs).code_ ==
+           status_code::invalid_argument);
     assert(registry.vqec_vision_ai_detec_mdreg_resolve_decoder("missing.v1", resolved).code_ ==
            status_code::unsupported);
     assert(resolved == nullptr);
