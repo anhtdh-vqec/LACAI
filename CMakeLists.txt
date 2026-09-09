@@ -45,6 +45,13 @@ target_include_directories(vqec_vision_ai_detection PUBLIC
 target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_detection PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_tracking STATIC
+    src/perception/tracking/vqec_vision_tracking_stage.cpp)
+target_include_directories(vqec_vision_ai_tracking PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/tracking>)
+target_link_libraries(vqec_vision_ai_tracking PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_tracking PROPERTIES CXX_EXTENSIONS OFF)
+
 if(VQEC_VISION_AI_ENABLE_MODEL_CATALOG)
     add_library(vqec_vision_ai_model_catalog_config STATIC
         src/runtime/model_registry/vqec_vision_model_catalog.cpp)
@@ -238,6 +245,13 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_tracking_stage_test
+        tests/contract/vqec_vision_tracking_stage_test.cpp)
+    target_link_libraries(vqec_vision_ai_tracking_stage_test PRIVATE vqec_vision_ai_tracking)
+    target_include_directories(vqec_vision_ai_tracking_stage_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/tracking>)
+    set_target_properties(vqec_vision_ai_tracking_stage_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME tracking_stage_contract COMMAND vqec_vision_ai_tracking_stage_test)
     add_executable(vqec_vision_ai_tracker_port_test
         tests/contract/vqec_vision_tracker_port_test.cpp)
     target_link_libraries(vqec_vision_ai_tracker_port_test PRIVATE vqec_vision_ai_core)

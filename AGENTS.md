@@ -128,5 +128,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/qualcomm_graph_lifecycle.md before changing graph states.
   Pure submission_window bookkeeping/PTS mapping is source-delivered; read
   docs/architecture/submission_window.md before changing admission/completion semantics.
+  The portable tracking stage validates detection input, resets on source epoch and
+  faults an epoch after ambiguous tracker failure; read docs/architecture/tracking_stage.md
+  before changing tracker orchestration.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.
