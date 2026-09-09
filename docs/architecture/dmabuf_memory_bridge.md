@@ -29,7 +29,8 @@ The optional bridge target uses standard GStreamer allocators/video libraries;
 unit/contract fixtures do not need Qualcomm plugins or a model.
 
 Input: neutral frame_descriptor, borrowed FD and shared const owner. The application
-passes the received_frame shared owner, never just its borrowed FD. The Qualcomm
+passes the raw_frame shared owner, never just its borrowed FD. The Camera adapter's
+owner still retains the original received_frame and legacy ACK session. The Qualcomm
 bridge has no camera-adapter dependency; core never sees GStreamer types.
 The bridge validates geometry/layout/ranges and an explicit expected source profile.
 It duplicates the FD with CLOEXEC and wraps the full allocation with GstDmaBufAllocator,

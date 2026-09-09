@@ -48,3 +48,7 @@ a full drain/rebind; routes must never be swapped under a running session.
 
 No route lookup proves DMA-BUF import, synchronization, zero-copy or source capacity. Those
 remain separate BSP/FW memory-contract and board-admission gates.
+
+After route composition, session code accesses the source only through the
+[vendor-neutral RAW-source port](raw_source_port.md); it does not depend on the legacy
+socket/control class.

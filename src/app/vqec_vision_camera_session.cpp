@@ -30,7 +30,7 @@ status vqec_vision_ai_appl_camsn_bind_model_outputs(
     return {};
 }
 
-camera_session::camera_session(source_lifecycle& _source, plugin_graph& _graph,
+camera_session::camera_session(raw_source_port& _source, plugin_graph& _graph,
     std::shared_ptr<graph_retention> _retention, camera_session_config _config)
     : source_(_source), graph_(_graph), retention_(std::move(_retention)),
       config_(std::move(_config)),
@@ -108,7 +108,7 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
             config_.max_output_bytes_ > 64ULL * 1024 * 1024) {
             return {status_code::invalid_argument, "invalid session configuration"};
         }
-        if (source_.vqec_vision_ai_camer_srclc_get_state() != camera_source_state::idle ||
+        if (source_.vqec_vision_ai_ports_rawsr_get_state() != raw_source_state::idle ||
             graph_.vqec_vision_ai_qcom_plgr_get_state() != plugin_graph_state::empty) {
             return {status_code::invalid_state, "session requires idle camera and empty graph"};
         }
@@ -142,13 +142,13 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
     status progress;
     switch (state_) {
         case camera_session_state::acquiring:
-            progress = source_.vqec_vision_ai_camer_srclc_start(config_.rpc_timeout_ms_);
+            progress = source_.vqec_vision_ai_ports_rawsr_start(config_.rpc_timeout_ms_);
             if (progress.code_ == status_code::ok) {
                 state_ = camera_session_state::configuring;
             } else if ((progress.code_ == status_code::timeout ||
                         progress.code_ == status_code::source_lost) &&
-                       source_.vqec_vision_ai_camer_srclc_get_state() !=
-                           camera_source_state::draining) {
+                       source_.vqec_vision_ai_ports_rawsr_get_state() !=
+                           raw_source_state::draining) {
                 if (last_error_.code_ == status_code::ok) {
                     last_error_ = progress;
                 }
@@ -156,11 +156,13 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
             }
             break;
         case camera_session_state::configuring: {
-            const auto& profile = source_.vqec_vision_ai_camer_srclc_get_profile();
+            const auto profile = source_.vqec_vision_ai_ports_rawsr_get_profile();
             if (profile.width_ != config_.plan_.source_width_ ||
                 profile.height_ != config_.plan_.source_height_ ||
-                static_cast<std::uint64_t>(profile.fps_) * config_.plan_.fps_denominator_ !=
-                    config_.plan_.fps_numerator_) {
+                static_cast<std::uint64_t>(profile.fps_numerator_) *
+                        config_.plan_.fps_denominator_ !=
+                    static_cast<std::uint64_t>(config_.plan_.fps_numerator_) *
+                        profile.fps_denominator_) {
                 progress = {status_code::unsupported, "FW effective profile differs from plan"};
                 break;
             }
@@ -201,8 +203,8 @@ status camera_session::vqec_vision_ai_appl_camsn_step(
             progress = vqec_vision_ai_appl_camsn_stop_graph(_steady_now_ns);
             break;
         case camera_session_state::releasing_camera:
-            progress = source_.vqec_vision_ai_camer_srclc_stop(config_.rpc_timeout_ms_);
-            if (source_.vqec_vision_ai_camer_srclc_get_state() == camera_source_state::stopped) {
+            progress = source_.vqec_vision_ai_ports_rawsr_stop(config_.rpc_timeout_ms_);
+            if (source_.vqec_vision_ai_ports_rawsr_get_state() == raw_source_state::stopped) {
                 state_ = camera_session_state::stopped;
                 is_recovery_required_ = false;
                 return {};
@@ -249,10 +251,10 @@ const status& camera_session::vqec_vision_ai_appl_camsn_get_last_error() const n
 }
 
 camera_session_snapshot camera_session::vqec_vision_ai_appl_camsn_get_snapshot() const noexcept {
-    return {state_, source_.vqec_vision_ai_camer_srclc_get_state(),
+    return {state_, source_.vqec_vision_ai_ports_rawsr_get_state(),
             graph_.vqec_vision_ai_qcom_plgr_get_state(),
             graph_.vqec_vision_ai_qcom_plgr_get_outstanding(),
-            source_.vqec_vision_ai_camer_srclc_get_outstanding(),
+            source_.vqec_vision_ai_ports_rawsr_get_outstanding(),
             is_recovery_required_, last_error_.code_};
 }
 
@@ -293,7 +295,7 @@ source_session_health camera_session::vqec_vision_ai_appl_srcsn_get_health() con
     health.model_graph_count_ = 1;
     health.running_graph_count_ = snapshot.graph_state_ == plugin_graph_state::playing ? 1 : 0;
     health.outstanding_jobs_ = snapshot.graph_jobs_;
-    health.source_readers_ = snapshot.camera_readers_;
+    health.source_readers_ = snapshot.source_readers_;
     health.is_recovery_required_ = snapshot.is_recovery_required_;
     health.first_error_code_ = snapshot.first_error_code_;
     return health;

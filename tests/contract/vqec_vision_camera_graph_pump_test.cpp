@@ -2,6 +2,7 @@
 #include <memory>
 
 #include "vqec_vision_camera_graph_pump.hpp"
+#include "vqec_vision_source_lifecycle.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

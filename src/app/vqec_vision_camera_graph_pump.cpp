@@ -1,10 +1,11 @@
 #include "vqec_vision_camera_graph_pump.hpp"
 
+#include <limits>
 #include <utility>
 
 namespace vqec::vision::ai {
 
-camera_graph_pump::camera_graph_pump(source_lifecycle& _source, plugin_graph& _graph,
+camera_graph_pump::camera_graph_pump(raw_source_port& _source, plugin_graph& _graph,
     std::shared_ptr<graph_retention> _retention, std::uint64_t _cycle_id,
     std::uint64_t _job_timeout_ns)
     : source_(_source), graph_(_graph), retention_(std::move(_retention)),
@@ -49,12 +50,12 @@ status camera_graph_pump::vqec_vision_ai_appl_cgpmp_pump_step(
         return {status_code::pending,
                 "pump stopped receiving; supervisor drives graph/source drain"};
     }
-    if (source_.vqec_vision_ai_camer_srclc_get_state() != camera_source_state::running ||
+    if (source_.vqec_vision_ai_ports_rawsr_get_state() != raw_source_state::running ||
         graph_.vqec_vision_ai_qcom_plgr_get_state() != plugin_graph_state::playing) {
         return {status_code::invalid_state, "pump requires running camera and PLAYING graph"};
     }
-    std::shared_ptr<const received_frame> frame;
-    const auto received = source_.vqec_vision_ai_camer_srclc_receive(frame, 0);
+    raw_frame frame;
+    const auto received = source_.vqec_vision_ai_ports_rawsr_receive(frame, 0);
     if (received.code_ == status_code::timeout) {
         return {status_code::pending, "no camera frame available"};
     }
@@ -62,7 +63,13 @@ status camera_graph_pump::vqec_vision_ai_appl_cgpmp_pump_step(
         is_failed_ = true;
         return received;
     }
-    const auto& descriptor = frame->vqec_vision_ai_camer_frsrc_get_descriptor();
+    const auto& descriptor = frame.descriptor_;
+    if (frame.native_handle_ < 0 ||
+        frame.native_handle_ > std::numeric_limits<int>::max() || !frame.owner_) {
+        is_failed_ = true;
+        return {status_code::unsupported,
+                "Qualcomm graph requires a valid Linux DMA-BUF handle"};
+    }
     if (!is_armed_) {
         const auto armed = graph_.vqec_vision_ai_qcom_plgr_arm_submission(
             cycle_id_, descriptor.session_epoch_, job_timeout_ns_, retention_);
@@ -74,7 +81,8 @@ status camera_graph_pump::vqec_vision_ai_appl_cgpmp_pump_step(
     }
     submission_ticket ticket;
     const auto submitted = graph_.vqec_vision_ai_qcom_plgr_submit_frame(
-        descriptor, frame->vqec_vision_ai_camer_frsrc_get_fd(), frame, _steady_now_ns, ticket);
+        descriptor, static_cast<int>(frame.native_handle_), std::move(frame.owner_),
+        _steady_now_ns, ticket);
     if (ticket.token_.job_id_ != 0) {
         _report.has_submission_ = true;
         _report.ticket_ = ticket;

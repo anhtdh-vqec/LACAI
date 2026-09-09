@@ -148,4 +148,58 @@ source_lifecycle::vqec_vision_ai_camer_srclc_get_profile() const noexcept {
     return control_.vqec_vision_ai_camer_cctrl_get_profile();
 }
 
+status source_lifecycle::vqec_vision_ai_ports_rawsr_start(int _timeout_ms) {
+    return vqec_vision_ai_camer_srclc_start(_timeout_ms);
+}
+
+status source_lifecycle::vqec_vision_ai_ports_rawsr_receive(
+    raw_frame& _frame, int _timeout_ms) {
+    if (_frame.owner_ || _frame.native_handle_ != -1) {
+        return {status_code::invalid_argument, "RAW frame destination is occupied"};
+    }
+    std::shared_ptr<const received_frame> received;
+    const auto received_status = vqec_vision_ai_camer_srclc_receive(received, _timeout_ms);
+    if (received_status.code_ != status_code::ok) {
+        return received_status;
+    }
+    raw_frame candidate;
+    candidate.descriptor_ = received->vqec_vision_ai_camer_frsrc_get_descriptor();
+    candidate.native_handle_ = received->vqec_vision_ai_camer_frsrc_get_fd();
+    candidate.owner_ = std::move(received);
+    _frame = std::move(candidate);
+    return {};
+}
+
+status source_lifecycle::vqec_vision_ai_ports_rawsr_stop(int _timeout_ms) {
+    return vqec_vision_ai_camer_srclc_stop(_timeout_ms);
+}
+
+raw_source_state source_lifecycle::vqec_vision_ai_ports_rawsr_get_state() const noexcept {
+    switch (state_) {
+        case camera_source_state::idle:
+            return raw_source_state::idle;
+        case camera_source_state::starting:
+        case camera_source_state::connecting:
+            return raw_source_state::starting;
+        case camera_source_state::running:
+            return raw_source_state::running;
+        case camera_source_state::draining:
+        case camera_source_state::releasing:
+            return raw_source_state::draining;
+        case camera_source_state::stopped:
+            return raw_source_state::stopped;
+    }
+    return raw_source_state::draining;
+}
+
+raw_source_profile source_lifecycle::vqec_vision_ai_ports_rawsr_get_profile()
+    const noexcept {
+    const auto& profile = vqec_vision_ai_camer_srclc_get_profile();
+    return {profile.width_, profile.height_, profile.fps_, profile.is_valid_ ? 1U : 0U};
+}
+
+unsigned source_lifecycle::vqec_vision_ai_ports_rawsr_get_outstanding() const noexcept {
+    return vqec_vision_ai_camer_srclc_get_outstanding();
+}
+
 } // namespace vqec::vision::ai

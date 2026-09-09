@@ -2,7 +2,7 @@
 
 Source candidate; ownership review and board validation pending. camera_session is
 composition-level orchestration, not process supervision or an executable service.
-It exclusively borrows one initially idle source_lifecycle and empty plugin_graph.
+It exclusively borrows one initially idle raw_source_port and empty plugin_graph.
 The application owns both and the shared graph_retention domain until stopped;
 destroying the coordinator does not issue RPCs, cancel readers or release a lease.
 

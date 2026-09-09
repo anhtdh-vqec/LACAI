@@ -3,7 +3,7 @@
 Source candidate, no live FW/board execution. This is composition wiring in src/app,
 not a vendor dependency in neutral runtime/core and not an executable service.
 
-Supervisor owns source_lifecycle, plugin_graph, one shared graph_retention domain
+Supervisor owns a raw_source_port implementation, plugin_graph and one shared graph_retention domain
 and camera_graph_pump for one acquisition cycle. It first starts Camera control/media,
 uses the effective FW profile to configure/load/bind/start the graph, then calls
 pump_step with steady-clock nanoseconds. The first received descriptor supplies the
@@ -13,7 +13,7 @@ pump to an already-armed graph or reuse it across a source acquisition cycle.
 
 Each call either consumes one tensor result, polls pending work, or receives at most
 one camera frame with timeout=0 and submits it. No pixel copy is added on input:
-the received_frame shared owner is passed through the FD bridge; normal final-owner
+the raw_frame shared owner is passed through the FD bridge; normal final-owner
 release still ACKs on the original FW socket. Output is the existing explicit CPU copy.
 No per-frame D-Bus, second raw stream, qmmfsrc, internal worker or unbounded queue.
 The existing FW socket/pinned-buffer policy can still accumulate older frames;

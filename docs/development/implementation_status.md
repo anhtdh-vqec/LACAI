@@ -16,6 +16,13 @@ NV12 ABI value. The receiver consumes the resolved path without inferring Camera
 topology. A compatibility helper owns the released `third` socket naming rule; production
 FW registry RPC/authentication remains pending. Test source was added but not executed.
 
+A vendor-neutral RAW-source port now carries descriptor metadata, an adapter-native handle
+and shared lifetime owner without copying pixels. The Camera source lifecycle implements
+the port by forwarding its existing acquire/receive/drain behavior; ownership conversion
+shares the same control block so legacy ACK remains tied to the final reader. camera_session
+and camera_graph_pump now consume only this source port; other platform source adapters
+remain pending.
+
 Multi-source deployment contract/validator and strict bounded JSON loader source now
 represent 1..16 unified FW RAW inputs for AI Camera or AI Box, exact per-source profiles,
 model assignments and conservative memory ceilings. Fixed 4K/25 defaults were removed

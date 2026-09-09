@@ -6,6 +6,7 @@
 
 #include "vqec_vision_camera_control.hpp"
 #include "vqec_vision_frame_source.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 
@@ -22,7 +23,7 @@ struct camera_lifecycle_config {
 
 // Linux-only, serialized methods. One acquisition cycle, no destructor RPC.
 // Caller must reach stopped before destruction; pending is not hardware completion.
-class source_lifecycle {
+class source_lifecycle final : public raw_source_port {
 public:
     source_lifecycle(std::shared_ptr<camera_rpc> _rpc, camera_lifecycle_config _config);
     source_lifecycle(const source_lifecycle&) = delete;
@@ -38,6 +39,17 @@ public:
     [[nodiscard]] unsigned vqec_vision_ai_camer_srclc_get_outstanding() const noexcept;
     [[nodiscard]] const camera_stream_profile&
     vqec_vision_ai_camer_srclc_get_profile() const noexcept;
+
+    [[nodiscard]] status vqec_vision_ai_ports_rawsr_start(int _timeout_ms) override;
+    [[nodiscard]] status vqec_vision_ai_ports_rawsr_receive(
+        raw_frame& _frame, int _timeout_ms) override;
+    [[nodiscard]] status vqec_vision_ai_ports_rawsr_stop(int _timeout_ms) override;
+    [[nodiscard]] raw_source_state
+    vqec_vision_ai_ports_rawsr_get_state() const noexcept override;
+    [[nodiscard]] raw_source_profile
+    vqec_vision_ai_ports_rawsr_get_profile() const noexcept override;
+    [[nodiscard]] unsigned
+    vqec_vision_ai_ports_rawsr_get_outstanding() const noexcept override;
 
 private:
     camera_lifecycle_config config_;

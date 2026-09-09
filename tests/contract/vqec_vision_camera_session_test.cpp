@@ -148,9 +148,9 @@ int main() {
     camera_session session(source, graph, domain, vqec_vision_ai_ctest_cstst_make_config());
     const auto initial = session.vqec_vision_ai_appl_camsn_get_snapshot();
     check(initial.session_state_ == camera_session_state::idle);
-    check(initial.source_state_ == camera_source_state::idle);
+    check(initial.source_state_ == raw_source_state::idle);
     check(initial.graph_state_ == plugin_graph_state::empty);
-    check(initial.graph_jobs_ == 0 && initial.camera_readers_ == 0);
+    check(initial.graph_jobs_ == 0 && initial.source_readers_ == 0);
     check(initial.first_error_code_ == status_code::ok && !initial.is_recovery_required_);
     check(rpc->starts_ == 0 && rpc->stops_ == 0);
     check(session.vqec_vision_ai_appl_camsn_step(0, result, report).code_ == status_code::pending);
@@ -167,8 +167,8 @@ int main() {
     check(session.vqec_vision_ai_appl_camsn_is_recovery_required());
     const auto expired = session.vqec_vision_ai_appl_camsn_get_snapshot();
     check(expired.session_state_ == camera_session_state::releasing_camera);
-    check(expired.source_state_ == camera_source_state::releasing);
-    check(expired.graph_jobs_ == 0 && expired.camera_readers_ == 0);
+    check(expired.source_state_ == raw_source_state::draining);
+    check(expired.graph_jobs_ == 0 && expired.source_readers_ == 0);
     check(expired.is_recovery_required_ && expired.first_error_code_ == status_code::timeout);
     check(rpc->starts_ == 2 && rpc->stops_ == 1);  // Snapshot does not retry RPC.
     check(session.vqec_vision_ai_appl_camsn_request_stop(53).code_ == status_code::ok);
@@ -183,7 +183,7 @@ int main() {
     check(rpc->stops_ == 2 && rpc->has_same_stop_);
     const auto complete = session.vqec_vision_ai_appl_camsn_get_snapshot();
     check(complete.session_state_ == camera_session_state::stopped);
-    check(complete.source_state_ == camera_source_state::stopped);
+    check(complete.source_state_ == raw_source_state::stopped);
     check(!complete.is_recovery_required_ && complete.first_error_code_ == status_code::timeout);
     check(session.vqec_vision_ai_appl_camsn_get_last_error().message_ == "uncertain acquisition");
     check(session.vqec_vision_ai_appl_camsn_get_last_error().code_ == status_code::timeout);

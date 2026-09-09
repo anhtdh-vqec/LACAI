@@ -151,7 +151,7 @@ if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
     target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
     target_link_libraries(vqec_vision_ai_camera_graph_pump
-        PUBLIC vqec_vision_ai_camera vqec_vision_ai_qualcomm)
+        PUBLIC vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_camera_graph_pump PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
@@ -325,14 +325,14 @@ if(BUILD_TESTING)
     if(TARGET vqec_vision_ai_camera_graph_pump)
         add_executable(vqec_vision_ai_camera_session_test tests/contract/vqec_vision_camera_session_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_session_test
-            PRIVATE vqec_vision_ai_camera_graph_pump)
+            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera)
         set_target_properties(vqec_vision_ai_camera_session_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME camera_session_coordination COMMAND vqec_vision_ai_camera_session_test)
         set_tests_properties(camera_session_coordination PROPERTIES TIMEOUT 5)
         add_executable(vqec_vision_ai_camera_graph_pump_test
             tests/contract/vqec_vision_camera_graph_pump_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_graph_pump_test
-            PRIVATE vqec_vision_ai_camera_graph_pump)
+            PRIVATE vqec_vision_ai_camera_graph_pump vqec_vision_ai_camera)
         set_target_properties(vqec_vision_ai_camera_graph_pump_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME camera_graph_pump_guards COMMAND vqec_vision_ai_camera_graph_pump_test)
     endif()

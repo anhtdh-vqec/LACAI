@@ -62,6 +62,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   read docs/architecture/camera_source_lifecycle.md before changing start/stop behavior.
   FW RAW-source resolution is activation-only and product-origin agnostic; read
   docs/architecture/raw_source_resolution.md before changing endpoint composition.
+  New source-session code depends on the vendor-neutral raw_source_port, never directly on
+  Camera Service wire or product origin; read docs/architecture/raw_source_port.md.
   Private GstMemory wrapping now retains the owner on root memory;
   read docs/architecture/dmabuf_memory_bridge.md before changing memory lifetime.
   No hardware completion validation, executable service runtime or active CI.

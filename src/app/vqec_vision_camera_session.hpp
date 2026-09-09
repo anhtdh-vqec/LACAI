@@ -30,10 +30,10 @@ struct camera_session_config {
 
 struct camera_session_snapshot {
     camera_session_state session_state_{camera_session_state::idle};
-    camera_source_state source_state_{camera_source_state::idle};
+    raw_source_state source_state_{raw_source_state::idle};
     plugin_graph_state graph_state_{plugin_graph_state::empty};
     unsigned graph_jobs_{0};
-    unsigned camera_readers_{0};
+    unsigned source_readers_{0};
     bool is_recovery_required_{false};
     status_code first_error_code_{status_code::ok};
 };
@@ -57,7 +57,7 @@ struct model_output_selection {
 // Explicit stopped state required before owners are destroyed; no destructor shutdown.
 class camera_session final : public source_session_port {
 public:
-    camera_session(source_lifecycle& _source, plugin_graph& _graph,
+    camera_session(raw_source_port& _source, plugin_graph& _graph,
         std::shared_ptr<graph_retention> _retention, camera_session_config _config);
     camera_session(const camera_session& _other) = delete;
     camera_session& operator=(const camera_session& _other) = delete;
@@ -80,7 +80,7 @@ public:
 private:
     [[nodiscard]] status vqec_vision_ai_appl_camsn_check_time(std::uint64_t _steady_now_ns);
     [[nodiscard]] status vqec_vision_ai_appl_camsn_stop_graph(std::uint64_t _steady_now_ns);
-    source_lifecycle& source_;
+    raw_source_port& source_;
     plugin_graph& graph_;
     std::shared_ptr<graph_retention> retention_;
     camera_session_config config_;
