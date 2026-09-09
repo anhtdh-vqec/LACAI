@@ -1,0 +1,109 @@
+Internal ctest changing into directory: /home/a/Workspace/AI APPLICATIONS/LACAI/build-esdk
+Test project /home/a/Workspace/AI APPLICATIONS/LACAI/build-esdk
+      Start  1: feature_processor_registry_contract
+ 1/47 Test  #1: feature_processor_registry_contract ....   Passed    0.05 sec
+      Start  2: feature_activation_manager_contract
+ 2/47 Test  #2: feature_activation_manager_contract ....   Passed    0.05 sec
+      Start  3: tracker_registry_contract
+ 3/47 Test  #3: tracker_registry_contract ..............   Passed    0.04 sec
+      Start  4: feature_catalog_contract
+ 4/47 Test  #4: feature_catalog_contract ...............   Passed    0.04 sec
+      Start  5: multi_model_feature_pipeline
+ 5/47 Test  #5: multi_model_feature_pipeline ...........   Passed    0.05 sec
+      Start  6: multi_model_result_routing
+ 6/47 Test  #6: multi_model_result_routing .............   Passed    0.04 sec
+      Start  7: source_perception_factory_contract
+ 7/47 Test  #7: source_perception_factory_contract .....   Passed    0.04 sec
+      Start  8: feature_fanout_isolation
+ 8/47 Test  #8: feature_fanout_isolation ...............   Passed    0.04 sec
+      Start  9: perception_result_correlation
+ 9/47 Test  #9: perception_result_correlation ..........   Passed    0.04 sec
+      Start 10: perception_stage_factory_contract
+10/47 Test #10: perception_stage_factory_contract ......   Passed    0.04 sec
+      Start 11: feature_event_dispatch_authorization
+11/47 Test #11: feature_event_dispatch_authorization ...   Passed    0.04 sec
+      Start 12: feature_stage_contract
+12/47 Test #12: feature_stage_contract .................   Passed    0.04 sec
+      Start 13: feature_processor_contract
+13/47 Test #13: feature_processor_contract .............   Passed    0.04 sec
+      Start 14: feature_event_contract
+14/47 Test #14: feature_event_contract .................   Passed    0.04 sec
+      Start 15: attribute_reader_contract
+15/47 Test #15: attribute_reader_contract ..............   Passed    0.04 sec
+      Start 16: tracking_stage_contract
+16/47 Test #16: tracking_stage_contract ................   Passed    0.05 sec
+      Start 17: tracker_port_contract
+17/47 Test #17: tracker_port_contract ..................   Passed    0.04 sec
+      Start 18: tensor_reader_contract
+18/47 Test #18: tensor_reader_contract .................   Passed    0.04 sec
+      Start 19: overlay_preparation_authorization
+19/47 Test #19: overlay_preparation_authorization ......   Passed    0.04 sec
+      Start 20: model_decoder_registry_contract
+20/47 Test #20: model_decoder_registry_contract ........   Passed    0.04 sec
+      Start 21: model_decode_stage_contract
+21/47 Test #21: model_decode_stage_contract ............   Passed    0.04 sec
+      Start 22: model_decoder_contract
+22/47 Test #22: model_decoder_contract .................   Passed    0.04 sec
+      Start 23: application_composition_lifecycle
+23/47 Test #23: application_composition_lifecycle ......   Passed    0.04 sec
+      Start 24: model_cadence_selection
+24/47 Test #24: model_cadence_selection ................   Passed    0.04 sec
+      Start 25: multi_model_frame_fanout
+25/47 Test #25: multi_model_frame_fanout ...............***Failed    0.04 sec
+multi-model pump failures: 1
+
+      Start 26: multi_model_source_lifecycle
+26/47 Test #26: multi_model_source_lifecycle ...........   Passed    0.04 sec
+      Start 27: multi_source_supervision
+27/47 Test #27: multi_source_supervision ...............   Passed    0.04 sec
+      Start 28: activation_snapshot_validation
+28/47 Test #28: activation_snapshot_validation .........   Passed    0.04 sec
+      Start 29: model_catalog_validation
+29/47 Test #29: model_catalog_validation ...............   Passed    0.05 sec
+      Start 30: deployment_config_validation
+30/47 Test #30: deployment_config_validation ...........   Passed    0.04 sec
+      Start 31: observation_contract
+31/47 Test #31: observation_contract ...................   Passed    0.04 sec
+      Start 32: encoder_input_validation
+32/47 Test #32: encoder_input_validation ...............   Passed    0.04 sec
+      Start 33: output_generation_identity
+33/47 Test #33: output_generation_identity .............   Passed    0.04 sec
+      Start 34: encoded_dispatch_authorization
+34/47 Test #34: encoded_dispatch_authorization .........   Passed    0.05 sec
+      Start 35: encoded_output_ownership
+35/47 Test #35: encoded_output_ownership ...............   Passed    0.04 sec
+      Start 36: encoder_preparation_contract
+36/47 Test #36: encoder_preparation_contract ...........   Passed    0.05 sec
+      Start 37: preview_pool_ownership
+37/47 Test #37: preview_pool_ownership .................   Passed    0.04 sec
+      Start 38: encoder_window_lifecycle
+38/47 Test #38: encoder_window_lifecycle ...............   Passed    0.04 sec
+      Start 39: preview_surface_ownership
+39/47 Test #39: preview_surface_ownership ..............   Passed    0.04 sec
+      Start 40: preview_contract_validation
+40/47 Test #40: preview_contract_validation ............   Passed    0.04 sec
+      Start 41: output_gate_authorization
+41/47 Test #41: output_gate_authorization ..............   Passed    0.04 sec
+      Start 42: tensor_contract_validation
+42/47 Test #42: tensor_contract_validation .............   Passed    0.05 sec
+      Start 43: source_binding_validation
+43/47 Test #43: source_binding_validation ..............   Passed    0.04 sec
+      Start 44: inference_plan_validation
+44/47 Test #44: inference_plan_validation ..............   Passed    0.04 sec
+      Start 45: submission_window
+45/47 Test #45: submission_window ......................   Passed    0.04 sec
+      Start 46: legacy_camera_wire
+46/47 Test #46: legacy_camera_wire .....................***Failed    0.04 sec
+legacy wire failures: 16
+
+      Start 47: camera_control_state
+47/47 Test #47: camera_control_state ...................   Passed    0.05 sec
+
+96% tests passed, 2 tests failed out of 47
+
+Total Test time (real) =   1.95 sec
+
+The following tests FAILED:
+	 25 - multi_model_frame_fanout (Failed)
+	 46 - legacy_camera_wire (Failed)
+Errors while running CTest

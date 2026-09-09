@@ -10,8 +10,9 @@ Source and CMake/CTest declarations exist for the components below. On 2026-09-0
 current tree cross-compiled all configured targets to 100% with the eSDK AArch64 compiler,
 Camera, GIO D-Bus, GStreamer bridge and Qualcomm adapter enabled. Optional JSON loaders,
 artifact digest and FW ring were disabled; the eSDK sysroot does not currently provide
-the required nlohmann_json 3.12.0 CMake package. ARM test executables were not run on the
-x86 development host, and there is no live FW/Qualcomm/board qualification report. A
+the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration ran 47 AArch64 tests through SDK QEMU:
+45 passed and two failed; see [emulation evidence](../testing/esdk_emulation.md).
+There is no live FW/Qualcomm/board qualification report. A
 cross-build or fake port is not hardware completion, zero-copy, throughput, model-accuracy
 or release-compatibility evidence.
 
