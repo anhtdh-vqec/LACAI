@@ -223,6 +223,11 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_model_decoder_test
+        tests/contract/vqec_vision_model_decoder_test.cpp)
+    target_link_libraries(vqec_vision_ai_model_decoder_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_model_decoder_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME model_decoder_contract COMMAND vqec_vision_ai_model_decoder_test)
     add_executable(vqec_vision_ai_application_composition_test
         tests/contract/vqec_vision_application_composition_test.cpp)
     target_link_libraries(vqec_vision_ai_application_composition_test

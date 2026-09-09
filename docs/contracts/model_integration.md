@@ -17,6 +17,11 @@ Bounded SHA-256 comparison is available separately; read the
 to load. A matching digest is not a signature or protection against path replacement.
 
 Owner: AI Model; integration + acceptance: AI APP; target compatibility: BSP.
+
+The neutral `model_decoder_port` is now the required AI APP boundary between tensor
+results and observations. A decoder must validate the supplied model output identity,
+preserve the expected source frame key, and write observations transactionally. It must
+not infer geometry, labels, quantization or model version from an untrusted tensor alone.
 Không nhận binary đơn lẻ làm deliverable hoàn tất.
 
 ## Catalog boundary for multi-source deployment

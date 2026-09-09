@@ -220,6 +220,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/adapters/qualcomm/vqec_vision_plugin_graph.cpp | plgr | vqec_vision_ai_qcom_plgr_ |
 | tests/unit/vqec_vision_inference_plan_test.cpp | iptst | vqec_vision_ai_unit_iptst_ |
 | include/vqec/vision/ai/contracts/vqec_vision_application_composition.hpp | acomp | vqec_vision_ai_cntr_acomp_ |
+| include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp | mddec | vqec_vision_ai_cntr_mddec_ |
+| tests/contract/vqec_vision_model_decoder_test.cpp | mdtst | vqec_vision_ai_ctest_mdtst_ |
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |
 
