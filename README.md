@@ -18,6 +18,8 @@ end-to-end vqec_ai_vision_applications are still pending. Current status is main
 [implementation status](docs/development/implementation_status.md).
 
 Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
+Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host compiler không
+được dùng làm bằng chứng xác nhận target.
 Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference và output helpers;
 chưa có kết quả build/test hoặc app thay release**.
 

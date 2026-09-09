@@ -17,6 +17,10 @@
 - [ ] Tests happy/error/stop path; golden/replay nếu semantics thay đổi.
 - [ ] Docs/registry/manifest cập nhật; report tests not run và lý do.
 - [ ] Small reviewable change; không mix refactor rộng với behavior change.
+- [ ] Build/test (khi được yêu cầu) dùng toolchain eSDK tại `/home/a/Workspace/eSDK`;
+      không dùng host compiler và không coi host build là bằng chứng target.
+- [ ] Không ghi username/password/token hoặc credential URL vào repo, log, commit hay
+      remote; push dùng credential helper/SSH agent/secret store của môi trường.
 - [ ] Sau mỗi bước source hoàn chỉnh: kiểm tra `git status`, chỉ stage thay đổi thuộc
       bước này, tạo focused commit và push lên tracking upstream (`@{upstream}`).
       Nếu thiếu upstream hoặc push lỗi, ghi rõ blocker và chưa coi bước đã đồng bộ.

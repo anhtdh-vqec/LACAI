@@ -51,6 +51,14 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
     (`@{upstream}`). If no upstream is configured or push fails, report the exact
     blocker and do not describe the step as synchronized. Never stage or commit
     unrelated user changes, secrets, model binaries, biometric data or private SDKs.
+12. All LACAI C++ builds, tests and CMake configuration must use the approved eSDK
+    toolchain rooted at `/home/a/Workspace/eSDK`. Do not configure or report a host
+    compiler build as validation. If the eSDK toolchain cannot be located, report the
+    exact missing path/tool and stop before claiming build/test success.
+13. Never store Git usernames, passwords, tokens or credential-bearing URLs in source,
+    documentation, git config committed to the repository, command output or commit
+    messages. Use the environment's credential helper, SSH agent or approved secret
+    store for upstream pushes; report authentication failures without echoing secrets.
 
 ## Change workflow
 
