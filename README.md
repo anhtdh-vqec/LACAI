@@ -37,6 +37,7 @@ Source filenames use `vqec_vision_`; run the structural check with
 6. [Thiết kế adapter Qualcomm](docs/architecture/qualcomm_adapter.md).
 7. [Camera contract](docs/contracts/camera_service.md), [Model contract](docs/contracts/model_integration.md),
    [FW control và entitlement](docs/contracts/fw_control.md).
+   Contract gửi đội FW: [FW–AI APP integration contract](docs/contracts/fw_ai_app_contract.md).
 8. [13 bài AI và traffic](docs/architecture/feature_catalog.md).
 9. [Kế hoạch 12 tuần](docs/planning/delivery_plan.md).
 10. [Review và nghiệm thu](docs/development/review_checklist.md).
