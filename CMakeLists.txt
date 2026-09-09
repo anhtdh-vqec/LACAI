@@ -212,6 +212,12 @@ target_include_directories(vqec_vision_ai_encoded_dispatch PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
 target_link_libraries(vqec_vision_ai_encoded_dispatch PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_encoded_dispatch PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_overlay_preparation STATIC
+    src/outputs/vqec_vision_overlay_preparation.cpp)
+target_include_directories(vqec_vision_ai_overlay_preparation PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
+target_link_libraries(vqec_vision_ai_overlay_preparation PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_overlay_preparation PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_admission STATIC
     src/runtime/admission/vqec_vision_activation_snapshot.cpp)
 target_include_directories(vqec_vision_ai_admission PUBLIC
@@ -231,6 +237,15 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_overlay_preparation_test
+        tests/contract/vqec_vision_overlay_preparation_test.cpp)
+    target_link_libraries(vqec_vision_ai_overlay_preparation_test
+        PRIVATE vqec_vision_ai_overlay_preparation)
+    target_include_directories(vqec_vision_ai_overlay_preparation_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
+    set_target_properties(vqec_vision_ai_overlay_preparation_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME overlay_preparation_authorization
+        COMMAND vqec_vision_ai_overlay_preparation_test)
     add_executable(vqec_vision_ai_model_decoder_registry_test
         tests/contract/vqec_vision_model_decoder_registry_test.cpp)
     target_link_libraries(vqec_vision_ai_model_decoder_registry_test

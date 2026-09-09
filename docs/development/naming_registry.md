@@ -40,6 +40,7 @@ Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp 
 | src/adapters/mediatek | mtek |
 | src/adapters/novatek | ntek |
 | src/outputs | outpt |
+| src/outputs/vqec_vision_overlay_preparation.cpp | ovrpr | vqec_vision_ai_outpt_ovrpr_ |
 | src/features/abnormal_behavior | abnor |
 | src/features/crowd_gathering | crowd |
 | src/features/smoking | smoke |
@@ -226,6 +227,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/contract/vqec_vision_model_decoder_test.cpp | mdtst | vqec_vision_ai_ctest_mdtst_ |
 | tests/contract/vqec_vision_model_decode_stage_test.cpp | mdsct | vqec_vision_ai_ctest_mdsct_ |
 | tests/contract/vqec_vision_model_decoder_registry_test.cpp | mdrct | vqec_vision_ai_ctest_mdrct_ |
+| tests/contract/vqec_vision_overlay_preparation_test.cpp | oprct | vqec_vision_ai_ctest_oprct_ |
 | src/app/vqec_vision_application_composition.cpp | acomp | vqec_vision_ai_appl_acomp_ |
 | tests/contract/vqec_vision_application_composition_test.cpp | actst | vqec_vision_ai_ctest_actst_ |
 

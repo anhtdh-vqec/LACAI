@@ -16,3 +16,8 @@ Neutral overlay commands, preview demand/freshness policy, encoded-AU routing an
 event delivery. AI owns preview overlay/encoding/ring production through private adapters;
 FW owns RTSP/UI, recording, persistent evidence/search. End-to-end output is not implemented.
 See docs/contracts/fw_release_compatibility.md and docs/planning/fw_compatibility_execution.md.
+
+`vqec_vision_overlay_preparation.cpp` provides the portable metadata step before a
+renderer adapter. It authorizes the complete requested scope, validates observations,
+maps boxes to overlay metadata and publishes transactionally. It does not render pixels
+or select a Qualcomm plugin.
