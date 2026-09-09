@@ -141,5 +141,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/feature_event_dispatch.md before changing routing or retry semantics.
   Completed model results reconstruct source identity only from retained submission tickets;
   read docs/architecture/perception_result_stage.md before changing decode/track composition.
+  Per-source feature fan-out uses stable numeric slots and per-feature fault isolation; read
+  docs/architecture/feature_fanout.md before changing feature scheduling.
   Do not describe
   directory placeholders or unbuilt source as completed production modules.

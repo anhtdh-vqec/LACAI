@@ -31,3 +31,7 @@ docs/architecture/multi_model_pump.md and docs/architecture/multi_model_session.
 completed submission ticket, validates tensor pipeline PTS, then composes the configured
 decoder and tracker transactionally. Multi-model routing selects this stage by immutable
 model slot.
+
+`vqec_vision_feature_fanout` advances a fixed activation-time list of feature stages from
+one tracked batch. It records numeric per-slot success/failure and continues healthy
+features after a peer faults; output delivery remains separate.

@@ -274,7 +274,20 @@ target_include_directories(vqec_vision_ai_perception_result_stage PUBLIC
 target_link_libraries(vqec_vision_ai_perception_result_stage
     PUBLIC vqec_vision_ai_detection vqec_vision_ai_tracking)
 set_target_properties(vqec_vision_ai_perception_result_stage PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_feature_fanout STATIC
+    src/app/vqec_vision_feature_fanout.cpp)
+target_include_directories(vqec_vision_ai_feature_fanout PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
+target_link_libraries(vqec_vision_ai_feature_fanout PUBLIC vqec_vision_ai_feature_runtime)
+set_target_properties(vqec_vision_ai_feature_fanout PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
+    add_executable(vqec_vision_ai_feature_fanout_test
+        tests/contract/vqec_vision_feature_fanout_test.cpp)
+    target_link_libraries(vqec_vision_ai_feature_fanout_test
+        PRIVATE vqec_vision_ai_feature_fanout)
+    set_target_properties(vqec_vision_ai_feature_fanout_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME feature_fanout_isolation COMMAND vqec_vision_ai_feature_fanout_test)
     add_executable(vqec_vision_ai_perception_result_stage_test
         tests/contract/vqec_vision_perception_result_stage_test.cpp)
     target_link_libraries(vqec_vision_ai_perception_result_stage_test
