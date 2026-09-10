@@ -14,6 +14,10 @@ namespace vqec::vision::ai {
 struct perception_model_activation {
     std::string model_id_;
     std::string tracker_contract_;
+    // Owned activation-time copy of parsed, unauthenticated metadata. Composition
+    // validates it and does not retain a reference after bundle construction.
+    std::string resolved_output_manifest_ref_;
+    model_outputs outputs_;
 };
 
 // Owns every perception chain and the router for one deployment source. Slots

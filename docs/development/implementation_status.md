@@ -69,7 +69,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
 | `src/app/vqec_vision_multi_model_pump.cpp`, `vqec_vision_multi_model_session.cpp` | Receive once/share owner across due graphs; busy-skip; round-robin results; validate all graphs before one FW acquisition; partial-start rollback and all-graph drain before source release | Trusted activation-to-owner construction and live multi-model validation |
 | `src/app/vqec_vision_perception_result_stage.cpp`, `vqec_vision_multi_model_result_router.cpp` | Correlates tensor pipeline PTS with retained source identity, routes by stable model slot, derives independent per-model gaps, then composes decode and tracking transactionally | Concrete decoders/trackers, multi-model temporal fusion and replay qualification |
-| `src/app/vqec_vision_perception_stage_factory.cpp` | Transactionally constructs one source/model result chain from decoder and tracker registries with distinct tracker ownership and safe stage lifetime | Authenticated tracker-contract selection and concrete decoder/tracker packages |
+| `src/app/vqec_vision_perception_stage_factory.cpp`, `vqec_vision_source_perception_factory.cpp` | Transactionally construct one source/model chain or a 1..16-slot source group with distinct tracker ownership; exact manifest reference, model/version/digest/decoder identity, tensor bounds and decoder-specific output schema are validated before each tracker is created | Authenticated package/manifest resolution, tracker-contract selection and concrete decoder/tracker packages |
 | `src/app/vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Bounded stable-slot feature fan-out with per-feature isolation; activation-time mapping routes each tracked model result only to its direct feature consumers | Multi-model temporal joins, effective-state manager and concrete feature rules |
 | `src/app/vqec_vision_multi_source_supervisor.cpp` | Binds 1..16 borrowed sessions; round-robin progress, per-source fault isolation, snapshots and latched global stop | Service executors, automatic restart/backoff, epoch replacement and BSP recovery execution |
 | `src/core/vqec_vision_preview_surface.cpp`, `vqec_vision_preview_pool.cpp` | Writable-to-sealed CPU NV12 ownership and preallocated 1..4-surface pool; final-reader reuse | Real pixel copy/overlay renderer and hardware allocation/import |
@@ -133,7 +133,8 @@ selecting an admitted path.
 ## Not delivered and next integration work
 
 1. Authenticated deployment/catalog/output/artifact resolution into long-lived source,
-   graph, retention-domain and session owners; measured admission before activation.
+   graph, retention-domain and session owners; the perception factory now consumes the
+   resolved manifest binding, while the trusted resolver and measured admission remain.
 2. Concrete tensor decoders, tracking/attributes and the 13 commercial features/traffic.
    Perception/features and alternate vendor directories currently contain READMEs only.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop

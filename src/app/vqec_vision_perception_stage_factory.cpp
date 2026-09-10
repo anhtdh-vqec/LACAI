@@ -26,6 +26,7 @@ vqec_vision_ai_appl_prfac_get_result_stage() const noexcept {
 
 status vqec_vision_ai_appl_prfac_create_bundle(
     const model_catalog_entry& _model, const source_deployment_config& _source,
+    const std::string& _resolved_manifest_ref, const model_outputs& _outputs,
     const std::string& _tracker_contract,
     const model_decoder_registry& _decoder_registry,
     const tracker_registry& _tracker_registry,
@@ -49,6 +50,19 @@ status vqec_vision_ai_appl_prfac_create_bundle(
     if (_source.profile_.width_ == 0 || _source.profile_.height_ == 0) {
         return {status_code::invalid_argument,
             "source profile geometry is required"};
+    }
+
+    std::uint64_t required_output_bytes = 0;
+    const auto valid_binding = vqec_vision_ai_core_mdcat_validate_model_outputs(
+        _model, _resolved_manifest_ref, _outputs, required_output_bytes);
+    if (valid_binding.code_ != status_code::ok) {
+        return valid_binding;
+    }
+    const auto valid_decoder_outputs =
+        _decoder_registry.vqec_vision_ai_detec_mdreg_validate_model_outputs(
+            _model, _outputs);
+    if (valid_decoder_outputs.code_ != status_code::ok) {
+        return valid_decoder_outputs;
     }
 
     model_decoder_port* decoder = nullptr;

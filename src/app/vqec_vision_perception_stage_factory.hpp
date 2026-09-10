@@ -35,16 +35,20 @@ private:
 
     friend status vqec_vision_ai_appl_prfac_create_bundle(
         const model_catalog_entry& _model, const source_deployment_config& _source,
+        const std::string& _resolved_manifest_ref, const model_outputs& _outputs,
         const std::string& _tracker_contract,
         const model_decoder_registry& _decoder_registry,
         const tracker_registry& _tracker_registry,
         std::unique_ptr<perception_stage_bundle>& _bundle);
 };
 
-// Resolves borrowed decoder/factory registrations, creates one owned tracker and
-// wires a configured neutral decoder->tracker result chain transactionally.
+// Validates the borrowed output metadata against the resolved manifest reference,
+// catalog entry and decoder before creating one owned tracker. The caller retains
+// ownership of _outputs; neither the metadata nor the reference is retained.
+// Wires a configured neutral decoder->tracker result chain transactionally.
 [[nodiscard]] status vqec_vision_ai_appl_prfac_create_bundle(
     const model_catalog_entry& _model, const source_deployment_config& _source,
+    const std::string& _resolved_manifest_ref, const model_outputs& _outputs,
     const std::string& _tracker_contract,
     const model_decoder_registry& _decoder_registry,
     const tracker_registry& _tracker_registry,

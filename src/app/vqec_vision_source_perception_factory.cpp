@@ -57,6 +57,7 @@ status vqec_vision_ai_appl_spfac_create_source_bundle(
     for (std::uint16_t slot = 0; slot < _activation_count; ++slot) {
         if (_activations[slot].model_id_ != _source.model_ids_[slot] ||
             _activations[slot].tracker_contract_.empty() ||
+            _activations[slot].resolved_output_manifest_ref_.empty() ||
             vqec_vision_ai_appl_spfac_find_model(
                 _models, _activations[slot].model_id_) == nullptr) {
             return {status_code::invalid_argument,
@@ -73,7 +74,10 @@ status vqec_vision_ai_appl_spfac_create_source_bundle(
             const auto* model = vqec_vision_ai_appl_spfac_find_model(
                 _models, _activations[slot].model_id_);
             const auto created = vqec_vision_ai_appl_prfac_create_bundle(
-                *model, _source, _activations[slot].tracker_contract_,
+                *model, _source,
+                _activations[slot].resolved_output_manifest_ref_,
+                _activations[slot].outputs_,
+                _activations[slot].tracker_contract_,
                 _decoder_registry, _tracker_registry, candidate->stages_[slot]);
             if (created.code_ != status_code::ok) {
                 return created;

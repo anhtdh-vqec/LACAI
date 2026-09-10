@@ -98,6 +98,18 @@ model_catalog vqec_vision_ai_ctest_spfct_make_models() {
     return models;
 }
 
+model_outputs vqec_vision_ai_ctest_spfct_make_outputs(
+    const model_catalog_entry& _model) {
+    model_outputs outputs;
+    outputs.model_id_ = _model.model_id_;
+    outputs.model_version_ = _model.model_version_;
+    outputs.artifact_sha256_ = _model.artifact_sha256_;
+    outputs.decoder_contract_ = _model.decoder_contract_;
+    outputs.max_output_bytes_ = 16;
+    outputs.outputs_.push_back({"boxes", {1, 4}});
+    return outputs;
+}
+
 source_deployment_config vqec_vision_ai_ctest_spfct_make_source() {
     source_deployment_config source;
     source.source_id_ = "source.front";
@@ -124,8 +136,12 @@ int main() {
 
     std::array<perception_model_activation,
         deployment_limits::g_max_models_per_source> activations{};
-    activations[0] = {"person_detector", "bytetrack.v1"};
-    activations[1] = {"pose_detector", "bytetrack.v1"};
+    activations[0] = {"person_detector", "bytetrack.v1",
+        models.models_[0].output_manifest_ref_,
+        vqec_vision_ai_ctest_spfct_make_outputs(models.models_[0])};
+    activations[1] = {"pose_detector", "bytetrack.v1",
+        models.models_[1].output_manifest_ref_,
+        vqec_vision_ai_ctest_spfct_make_outputs(models.models_[1])};
     std::unique_ptr<source_perception_bundle> bundle;
     assert(vqec_vision_ai_appl_spfac_create_source_bundle(models, source,
                activations, 2, decoders, trackers, bundle).code_ == status_code::ok);
@@ -141,6 +157,18 @@ int main() {
     wrong_order[0].model_id_ = "pose_detector";
     assert(vqec_vision_ai_appl_spfac_create_source_bundle(models, source,
                wrong_order, 2, decoders, trackers, bundle).code_ ==
+           status_code::invalid_argument);
+    assert(bundle.get() == previous);
+    auto wrong_manifest = activations;
+    wrong_manifest[1].resolved_output_manifest_ref_ = "other.outputs";
+    assert(vqec_vision_ai_appl_spfac_create_source_bundle(models, source,
+               wrong_manifest, 2, decoders, trackers, bundle).code_ ==
+           status_code::invalid_argument);
+    assert(bundle.get() == previous);
+    auto wrong_digest = activations;
+    wrong_digest[1].outputs_.artifact_sha256_ = std::string(64, 'c');
+    assert(vqec_vision_ai_appl_spfac_create_source_bundle(models, source,
+               wrong_digest, 2, decoders, trackers, bundle).code_ ==
            status_code::invalid_argument);
     assert(bundle.get() == previous);
     auto missing_tracker = activations;

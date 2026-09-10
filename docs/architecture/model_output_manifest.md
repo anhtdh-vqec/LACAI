@@ -31,8 +31,12 @@ Mixed dtype, dynamic output shapes and native quantized outputs remain unsupport
 The output document is referenced by, but deliberately not embedded in, the
 [model catalog](model_catalog.md). Before activation, runtime must match model identity,
 version, artifact digest, decoder contract and output reference across the authenticated
-catalog/package. The current sources validate each document and deployment assignments;
-the authenticated multi-document resolver remains pending.
+catalog/package. `perception_stage_factory` now requires the resolved manifest reference
+and parsed output metadata, validates that exact binding against the catalog entry, and
+invokes the selected decoder's schema validator before constructing the tracker/stages.
+`source_perception_factory` carries those bindings per immutable model slot. The current
+sources validate each document and deployment assignments; the authenticated
+multi-document resolver remains pending.
 
 camera_session exposes bind_model_outputs(manifest, selection, config) to correlate
 the parsed identity/hash/decoder against independently supplied deployment selection,
