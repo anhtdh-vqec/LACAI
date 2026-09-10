@@ -171,6 +171,9 @@ Runtime composition constructs admission-bound source sessions and perception ow
 neutral platform ports; read docs/architecture/runtime_composition_factory.md before
 changing model-slot authority, lifecycle owner order or activation inputs.
 
+Feature stages are mapped to source/model slots only during activation; read
+docs/architecture/runtime_feature_activation.md before adding feature composition.
+
 The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.
