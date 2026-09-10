@@ -199,6 +199,25 @@ const char* vqec_vision_ai_qcom_plgr_get_placement_nick(image_placement _placeme
     }
 }
 
+#if defined(VQEC_VISION_AI_GRAPH_TEST_FIXTURE)
+GstPadProbeReturn vqec_vision_ai_qcom_plgr_copy_fixture_buffer(
+    GstPad* _pad, GstPadProbeInfo* _info, gpointer _user_data) noexcept {
+    (void)_pad;
+    (void)_user_data;
+    auto* input = GST_PAD_PROBE_INFO_BUFFER(_info);
+    if (input == nullptr) {
+        return GST_PAD_PROBE_OK;
+    }
+    auto* output = gst_buffer_copy_deep(input);
+    if (output == nullptr) {
+        return GST_PAD_PROBE_DROP;
+    }
+    gst_buffer_unref(input);
+    GST_PAD_PROBE_INFO_DATA(_info) = output;
+    return GST_PAD_PROBE_OK;
+}
+#endif
+
 }  // namespace
 
 struct plugin_graph::implementation {
@@ -285,8 +304,28 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_probe_properties(
     if (factory == nullptr) {
         return {status_code::missing_plugin, "Cannot find factory: " + _factory_name};
     }
+    auto* loaded_feature = gst_plugin_feature_load(GST_PLUGIN_FEATURE(factory));
+    gst_object_unref(factory);
+    if (loaded_feature == nullptr || !GST_IS_ELEMENT_FACTORY(loaded_feature)) {
+        if (loaded_feature != nullptr) {
+            gst_object_unref(loaded_feature);
+        }
+        return {status_code::incompatible_plugin, "Cannot load factory: " + _factory_name};
+    }
+    factory = GST_ELEMENT_FACTORY(loaded_feature);
     const auto element_type = gst_element_factory_get_element_type(factory);
-    auto* object_class = G_OBJECT_CLASS(g_type_class_ref(element_type));
+    if (element_type == G_TYPE_INVALID) {
+        gst_object_unref(factory);
+        return {status_code::incompatible_plugin,
+                "Factory has no registered element type: " + _factory_name};
+    }
+    auto* type_class = g_type_class_ref(element_type);
+    if (type_class == nullptr) {
+        gst_object_unref(factory);
+        return {status_code::incompatible_plugin,
+                "Cannot inspect element type: " + _factory_name};
+    }
+    auto* object_class = G_OBJECT_CLASS(type_class);
     std::vector<plugin_property_capability> discovered;
     discovered.reserve(_property_names.size());
     status result;
@@ -420,6 +459,17 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_configure_fixture(const inference_
                  "enable-last-sample", FALSE, "max-buffers", 1U, "drop", FALSE, nullptr);
     if (!gst_element_link(candidate->source_, candidate->sink_)) {
         return {status_code::graph_link_failed, "cannot link test source to sink"};
+    }
+    auto* source_pad = gst_element_get_static_pad(candidate->source_, "src");
+    if (source_pad == nullptr) {
+        return {status_code::incompatible_plugin, "test source has no src pad"};
+    }
+    const auto probe_id = gst_pad_add_probe(
+        source_pad, GST_PAD_PROBE_TYPE_BUFFER,
+        vqec_vision_ai_qcom_plgr_copy_fixture_buffer, nullptr, nullptr);
+    gst_object_unref(source_pad);
+    if (probe_id == 0) {
+        return {status_code::resource_exhausted, "cannot install test buffer copy probe"};
     }
     candidate->plan_ = _plan;
     implementation_ = std::move(candidate);

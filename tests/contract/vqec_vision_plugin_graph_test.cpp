@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -67,6 +68,41 @@ int main() {
     vqec::vision::ai::inference_plan invalid;
     check(graph.vqec_vision_ai_qcom_plgr_configure_graph(invalid).code_ != status_code::ok);
     check(graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::empty);
+    if (std::getenv("VQEC_VISION_AI_REQUIRE_QUALCOMM_PLUGINS") != nullptr) {
+        check(graph.vqec_vision_ai_qcom_plgr_probe_factories(
+                  {"appsrc", "qtimlvconverter", "capsfilter", "qtimlqnn", "appsink"},
+                  capabilities).code_ == status_code::ok);
+        check(capabilities.size() == 5U);
+        for (const auto& capability : capabilities) {
+            check(capability.available_);
+        }
+        check(graph.vqec_vision_ai_qcom_plgr_probe_properties(
+                  "qtimlvconverter",
+                  {"engine", "mode", "image-disposition", "subpixel-layout", "mean", "sigma"},
+                  properties).code_ == status_code::ok);
+        check(properties.size() == 6U);
+        check(graph.vqec_vision_ai_qcom_plgr_probe_properties(
+                  "qtimlqnn", {"model", "backend", "system"}, properties).code_ ==
+              status_code::ok);
+        check(properties.size() == 3U);
+        vqec::vision::ai::inference_plan board_plan;
+        board_plan.source_width_ = 640;
+        board_plan.source_height_ = 480;
+        board_plan.fps_numerator_ = 25;
+        board_plan.fps_denominator_ = 1;
+        board_plan.tensor_width_ = 640;
+        board_plan.tensor_height_ = 640;
+        board_plan.placement_ = vqec::vision::ai::image_placement::centre;
+        board_plan.model_path_ = "/fixture/model.bin";
+        board_plan.backend_path_ = "/fixture/backend.so";
+        board_plan.system_path_ = "/fixture/system.so";
+        board_plan.input_queue_bytes_ = 640U * 480U * 3U / 2U;
+        board_plan.output_queue_buffers_ = 2;
+        check(graph.vqec_vision_ai_qcom_plgr_configure_graph(board_plan).code_ ==
+              status_code::ok);
+        check(graph.vqec_vision_ai_qcom_plgr_is_configured());
+        check(graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::configured);
+    }
     std::cout << "graph state guard failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }

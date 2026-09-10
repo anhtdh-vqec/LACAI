@@ -21,10 +21,12 @@ void vqec_vision_ai_ctest_gltst_require(bool _condition) {
 }
 
 template <typename predicate>
-void vqec_vision_ai_ctest_gltst_wait(predicate _predicate) {
+void vqec_vision_ai_ctest_gltst_wait(const char* _context, predicate _predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     while (!_predicate()) {
-        vqec_vision_ai_ctest_gltst_require(std::chrono::steady_clock::now() < deadline);
+        if (std::chrono::steady_clock::now() >= deadline) {
+            throw std::runtime_error(std::string("graph lifecycle wait timed out: ") + _context);
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -57,7 +59,7 @@ void vqec_vision_ai_ctest_gltst_start(plugin_graph& _graph) {
     const auto loading = _graph.vqec_vision_ai_qcom_plgr_load_model();
     vqec_vision_ai_ctest_gltst_require(
         loading.code_ == status_code::ok || loading.code_ == status_code::pending);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("READY", [&]() {
         const auto state = _graph.vqec_vision_ai_qcom_plgr_poll_state();
         (void)state;
         return _graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::ready;
@@ -83,7 +85,7 @@ void vqec_vision_ai_ctest_gltst_start(plugin_graph& _graph) {
     const auto started = _graph.vqec_vision_ai_qcom_plgr_start_stream({{"bytes", {256}}}, 1024);
     vqec_vision_ai_ctest_gltst_require(
         started.code_ == status_code::ok || started.code_ == status_code::pending);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("PLAYING", [&]() {
         const auto state = _graph.vqec_vision_ai_qcom_plgr_poll_state();
         (void)state;
         return _graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::playing;
@@ -94,7 +96,7 @@ void vqec_vision_ai_ctest_gltst_unload(plugin_graph& _graph) {
     const auto unloaded = _graph.vqec_vision_ai_qcom_plgr_unload_model();
     vqec_vision_ai_ctest_gltst_require(
         unloaded.code_ == status_code::ok || unloaded.code_ == status_code::pending);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("NULL", [&]() {
         const auto state = _graph.vqec_vision_ai_qcom_plgr_poll_state();
         (void)state;
         return _graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::configured;
@@ -105,7 +107,11 @@ void vqec_vision_ai_ctest_gltst_drain(plugin_graph& _graph) {
     const auto drain = _graph.vqec_vision_ai_qcom_plgr_request_drain();
     vqec_vision_ai_ctest_gltst_require(
         drain.code_ == status_code::ok || drain.code_ == status_code::pending);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("drained", [&]() {
+        const auto jobs = _graph.vqec_vision_ai_qcom_plgr_poll_jobs(0);
+        vqec_vision_ai_ctest_gltst_require(
+            jobs.code_ == status_code::ok || jobs.code_ == status_code::pending ||
+            jobs.code_ == status_code::invalid_state);
         const auto state = _graph.vqec_vision_ai_qcom_plgr_poll_state();
         (void)state;
         return _graph.vqec_vision_ai_qcom_plgr_get_state() == plugin_graph_state::drained;
@@ -142,17 +148,13 @@ void vqec_vision_ai_ctest_gltst_check_lifecycle() {
     vqec_vision_ai_ctest_gltst_require(
         healthy.vqec_vision_ai_qcom_plgr_unload_model().code_ == status_code::pending);
     tensor_result result;
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("healthy result", [&]() {
         const auto output = healthy.vqec_vision_ai_qcom_plgr_poll_result(0, result);
         vqec_vision_ai_ctest_gltst_require(
             output.code_ == status_code::ok || output.code_ == status_code::pending);
         return output.code_ == status_code::ok;
     });
     vqec_vision_ai_ctest_gltst_require(result.tensors_.size() == 1);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
-        const auto jobs = healthy.vqec_vision_ai_qcom_plgr_poll_jobs(0);
-        return jobs.code_ == status_code::ok;
-    });
     vqec_vision_ai_ctest_gltst_drain(healthy);
 
     // Timeout plus wrapper destruction must preserve the pipeline and unconsumed sample.
@@ -165,6 +167,9 @@ void vqec_vision_ai_ctest_gltst_check_lifecycle() {
         ticket = {};
         vqec_vision_ai_ctest_gltst_require(fault.vqec_vision_ai_qcom_plgr_submit_frame(
             frame, owner->fd_, owner, 0, ticket).code_ == status_code::ok);
+        const auto drain = fault.vqec_vision_ai_qcom_plgr_request_drain();
+        vqec_vision_ai_ctest_gltst_require(
+            drain.code_ == status_code::ok || drain.code_ == status_code::pending);
         vqec_vision_ai_ctest_gltst_require(
             fault.vqec_vision_ai_qcom_plgr_poll_jobs(1000).code_ == status_code::timeout);
         vqec_vision_ai_ctest_gltst_require(
@@ -176,13 +181,13 @@ void vqec_vision_ai_ctest_gltst_check_lifecycle() {
         domain->vqec_vision_ai_qcom_plgr_restore_graph(0, restored, domain).code_ ==
             status_code::ok);
     result.pipeline_pts_ns_ = 777;
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("restored late result", [&]() {
         const auto output = restored.vqec_vision_ai_qcom_plgr_poll_result(1000, result);
         vqec_vision_ai_ctest_gltst_require(output.code_ != status_code::ok);
         return restored.vqec_vision_ai_qcom_plgr_get_outstanding() == 0;
     });
     vqec_vision_ai_ctest_gltst_require(result.pipeline_pts_ns_ == 777);
-    vqec_vision_ai_ctest_gltst_wait([&]() {
+    vqec_vision_ai_ctest_gltst_wait("restored input release", [&]() {
         const auto jobs = restored.vqec_vision_ai_qcom_plgr_poll_jobs(1000);
         (void)jobs;
         return restored.vqec_vision_ai_qcom_plgr_get_outstanding() == 0;
