@@ -53,6 +53,7 @@ Merge: clean cross-build + package contents/dependencies validation.
 Nightly: golden/replay + host ASan/UBSan; TSan job riêng nếu toolchain hỗ trợ.
 Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
 Current source: **đã có unit/contract test source và CTest cho validators, session,
-cadence, ownership và output helpers; chưa có kết quả build/chạy C++ test;
+cadence, ownership và output helpers; eSDK cross-build đạt và 56/56 binary hiện pass
+trực tiếp trên QCS6490 theo `docs/testing/qsc6490_board.md`;
 chưa có workflow CI hoặc AST naming checker**.
 .editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.

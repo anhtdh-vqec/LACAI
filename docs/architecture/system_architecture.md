@@ -1,16 +1,16 @@
 # Kiến trúc hệ thống v1
 
 Status: design baseline; cross-team contracts pending agreement.
-Source inventory update (2026-09-09): the private Qualcomm graph has submit/result/drain;
+Source inventory update (2026-09-10): the private Qualcomm graph has submit/result/drain;
 camera_session and multi_model_session compose one acquisition lifecycle. The portable
 multi_model_pump shares one frame across due graphs using rational cadence, and
 multi_source_supervisor advances 1..16 pre-composed sessions with fault isolation.
 Deployment/catalog loaders and activation snapshots exist; authenticated construction of
 source/graph/session owners and a runnable service are still missing. Model decoder,
 feature dependency catalog and model-to-feature routing contracts exist; concrete model,
-tracker/feature algorithms, hardware overlay/encoder integration and board validation are
-not delivered. Configured AArch64 eSDK targets cross-build, but target tests are not run in
-the x86 workspace.
+tracker/feature algorithms and hardware overlay/encoder integration are not delivered.
+Configured AArch64 eSDK targets cross-build and 56/56 existing unit/contract binaries pass
+on QCS6490; live FW/model, DMA-completion and performance qualification are not delivered.
 See [current source inventory](../development/implementation_status.md).
 Preview ownership/pool, encoder ledger, authorized dispatch and an optional FW SDK
 ring sink are source-delivered; they do not yet form a running output pipeline.

@@ -11,7 +11,7 @@ the stored reservation. Duplicate/stale/malformed events latch fault admission w
 releasing reservations. A fault event also latches fault and returns its error, never
 completes a job. Later proven completions can reconcile retained entries; they do not
 restart admission. Direct completion methods remain for explicit pre-device rejection
-reconciliation. Source tests cover duplicate and fault retention; they are unexecuted.
+reconciliation. The duplicate/fault-retention unit binary passes on QCS6490.
 
 Before delivering output, call validate_event: it performs non-mutating structural,
 committed-token, duplicate and AU frame/profile validation. Then handle output and

@@ -17,11 +17,12 @@ before broadening features. No additional vendor backend is claimed implemented.
 Three-person team: lead also owns runtime/control; four-person team separates those roles.
 These are dependencies and gates, not promises of dates without SDK/model availability.
 
-## Current integration backlog (source inventory, 2026-09-09)
+## Current integration backlog (source inventory, 2026-09-10)
 
 This table supersedes the chronological progress notes below. Existing source is not
 evidence of a running system. Inventory used `rg --files src include packaging config`
-and current CMake targets; no C++ build or device test has been performed.
+and current CMake targets. The expanded eSDK build succeeds and its 56 unit/contract
+binaries pass on QCS6490; live FW/model and release qualification remain open.
 
 | Workstream | Present evidence | Remaining implementation and proof |
 |---|---|---|
@@ -34,7 +35,7 @@ and current CMake targets; no C++ build or device test has been performed.
 | Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, concrete observations/tracking/attributes and authenticated model loading composition |
 | Features | Thirteen feature directories and traffic contain READMEs | Shared perception contracts and feature lifecycle/dependency/entitlement integration; no claim features are implemented |
 | Delivery | Packaging/config README placeholders | Yocto/IPK metadata, launcher compatibility, permissions, upgrade/rollback and package tests |
-| Verification | Structural checker plus C++ test source | Executed host tests, pinned cross-build, SDK ABI tests, board replay/fault/performance/soak evidence |
+| Verification | Structural checker, pinned eSDK cross-build, 47/47 QEMU logic tests and 56/56 QCS6490 unit/contract smoke tests | Live SDK/model/FW ABI tests, board replay/fault/performance/soak evidence |
 
 ### Next cohesive implementation sequence
 

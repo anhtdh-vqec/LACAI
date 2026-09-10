@@ -54,6 +54,8 @@ Synthetic lifecycle test source now covers successful submit/result/drain/unload
 timeout preventing unload, destructor retention, restore/late-result discard, full
 domain rejection and slot reuse. A separate test-only library compiles plugin_graph
 with VQEC_VISION_AI_GRAPH_TEST_FIXTURE; it uses appsrc -> appsink with zero-filled
-test bytes advertised as FLOAT32, not a mock of Qualcomm numerical inference.
+test bytes advertised as FLOAT32 and a test-only deep-copy pad probe that separates
+input release from synthetic output ownership. It is not a mock of Qualcomm numerical inference.
 The production backend target has no fixture definition or runtime fallback.
-No compile or test execution was performed in this implementation slice.
+The expanded eSDK build succeeds and all 56 unit/contract binaries, including this
+fixture, pass natively on QCS6490; see [board smoke evidence](../testing/qsc6490_board.md).

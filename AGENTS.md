@@ -170,3 +170,7 @@ docs/architecture/application_composition.md before changing delivery or stop pr
 The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.
+
+The user-authorized QCS6490 test target and local SSH alias are recorded in
+docs/testing/qsc6490_board.md. Try BatchMode access through `lacai-qsc6490` before
+asking for credentials. Never record or echo its password.

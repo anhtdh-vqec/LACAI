@@ -1,7 +1,8 @@
 # Vendor-neutral RAW-source port
 
 Status: interface and Camera compatibility implementation delivered; multi-platform
-implementations and Linux/board verification are pending.
+implementations and live Camera/board verification are pending. Linux socket/FD fixtures
+pass natively on the QCS6490 target.
 
 `raw_source_port` removes Camera Service types from source-session orchestration. It owns
 one logical RAW source and one acquisition epoch through explicit start/receive/stop calls.

@@ -1,6 +1,7 @@
 # Private bounded appsrc submission primitive
 
-Status: implementation candidate; lead/platform ownership review and board tests pending.
+Status: implementation candidate; synthetic target ownership test passes, while
+lead/platform review and live device-completion tests remain pending.
 Now called by plugin_graph through arm_submission/submit_frame. See
 [graph submission lifecycle](qualcomm_submission_lifecycle.md) for retained faults,
 drain gates and mandatory supervisor domain ownership. Board qualification is pending.

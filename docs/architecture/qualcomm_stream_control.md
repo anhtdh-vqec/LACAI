@@ -43,6 +43,7 @@ disconnect and destructor execution are not BSP recovery. Vendor state calls may
 block internally; no bounded hardware teardown guarantee is supplied.
 
 Synthetic standard-GStreamer lifecycle/ownership fixtures and graph guard test sources are
-registered in CMake under the applicable options. Real plugin model start/EOS, negotiated
-caps, SDK faults and board synchronization remain unverified. A service event loop and
-model decoder are still missing.
+registered in CMake under the applicable options and pass on the QCS6490 target as part
+of the 56/56 board smoke run. Real plugin model start/EOS, negotiated caps, SDK faults
+and board synchronization remain unverified. A service event loop and concrete model
+decoder are still missing.

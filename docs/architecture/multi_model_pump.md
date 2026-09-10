@@ -1,6 +1,6 @@
 # Multi-model RAW frame fan-out
 
-Status: portable source and fake-port test source delivered; not compiled or executed.
+Status: portable source delivered; its fake-port binary passes natively on QCS6490.
 
 `multi_model_pump` is the bounded frame-path primitive for one logical FW RAW source and
 1..16 already-started model graphs. It is product-origin agnostic: sensor capture and

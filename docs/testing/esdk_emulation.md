@@ -31,3 +31,10 @@ The wire fixture now supplies explicit geometry/allocation limits and verifies t
 unset policy preserves output on rejection. The fan-out fixture expects source epoch 7,
 matching its supplied frame instead of inventing epoch 1. Production code is unchanged.
 [Corrected CTest output](esdk_neutral_ctest_corrected_2026_09_09.txt) records this run.
+
+An expanded configuration with Camera, GIO D-Bus, the GStreamer frame bridge and the
+Qualcomm adapter enabled builds 56 tests. The corresponding binaries pass 56/56 when
+executed natively on the QCS6490 target; see [board smoke evidence](qsc6490_board.md).
+The board result is preferred over emulation for the GStreamer lifecycle fixture because
+the eSDK sysroot has no `gst-plugin-scanner`. It still does not replace live model/FW,
+DMA completion, performance or recovery qualification.

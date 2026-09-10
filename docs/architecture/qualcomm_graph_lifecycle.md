@@ -2,7 +2,8 @@
 
 This page describes the model-load portion of the current graph. Streaming/submission and
 armed retention are implemented; see [stream control](qualcomm_stream_control.md) and
-[submission lifecycle](qualcomm_submission_lifecycle.md). Source is not board-qualified.
+[submission lifecycle](qualcomm_submission_lifecycle.md). Synthetic lifecycle logic has
+run on the target board; real model loading remains unqualified.
 
 The model-load states include empty/configured/loading/ready/unloading/faulted.
 configure still constructs a NULL-state graph transactionally. Reconfiguration is
@@ -41,4 +42,6 @@ rather than declaring readiness while older errors might remain queued.
 Test source covers unconfigured guards; separate standard-GStreamer fixtures cover
 submission/drain/retention without Qualcomm models.
 Real model load/missing model, SDK ABI failure, bus injection and unload stress remain
-integration tests to run on a controlled plugin installation/board. No tests have run.
+integration tests to run with a pinned model bundle and controlled FW source. The
+standard-GStreamer lifecycle fixture is part of the 56/56 target smoke result recorded
+in [QCS6490 board evidence](../testing/qsc6490_board.md).

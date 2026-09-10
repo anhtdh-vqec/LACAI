@@ -1,7 +1,8 @@
 # Per-source model cadence scheduler
 
 Status: portable source and test source delivered; integrated into the portable
-multi-model pump and multi_model_session; build execution and live integration pending.
+multi-model pump and multi_model_session; target logic tests pass and live integration
+remains pending.
 
 One RAW source may feed 1..16 assigned models, each with its own rational inference rate
 from the AI Model-team catalog. `model_cadence_scheduler` converts those cold configuration

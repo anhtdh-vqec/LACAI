@@ -1,7 +1,7 @@
 # Multi-model source session
 
-Status: portable lifecycle source and fake-port test source delivered; not compiled or
-executed. Live Camera/Qualcomm integration and board recovery remain pending.
+Status: portable lifecycle source delivered and its fake-port test passes natively on
+QCS6490. Live Camera/Qualcomm integration and board recovery remain pending.
 
 `multi_model_session` is the default source-session design for an admitted source with
 1..16 model graphs. It implements `source_session_port`, so the existing process-level

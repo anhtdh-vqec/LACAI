@@ -1,6 +1,7 @@
 # Single-camera session coordinator
 
-Source candidate; ownership review and board validation pending. camera_session is
+Source candidate; synthetic target test passes, while live FW/ownership validation remains
+pending. camera_session is
 composition-level orchestration, not process supervision or an executable service.
 It exclusively borrows one initially idle raw_source_port and empty inference_graph_port.
 The platform composition owns both concrete adapters and any private safety-retention

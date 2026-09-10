@@ -137,6 +137,6 @@ model/context + SDK demo; allocator/import/cache/fence samples; supported NV12
 4K source mode; permissions/device nodes; thread/concurrency/reset documentation;
 redistribution policy; thermal/load budgets. Owner BSP, deadline end week1/2.
 
-For the direct-SDK path these inputs remain required. ADR 0002 allows writing the
-plugin-backed adapter now without sysroot/build. Do not fabricate SDK APIs or
-describe unbuilt source as a board-qualified streaming adapter.
+For the direct-SDK path these inputs remain required. ADR 0002 selects the current
+plugin-backed adapter, which cross-builds and has synthetic target smoke coverage.
+Do not fabricate SDK APIs or describe it as a live model-qualified streaming adapter.

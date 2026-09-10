@@ -51,4 +51,5 @@ pools, tensor bytes or camera buffers retained elsewhere.
 The private plugin_graph now uses submission_window for tickets and completion bookkeeping;
 see qualcomm_submission_lifecycle.md for current wiring and retention requirements.
 Encoder hardware wiring is still pending. Source tests do not validate any device
-completion guarantee, and C++ tests have not been executed in this environment.
+completion guarantee. The existing unit/contract binary passes in the QCS6490 board
+smoke suite; this is ledger logic evidence only.

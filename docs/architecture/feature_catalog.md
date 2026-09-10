@@ -2,8 +2,8 @@
 
 Status: the generic feature integration catalog contract, pure validator and synthetic
 schema/example are source-delivered and cross-compiled with the AArch64 eSDK. Every
-concrete feature remains unimplemented and unqualified; target tests are not executed on
-the x86 host.
+concrete feature remains unimplemented and unqualified. The generic catalog/activation
+contract binaries pass on QCS6490; no concrete usecase is exercised by those fixtures.
 Feature ID ổn định độc lập model ID/package. Dependencies chỉ share khi compatible.
 
 ## Integration catalog boundary

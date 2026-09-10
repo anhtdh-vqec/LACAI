@@ -1,4 +1,4 @@
-# Implementation status — 2026-09-09
+# Implementation status — 2026-09-10
 
 Current source inventory, checked against `src/`, public headers, test sources and
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
@@ -10,9 +10,14 @@ Source and CMake/CTest declarations exist for the components below. On 2026-09-0
 current tree cross-compiled all configured targets to 100% with the eSDK AArch64 compiler,
 Camera, GIO D-Bus, GStreamer bridge and Qualcomm adapter enabled. Optional JSON loaders,
 artifact digest and FW ring were disabled; the eSDK sysroot does not currently provide
-the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration ran 47 AArch64 tests through SDK QEMU:
-all 47 passed after correcting two stale fixtures; see [emulation evidence](../testing/esdk_emulation.md).
-There is no live FW/Qualcomm/board qualification report. A
+the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration
+ran 47 AArch64 tests through SDK QEMU: all 47 passed after correcting two stale fixtures;
+see [emulation evidence](../testing/esdk_emulation.md). The expanded configuration built
+56 unit/contract binaries, and all 56 passed natively on the QCS6490 target; see
+[board smoke evidence](../testing/qsc6490_board.md). `gst-inspect-1.0` also loaded the
+installed `qtimlqnn` and `qtimlvconverter` factories, and the opt-in adapter probe
+validated required properties plus NULL-state graph configuration. There is no live
+FW/model or hardware-completion qualification report. A
 cross-build or fake port is not hardware completion, zero-copy, throughput, model-accuracy
 or release-compatibility evidence.
 
@@ -59,7 +64,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source and inference-graph interfaces; source carries shared frame owner and native handle | Additional platform implementations |
-| `src/adapters/qualcomm/` | Private plugin graph with caller-supplied runtime factory probing, FD/GstMemory bridge, ordered FLOAT32 tensor extraction, submission primitive and neutral graph adapter | Board model/caps/sync validation, native multi-dtype/multi-graph QNN support and concrete BSP recovery |
+| `src/adapters/qualcomm/` | Private plugin graph with caller-supplied runtime factory probing, FD/GstMemory bridge, ordered FLOAT32 tensor extraction, submission primitive and neutral graph adapter; standard-GStreamer lifecycle/ownership fixtures pass on QCS6490 | Live board model/caps/sync validation, native multi-dtype/multi-graph QNN support and concrete BSP recovery |
 | `src/app/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
 | `src/app/vqec_vision_multi_model_pump.cpp`, `vqec_vision_multi_model_session.cpp` | Receive once/share owner across due graphs; busy-skip; round-robin results; validate all graphs before one FW acquisition; partial-start rollback and all-graph drain before source release | Trusted activation-to-owner construction and live multi-model validation |
@@ -114,18 +119,16 @@ selecting an admitted path.
 - Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
-  The configured AArch64 targets cross-build; their CTest executables have not been
-  executed in this x86 workspace.
-- Golden, replay, integration and board test directories remain planned scaffolding.
-  No executed test result is inferred from CTest registration.
+  The configured AArch64 targets cross-build; 47 neutral tests pass under SDK QEMU and
+  all 56 binaries from the expanded adapter configuration pass natively on QCS6490.
+- Golden, replay and live FW/model integration suites remain planned scaffolding. The
+  executed board smoke result covers existing unit/contract binaries only.
 - `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include
   existence and CMake source paths. It is not an AST naming, ABI or ownership checker.
-  Static inspection found its include-root list omits `src/runtime/scheduler`,
-  `src/runtime/admission` and `src/runtime/lifecycle`, although CMake exports them.
-  This can falsely flag cadence, activation-snapshot and deployment-loader test includes.
-  PowerShell was unavailable during this refresh; the script itself was not executed.
-  A Python static check confirmed filenames/CMake paths and resolved quoted includes with
-  those three additional roots; this is not a target-specific compiler visibility check.
+  Its include-root list now follows the current CMake-exported app, adapter, runtime and
+  perception directories. PowerShell was unavailable during this refresh, so the `.ps1`
+  entrypoint could not execute; a read-only equivalent check passed all filenames, CMake
+  paths and quoted includes. This is not a target-specific compiler visibility check.
 
 ## Not delivered and next integration work
 
@@ -137,8 +140,8 @@ selecting an admitted path.
    and safe ring startup/recovery to complete preview end to end.
 4. Full feature/entitlement manager, legacy AI D-Bus compatibility server, service main,
    process supervision, packaging/update integration and observability.
-5. Automatic source/BSP recovery, executed host tests, board ownership/fault/golden tests
-   and release workload qualification.
+5. Automatic source/BSP recovery, live DMA/SDK fault and golden tests, performance/soak
+   coverage and release workload qualification.
 
 Current contract details: [system architecture](../architecture/system_architecture.md),
 [multi-model session](../architecture/multi_model_session.md),
@@ -149,4 +152,4 @@ Current contract details: [system architecture](../architecture/system_architect
 Application composition now wires admitted sessions to supervisor activation, progress
 and stop, with one pending tensor/report slot and session-derived recovery reporting.
 See [composition contract](../architecture/application_composition.md). Runtime service
-construction, target execution and owner review remain pending.
+construction, live FW/model execution and owner review remain pending.

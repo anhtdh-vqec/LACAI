@@ -11,7 +11,7 @@ unsubmitted preparations rather than fabricate completion. Exceptions leave admi
 closed. No loop, sleep, reset or destructor cleanup is hidden in this helper. An ok result
 does not release caller-owned CPU surfaces or prove an unrelated ring writer has stopped.
 Source tests cover an empty backend with a live preparation, explicit cancellation,
-repeated drain and admission remaining closed. Build/test execution is deferred to Linux.
+repeated drain and admission remaining closed. These portable cases pass on QCS6490.
 
 The `encoder_preparation` facade now keeps its window, ticket and writer together.
 Use prepare -> synchronous pixel population through borrow_data -> cancel OR
@@ -37,7 +37,7 @@ pixel owner. An accepted submit remains outstanding for independently polled eve
 Exceptions stop admission and propagate without assuming rejection or completion;
 caller and backend owners must remain retained for explicit recovery, with no retry.
 Fake-backend test source covers acceptance, repeated attempt and pre-access rejection;
-concrete encoder conformance and executed tests remain pending.
+the fake-backend binary passes on QCS6490, while concrete encoder conformance remains pending.
 
 Fault-injection test source also simulates a port violation: throw after retaining input.
 It checks exception propagation, unchanged outstanding byte accounting, no repeated backend
@@ -56,7 +56,8 @@ Drain or a latched deadline fault between prepare and commit rejects handoff wit
 sealing, publishing a ticket or transferring the owner. The writer and reservation
 remain together so explicit cancel can reclaim never-submitted work. This is distinct
 from committed jobs, whose resources must survive timeout until actual completion.
-Contract test source covers both transitions; it is not an executed hardware test.
+The contract binary covers both transitions and passes on QCS6490; this remains synthetic
+logic evidence rather than an executed hardware-encoder test.
 
 prepare_input requires an empty writer and configured pool/ledger with exactly equal
 width AND height (matching byte size is insufficient). It reserves the encoder ticket

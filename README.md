@@ -1,8 +1,10 @@
 # VQEC Vision AI Applications
 
-Source inventory update (2026-09-09): source includes the existing FW third
+Source inventory update (2026-09-10): source includes the existing FW third
 NV12/FD receiver, strict legacy decoder and session-owned ACK; configured targets now
-cross-build with the AArch64 eSDK, while target tests and board behavior remain unexecuted.
+cross-build with the AArch64 eSDK, and all 56 unit/contract binaries pass natively on the
+QCS6490 target. See [board smoke evidence](docs/testing/qsc6490_board.md); live FW/model,
+hardware-completion, performance and recovery qualification remain open.
 See [camera adapter implementation boundary](docs/architecture/camera_legacy_adapter.md).
 The released camera adapter follows FW effective profiles; the new deployment contract
 requires explicit per-source dimensions/FPS and supports 1..16 unified FW RAW inputs on
@@ -22,8 +24,8 @@ Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
 Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host compiler không
 được dùng làm bằng chứng xác nhận target.
 Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference, feature
-integration catalog/pipeline và output helpers; eSDK cross-build đạt, chưa chạy target
-tests hoặc có app thay release**.
+integration catalog/pipeline và output helpers; eSDK cross-build và 56/56 target logic
+tests đạt, chưa có live model/FW pipeline hoặc app thay release**.
 
 Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
 and [replacement execution gates](docs/planning/fw_compatibility_execution.md).
@@ -78,8 +80,9 @@ CPU preview pool, encoder ledger/preparation/submit/drain helpers, authorized ev
 dispatch và optional FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
 Qualcomm plugin factory probing is available at the adapter boundary; it reports
 runtime availability without selecting a fallback backend.
-CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, target tests chưa
-chạy vì binary AArch64 và môi trường hiện tại không có emulator.
+CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, 56/56 binary
+unit/contract pass trực tiếp trên QCS6490. eSDK cũng có QEMU cho logic smoke; xem
+[hướng dẫn emulation](docs/testing/esdk_emulation.md).
 Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
 service vqec_ai_vision_applications/IPK, CI chạy tự động hoặc AST naming checker.
 Structural filename checker đã có. Xem bảng kiểm kê source và phần thiếu tại

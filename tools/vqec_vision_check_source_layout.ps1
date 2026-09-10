@@ -13,7 +13,11 @@ $issues = [System.Collections.Generic.List[string]]::new()
 # These are the project include roots exported by current CMake targets. Checking
 # existence across this set is NOT proof of target-specific transitive visibility.
 $include_roots = @('include', 'src', 'src/app', 'src/adapters/camera',
-    'src/adapters/qualcomm', 'src/runtime/model_registry', 'src/outputs', 'src/adapters/fw_output')
+    'src/adapters/qualcomm', 'src/adapters/fw_output', 'src/outputs',
+    'src/runtime/model_registry', 'src/runtime/feature_manager',
+    'src/runtime/scheduler', 'src/runtime/admission', 'src/runtime/lifecycle',
+    'src/perception/detection', 'src/perception/tracking',
+    'src/perception/attributes')
 foreach ($source_file in $source_files) {
     if ($source_file.Name -cnotmatch '^vqec_vision_[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.[a-z0-9]+$') {
         $issues.Add("Invalid source filename: $($source_file.FullName)")

@@ -69,11 +69,12 @@ handle_event now begins ledger drain before propagating a dispatch exception. It
 not complete the result or reset the event owner. Recovery may explicitly discard the
 known output and apply its completion without retrying the sink. A fake sink test throws
 after counting a write and checks retained accounting, stopped admission and no second
-write during explicit reconciliation; this test source has not been executed.
+write during explicit reconciliation; this binary passes in the QCS6490 board smoke suite.
 The one-event polling helper exists; concrete encoder polling implementation, retained
 per-job context storage and the process event loop remain pending.
 
 Contract test source covers successful delivery, policy denial, sink write error and
 no consumers through handle_event. Each outcome completes only the result half; input
 accounting stays reserved until its separate event. Tests also check duplicate rejection
-and no repeated write on input completion. These tests have not been compiled or run.
+and no repeated write on input completion. These synthetic cases are included in the
+executed QCS6490 unit/contract smoke suite; they do not exercise a live FW ring.
