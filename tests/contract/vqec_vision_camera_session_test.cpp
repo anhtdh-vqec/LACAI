@@ -123,6 +123,9 @@ int main() {
     camera.media_.socket_path_ = "/tmp/vqec-vision-fixture.sock";
     camera.media_.producer_uid_ = static_cast<std::uint32_t>(::getuid());
     camera.media_.limits_.nv12_format_value_ = 23;  // No packet is decoded by this fixture.
+    camera.media_.limits_.max_width_ = 1920;
+    camera.media_.limits_.max_height_ = 1080;
+    camera.media_.limits_.max_allocation_bytes_ = 8U * 1024U * 1024U;
     source_lifecycle source(rpc, camera);
     plugin_graph graph;
     auto domain = std::make_shared<graph_retention>();

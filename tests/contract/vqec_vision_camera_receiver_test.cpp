@@ -141,6 +141,9 @@ int main() {
     config.socket_path_ = fixture.path_;
     config.producer_uid_ = static_cast<std::uint32_t>(::getuid());
     config.limits_.nv12_format_value_ = 123;
+    config.limits_.max_width_ = 1920;
+    config.limits_.max_height_ = 1080;
+    config.limits_.max_allocation_bytes_ = 8U * 1024U * 1024U;
     frame_source source;
     if (fixture.payload_fd_ < 0 ||
         source.vqec_vision_ai_camer_frsrc_connect(config).code_ != status_code::ok) {
@@ -273,9 +276,16 @@ int main() {
         return 1;
     }
     rpc->should_timeout_stop_ = false;
-    if (lifecycle.vqec_vision_ai_camer_srclc_stop(100).code_ != status_code::ok ||
-        lifecycle.vqec_vision_ai_camer_srclc_get_state() != camera_source_state::stopped ||
-        lifecycle.vqec_vision_ai_camer_srclc_start(100).code_ != status_code::invalid_state) {
+    const auto reconciled_stop = lifecycle.vqec_vision_ai_camer_srclc_stop(100);
+    const auto reconciled_state = lifecycle.vqec_vision_ai_camer_srclc_get_state();
+    const auto rejected_restart = lifecycle.vqec_vision_ai_camer_srclc_start(100);
+    if (reconciled_stop.code_ != status_code::ok ||
+        reconciled_state != camera_source_state::stopped ||
+        rejected_restart.code_ != status_code::invalid_state) {
+        std::cerr << "stop reconciliation mismatch: stop="
+                  << static_cast<int>(reconciled_stop.code_) << " state="
+                  << static_cast<int>(reconciled_state) << " restart="
+                  << static_cast<int>(rejected_restart.code_) << '\n';
         return 1;
     }
 
