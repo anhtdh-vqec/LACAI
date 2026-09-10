@@ -240,6 +240,13 @@ vqec_vision_ai_ftmgr_famgr_get_record(std::uint16_t _slot) const noexcept {
     return _slot < record_count_ ? &records_[_slot] : nullptr;
 }
 
+const feature_catalog_entry* feature_activation_manager::
+vqec_vision_ai_ftmgr_famgr_get_feature(std::uint16_t _slot) const noexcept {
+    const auto* record = vqec_vision_ai_ftmgr_famgr_get_record(_slot);
+    return record == nullptr ? nullptr :
+        vqec_vision_ai_ftmgr_famgr_find_feature(record->feature_id_);
+}
+
 feature_stage* feature_activation_manager::
 vqec_vision_ai_ftmgr_famgr_get_stage(std::uint16_t _slot) const noexcept {
     return _slot < record_count_ ? records_[_slot].stage_.get() : nullptr;

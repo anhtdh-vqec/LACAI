@@ -76,6 +76,8 @@ public:
         feature_activation_snapshot& _snapshot);
     [[nodiscard]] const feature_activation_record*
     vqec_vision_ai_ftmgr_famgr_get_record(std::uint16_t _slot) const noexcept;
+    [[nodiscard]] const feature_catalog_entry*
+    vqec_vision_ai_ftmgr_famgr_get_feature(std::uint16_t _slot) const noexcept;
     [[nodiscard]] feature_stage*
     vqec_vision_ai_ftmgr_famgr_get_stage(std::uint16_t _slot) const noexcept;
     [[nodiscard]] std::uint16_t

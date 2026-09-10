@@ -191,6 +191,8 @@ int main() {
     const auto* ready = manager.vqec_vision_ai_ftmgr_famgr_get_record(0);
     assert(snapshot.ready_count_ == 1U && ready != nullptr &&
            ready->processor_ != nullptr && ready->stage_ != nullptr &&
+           manager.vqec_vision_ai_ftmgr_famgr_get_feature(0) != nullptr &&
+           manager.vqec_vision_ai_ftmgr_famgr_get_feature(0)->feature_id_ == "counting" &&
            manager.vqec_vision_ai_ftmgr_famgr_get_stage(0)->
                vqec_vision_ai_ftmgr_ftstg_is_active());
 
