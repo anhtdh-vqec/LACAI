@@ -43,5 +43,5 @@ Test source covers unconfigured guards; separate standard-GStreamer fixtures cov
 submission/drain/retention without Qualcomm models.
 Real model load/missing model, SDK ABI failure, bus injection and unload stress remain
 integration tests to run with a pinned model bundle and controlled FW source. The
-standard-GStreamer lifecycle fixture is part of the 56/56 target smoke result recorded
+standard-GStreamer lifecycle fixture is part of the 57/57 target smoke result recorded
 in [QCS6490 board evidence](../testing/qsc6490_board.md).

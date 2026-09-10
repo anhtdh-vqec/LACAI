@@ -24,4 +24,9 @@ rejected before changing the clock.
 This is source-delivered orchestration, not a runnable service or board qualification.
 Contract tests cover pending result correlation, delivery backpressure, early/repeated
 stop, drain completion and invalid-time preservation. Target execution and lead plus
-runtime-owner review remain required before integration acceptance.
+runtime-owner review remain required before live integration acceptance.
+
+`runtime_composition_factory` now supplies the cold-path neutral construction layer that
+creates admitted multi-model sessions and perception bundles, binds every source, and
+returns this composition after validation. Platform RAW/graph owner creation and
+authenticated artifact/evidence resolution remain outside this class.

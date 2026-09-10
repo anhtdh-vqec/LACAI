@@ -5,11 +5,12 @@ Source inventory update (2026-09-10): the private Qualcomm graph has submit/resu
 camera_session and multi_model_session compose one acquisition lifecycle. The portable
 multi_model_pump shares one frame across due graphs using rational cadence, and
 multi_source_supervisor advances 1..16 pre-composed sessions with fault isolation.
-Deployment/catalog loaders and activation snapshots exist; authenticated construction of
-source/graph/session owners and a runnable service are still missing. Model decoder,
+Deployment/catalog loaders, activation snapshots and neutral session/perception runtime
+composition exist; authenticated construction of platform source/graph owners and a
+runnable service are still missing. Model decoder,
 feature dependency catalog and model-to-feature routing contracts exist; concrete model,
 tracker/feature algorithms and hardware overlay/encoder integration are not delivered.
-Configured AArch64 eSDK targets cross-build and 56/56 existing unit/contract binaries pass
+Configured AArch64 eSDK targets cross-build and 57/57 existing unit/contract binaries pass
 on QCS6490; live FW/model, DMA-completion and performance qualification are not delivered.
 See [current source inventory](../development/implementation_status.md).
 Preview ownership/pool, encoder ledger, authorized dispatch and an optional FW SDK
@@ -40,6 +41,8 @@ thu; 13 feature không có nghĩa 13 model luôn chạy đồng thời hoặc m�
 The diagrams describe the complete intended pipeline, not completed integration.
 Current orchestration source is `multi_source_supervisor -> source_session_port ->
 multi_model_session -> multi_model_pump -> raw_source_port / inference_graph_port`.
+`runtime_composition_factory` now creates and binds the neutral session/perception owner
+graph from deployment/catalog plus caller-resolved platform ports.
 Perception/features and hardware output stages below remain planned. The current Qualcomm
 inference implementation follows ADR 0002's private converter/QNN plugin graph; direct
 FastCV/QNN SDK modules in the conceptual flow are not separately implemented adapters.

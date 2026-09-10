@@ -13,7 +13,7 @@ artifact digest and FW ring were disabled; the eSDK sysroot does not currently p
 the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration
 ran 47 AArch64 tests through SDK QEMU: all 47 passed after correcting two stale fixtures;
 see [emulation evidence](../testing/esdk_emulation.md). The expanded configuration built
-56 unit/contract binaries, and all 56 passed natively on the QCS6490 target; see
+57 unit/contract binaries, and all 57 passed natively on the QCS6490 target; see
 [board smoke evidence](../testing/qsc6490_board.md). `gst-inspect-1.0` also loaded the
 installed `qtimlqnn` and `qtimlvconverter` factories, and the opt-in adapter probe
 validated required properties plus NULL-state graph configuration. There is no live
@@ -70,6 +70,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/app/vqec_vision_multi_model_pump.cpp`, `vqec_vision_multi_model_session.cpp` | Receive once/share owner across due graphs; busy-skip; round-robin results; validate all graphs before one FW acquisition; partial-start rollback and all-graph drain before source release | Trusted activation-to-owner construction and live multi-model validation |
 | `src/app/vqec_vision_perception_result_stage.cpp`, `vqec_vision_multi_model_result_router.cpp` | Correlates tensor pipeline PTS with retained source identity, routes by stable model slot, derives independent per-model gaps, then composes decode and tracking transactionally | Concrete decoders/trackers, multi-model temporal fusion and replay qualification |
 | `src/app/vqec_vision_perception_stage_factory.cpp`, `vqec_vision_source_perception_factory.cpp` | Transactionally construct one source/model chain or a 1..16-slot source group with distinct tracker ownership; exact manifest reference, model/version/digest/decoder identity, tensor bounds and decoder-specific output schema are validated before each tracker is created | Authenticated package/manifest resolution, tracker-contract selection and concrete decoder/tracker packages |
+| `src/app/vqec_vision_runtime_composition_factory.cpp` | Builds the validated admission snapshot, composes catalog-bound plans/cadence/output metadata, enforces application-wide graph/cycle uniqueness, constructs source sessions/perception groups and returns a validated application composition without acquiring hardware | Authenticated artifact/path/evidence resolution, platform owner factories, measured admission and service executor activation |
 | `src/app/vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Bounded stable-slot feature fan-out with per-feature isolation; activation-time mapping routes each tracked model result only to its direct feature consumers | Multi-model temporal joins, effective-state manager and concrete feature rules |
 | `src/app/vqec_vision_multi_source_supervisor.cpp` | Binds 1..16 borrowed sessions; round-robin progress, per-source fault isolation, snapshots and latched global stop | Service executors, automatic restart/backoff, epoch replacement and BSP recovery execution |
 | `src/core/vqec_vision_preview_surface.cpp`, `vqec_vision_preview_pool.cpp` | Writable-to-sealed CPU NV12 ownership and preallocated 1..4-surface pool; final-reader reuse | Real pixel copy/overlay renderer and hardware allocation/import |
@@ -120,7 +121,7 @@ selecting an admitted path.
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
   The configured AArch64 targets cross-build; 47 neutral tests pass under SDK QEMU and
-  all 56 binaries from the expanded adapter configuration pass natively on QCS6490.
+  all 57 binaries from the expanded adapter configuration pass natively on QCS6490.
 - Golden, replay and live FW/model integration suites remain planned scaffolding. The
   executed board smoke result covers existing unit/contract binaries only.
 - `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include
@@ -133,8 +134,9 @@ selecting an admitted path.
 ## Not delivered and next integration work
 
 1. Authenticated deployment/catalog/output/artifact resolution into long-lived source,
-   graph, retention-domain and session owners; the perception factory now consumes the
-   resolved manifest binding, while the trusted resolver and measured admission remain.
+   graph and retention-domain owners; the neutral runtime factory now builds admitted
+   sessions/perception/application composition from resolved inputs, while the trusted
+   resolver, platform owner factories and measured admission remain.
 2. Concrete tensor decoders, tracking/attributes and the 13 commercial features/traffic.
    Perception/features and alternate vendor directories currently contain READMEs only.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop

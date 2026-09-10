@@ -21,7 +21,7 @@ These are dependencies and gates, not promises of dates without SDK/model availa
 
 This table supersedes the chronological progress notes below. Existing source is not
 evidence of a running system. Inventory used `rg --files src include packaging config`
-and current CMake targets. The expanded eSDK build succeeds and its 56 unit/contract
+and current CMake targets. The expanded eSDK build succeeds and its 57 unit/contract
 binaries pass on QCS6490; live FW/model and release qualification remain open.
 
 | Workstream | Present evidence | Remaining implementation and proof |
@@ -35,7 +35,7 @@ binaries pass on QCS6490; live FW/model and release qualification remain open.
 | Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, concrete observations/tracking/attributes and authenticated model loading composition |
 | Features | Thirteen feature directories and traffic contain READMEs | Shared perception contracts and feature lifecycle/dependency/entitlement integration; no claim features are implemented |
 | Delivery | Packaging/config README placeholders | Yocto/IPK metadata, launcher compatibility, permissions, upgrade/rollback and package tests |
-| Verification | Structural checker, pinned eSDK cross-build, 47/47 QEMU logic tests and 56/56 QCS6490 unit/contract smoke tests | Live SDK/model/FW ABI tests, board replay/fault/performance/soak evidence |
+| Verification | Structural checker, pinned eSDK cross-build, 47/47 neutral QEMU baseline and 57/57 QCS6490 unit/contract smoke tests | Live SDK/model/FW ABI tests, board replay/fault/performance/soak evidence |
 
 ### Next cohesive implementation sequence
 

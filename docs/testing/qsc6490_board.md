@@ -26,10 +26,11 @@ cmake -S . -B build-esdk -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
 cmake --build build-esdk -j4
 ```
 
-All 56 generated unit/contract binaries were copied to `/tmp/lacai-board-tests` and
-executed natively on the board. Result on 2026-09-10: **56/56 passed**. This includes
+All 57 generated unit/contract binaries were copied to `/tmp/lacai-board-tests` and
+executed natively on the board. Result on 2026-09-10: **57/57 passed**. This includes
 Linux socket/FD fixtures, GStreamer DMA-BUF ownership helpers and the synthetic graph
-submission/drain/retention lifecycle. The graph fixture deep-copies its pass-through
+submission/drain/retention lifecycle, plus neutral runtime composition from admission
+through source-session/perception ownership. The graph fixture deep-copies its pass-through
 buffer at a test-only pad probe so input release is independent from the synthetic
 tensor output, matching the ownership shape of an inference transform.
 

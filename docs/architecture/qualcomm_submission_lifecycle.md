@@ -57,5 +57,5 @@ with VQEC_VISION_AI_GRAPH_TEST_FIXTURE; it uses appsrc -> appsink with zero-fill
 test bytes advertised as FLOAT32 and a test-only deep-copy pad probe that separates
 input release from synthetic output ownership. It is not a mock of Qualcomm numerical inference.
 The production backend target has no fixture definition or runtime fallback.
-The expanded eSDK build succeeds and all 56 unit/contract binaries, including this
+The expanded eSDK build succeeds and all 57 unit/contract binaries, including this
 fixture, pass natively on QCS6490; see [board smoke evidence](../testing/qsc6490_board.md).

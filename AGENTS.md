@@ -167,6 +167,10 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 Application composition now retains one tensor/report until explicit take_result; read
 docs/architecture/application_composition.md before changing delivery or stop progress.
 
+Runtime composition constructs admission-bound source sessions and perception owners from
+neutral platform ports; read docs/architecture/runtime_composition_factory.md before
+changing model-slot authority, lifecycle owner order or activation inputs.
+
 The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.

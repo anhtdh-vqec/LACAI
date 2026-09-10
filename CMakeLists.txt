@@ -297,6 +297,16 @@ target_include_directories(vqec_vision_ai_multi_model_result_router PUBLIC
 target_link_libraries(vqec_vision_ai_multi_model_result_router
     PUBLIC vqec_vision_ai_multi_model_pump vqec_vision_ai_perception_result_stage)
 set_target_properties(vqec_vision_ai_multi_model_result_router PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_runtime_composition_factory STATIC
+    src/app/vqec_vision_runtime_composition_factory.cpp)
+target_include_directories(vqec_vision_ai_runtime_composition_factory PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/admission>)
+target_link_libraries(vqec_vision_ai_runtime_composition_factory PUBLIC
+    vqec_vision_ai_admission vqec_vision_ai_application_composition
+    vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_result_router)
+set_target_properties(vqec_vision_ai_runtime_composition_factory
+    PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_feature_fanout STATIC
     src/app/vqec_vision_feature_fanout.cpp)
 target_include_directories(vqec_vision_ai_feature_fanout PUBLIC
@@ -375,6 +385,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME source_perception_factory_contract
         COMMAND vqec_vision_ai_source_perception_factory_test)
+    add_executable(vqec_vision_ai_runtime_composition_factory_test
+        tests/contract/vqec_vision_runtime_composition_factory_test.cpp)
+    target_link_libraries(vqec_vision_ai_runtime_composition_factory_test
+        PRIVATE vqec_vision_ai_runtime_composition_factory)
+    set_target_properties(vqec_vision_ai_runtime_composition_factory_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME runtime_composition_factory_contract
+        COMMAND vqec_vision_ai_runtime_composition_factory_test)
     add_executable(vqec_vision_ai_feature_fanout_test
         tests/contract/vqec_vision_feature_fanout_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_fanout_test

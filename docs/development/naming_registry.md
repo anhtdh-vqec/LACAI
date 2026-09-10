@@ -328,3 +328,10 @@ Source perception factory registrations (source delivered):
 |---|---|---|
 | src/app/vqec_vision_source_perception_factory.cpp | spfac | vqec_vision_ai_appl_spfac_ |
 | tests/contract/vqec_vision_source_perception_factory_test.cpp | spfct | vqec_vision_ai_ctest_spfct_ |
+
+Runtime composition factory registrations (source delivered):
+
+| Logical owner path | file_id | Prefix |
+|---|---|---|
+| src/app/vqec_vision_runtime_composition_factory.cpp | rcfac | vqec_vision_ai_appl_rcfac_ |
+| tests/contract/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
