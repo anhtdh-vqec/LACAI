@@ -349,6 +349,15 @@ int main() {
 
     auto* previous = bundle.get();
     const auto tracker_count = tracker_factory.create_count_;
+    auto duplicate_source = activation;
+    duplicate_source.sources_[1].source_ = &first_source;
+    assert(vqec_vision_ai_appl_rcfac_create_bundle(deployment, catalog,
+               duplicate_source, decoders, trackers, bundle).code_ ==
+           status_code::invalid_argument);
+    assert(bundle.get() == previous && tracker_factory.create_count_ == tracker_count);
+    assert(first_source.start_count_ == 0 && second_source.start_count_ == 0 &&
+           first_graph.configure_count_ == 0 && second_graph.configure_count_ == 0);
+
     auto wrong_preprocess = activation;
     wrong_preprocess.sources_[0].models_[0].binding_.preprocess_contract_ =
         "other.preprocess.v1";

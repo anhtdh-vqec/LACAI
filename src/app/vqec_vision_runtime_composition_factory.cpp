@@ -194,6 +194,12 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
                 return {status_code::invalid_argument,
                     "runtime source activation differs from deployment slot"};
             }
+            for (std::uint16_t prior = 0; prior < source_slot; ++prior) {
+                if (_activation.sources_[prior].source_ == source_activation.source_) {
+                    return {status_code::invalid_argument,
+                        "RAW source owner is bound to more than one source slot"};
+                }
+            }
             if (source_activation.source_->vqec_vision_ai_ports_rawsr_get_state() !=
                 raw_source_state::idle) {
                 return {status_code::invalid_state,

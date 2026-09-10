@@ -20,6 +20,8 @@ Before constructing owners it requires:
 
 - exact deployment/catalog validation and source/model slot order;
 - one source activation per deployment source and one model activation per assigned model;
+- distinct RAW-source port instances across source slots: two sessions must never
+  control the same source owner, even if deployment source IDs differ;
 - unique graph ports and nonzero, nonsentinel cycle IDs across the whole application;
 - an idle RAW source and empty, activation-capable inference graph for every slot;
 - catalog/source/path agreement through the neutral inference-plan composer;
