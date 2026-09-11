@@ -208,6 +208,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
 | src/runtime/model_registry/vqec_vision_output_manifest.cpp | otman | vqec_vision_ai_mreg_otman_ |
 | src/runtime/model_registry/vqec_vision_artifact_digest.cpp | ardgt | vqec_vision_ai_mreg_ardgt_ |
+| src/runtime/model_registry/vqec_vision_artifact_resolver.cpp | artsr | vqec_vision_ai_mreg_artsr_ |
+| tests/contract/vqec_vision_artifact_resolver_test.cpp | arsct | vqec_vision_ai_ctest_arsct_ |
 | tests/unit/vqec_vision_artifact_digest_test.cpp | adtst | vqec_vision_ai_unit_adtst_ |
 | tests/unit/vqec_vision_output_manifest_test.cpp | omtst | vqec_vision_ai_unit_omtst_ |
 | tools/vqec_vision_manifest_check.cpp | mnchk | vqec_vision_ai_tools_mnchk_ |

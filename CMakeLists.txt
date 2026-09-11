@@ -96,7 +96,14 @@ endif()
 
 if(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST)
     find_package(OpenSSL 3.0 REQUIRED COMPONENTS Crypto)
-    add_library(vqec_vision_ai_artifact_digest STATIC src/runtime/model_registry/vqec_vision_artifact_digest.cpp)
+    set(_vqec_vision_ai_digest_sources
+        src/runtime/model_registry/vqec_vision_artifact_digest.cpp)
+    if(UNIX)
+        # The trusted resolver enforces containment with POSIX fd/stat/realpath semantics.
+        list(APPEND _vqec_vision_ai_digest_sources
+            src/runtime/model_registry/vqec_vision_artifact_resolver.cpp)
+    endif()
+    add_library(vqec_vision_ai_artifact_digest STATIC ${_vqec_vision_ai_digest_sources})
     target_include_directories(vqec_vision_ai_artifact_digest PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/model_registry>)
     target_link_libraries(vqec_vision_ai_artifact_digest
@@ -684,6 +691,16 @@ if(BUILD_TESTING)
             PRIVATE vqec_vision_ai_artifact_digest)
         set_target_properties(vqec_vision_ai_artifact_digest_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME artifact_digest_validation COMMAND vqec_vision_ai_artifact_digest_test)
+        if(UNIX)
+            add_executable(vqec_vision_ai_artifact_resolver_test
+                tests/contract/vqec_vision_artifact_resolver_test.cpp)
+            target_link_libraries(vqec_vision_ai_artifact_resolver_test
+                PRIVATE vqec_vision_ai_artifact_digest)
+            set_target_properties(vqec_vision_ai_artifact_resolver_test
+                PROPERTIES CXX_EXTENSIONS OFF)
+            add_test(NAME artifact_resolver_containment
+                COMMAND vqec_vision_ai_artifact_resolver_test)
+        endif()
     endif()
     if(TARGET vqec_vision_ai_model_manifest)
         add_executable(vqec_vision_ai_output_manifest_test tests/unit/vqec_vision_output_manifest_test.cpp)

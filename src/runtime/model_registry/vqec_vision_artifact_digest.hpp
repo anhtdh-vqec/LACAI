@@ -22,6 +22,14 @@ struct artifact_digest_receipt {
     std::istream& _stream, const std::string& _expected_sha256, std::uint64_t _max_bytes,
     artifact_digest_receipt& _receipt);
 
+// Hashes an already-opened descriptor starting at its current offset, so the digest is
+// bound to the pinned inode rather than a re-resolved path. The caller owns and opens
+// _fd (e.g. O_RDONLY|O_CLOEXEC|O_NOFOLLOW); this function does not close it. Same
+// expected-digest/limit rules as verify_stream; a hash match is still not authentication.
+[[nodiscard]] status vqec_vision_ai_mreg_ardgt_verify_fd(
+    int _fd, const std::string& _expected_sha256, std::uint64_t _max_bytes,
+    artifact_digest_receipt& _receipt);
+
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_MODEL_REGISTRY_ARTIFACT_DIGEST_HPP
