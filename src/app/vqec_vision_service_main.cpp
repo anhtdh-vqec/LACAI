@@ -271,6 +271,7 @@ struct parsed_arguments {
     std::string catalog_path;
     std::string feature_catalog_path;
     std::uint64_t max_steps{0};
+    std::uint32_t require_sources{0};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -285,6 +286,9 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.feature_catalog_path = _argv[++index];
         } else if (option == "--steps" && has_value) {
             _args.max_steps = std::strtoull(_argv[++index], nullptr, 10);
+        } else if (option == "--require-sources" && has_value) {
+            _args.require_sources = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -320,7 +324,7 @@ int main(int _argc, char** _argv) {
     if (!vqec_vision_ai_appl_svcmn_parse(_argc, _argv, args)) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
-            "[--feature-catalog <json>] [--steps <n>]\n");
+            "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -589,6 +593,7 @@ int main(int _argc, char** _argv) {
 
     std::uint64_t now_ns = g_step_interval_ns;
     std::uint64_t steps = 0;
+    std::uint32_t routed_source_mask = 0;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
@@ -598,6 +603,7 @@ int main(int _argc, char** _argv) {
             runtime_executor_report taken;
             if (executor->vqec_vision_ai_appl_rtexe_take_result(
                     tracked, events, taken).code_ == status_code::ok) {
+                routed_source_mask |= 1U << taken.source_index_;
                 feature_dispatch_report dispatch_report;
                 if (taken.has_feature_fanout_ && has_feature_wiring) {
                     const auto dispatched =
@@ -638,8 +644,16 @@ int main(int _argc, char** _argv) {
         stopped = executor->vqec_vision_ai_appl_rtexe_get_snapshot().state_ ==
             application_composition_state::stopped;
     }
-    std::printf("service stopped=%s\n", stopped ? "true" : "false");
+    std::uint32_t routed_sources = 0;
+    for (std::uint32_t mask = routed_source_mask; mask != 0; mask &= mask - 1U) {
+        ++routed_sources;
+    }
+    std::printf("service stopped=%s routed_sources=%u\n",
+        stopped ? "true" : "false", routed_sources);
     // Owners (feature manager, fan-outs, registries, reference platform) outlive the
     // bundle; the bundle's composition must be stopped before they are destroyed.
-    return stopped ? 0 : 1;
+    if (!stopped) {
+        return 1;
+    }
+    return routed_sources >= args.require_sources ? 0 : 1;
 }

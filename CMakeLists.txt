@@ -806,8 +806,8 @@ if(BUILD_TESTING)
             --deployment ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_deployment.json
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_catalog.json
             --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_features.json
-            --steps 60)
-        set_tests_properties(service_executable_smoke PROPERTIES TIMEOUT 15)
+            --steps 160 --require-sources 2)
+        set_tests_properties(service_executable_smoke PROPERTIES TIMEOUT 20)
     endif()
 endif()
 

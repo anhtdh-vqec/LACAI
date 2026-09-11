@@ -21,6 +21,23 @@
       "max_tensor_bytes": 8388608,
       "max_temporal_bytes": 1048576,
       "model_ids": ["person_detector"]
+    },
+    {
+      "source_id": "camera_rear",
+      "raw_source_ref": "fw_raw_camera_rear",
+      "camera_id": 1,
+      "channel_id": 0,
+      "preview_output_ref": "",
+      "width": 640,
+      "height": 480,
+      "fps_numerator": 25,
+      "fps_denominator": 1,
+      "max_frame_allocation_bytes": 1048576,
+      "max_inflight_frames": 2,
+      "preview_surface_count": 0,
+      "max_tensor_bytes": 8388608,
+      "max_temporal_bytes": 1048576,
+      "model_ids": ["person_detector"]
     }
   ]
 }
