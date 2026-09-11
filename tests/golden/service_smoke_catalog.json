@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "revision": 2,
+  "catalog_id": "models_smoke_v1",
+  "models": [
+    {
+      "model_id": "person_detector",
+      "model_version": "1.0.0",
+      "target_id": "qcs6490_qlinux_1_8",
+      "artifact_ref": "person_detector_qnn_v1",
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_manifest_ref": "person_detector_outputs_v1",
+      "decoder_contract": "person_detector.decoder.v1",
+      "preprocess_contract": "nv12_rgb_letterbox_v1",
+      "graph_name": "person_detector_graph",
+      "input": {
+        "width": 640,
+        "height": 640,
+        "dtype": "uint8",
+        "channel_order": "rgb",
+        "placement": "centre",
+        "mean": [0, 0, 0],
+        "sigma": [1, 1, 1]
+      },
+      "inference_cadence": {
+        "numerator": 10,
+        "denominator": 1
+      },
+      "source_constraints": {
+        "min_width": 640,
+        "min_height": 480,
+        "max_width": 4096,
+        "max_height": 2160,
+        "min_fps_numerator": 10,
+        "min_fps_denominator": 1
+      },
+      "resources": {
+        "resident_bytes": 33554432,
+        "max_tensor_bytes_per_source": 8388608,
+        "output_queue_buffers": 2,
+        "max_concurrent_sources": 16,
+        "can_share_context_across_sources": true
+      }
+    }
+  ]
+}

@@ -343,3 +343,4 @@ Runtime composition factory registrations (source delivered):
 | src/app/vqec_vision_runtime_composition_factory.cpp | rcfac | vqec_vision_ai_appl_rcfac_ |
 | tests/contract/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
 | src/app/vqec_vision_runtime_executor.cpp | rtexe | vqec_vision_ai_appl_rtexe_ |
+| src/app/vqec_vision_service_main.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |

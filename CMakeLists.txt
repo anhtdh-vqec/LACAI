@@ -353,6 +353,23 @@ target_link_libraries(vqec_vision_ai_runtime_executor
     PUBLIC vqec_vision_ai_application_composition
     vqec_vision_ai_multi_model_feature_pipeline)
 set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS OFF)
+
+# Required external service executable. Built only when the JSON loaders and the
+# device-free reference backend are available; otherwise there is no runnable harness.
+if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
+   TARGET vqec_vision_ai_model_catalog_config AND TARGET vqec_vision_ai_feature_catalog_config)
+    add_executable(vqec_ai_vision_applications src/app/vqec_vision_service_main.cpp)
+    target_link_libraries(vqec_ai_vision_applications PRIVATE
+        vqec_vision_ai_runtime_composition_factory
+        vqec_vision_ai_reference
+        vqec_vision_ai_feature_fanout
+        vqec_vision_ai_feature_runtime
+        vqec_vision_ai_deployment_config
+        vqec_vision_ai_model_catalog_config
+        vqec_vision_ai_feature_catalog_config)
+    set_target_properties(vqec_ai_vision_applications PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 if(BUILD_TESTING)
     add_executable(vqec_vision_ai_feature_processor_registry_test
         tests/contract/vqec_vision_feature_processor_registry_test.cpp)
@@ -780,6 +797,14 @@ if(BUILD_TESTING)
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME runtime_executor_e2e COMMAND vqec_vision_ai_runtime_executor_test)
         set_tests_properties(runtime_executor_e2e PROPERTIES TIMEOUT 10)
+    endif()
+    if(TARGET vqec_ai_vision_applications)
+        add_test(NAME service_executable_smoke COMMAND vqec_ai_vision_applications
+            --deployment ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_deployment.json
+            --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_catalog.json
+            --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_features.json
+            --steps 60)
+        set_tests_properties(service_executable_smoke PROPERTIES TIMEOUT 15)
     endif()
 endif()
 

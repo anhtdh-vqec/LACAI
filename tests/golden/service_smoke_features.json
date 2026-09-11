@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "revision": 2,
+  "catalog_id": "features_smoke_v1",
+  "model_catalog_ref": "models_smoke_v1",
+  "features": [
+    {
+      "feature_id": "counting",
+      "feature_version": "1.0.0",
+      "processor_contract": "counting.processor.v1",
+      "configuration_schema": "counting.configuration.v1",
+      "input_mode": "single_model",
+      "model_dependencies": [
+        {
+          "role_id": "person_tracks",
+          "model_id": "person_detector"
+        }
+      ],
+      "attribute_dependencies": [],
+      "resources": {
+        "max_temporal_bytes_per_source": 1048576,
+        "max_events_per_update": 4,
+        "max_track_references_per_event": 8,
+        "max_fields_per_event": 8
+      }
+    }
+  ]
+}
