@@ -16,16 +16,20 @@ Combined control/media lifecycle is now source-delivered with explicit drain/rel
 see [source lifecycle](docs/architecture/camera_source_lifecycle.md).
 FD-to-GstMemory wrapping is now source-delivered; see
 [memory bridge contract](docs/architecture/dmabuf_memory_bridge.md).
-Submission/result/drain source is present and cross-builds; hardware completion validation
-and a runnable end-to-end vqec_ai_vision_applications are still pending. Current status is
-maintained in [implementation status](docs/development/implementation_status.md).
+Submission/result/drain source is present and cross-builds. `runtime_executor` now drives
+the composition through decode/track/feature and a device-free reference backend backs the
+`vqec_ai_vision_applications` service harness, which runs end to end under QEMU; hardware
+completion validation, real package registration and live FW/model integration remain
+pending. Current status is maintained in
+[implementation status](docs/development/implementation_status.md).
 
 Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
 Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host compiler không
 được dùng làm bằng chứng xác nhận target.
 Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference, feature
-integration catalog/pipeline và output helpers; eSDK cross-build và 57/57 target logic
-tests đạt, chưa có live model/FW pipeline hoặc app thay release**.
+integration catalog/pipeline, output helpers, runtime executor và service harness chạy
+device-free; eSDK cross-build đạt và 65/65 logic test đạt dưới QEMU, chưa có live model/FW
+hoặc app thay release**.
 
 Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
 and [replacement execution gates](docs/planning/fw_compatibility_execution.md).

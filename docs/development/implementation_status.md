@@ -71,6 +71,9 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/app/vqec_vision_perception_result_stage.cpp`, `vqec_vision_multi_model_result_router.cpp` | Correlates tensor pipeline PTS with retained source identity, routes by stable model slot, derives independent per-model gaps, then composes decode and tracking transactionally | Concrete decoders/trackers, multi-model temporal fusion and replay qualification |
 | `src/app/vqec_vision_perception_stage_factory.cpp`, `vqec_vision_source_perception_factory.cpp` | Transactionally construct one source/model chain or a 1..16-slot source group with distinct tracker ownership; exact manifest reference, model/version/digest/decoder identity, tensor bounds and decoder-specific output schema are validated before each tracker is created | Authenticated package/manifest resolution, tracker-contract selection and concrete decoder/tracker packages |
 | `src/app/vqec_vision_runtime_composition_factory.cpp` | Builds the validated admission snapshot, composes catalog-bound plans/cadence/output metadata, enforces application-wide graph/cycle uniqueness, constructs source sessions/perception groups and returns a validated application composition without acquiring hardware | Authenticated artifact/path/evidence resolution, platform owner factories, measured admission and service executor activation |
+| `src/app/vqec_vision_runtime_executor.cpp` | Drives the composition round robin, rebuilds the pump report from source session progress, routes each tensor result through the per-source perception/feature pipeline, and retains one take-once output slot | Concrete package factories, output dispatch and a threaded service loop |
+| `src/adapters/reference/vqec_vision_reference_source.cpp`, `vqec_vision_reference_graph.cpp` | Device-free synthetic NV12 source and zero-tensor graph implementing the neutral ports and the complete graph lifecycle | Any board, model, accuracy, zero-copy or DMA-completion claim |
+| `src/app/vqec_vision_service_main.cpp` | Required executable `vqec_ai_vision_applications`: loads deployment/model/feature catalogs, builds reference platform owners and the runtime bundle, then runs and drains the executor loop | Real platform owners, package factories, process supervision and IPK packaging |
 | `src/app/vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Bounded stable-slot feature fan-out with per-feature isolation; activation-time mapping routes each tracked model result only to its direct feature consumers | Multi-model temporal joins, effective-state manager and concrete feature rules |
 | `src/app/vqec_vision_multi_source_supervisor.cpp` | Binds 1..16 borrowed sessions; round-robin progress, per-source fault isolation, snapshots and latched global stop | Service executors, automatic restart/backoff, epoch replacement and BSP recovery execution |
 | `src/core/vqec_vision_preview_surface.cpp`, `vqec_vision_preview_pool.cpp` | Writable-to-sealed CPU NV12 ownership and preallocated 1..4-surface pool; final-reader reuse | Real pixel copy/overlay renderer and hardware allocation/import |
@@ -134,15 +137,18 @@ selecting an admitted path.
 ## Not delivered and next integration work
 
 1. Authenticated deployment/catalog/output/artifact resolution into long-lived source,
-   graph and retention-domain owners; the neutral runtime factory now builds admitted
-   sessions/perception/application composition from resolved inputs, while the trusted
-   resolver, platform owner factories and measured admission remain.
+   graph and retention-domain owners; the neutral runtime factory builds admitted
+   sessions/perception/feature pipelines and the reference backend runs them end to end,
+   while the trusted resolver, real platform owner factories and measured admission remain.
 2. Concrete tensor decoders, tracking/attributes and the 13 commercial features/traffic.
-   Perception/features and alternate vendor directories currently contain READMEs only.
+   Perception/features and alternate vendor directories currently contain READMEs only;
+   the service harness registers development fixtures, not usecase packages.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop
-   and safe ring startup/recovery to complete preview end to end.
-4. Full feature/entitlement manager, legacy AI D-Bus compatibility server, service main,
-   process supervision, packaging/update integration and observability.
+   and safe ring startup/recovery to complete preview end to end. Feature events are taken
+   by the executor but not yet dispatched.
+4. Full feature/entitlement manager and legacy AI D-Bus compatibility server. A service
+   harness now exists, but process supervision, packaging/update integration,
+   observability and the compatibility server remain.
 5. Automatic source/BSP recovery, live DMA/SDK fault and golden tests, performance/soak
    coverage and release workload qualification.
 
@@ -152,7 +158,10 @@ Current contract details: [system architecture](../architecture/system_architect
 [encoded dispatch](../architecture/encoded_dispatch.md),
 [FW release compatibility](../contracts/fw_release_compatibility.md).
 
-Application composition now wires admitted sessions to supervisor activation, progress
-and stop, with one pending tensor/report slot and session-derived recovery reporting.
-See [composition contract](../architecture/application_composition.md). Runtime service
-construction, live FW/model execution and owner review remain pending.
+Application composition wires admitted sessions to supervisor activation, progress and
+stop, with one pending tensor/report slot and session-derived recovery reporting. See
+[composition contract](../architecture/application_composition.md). `runtime_executor`
+now drives that composition, routes results through the per-source perception/feature
+pipeline, and backs the required `vqec_vision_applications` executable with a device-free
+reference backend. See [runtime executor](../architecture/runtime_executor.md). Live
+FW/model execution, real package registration and owner review remain pending.
