@@ -22,6 +22,8 @@ private:
     std::uint64_t source_epoch_{0};
     std::uint64_t last_now_monotonic_ns_{0};
     bool is_faulted_{false};
+    // Reused candidate buffer; published only by swap after successful validation.
+    observation_batch scratch_;
 };
 
 }  // namespace vqec::vision::ai

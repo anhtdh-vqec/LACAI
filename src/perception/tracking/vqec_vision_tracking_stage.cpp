@@ -50,11 +50,13 @@ status tracking_stage::vqec_vision_ai_track_trkst_process(
         return {status_code::invalid_state, "tracker is faulted for the current epoch"};
     }
     last_now_monotonic_ns_ = _now_monotonic_ns;
-    observation_batch candidate;
+    scratch_.frame_ = {};
+    scratch_.geometry_ = {};
+    scratch_.observations_.clear();
     status updated;
     try {
         updated = tracker_.vqec_vision_ai_ports_trker_update_tracks(
-            _detections, _now_monotonic_ns, _is_source_gap, candidate);
+            _detections, _now_monotonic_ns, _is_source_gap, scratch_);
     } catch (...) {
         is_faulted_ = true;
         return {status_code::io_error, "tracker update raised an exception"};
@@ -64,12 +66,12 @@ status tracking_stage::vqec_vision_ai_track_trkst_process(
         return updated;
     }
     const auto valid_tracks = vqec_vision_ai_core_obval_validate_batch(
-        candidate, _detections.frame_, _detections.geometry_);
+        scratch_, _detections.frame_, _detections.geometry_);
     if (valid_tracks.code_ != status_code::ok) {
         is_faulted_ = true;
         return valid_tracks;
     }
-    _tracked = std::move(candidate);
+    std::swap(_tracked, scratch_);
     return {};
 }
 

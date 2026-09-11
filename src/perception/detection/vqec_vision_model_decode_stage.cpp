@@ -17,11 +17,13 @@ status model_decode_stage::vqec_vision_ai_detec_mdstg_validate_geometry(
 status model_decode_stage::vqec_vision_ai_detec_mdstg_decode_result(
     const tensor_result& _result, const preview_frame_key& _expected_frame,
     observation_batch& _observations) {
-    observation_batch candidate;
+    scratch_.frame_ = {};
+    scratch_.geometry_ = {};
+    scratch_.observations_.clear();
     status decoded;
     try {
         decoded = decoder_.vqec_vision_ai_cntr_mddec_decode(
-            _result, _expected_frame, candidate);
+            _result, _expected_frame, scratch_);
     } catch (...) {
         return {status_code::io_error, "model decoder raised an exception"};
     }
@@ -29,11 +31,11 @@ status model_decode_stage::vqec_vision_ai_detec_mdstg_decode_result(
         return decoded;
     }
     const auto validated = vqec_vision_ai_core_obval_validate_detections(
-        candidate, _expected_frame, geometry_);
+        scratch_, _expected_frame, geometry_);
     if (validated.code_ != status_code::ok) {
         return validated;
     }
-    _observations = std::move(candidate);
+    std::swap(_observations, scratch_);
     return {};
 }
 

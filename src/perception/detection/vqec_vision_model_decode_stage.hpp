@@ -22,6 +22,10 @@ public:
 private:
     model_decoder_port& decoder_;
     preview_geometry geometry_;
+    // Reused across calls so a steady stream of results does not reallocate the
+    // candidate batch header/storage every frame. Contents are never published until
+    // validation succeeds and the caller's buffer is swapped in.
+    observation_batch scratch_;
 };
 
 }  // namespace vqec::vision::ai

@@ -70,11 +70,13 @@ status feature_stage::vqec_vision_ai_ftmgr_ftstg_process(
     }
     last_now_monotonic_ns_ = _now_monotonic_ns;
 
-    feature_event_batch candidate;
+    scratch_.frame_ = {};
+    scratch_.geometry_ = {};
+    scratch_.events_.clear();
     status processed;
     try {
         processed = processor_.vqec_vision_ai_ports_ftpro_process_observations(
-            _tracked, _now_monotonic_ns, _is_source_gap, candidate);
+            _tracked, _now_monotonic_ns, _is_source_gap, scratch_);
     } catch (...) {
         is_faulted_ = true;
         return {status_code::io_error, "feature processing raised an exception"};
@@ -84,12 +86,12 @@ status feature_stage::vqec_vision_ai_ftmgr_ftstg_process(
         return processed;
     }
     const auto valid_output = vqec_vision_ai_core_ftevt_validate_batch(
-        candidate, _tracked.frame_, _tracked.geometry_, config_);
+        scratch_, _tracked.frame_, _tracked.geometry_, config_);
     if (valid_output.code_ != status_code::ok) {
         is_faulted_ = true;
         return valid_output;
     }
-    _events = std::move(candidate);
+    std::swap(_events, scratch_);
     return {};
 }
 
