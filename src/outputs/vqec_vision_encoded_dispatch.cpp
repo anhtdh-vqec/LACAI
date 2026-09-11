@@ -16,19 +16,21 @@ status vqec_vision_ai_outpt_encdp_poll_event(
         const auto polled = _backend.vqec_vision_ai_cntr_encbk_poll(pending);
         if (polled.code_ != status_code::ok) {
             if (polled.code_ != status_code::pending) {
-                _window.vqec_vision_ai_core_encwn_begin_drain();
+                // A backend error is a quarantine condition, not a graceful drain.
+                _window.vqec_vision_ai_core_encwn_mark_fault();
             }
             return polled;
         }
         const auto valid = _window.vqec_vision_ai_core_encwn_validate_event(pending);
         if (valid.code_ != status_code::ok) {
-            _window.vqec_vision_ai_core_encwn_begin_drain();
+            // A malformed event cannot be completed; quarantine rather than claim a drain.
+            _window.vqec_vision_ai_core_encwn_mark_fault();
             return valid; // Invalid output is discarded, never delivered or completed.
         }
         _event = std::move(pending);
         return {};
     } catch (...) {
-        _window.vqec_vision_ai_core_encwn_begin_drain();
+        _window.vqec_vision_ai_core_encwn_mark_fault();
         throw;
     }
 }

@@ -48,6 +48,9 @@ public:
     [[nodiscard]] status vqec_vision_ai_core_encwn_validate_event(const encoder_event& _event) const;
     [[nodiscard]] status vqec_vision_ai_core_encwn_check_deadlines(std::uint64_t _now_ns);
     void vqec_vision_ai_core_encwn_begin_drain() noexcept;
+    // Quarantine on a malformed/failed backend event: stops admission and reports faulted
+    // without releasing outstanding accounting. Distinct from a graceful drain.
+    void vqec_vision_ai_core_encwn_mark_fault() noexcept;
     [[nodiscard]] unsigned vqec_vision_ai_core_encwn_outstanding() const noexcept;
     [[nodiscard]] std::uint64_t vqec_vision_ai_core_encwn_reserved_bytes() const noexcept;
     [[nodiscard]] preview_geometry vqec_vision_ai_core_encwn_geometry() const noexcept;

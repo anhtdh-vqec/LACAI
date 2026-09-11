@@ -261,6 +261,10 @@ void encoder_window::vqec_vision_ai_core_encwn_begin_drain() noexcept {
     ledger_.vqec_vision_ai_core_subwn_begin_drain();
 }
 
+void encoder_window::vqec_vision_ai_core_encwn_mark_fault() noexcept {
+    ledger_.vqec_vision_ai_core_subwn_mark_fault();
+}
+
 unsigned encoder_window::vqec_vision_ai_core_encwn_outstanding() const noexcept {
     return ledger_.vqec_vision_ai_core_subwn_get_outstanding();
 }
