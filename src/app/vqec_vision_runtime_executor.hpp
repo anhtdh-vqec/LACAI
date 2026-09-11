@@ -15,6 +15,11 @@ struct runtime_executor_report {
     std::uint16_t source_index_{g_invalid_source_index};
     std::uint16_t model_slot_{g_invalid_model_slot};
     feature_fanout_report features_;
+    // Revisions captured when the result was produced, not re-read at dispatch time, so a
+    // queued event cannot be relabelled under a newer policy/catalog/deployment.
+    std::uint64_t captured_policy_revision_{0};
+    std::uint64_t captured_catalog_revision_{0};
+    std::uint64_t captured_deployment_revision_{0};
     status_code first_error_code_{status_code::ok};
     bool has_tracked_{false};
     bool has_feature_fanout_{false};
@@ -23,7 +28,9 @@ struct runtime_executor_report {
 struct feature_dispatch_report {
     std::uint32_t attempted_{0};
     std::uint32_t delivered_{0};
+    // Authorization/policy rejections, kept distinct from transport/sink failures.
     std::uint32_t denied_{0};
+    std::uint32_t failed_{0};
     status_code first_error_code_{status_code::ok};
     std::uint16_t first_error_slot_{UINT16_MAX};
 };
@@ -56,10 +63,13 @@ public:
     // gate; taking a result is not itself permission to publish. Both are borrowed.
     void vqec_vision_ai_appl_rtexe_bind_event_delivery(
         output_gate& _gate, feature_event_sink_port& _sink) noexcept;
+    // _policy_revision must be the revision captured with the result, never a freshly
+    // read one. Only stages selected by _success_mask are dispatched.
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_dispatch_events(
         const std::array<feature_event_batch,
             feature_fanout_limits::g_max_feature_stages>& _events,
         std::uint16_t _source_index, std::uint16_t _model_slot,
+        std::uint64_t _policy_revision, std::uint32_t _success_mask,
         std::uint64_t _steady_now_ns, feature_dispatch_report& _report);
     [[nodiscard]] application_composition_snapshot
     vqec_vision_ai_appl_rtexe_get_snapshot() const noexcept;

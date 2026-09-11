@@ -59,9 +59,15 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     // The result was routed successfully even if one or more feature stages failed. Keep
     // the valid tracked observations and every successful feature batch exactly once and
     // record the first feature error instead of discarding healthy work.
+    const auto composition_snapshot =
+        composition_.vqec_vision_ai_cntr_acomp_get_snapshot();
     pending_report_.source_index_ = source_index;
     pending_report_.model_slot_ = pipeline_report.result_.model_slot_;
     pending_report_.features_ = pipeline_report.features_;
+    pending_report_.captured_catalog_revision_ = composition_snapshot.catalog_revision_;
+    pending_report_.captured_deployment_revision_ = composition_snapshot.deployment_revision_;
+    pending_report_.captured_policy_revision_ = delivery_gate_ != nullptr ?
+        delivery_gate_->vqec_vision_ai_core_otgat_get_revision() : 0;
     pending_report_.has_tracked_ = true;
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
     pending_report_.first_error_code_ = processed.code_;
@@ -108,6 +114,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
     const std::array<feature_event_batch,
         feature_fanout_limits::g_max_feature_stages>& _events,
     std::uint16_t _source_index, std::uint16_t _model_slot,
+    std::uint64_t _policy_revision, std::uint32_t _success_mask,
     std::uint64_t _steady_now_ns, feature_dispatch_report& _report) {
     _report = {};
     if (delivery_gate_ == nullptr || delivery_sink_ == nullptr) {
@@ -116,6 +123,9 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
     if (_source_index >= source_count_ || pipelines_[_source_index] == nullptr) {
         return {status_code::invalid_argument, "dispatch source index is invalid"};
     }
+    if (_policy_revision == 0 || _policy_revision == UINT64_MAX) {
+        return {status_code::invalid_argument, "dispatch policy revision is invalid"};
+    }
     auto* fanout = pipelines_[_source_index]->
         vqec_vision_ai_appl_mmfpl_get_fanout(_model_slot);
     if (fanout == nullptr) {
@@ -123,6 +133,10 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
     }
     const auto stage_count = fanout->vqec_vision_ai_appl_ftfan_get_stage_count();
     for (std::uint16_t ordinal = 0; ordinal < stage_count; ++ordinal) {
+        const auto bit = static_cast<std::uint32_t>(1U) << ordinal;
+        if ((_success_mask & bit) == 0) {
+            continue;  // Failed/unprocessed stages are never published.
+        }
         auto* stage = fanout->vqec_vision_ai_appl_ftfan_get_stage(ordinal);
         if (stage == nullptr) {
             continue;
@@ -132,13 +146,17 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
         for (std::size_t index = 0; index < batch.events_.size(); ++index) {
             ++_report.attempted_;
             const auto delivered = vqec_vision_ai_outpt_ftdsp_dispatch_event(
-                batch, index, config, delivery_gate_->vqec_vision_ai_core_otgat_get_revision(),
-                _steady_now_ns, *delivery_gate_, *delivery_sink_);
+                batch, index, config, _policy_revision, _steady_now_ns,
+                *delivery_gate_, *delivery_sink_);
             if (delivered.code_ == status_code::ok) {
                 ++_report.delivered_;
                 continue;
             }
-            ++_report.denied_;
+            if (delivered.code_ == status_code::unauthorized) {
+                ++_report.denied_;
+            } else {
+                ++_report.failed_;
+            }
             if (_report.first_error_code_ == status_code::ok) {
                 _report.first_error_code_ = delivered.code_;
                 _report.first_error_slot_ = ordinal;

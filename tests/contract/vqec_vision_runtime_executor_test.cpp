@@ -452,9 +452,11 @@ int main() {
             event_count = events[0].events_.size();
             assert(events[1].events_.empty());
             feature_dispatch_report dispatch_report;
+            assert(taken.captured_policy_revision_ == 1);
             assert(executor->vqec_vision_ai_appl_rtexe_dispatch_events(
-                       events, taken.source_index_, taken.model_slot_, now_ns,
-                       dispatch_report).code_ == status_code::ok);
+                       events, taken.source_index_, taken.model_slot_,
+                       taken.captured_policy_revision_, taken.features_.processed_mask_,
+                       now_ns, dispatch_report).code_ == status_code::ok);
             assert(dispatch_report.attempted_ == 1 && dispatch_report.delivered_ == 1);
         }
         routed = true;
@@ -462,6 +464,34 @@ int main() {
     assert(routed);
     assert(tracked_count == 1);
     assert(event_count == 1);
+
+    // B02: a result captured under policy revision 1 must not be relabelled by a later
+    // regrant to revision 2; dispatch with the captured revision is denied, not delivered.
+    bool stale_pending = false;
+    for (unsigned step = 0; step < 400 && !stale_pending; ++step, now_ns += 1000000) {
+        runtime_executor_report step_report;
+        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, step_report);
+        assert(progressed.code_ == status_code::ok ||
+               progressed.code_ == status_code::pending);
+        stale_pending = executor->vqec_vision_ai_appl_rtexe_has_pending();
+    }
+    assert(stale_pending);
+    std::array<observation_batch, deployment_limits::g_max_models_per_source> stale_tracked;
+    std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> stale_events;
+    runtime_executor_report stale_taken;
+    assert(executor->vqec_vision_ai_appl_rtexe_take_result(
+               stale_tracked, stale_events, stale_taken).code_ == status_code::ok);
+    assert(stale_taken.captured_policy_revision_ == 1);
+    output_policy regranted = policy;
+    regranted.revision_ = 2;
+    assert(output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(
+               regranted, 1).code_ == status_code::ok);
+    feature_dispatch_report stale_report;
+    assert(executor->vqec_vision_ai_appl_rtexe_dispatch_events(
+               stale_events, stale_taken.source_index_, stale_taken.model_slot_,
+               stale_taken.captured_policy_revision_, stale_taken.features_.processed_mask_,
+               now_ns, stale_report).code_ == status_code::unauthorized);
+    assert(stale_report.delivered_ == 0 && stale_report.denied_ == 1);
 
     // A05: stop while a routed result is still pending. The drain must consume/discard it
     // so the composition can reach stopped instead of blocking on the pending slot.

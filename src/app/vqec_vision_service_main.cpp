@@ -612,8 +612,9 @@ int main(int _argc, char** _argv) {
                 if (taken.has_feature_fanout_ && has_feature_wiring) {
                     const auto dispatched =
                         executor->vqec_vision_ai_appl_rtexe_dispatch_events(
-                            events, taken.source_index_, taken.model_slot_, now_ns,
-                            dispatch_report);
+                            events, taken.source_index_, taken.model_slot_,
+                            taken.captured_policy_revision_, taken.features_.processed_mask_,
+                            now_ns, dispatch_report);
                     if (dispatched.code_ != status_code::ok) {
                         std::fprintf(stderr, "event delivery rejected: %s\n",
                             dispatched.message_.c_str());
