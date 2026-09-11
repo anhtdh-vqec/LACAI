@@ -70,3 +70,24 @@ Không chạy model thật, fault DMA hoặc benchmark trong audit này. Các co
 p95 latency, RSS, hold time, dropped frames và thermal phải được chốt theo workload.
 
 Kế hoạch thực thi: [base completion plan](../planning/base_completion_plan.md).
+
+## Trạng thái thực thi — cập nhật 2026-09-11
+
+G1 (base logic) đã triển khai phần source/test cho B01–B06. Cấu hình expanded eSDK
+cross-build sạch và 66/66 test pass dưới QEMU. Đây là logic/wiring evidence, không phải
+board acceptance.
+
+| Finding | Trạng thái | Bằng chứng |
+|---|---|---|
+| A01 | Đóng | B01: executor giữ partial report theo success mask; regression mixed failure |
+| A02 | Đóng | B03: feature descriptor pin revision + uniqueness fanout/stage toàn bundle; negative revision test |
+| A03 | Đóng (G1 scope) | B04: freeze manager khi stage đã borrow; reconcile bị chặn; negative test |
+| A04 | Đóng | B02: captured policy/catalog/deployment revision; stale-revision denial test |
+| A05 | Đóng | B01: drain discard pending; stop-with-pending test |
+| A06 | Đóng | B04: guard replace bundle active; active-replacement rejection test |
+| A07 | Một phần | B06: `--mode production` fail-closed, steady-clock, first-error exit; readiness/registration thật còn lại |
+| A11 | Một phần | B05: đặt tên literal retention/tensor + service harness; inventory/schema policy đầy đủ còn lại |
+| A08–A10, A12–A15 | Chưa đóng | Thuộc G2/G3: arena xuyên chain, native dtype, board trace, resolver/authenticity, renderer/encoder/ring, temporal join, CI matrix |
+
+Chưa đóng G1 “owner review” ở nghĩa người; agent không tự ký thay lead/owner. Xem commit
+`0012760`, `82387e6`, `9356ff3`, `77356fd`, `3aa17bd`, `060ba17`.
