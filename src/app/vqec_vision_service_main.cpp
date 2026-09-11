@@ -10,6 +10,7 @@
 // docs/architecture/runtime_executor.md.
 
 #include <array>
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -61,6 +62,14 @@ volatile std::sig_atomic_t g_stop_requested = 0;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
     g_stop_requested = 1;
+}
+
+// Real monotonic clock for the executor loop. Never UTC; never a fabricated counter.
+std::uint64_t vqec_vision_ai_appl_svcmn_monotonic_ns() noexcept {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count());
 }
 
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
@@ -295,6 +304,9 @@ struct parsed_arguments {
     std::string feature_catalog_path;
     std::uint64_t max_steps{0};
     std::uint32_t require_sources{0};
+    // Harness mode uses reference owners and development fixture packages. Production
+    // mode refuses that fallback and requires registered platform owners/packages.
+    bool production_mode{false};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -312,6 +324,16 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
         } else if (option == "--require-sources" && has_value) {
             _args.require_sources = static_cast<std::uint32_t>(
                 std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--mode" && has_value) {
+            const std::string mode = _argv[++index];
+            if (mode == "harness") {
+                _args.production_mode = false;
+            } else if (mode == "production") {
+                _args.production_mode = true;
+            } else {
+                std::fprintf(stderr, "unknown mode: %s\n", mode.c_str());
+                return false;
+            }
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -347,7 +369,8 @@ int main(int _argc, char** _argv) {
     if (!vqec_vision_ai_appl_svcmn_parse(_argc, _argv, args)) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
-            "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>]\n");
+            "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>] "
+            "[--mode harness|production]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -368,6 +391,15 @@ int main(int _argc, char** _argv) {
     if (deployment.sources_.size() > deployment_limits::g_max_sources) {
         std::fprintf(stderr, "deployment source count exceeds runtime support\n");
         return 1;
+    }
+    if (args.production_mode) {
+        // No Camera/Qualcomm platform owner or real package factory registration is wired
+        // yet. Refusing to substitute reference owners or fixture packages for real model
+        // contracts is the fail-closed behavior required before production integration.
+        std::fprintf(stderr,
+            "production mode: no platform owner or package registration is wired; "
+            "refusing fixture fallback\n");
+        return 3;
     }
 
     // Fixture packages: registered for every catalog contract so the harness can run.
@@ -620,11 +652,13 @@ int main(int _argc, char** _argv) {
         return 1;
     }
 
-    std::uint64_t now_ns = g_step_interval_ns;
+    std::uint64_t now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
     std::uint64_t steps = 0;
     std::uint32_t routed_source_mask = 0;
     status_code first_error_code = status_code::ok;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
+        const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
         if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
@@ -663,7 +697,6 @@ int main(int _argc, char** _argv) {
                 static_cast<int>(stepped.code_), stepped.message_.c_str());
             break;
         }
-        now_ns += g_step_interval_ns;
         ++steps;
     }
 
@@ -677,7 +710,8 @@ int main(int _argc, char** _argv) {
         if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
             executor->vqec_vision_ai_appl_rtexe_discard_pending();
         }
-        now_ns += g_step_interval_ns;
+        const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
         runtime_executor_report drain_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
         if (drain_report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {

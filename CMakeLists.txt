@@ -808,6 +808,13 @@ if(BUILD_TESTING)
             --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_features.json
             --steps 160 --require-sources 2)
         set_tests_properties(service_executable_smoke PROPERTIES TIMEOUT 20)
+        # Production mode must fail closed rather than substitute the fixture harness.
+        add_test(NAME service_production_fail_closed COMMAND vqec_ai_vision_applications
+            --mode production
+            --deployment ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_deployment.json
+            --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_catalog.json
+            --steps 5)
+        set_tests_properties(service_production_fail_closed PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
     endif()
 endif()
 

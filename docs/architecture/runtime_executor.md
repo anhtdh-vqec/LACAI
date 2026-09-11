@@ -68,6 +68,15 @@ every deployment source/model slot, registers a built-in development fixture pac
 (a no-op decoder/tracker/feature), optionally activates `single_model` features, then
 runs and drains the executor loop until `--steps` or SIGINT/SIGTERM.
 
+The loop advances on the real `std::chrono::steady_clock`; a wall-clock step is never a
+fabricated counter. The first error is latched and reflected in the process exit status,
+and a result still pending at stop is consumed during drain.
+
+`--mode harness` (default) is the development harness described above. `--mode
+production` deliberately fails closed with a non-zero status because no Camera/Qualcomm
+platform owner or real package factory registration is wired yet; it never substitutes
+the fixture package set or reference owners for real model contracts.
+
 It is built only when the JSON loaders and the reference backend are enabled. The
 development fixture set is not a usecase and must be replaced during integration.
 

@@ -35,7 +35,8 @@ matching its supplied frame instead of inventing epoch 1. Production code is unc
 2026-09-11 update: the neutral configuration now registers 58 tests (57 historic plus the
 device-free runtime executor end-to-end contract). The expanded configuration additionally
 enables the vendored-nlohmann JSON loaders, output-manifest checker and SHA-256 digest and
-registers 65 tests, including the `vqec_ai_vision_applications` service smoke test. Both
+registers 66 tests, including the `vqec_ai_vision_applications` service smoke test and the
+production-mode fail-closed test. Both
 run 100% under SDK QEMU in this workspace. These additions are logic/wiring evidence only.
 
 An expanded configuration with Camera, GIO D-Bus, the GStreamer frame bridge and the

@@ -28,7 +28,7 @@ Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host 
 được dùng làm bằng chứng xác nhận target.
 Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference, feature
 integration catalog/pipeline, output helpers, runtime executor và service harness chạy
-device-free; eSDK cross-build đạt và 65/65 logic test đạt dưới QEMU, chưa có live model/FW
+device-free; eSDK cross-build đạt và 66/66 logic test đạt dưới QEMU, chưa có live model/FW
 hoặc app thay release**.
 
 Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
@@ -86,7 +86,7 @@ CPU preview pool, encoder ledger/preparation/submit/drain helpers, authorized ev
 dispatch và optional FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
 Qualcomm plugin factory probing is available at the adapter boundary; it reports
 runtime availability without selecting a fallback backend.
-CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, 65/65 binary
+CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, 66/66 binary
 unit/contract pass trực tiếp trên QCS6490. eSDK cũng có QEMU cho logic smoke; xem
 [hướng dẫn emulation](docs/testing/esdk_emulation.md).
 Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
