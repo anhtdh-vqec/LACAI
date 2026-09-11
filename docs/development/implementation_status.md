@@ -13,7 +13,7 @@ artifact digest and FW ring were disabled; the eSDK sysroot does not currently p
 the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration
 ran 47 AArch64 tests through SDK QEMU: all 47 passed after correcting two stale fixtures;
 see [emulation evidence](../testing/esdk_emulation.md). The expanded configuration built
-57 unit/contract binaries, and all 57 passed natively on the QCS6490 target; see
+65 unit/contract binaries, and all 65 passed natively on the QCS6490 target; see
 [board smoke evidence](../testing/qsc6490_board.md). `gst-inspect-1.0` also loaded the
 installed `qtimlqnn` and `qtimlvconverter` factories, and the opt-in adapter probe
 validated required properties plus NULL-state graph configuration. There is no live
@@ -124,7 +124,7 @@ selecting an admitted path.
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
   The configured AArch64 targets cross-build; 47 neutral tests pass under SDK QEMU and
-  all 57 binaries from the expanded adapter configuration pass natively on QCS6490.
+  all 65 binaries from the expanded adapter configuration pass natively on QCS6490.
 - Golden, replay and live FW/model integration suites remain planned scaffolding. The
   executed board smoke result covers existing unit/contract binaries only.
 - `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include

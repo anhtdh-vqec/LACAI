@@ -61,6 +61,10 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
     messages. Use the environment's credential helper, SSH agent or approved secret
     store for upstream pushes; report authentication failures without echoing secrets.
 
+14. No magic numbers, magic strings or deployment hardcoding. Follow code_convention.md
+    section 3: semantic constants for fixed contracts, validated configuration for policy.
+    Renaming a hardcoded value to constexpr is not compliance.
+
 ## Change workflow
 
 - Update contract/schema/ADR before implementing a changed external boundary.
@@ -83,7 +87,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   read docs/architecture/inference_graph_port.md before changing model submission.
   Private GstMemory wrapping now retains the owner on root memory;
   read docs/architecture/dmabuf_memory_bridge.md before changing memory lifetime.
-  No hardware completion validation, executable service runtime or active CI.
+  No live hardware completion validation. Reference service harness and CI workflow exist;
+  production platform composition and evidence of configured CI runners remain open.
   src/app/camera_graph_pump now wires bounded receive/submit/result progress. Read
   docs/architecture/camera_graph_pump.md before modifying supervisor/stop ownership.
   src/app/camera_session coordinates one acquisition through start/drain/release;

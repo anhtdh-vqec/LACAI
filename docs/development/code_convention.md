@@ -102,15 +102,33 @@ Ngoại lệ lưu trong registry kèm file/symbol/reason/owner; không wildcard 
 
 ## 3. Layout và format
 
-### Literal policy
+### Literal policy — MUST: no magic number, magic string, hardcode
 
-Repeated protocol values and safety/resource limits must have one named owner with
-units, provenance and change policy. Platform-dependent tuning belongs in validated
-configuration within safety ceilings, not a renamed hardcoded default. Do not merge
-unrelated values merely because their current numeric values match. Literal zero/one,
-array indices, standard byte framing and diagnostic prose need not become meaningless
-constants; explain format arithmetic. Tests may retain independent known boundary values
-to detect unintended contract changes. No blanket claim of no magic literals from grep.
+Áp dụng production code, tools, config defaults và fixture/harness. Cấm literal không
+có semantics/provenance và cấm nhúng quyết định triển khai vào thuật toán.
+
+- Giá trị thay đổi theo board/model/usecase/deployment (path, endpoint, factory selection,
+  model/feature ID, threshold, FPS, dimensions, timeout, queue/pool budget, retry, log
+  level) MUST đến từ configuration/catalog/manifest đã validate tại activation.
+  Chuyển literal thành `constexpr` không làm nó hết hardcode.
+- Protocol/schema/ABI keys, vendor property names, enum nicks và safety ceilings MUST
+  có một owner theo domain, tên có nghĩa, đơn vị, nguồn contract/version và chính sách
+  thay đổi. Vendor strings ở adapter; không kéo chúng vào neutral layer. Không đổi
+  spelling wire để làm đẹp code. Không gom các giá trị khác nghĩa chỉ vì bằng nhau.
+- Numeric enum/sentinel MUST dùng kiểu hoặc constant có tên; kiểm overflow trước tính
+  toán. Giá trị mặc định chỉ hợp lệ khi schema ghi rõ và validation kiểm giới hạn;
+  giá trị bắt buộc thiếu phải bị reject, không tự chọn backend/model thay thế.
+- Không hardcode entitlement/admission thành true ở production. Harness phải nhận diện
+  rõ fixture mode; fixture values có tên hoặc data file, không tái sử dụng làm default
+  sản phẩm. Test boundary độc lập được giữ literal và ghi lý do để bắt contract drift.
+- Ngoại lệ có semantics tự rõ: zero/one của khởi tạo/toán học, index cục bộ, công thức
+  định dạng chuẩn có giải thích, diagnostic prose, include path và external ABI spelling.
+  Ngoại lệ không cho phép chôn timeout, port, schema ID hoặc policy vào code.
+- Mỗi PR rà literal theo domain: fixed contract hay configurable policy, nguồn và unit,
+  missing/invalid/boundary tests, không silent fallback. Registry ngoại lệ ghi file,
+  literal/domain, lý do, owner và điều kiện bỏ. Không tuyên bố sạch hardcode bằng grep.
+- Enforcement: structural checker hiện KHÔNG kiểm semantics literal. Review thủ công
+  bắt buộc; AST/literal lint có allowlist là bước kế tiếp, không phải bằng chứng đã có.
 
 - UTF-8, LF, newline cuối file; 4 spaces; không tab; 100 columns.
 - .hpp cho C++; .h chỉ C-compatible ABI; .cpp implementation.
@@ -236,8 +254,8 @@ External callbacks dùng context object; không dùng global để tìm instance
 
 - clang-format kiểm whitespace, KHÔNG chứng minh đúng tên hoặc ownership.
 - Naming cần AST checker hiểu declaration owner/override/ngoại lệ; regex chỉ lint sơ bộ.
-- Đã có structural filename/include/CMake checker; AST registry/naming checker và CI
-  vẫn chưa triển khai. Structural checker không chứng minh symbol naming đúng.
+- Đã có structural filename/include/CMake checker; AST registry/naming checker chưa triển khai; workflow CI structural/eSDK đã có
+  nhưng eSDK job phụ thuộc runner/ESDK_ROOT. Structural checker không chứng minh symbol naming đúng.
 - Reviewer kiểm 100% tên hàm/parameter/global trong thời gian chưa có AST checker.
 - Unit + contract + golden + replay; board test bắt buộc cho DMA/SDK/performance.
 - ASan/UBSan/TSan trên target hỗ trợ; host mock không chứng minh device sync.

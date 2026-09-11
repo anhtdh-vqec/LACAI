@@ -21,7 +21,7 @@ cannot detect hardware completion. See docs/architecture/encoder_window.md.
 vqec_vision_preview_contract.cpp validates neutral overlay metadata and borrowed H264
 AU envelopes against exact frame/geometry, freshness/revision and bounded byte limits.
 No rendering, allocation, authorization decision or H264 syntax decoding is implied.
-See docs/architecture/preview_contract.md. Source-only unit tests are not executed.
+See docs/architecture/preview_contract.md. Source-only unit tests run through the approved eSDK configuration; device evidence remains separate.
 
 Implemented source: vqec_vision_inference_plan.cpp provides pure typed plan validation and
 checked packed NV12 byte count for the initial Qualcomm graph slice.

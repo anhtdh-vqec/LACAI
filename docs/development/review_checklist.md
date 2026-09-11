@@ -2,6 +2,9 @@
 
 ## Mọi PR
 
+- [ ] No magic number/string/hardcode: semantic owner, units/provenance, validated
+      configuration for deployment policy, documented defaults and boundary tests.
+
 - [ ] Source/header/tools filename starts vqec_vision_; logical function owner unchanged.
 - [ ] Run source-layout checker; include/CMake/docs references migrated together.
 - [ ] External wire/ring/D-Bus/executable names preserved; behavior changes reviewed
@@ -48,12 +51,12 @@
 
 ## CI dự kiến triển khai P0
 
-PR: formatter + AST naming + include/dependency rules + host unit/contracts.
+PR target: formatter + AST naming + include/dependency rules + eSDK unit/contracts.
 Merge: clean cross-build + package contents/dependencies validation.
-Nightly: golden/replay + host ASan/UBSan; TSan job riêng nếu toolchain hỗ trợ.
+Nightly target: golden/replay + eSDK ASan/UBSan; TSan khi target/toolchain hỗ trợ.
 Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
 Current source: **đã có unit/contract test source và CTest cho validators, session,
-cadence, ownership và output helpers; eSDK cross-build đạt và 57/57 binary hiện pass
+cadence, ownership và output helpers; eSDK cross-build đạt và 65/65 binary hiện pass
 trực tiếp trên QCS6490 theo `docs/testing/qsc6490_board.md`;
-chưa có workflow CI hoặc AST naming checker**.
+đã có workflow structural/eSDK; chưa xác minh runner run và chưa có AST naming checker**.
 .editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.

@@ -1,7 +1,6 @@
 # Operations readiness — planned runbook requirements
 
-No runnable AI service or tested service-operation commands exist yet. The optional
-manifest_check CLI validates model metadata only; it is not a service readiness probe.
+The `vqec_ai_vision_applications` reference service harness and service smoke test exist. It is not a production FW readiness probe; live platform operation remains open.
 Before release, replace this checklist with tested commands for the FW image.
 
 - Inventory: app/backend/model/SDK/image versions, active workload and config/license revision.

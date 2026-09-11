@@ -3,7 +3,7 @@
 vqec_vision_encoder_preparation.cpp composes portable encoder admission with CPU pool
 acquisition/rollback, cancellation, sealed input handoff, guarded neutral-backend submission
 and combined backend/ledger drain. It is a separate host-compatible target without
-Camera/GStreamer requirements. Concrete hardware encoder and rendering remain missing. See docs/architecture/encoder_preparation.md; tests are unexecuted.
+Camera/GStreamer requirements. Concrete hardware encoder and rendering remain missing. See docs/architecture/encoder_preparation.md; the reference harness and contract tests run; production backend tests remain open.
 
 Composition wiring belongs here; no feature rules in main.
 
