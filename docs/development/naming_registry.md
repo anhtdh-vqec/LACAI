@@ -283,7 +283,9 @@ entrypoint exception, approved by the baseline language rule.
 Tool owner: `tools/vqec_vision_check_source_layout.ps1`, file_id `chlay`, prefix
 `vqec_vision_ai_tools_chlay_` reserved for future named helpers. Current script uses
 only top-level control flow; PowerShell pipeline automatic variables retain shell syntax.
-No AST naming enforcement is implied by the structural filename checker.
+Portable Linux/CI counterpart `tools/vqec_vision_check_source_layout.sh` shares the same
+logical owner and performs the same read-only checks. No AST naming enforcement is
+implied by the structural filename checker.
 
 ### Camera transport additions (2026-09-06)
 

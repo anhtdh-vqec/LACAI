@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Structural source layout check
+        run: bash tools/vqec_vision_check_source_layout.sh
+
+  # Target validation requires the approved eSDK and is never faked with a host
+  # compiler. Set the ESDK_ROOT repository variable on a self-hosted linux runner
+  # to enable this job; otherwise it is skipped rather than reported as passing.
+  esdk:
+    if: ${{ vars.ESDK_ROOT != '' }}
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          cmake -S . -B build-ci -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            "-DCMAKE_CROSSCOMPILING_EMULATOR=${{ vars.ESDK_ROOT }}/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
+      - name: Build
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          cmake --build build-ci -j"$(nproc)"
+      - name: Test
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          ctest --test-dir build-ci --output-on-failure
