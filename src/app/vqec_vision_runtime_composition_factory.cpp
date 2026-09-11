@@ -220,6 +220,17 @@ vqec_vision_ai_appl_rcfac_get_source_count() const noexcept {
     return source_count_;
 }
 
+bool runtime_composition_bundle::
+vqec_vision_ai_appl_rcfac_is_replaceable() const noexcept {
+    if (composition_ == nullptr) {
+        return true;
+    }
+    const auto snapshot = composition_->vqec_vision_ai_cntr_acomp_get_snapshot();
+    return snapshot.state_ == application_composition_state::idle ||
+        snapshot.state_ == application_composition_state::validating ||
+        snapshot.state_ == application_composition_state::stopped;
+}
+
 status vqec_vision_ai_appl_rcfac_create_bundle(
     const deployment_config& _deployment, const model_catalog& _catalog,
     const runtime_composition_activation& _activation,
@@ -228,6 +239,10 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
     std::unique_ptr<runtime_composition_bundle>& _bundle,
     const runtime_feature_activation* _features) {
     try {
+        if (_bundle != nullptr && !_bundle->vqec_vision_ai_appl_rcfac_is_replaceable()) {
+            return {status_code::invalid_state,
+                "cannot replace an active runtime composition bundle"};
+        }
         const auto valid_policy =
             vqec_vision_ai_appl_rcfac_validate_policy(_activation);
         if (valid_policy.code_ != status_code::ok) {

@@ -92,6 +92,10 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
         return {status_code::invalid_state,
             "feature activation manager is not configured"};
     }
+    if (is_frozen_) {
+        return {status_code::invalid_state,
+            "feature activation manager is frozen while its stages are borrowed"};
+    }
     if (_request_count == 0 || _request_count > _requests.size()) {
         return {status_code::invalid_argument,
             "feature activation request count is invalid"};
@@ -258,6 +262,15 @@ vqec_vision_ai_ftmgr_famgr_get_stage(std::uint16_t _slot) const noexcept {
 std::uint16_t feature_activation_manager::
 vqec_vision_ai_ftmgr_famgr_get_count() const noexcept {
     return record_count_;
+}
+
+void feature_activation_manager::vqec_vision_ai_ftmgr_famgr_freeze() noexcept {
+    is_frozen_ = true;
+}
+
+bool feature_activation_manager::
+vqec_vision_ai_ftmgr_famgr_is_frozen() const noexcept {
+    return is_frozen_;
 }
 
 }  // namespace vqec::vision::ai

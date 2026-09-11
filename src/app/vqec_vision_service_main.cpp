@@ -569,6 +569,9 @@ int main(int _argc, char** _argv) {
         }
     }
 
+    if (has_feature_wiring) {
+        feature_manager.vqec_vision_ai_ftmgr_famgr_freeze();
+    }
     std::unique_ptr<runtime_composition_bundle> bundle;
     const auto created = vqec_vision_ai_appl_rcfac_create_bundle(
         deployment, catalog, activation, decoders, trackers, bundle,

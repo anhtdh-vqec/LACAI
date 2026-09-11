@@ -399,6 +399,13 @@ int main() {
     feature_wiring.catalog_revision_ = catalog.revision_;
     feature_wiring.source_count_ = 1;
     feature_wiring.sources_[0].fanouts_[0] = &fanout;
+    // B04: once stages are lent to a fan-out, reconcile must not invalidate the borrow.
+    feature_manager.vqec_vision_ai_ftmgr_famgr_freeze();
+    assert(feature_manager.vqec_vision_ai_ftmgr_famgr_is_frozen());
+    feature_activation_snapshot frozen_snapshot;
+    assert(feature_manager.vqec_vision_ai_ftmgr_famgr_reconcile(
+               requests, 2, feature_registry, frozen_snapshot).code_ ==
+           status_code::invalid_state);
 
     output_gate output_policy_gate;
     output_policy policy;
@@ -430,6 +437,15 @@ int main() {
     executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     auto* composition = bundle->vqec_vision_ai_appl_rcfac_get_composition();
     assert(composition->vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
+    // B04/A06: an active bundle must not be replaced underneath its running owners.
+    {
+        std::unique_ptr<runtime_composition_bundle> active_holder = std::move(bundle);
+        assert(vqec_vision_ai_appl_rcfac_create_bundle(deployment, catalog, activation,
+                   decoders, trackers, active_holder, &feature_wiring).code_ ==
+               status_code::invalid_state);
+        assert(active_holder != nullptr);
+        bundle = std::move(active_holder);
+    }
 
     bool routed = false;
     std::uint64_t tracked_count = 0;

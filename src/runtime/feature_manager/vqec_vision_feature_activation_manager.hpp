@@ -83,6 +83,11 @@ public:
     vqec_vision_ai_ftmgr_famgr_get_stage(std::uint16_t _slot) const noexcept;
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_ftmgr_famgr_get_count() const noexcept;
+    // Called once the owned processor/stage pointers have been lent to a fan-out. A frozen
+    // manager rejects further reconcile so a live borrow cannot be invalidated; a new
+    // generation needs a new manager after the old bundle and fan-outs are destroyed.
+    void vqec_vision_ai_ftmgr_famgr_freeze() noexcept;
+    [[nodiscard]] bool vqec_vision_ai_ftmgr_famgr_is_frozen() const noexcept;
 
 private:
     [[nodiscard]] const feature_catalog_entry*
@@ -100,6 +105,7 @@ private:
         feature_activation_limits::g_max_associations> records_{};
     std::uint16_t record_count_{0};
     bool is_configured_{false};
+    bool is_frozen_{false};
 };
 
 }  // namespace vqec::vision::ai

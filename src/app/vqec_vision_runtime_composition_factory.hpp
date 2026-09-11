@@ -81,6 +81,10 @@ public:
     vqec_vision_ai_appl_rcfac_get_admission() const noexcept;
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_appl_rcfac_get_source_count() const noexcept;
+    // True only when the bundle has never been activated or has fully stopped, so a
+    // caller may safely replace it without destroying owners still in use.
+    [[nodiscard]] bool
+    vqec_vision_ai_appl_rcfac_is_replaceable() const noexcept;
 
 private:
     runtime_composition_bundle() = default;
