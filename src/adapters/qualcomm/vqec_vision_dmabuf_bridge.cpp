@@ -129,7 +129,7 @@ status vqec_vision_ai_qcom_dmbrg_make_profile(
 }
 
 status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor, int _frame_fd,
-                                            std::shared_ptr<const void> _owner,
+                                            const std::shared_ptr<const void>& _owner,
                                             const dmabuf_bridge_profile& _profile,
                                             GstBuffer*& _buffer) {
     if (_buffer != nullptr || _frame_fd < 0 || !_owner) {
@@ -139,7 +139,8 @@ status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor,
     if (validated.code_ != status_code::ok) {
         return validated;
     }
-    auto retained_owner = std::make_unique<std::shared_ptr<const void>>(std::move(_owner));
+    // Copy, never move: a failed wrap must not consume the caller's frame owner.
+    auto retained_owner = std::make_unique<std::shared_ptr<const void>>(_owner);
     fd_owner duplicate{::fcntl(_frame_fd, F_DUPFD_CLOEXEC, 0)};
     if (duplicate.value_ < 0) {
         return {status_code::io_error, "cannot duplicate camera FD"};
@@ -186,9 +187,10 @@ status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor,
 }
 
 status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-    const frame_descriptor& _descriptor, int _frame_fd, std::shared_ptr<const void> _owner,
-    const dmabuf_bridge_profile& _profile, const submission_ticket& _ticket,
-    GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion) {
+    const frame_descriptor& _descriptor, int _frame_fd,
+    const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
+    const submission_ticket& _ticket, GstBuffer*& _buffer,
+    std::unique_ptr<read_completion>& _completion) {
     if (_buffer != nullptr || _completion || !_owner || _ticket.token_.cycle_id_ == 0 ||
         _ticket.token_.job_id_ == 0 || _ticket.pipeline_pts_ns_ == UINT64_MAX ||
         _ticket.source_epoch_ != _descriptor.session_epoch_ ||
@@ -201,7 +203,7 @@ status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
     observer->token_ = _ticket.token_;
     auto tracked = std::make_shared<tracked_frame_owner>();
     tracked->signal_ = observer->signal_;
-    tracked->owner_ = std::move(_owner);
+    tracked->owner_ = _owner;
     const auto wrapped = vqec_vision_ai_qcom_dmbrg_wrap_frame(
         _descriptor, _frame_fd, tracked, _profile, _buffer);
     if (wrapped.code_ != status_code::ok) {

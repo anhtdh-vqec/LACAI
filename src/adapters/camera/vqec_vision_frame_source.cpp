@@ -23,7 +23,6 @@ struct camera_session {
     legacy_frame_limits limits_;
     std::uint64_t epoch_{0};
     std::uint64_t last_buffer_id_{0};
-    std::atomic<unsigned> outstanding_{0};
     std::atomic<bool> healthy_{true};
     std::shared_ptr<camera_reader_count> reader_count_;
 
@@ -62,7 +61,6 @@ received_frame::~received_frame() noexcept {
             session_->healthy_.store(false);
         }
         ::close(frame_fd_);
-        session_->outstanding_.fetch_sub(1);
         const auto readers = session_->reader_count_;
         session_.reset();
         // Publish drain completion only after ACK/FD close/session release above.
@@ -136,7 +134,7 @@ status frame_source::vqec_vision_ai_camer_frsrc_receive(
     if (!session_ || !session_->healthy_.load()) {
         return {status_code::source_lost, "camera session absent or faulted"};
     }
-    if (reader_count_->outstanding_.load() >= 4) {
+    if (reader_count_->outstanding_.load() >= camera_receiver_limits::g_max_live_frames) {
         return {status_code::resource_exhausted, "four camera frame leases are already live"};
     }
     // Allocate before acquiring any FD. Allocation failure cannot orphan a received buffer.
@@ -233,7 +231,6 @@ status frame_source::vqec_vision_ai_camer_frsrc_receive(
     frame->frame_fd_ = handles.values_[0];
     handles.values_[0] = -1;
     session_->last_buffer_id_ = frame->descriptor_.buffer_id_;
-    session_->outstanding_.fetch_add(1);
     reader_count_->outstanding_.fetch_add(1);
     _frame = std::move(frame);
     return {};

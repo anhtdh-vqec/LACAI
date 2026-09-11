@@ -12,6 +12,11 @@ namespace vqec::vision::ai {
 struct camera_session;
 struct camera_reader_count;
 
+namespace camera_receiver_limits {
+// Released receiver contract: at most four live leases across all sessions.
+inline constexpr unsigned g_max_live_frames = 4;
+}  // namespace camera_receiver_limits
+
 struct camera_source_config {
     // Exact activation-time route; frame receive must not infer product topology.
     std::string socket_path_;

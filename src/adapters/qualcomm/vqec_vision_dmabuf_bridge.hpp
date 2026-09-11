@@ -38,9 +38,10 @@ public:
 
 private:
     friend status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-        const frame_descriptor& _descriptor, int _frame_fd, std::shared_ptr<const void> _owner,
-        const dmabuf_bridge_profile& _profile, const submission_ticket& _ticket,
-        GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion);
+        const frame_descriptor& _descriptor, int _frame_fd,
+        const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
+        const submission_ticket& _ticket, GstBuffer*& _buffer,
+        std::unique_ptr<read_completion>& _completion);
     std::shared_ptr<input_release_signal> signal_;
     submission_token token_;
     bool reported_{false};
@@ -49,9 +50,10 @@ private:
 // Both outputs must be empty. Reservation ticket must be from the receiving job window.
 // Success sets pipeline PTS from the ticket and returns an independent completion observer.
 [[nodiscard]] status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-    const frame_descriptor& _descriptor, int _frame_fd, std::shared_ptr<const void> _owner,
-    const dmabuf_bridge_profile& _profile, const submission_ticket& _ticket,
-    GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion);
+    const frame_descriptor& _descriptor, int _frame_fd,
+    const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
+    const submission_ticket& _ticket, GstBuffer*& _buffer,
+    std::unique_ptr<read_completion>& _completion);
 
 // Private GStreamer boundary. Caller initializes GStreamer before calling.
 // _frame_fd is borrowed; _owner must own that FD and keep the FW frame leased.
@@ -61,8 +63,9 @@ private:
 // Retain all GstMemory readers through device completion; this function cannot prove it.
 // C++ allocation failures may throw; do not call across a C callback uncaught.
 [[nodiscard]] status vqec_vision_ai_qcom_dmbrg_wrap_frame(
-    const frame_descriptor& _descriptor, int _frame_fd, std::shared_ptr<const void> _owner,
-    const dmabuf_bridge_profile& _profile, GstBuffer*& _buffer);
+    const frame_descriptor& _descriptor, int _frame_fd,
+    const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
+    GstBuffer*& _buffer);
 
 }  // namespace vqec::vision::ai
 

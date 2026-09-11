@@ -1,6 +1,7 @@
 #include "vqec_vision_plugin_graph.hpp"
 #include "vqec_vision_tensor_output.hpp"
 #include "vqec_vision_frame_submission.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 #include <array>
@@ -1000,8 +1001,10 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_submit_frame(
         return health;
     }
     auto& impl = *implementation_;
+    // Deployment validation already bounds each source frame allocation by the shared
+    // safety ceiling; do not pin a smaller guessed limit here.
     const dmabuf_bridge_profile profile{impl.plan_.source_width_, impl.plan_.source_height_,
-                                        64ULL * 1024 * 1024};
+                                        deployment_limits::g_max_frame_allocation_bytes};
     const auto pushed = vqec_vision_ai_qcom_frsub_push_frame(
         GST_APP_SRC(impl.source_), *impl.window_, _descriptor, _frame_fd, std::move(_owner),
         profile, impl.plan_.input_queue_bytes_, _steady_now_ns, impl.job_);
