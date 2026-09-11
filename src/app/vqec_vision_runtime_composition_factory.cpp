@@ -137,6 +137,16 @@ vqec_vision_ai_appl_rcfac_get_perception(std::uint16_t _source_slot) noexcept {
     return _source_slot < source_count_ ? perceptions_[_source_slot].get() : nullptr;
 }
 
+multi_model_feature_pipeline* runtime_composition_bundle::
+vqec_vision_ai_appl_rcfac_get_feature_pipeline(std::uint16_t _source_slot) noexcept {
+    return _source_slot < source_count_ ? pipelines_[_source_slot].get() : nullptr;
+}
+
+runtime_executor* runtime_composition_bundle::
+vqec_vision_ai_appl_rcfac_get_executor() noexcept {
+    return executor_.get();
+}
+
 const activation_snapshot& runtime_composition_bundle::
 vqec_vision_ai_appl_rcfac_get_admission() const noexcept {
     return admission_;
@@ -152,7 +162,8 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
     const runtime_composition_activation& _activation,
     const model_decoder_registry& _decoder_registry,
     const tracker_registry& _tracker_registry,
-    std::unique_ptr<runtime_composition_bundle>& _bundle) {
+    std::unique_ptr<runtime_composition_bundle>& _bundle,
+    const runtime_feature_activation* _features) {
     try {
         const auto valid_policy =
             vqec_vision_ai_appl_rcfac_validate_policy(_activation);
@@ -259,6 +270,26 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
                 std::move(session_configs[source_slot]));
         }
 
+        // One perception/feature pipeline per source. Feature fan-out wiring is optional;
+        // an empty slot still routes tensor results through decode and tracking.
+        for (std::uint16_t source_slot = 0;
+             source_slot < _activation.source_count_; ++source_slot) {
+            auto pipeline = std::make_unique<multi_model_feature_pipeline>(
+                *candidate->perceptions_[source_slot]->
+                    vqec_vision_ai_appl_spfac_get_result_router());
+            std::array<feature_fanout*, deployment_limits::g_max_models_per_source> fanouts{};
+            if (_features != nullptr) {
+                fanouts = _features->sources_[source_slot].fanouts_;
+            }
+            const auto configured = pipeline->vqec_vision_ai_appl_mmfpl_configure(
+                fanouts, candidate->perceptions_[source_slot]->
+                    vqec_vision_ai_appl_spfac_get_model_count());
+            if (configured.code_ != status_code::ok) {
+                return configured;
+            }
+            candidate->pipelines_[source_slot] = std::move(pipeline);
+        }
+
         candidate->composition_ = std::make_unique<application_composition>(
             _deployment.revision_, _catalog.revision_, _activation.source_count_);
         for (std::uint16_t source_slot = 0;
@@ -275,6 +306,16 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
         if (validated.code_ != status_code::ok) {
             return validated;
         }
+
+        std::array<multi_model_feature_pipeline*, deployment_limits::g_max_sources>
+            pipeline_ptrs{};
+        for (std::uint16_t source_slot = 0;
+             source_slot < _activation.source_count_; ++source_slot) {
+            pipeline_ptrs[source_slot] = candidate->pipelines_[source_slot].get();
+        }
+        candidate->executor_ = std::make_unique<runtime_executor>(
+            *candidate->composition_, pipeline_ptrs, candidate->source_count_);
+
         _bundle = std::move(candidate);
         return {};
     } catch (const std::bad_alloc&) {

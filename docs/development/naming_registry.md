@@ -298,6 +298,8 @@ No AST naming enforcement is implied by the structural filename checker.
 | src/adapters/camera/vqec_vision_dbus_rpc.cpp | dbrpc | vqec_vision_ai_camer_dbrpc_ |
 | src/adapters/camera/vqec_vision_source_lifecycle.cpp | srclc | vqec_vision_ai_camer_srclc_ |
 | src/adapters/camera/vqec_vision_raw_source_resolver.cpp | rsrsv | vqec_vision_ai_camer_rsrsv_ |
+| src/adapters/reference/vqec_vision_reference_source.cpp | rfsrc | vqec_vision_ai_refer_rfsrc_ |
+| src/adapters/reference/vqec_vision_reference_graph.cpp | rfgph | vqec_vision_ai_refer_rfgph_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
 | include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
 | include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
@@ -340,3 +342,4 @@ Runtime composition factory registrations (source delivered):
 |---|---|---|
 | src/app/vqec_vision_runtime_composition_factory.cpp | rcfac | vqec_vision_ai_appl_rcfac_ |
 | tests/contract/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
+| src/app/vqec_vision_runtime_executor.cpp | rtexe | vqec_vision_ai_appl_rtexe_ |

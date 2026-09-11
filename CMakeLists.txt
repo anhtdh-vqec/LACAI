@@ -205,6 +205,16 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+if(UNIX)
+    add_library(vqec_vision_ai_reference STATIC
+        src/adapters/reference/vqec_vision_reference_source.cpp
+        src/adapters/reference/vqec_vision_reference_graph.cpp)
+    target_include_directories(vqec_vision_ai_reference PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
+    target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_reference PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     src/app/vqec_vision_camera_graph_pump.cpp src/app/vqec_vision_camera_session.cpp)
 target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
@@ -317,7 +327,8 @@ target_include_directories(vqec_vision_ai_runtime_composition_factory PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/admission>)
 target_link_libraries(vqec_vision_ai_runtime_composition_factory PUBLIC
     vqec_vision_ai_admission vqec_vision_ai_application_composition
-    vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_result_router)
+    vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_result_router
+    vqec_vision_ai_multi_model_feature_pipeline vqec_vision_ai_runtime_executor)
 set_target_properties(vqec_vision_ai_runtime_composition_factory
     PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_feature_fanout STATIC
@@ -334,6 +345,14 @@ target_include_directories(vqec_vision_ai_multi_model_feature_pipeline PUBLIC
 target_link_libraries(vqec_vision_ai_multi_model_feature_pipeline
     PUBLIC vqec_vision_ai_multi_model_result_router vqec_vision_ai_feature_fanout)
 set_target_properties(vqec_vision_ai_multi_model_feature_pipeline PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_runtime_executor STATIC
+    src/app/vqec_vision_runtime_executor.cpp)
+target_include_directories(vqec_vision_ai_runtime_executor PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_runtime_executor
+    PUBLIC vqec_vision_ai_application_composition
+    vqec_vision_ai_multi_model_feature_pipeline)
+set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS OFF)
 if(BUILD_TESTING)
     add_executable(vqec_vision_ai_feature_processor_registry_test
         tests/contract/vqec_vision_feature_processor_registry_test.cpp)
@@ -747,6 +766,20 @@ if(BUILD_TESTING)
         set_target_properties(vqec_vision_ai_camera_receiver_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME camera_receiver_contract COMMAND vqec_vision_ai_camera_receiver_test)
         set_tests_properties(camera_receiver_contract PROPERTIES TIMEOUT 5)
+    endif()
+    if(TARGET vqec_vision_ai_reference)
+        add_executable(vqec_vision_ai_runtime_executor_test
+            tests/contract/vqec_vision_runtime_executor_test.cpp)
+        target_link_libraries(vqec_vision_ai_runtime_executor_test PRIVATE
+            vqec_vision_ai_runtime_executor
+            vqec_vision_ai_runtime_composition_factory
+            vqec_vision_ai_reference
+            vqec_vision_ai_feature_fanout
+            vqec_vision_ai_feature_runtime)
+        set_target_properties(vqec_vision_ai_runtime_executor_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME runtime_executor_e2e COMMAND vqec_vision_ai_runtime_executor_test)
+        set_tests_properties(runtime_executor_e2e PROPERTIES TIMEOUT 10)
     endif()
 endif()
 

@@ -8,7 +8,9 @@
 
 #include "vqec_vision_activation_snapshot.hpp"
 #include "vqec_vision_application_composition.hpp"
+#include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_multi_model_session.hpp"
+#include "vqec_vision_runtime_executor.hpp"
 #include "vqec_vision_source_perception_factory.hpp"
 
 namespace vqec::vision::ai {
@@ -41,6 +43,18 @@ struct runtime_composition_activation {
     int rpc_timeout_ms_{0};
 };
 
+// Optional activation-time feature wiring. Fan-out pointers are borrowed, already
+// configured and owned by the caller (typically a feature activation manager). A null
+// slot means that model has no direct feature consumer yet.
+struct runtime_source_feature_activation {
+    std::array<feature_fanout*, deployment_limits::g_max_models_per_source> fanouts_{};
+};
+
+struct runtime_feature_activation {
+    std::array<runtime_source_feature_activation, deployment_limits::g_max_sources>
+        sources_{};
+};
+
 // Owns neutral coordinating objects only. RAW sources, inference graphs, decoder
 // registrations and tracker factories are borrowed and must outlive this bundle.
 class runtime_composition_bundle final {
@@ -54,6 +68,10 @@ public:
     vqec_vision_ai_appl_rcfac_get_session(std::uint16_t _source_slot) noexcept;
     [[nodiscard]] source_perception_bundle*
     vqec_vision_ai_appl_rcfac_get_perception(std::uint16_t _source_slot) noexcept;
+    [[nodiscard]] multi_model_feature_pipeline*
+    vqec_vision_ai_appl_rcfac_get_feature_pipeline(std::uint16_t _source_slot) noexcept;
+    [[nodiscard]] runtime_executor*
+    vqec_vision_ai_appl_rcfac_get_executor() noexcept;
     [[nodiscard]] const activation_snapshot&
     vqec_vision_ai_appl_rcfac_get_admission() const noexcept;
     [[nodiscard]] std::uint16_t
@@ -67,7 +85,10 @@ private:
         deployment_limits::g_max_sources> sessions_{};
     std::array<std::unique_ptr<source_perception_bundle>,
         deployment_limits::g_max_sources> perceptions_{};
+    std::array<std::unique_ptr<multi_model_feature_pipeline>,
+        deployment_limits::g_max_sources> pipelines_{};
     std::unique_ptr<application_composition> composition_;
+    std::unique_ptr<runtime_executor> executor_;
     std::uint16_t source_count_{0};
 
     friend status vqec_vision_ai_appl_rcfac_create_bundle(
@@ -75,17 +96,20 @@ private:
         const runtime_composition_activation& _activation,
         const model_decoder_registry& _decoder_registry,
         const tracker_registry& _tracker_registry,
-        std::unique_ptr<runtime_composition_bundle>& _bundle);
+        std::unique_ptr<runtime_composition_bundle>& _bundle,
+        const runtime_feature_activation* _features);
 };
 
 // Cold-path transactional composition. Performs no source acquisition, model load,
-// graph configuration or frame submission. Failure preserves _bundle.
+// graph configuration or frame submission. Failure preserves _bundle. Feature wiring
+// is optional; a null _features builds pipelines with no direct feature consumers.
 [[nodiscard]] status vqec_vision_ai_appl_rcfac_create_bundle(
     const deployment_config& _deployment, const model_catalog& _catalog,
     const runtime_composition_activation& _activation,
     const model_decoder_registry& _decoder_registry,
     const tracker_registry& _tracker_registry,
-    std::unique_ptr<runtime_composition_bundle>& _bundle);
+    std::unique_ptr<runtime_composition_bundle>& _bundle,
+    const runtime_feature_activation* _features = nullptr);
 
 }  // namespace vqec::vision::ai
 
