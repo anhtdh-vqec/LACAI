@@ -27,6 +27,7 @@
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
 #include "vqec_vision_reference_graph.hpp"
+#include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
@@ -157,6 +158,13 @@ public:
             event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
             event.config_revision_ = config_.config_revision_;
             event.track_ids_.push_back(item.track_id_);
+            feature_event_field field;
+            field.schema_id_ = "fixture.attribute";
+            field.schema_version_ = "1";
+            field.value_ = "present";
+            field.confidence_ = 0.5F;
+            field.quality_ = observation_quality::low;
+            event.fields_.push_back(std::move(field));
             candidate.events_.push_back(std::move(event));
         }
         _events = std::move(candidate);
@@ -366,6 +374,11 @@ int main(int _argc, char** _argv) {
         }
     }
 
+    // Output boundary for the harness: a permissive-but-explicit policy plus a
+    // development sink. The gate still denies any event whose attributes are unlisted.
+    output_gate output_policy_gate;
+    reference_event_sink event_sink;
+
     // Platform owners: reference backend for every deployment source/model slot.
     std::vector<std::unique_ptr<reference_raw_source>> sources;
     std::vector<std::unique_ptr<reference_inference_graph>> graphs;
@@ -483,6 +496,26 @@ int main(int _argc, char** _argv) {
                     static_cast<int>(reconciled.code_), reconciled.message_.c_str());
                 return 1;
             }
+            // Explicit output entitlement for the wired associations. The fixture feature
+            // emits one field, so the rule must list it or delivery is denied.
+            output_policy policy;
+            policy.revision_ = 1;
+            policy.not_before_ns_ = 0;
+            policy.expires_ns_ = 1000000000000000000ULL;
+            for (std::uint16_t index = 0; index < request_count; ++index) {
+                output_scope_rule rule;
+                rule.source_id_ = requests[index].source_id_;
+                rule.feature_id_ = requests[index].feature_id_;
+                rule.attributes_.push_back("fixture.attribute");
+                policy.rules_.push_back(std::move(rule));
+            }
+            const auto applied =
+                output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
+            if (applied.code_ != status_code::ok) {
+                std::fprintf(stderr, "output policy apply failed (%d): %s\n",
+                    static_cast<int>(applied.code_), applied.message_.c_str());
+                return 1;
+            }
             std::array<std::array<std::vector<feature_stage*>,
                 deployment_limits::g_max_models_per_source>,
                 deployment_limits::g_max_sources> stages_by_slot{};
@@ -543,6 +576,9 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr, "runtime composition returned no executor\n");
         return 1;
     }
+    if (has_feature_wiring) {
+        executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
+    }
     const auto activated =
         bundle->vqec_vision_ai_appl_rcfac_get_composition()->vqec_vision_ai_cntr_acomp_activate();
     if (activated.code_ != status_code::ok) {
@@ -562,10 +598,22 @@ int main(int _argc, char** _argv) {
             runtime_executor_report taken;
             if (executor->vqec_vision_ai_appl_rtexe_take_result(
                     tracked, events, taken).code_ == status_code::ok) {
-                std::printf("routed source=%u model=%u tracked=%zu\n",
+                feature_dispatch_report dispatch_report;
+                if (taken.has_feature_fanout_ && has_feature_wiring) {
+                    const auto dispatched =
+                        executor->vqec_vision_ai_appl_rtexe_dispatch_events(
+                            events, taken.source_index_, taken.model_slot_, now_ns,
+                            dispatch_report);
+                    if (dispatched.code_ != status_code::ok) {
+                        std::fprintf(stderr, "event delivery rejected: %s\n",
+                            dispatched.message_.c_str());
+                    }
+                }
+                std::printf("routed source=%u model=%u tracked=%zu delivered=%u\n",
                     static_cast<unsigned>(taken.source_index_),
                     static_cast<unsigned>(taken.model_slot_),
-                    tracked[taken.model_slot_].observations_.size());
+                    tracked[taken.model_slot_].observations_.size(),
+                    static_cast<unsigned>(dispatch_report.delivered_));
             }
         } else if (stepped.code_ != status_code::pending) {
             std::fprintf(stderr, "executor step failed (%d): %s\n",

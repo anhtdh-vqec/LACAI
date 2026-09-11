@@ -6,6 +6,8 @@
 
 #include "vqec_vision_application_composition.hpp"
 #include "vqec_vision_multi_model_feature_pipeline.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp"
 
 namespace vqec::vision::ai {
 
@@ -16,6 +18,14 @@ struct runtime_executor_report {
     status_code first_error_code_{status_code::ok};
     bool has_tracked_{false};
     bool has_feature_fanout_{false};
+};
+
+struct feature_dispatch_report {
+    std::uint32_t attempted_{0};
+    std::uint32_t delivered_{0};
+    std::uint32_t denied_{0};
+    status_code first_error_code_{status_code::ok};
+    std::uint16_t first_error_slot_{UINT16_MAX};
 };
 
 // Serialized executor that connects the composition's pending tensor result to the
@@ -39,6 +49,15 @@ public:
         runtime_executor_report& _report);
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_request_stop(
         std::uint64_t _steady_now_ns);
+    // Optional output boundary. Delivered events are re-authorized against the bound
+    // gate; taking a result is not itself permission to publish. Both are borrowed.
+    void vqec_vision_ai_appl_rtexe_bind_event_delivery(
+        output_gate& _gate, feature_event_sink_port& _sink) noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_rtexe_dispatch_events(
+        const std::array<feature_event_batch,
+            feature_fanout_limits::g_max_feature_stages>& _events,
+        std::uint16_t _source_index, std::uint16_t _model_slot,
+        std::uint64_t _steady_now_ns, feature_dispatch_report& _report);
     [[nodiscard]] application_composition_snapshot
     vqec_vision_ai_appl_rtexe_get_snapshot() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_rtexe_has_pending() const noexcept;
@@ -52,6 +71,8 @@ private:
     std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>
         pending_events_{};
     runtime_executor_report pending_report_;
+    output_gate* delivery_gate_{nullptr};
+    feature_event_sink_port* delivery_sink_{nullptr};
     std::uint16_t source_count_{0};
     std::uint64_t last_now_ns_{0};
     bool has_pending_{false};

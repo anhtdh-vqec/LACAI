@@ -34,6 +34,10 @@ public:
         std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>& _events,
         feature_fanout_report& _report);
     [[nodiscard]] std::uint16_t vqec_vision_ai_appl_ftfan_get_stage_count() const noexcept;
+    // Borrowed stage at a fan-out ordinal, or null when unbound. Ordinal order is the
+    // same order used to index the event batches returned by process.
+    [[nodiscard]] feature_stage*
+    vqec_vision_ai_appl_ftfan_get_stage(std::uint16_t _slot) noexcept;
 
 private:
     std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages> stages_{};

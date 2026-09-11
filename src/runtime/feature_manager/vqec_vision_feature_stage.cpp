@@ -101,4 +101,9 @@ bool feature_stage::vqec_vision_ai_ftmgr_ftstg_is_faulted() const noexcept {
     return is_faulted_;
 }
 
+const feature_processor_config&
+feature_stage::vqec_vision_ai_ftmgr_ftstg_get_config() const noexcept {
+    return config_;
+}
+
 }  // namespace vqec::vision::ai

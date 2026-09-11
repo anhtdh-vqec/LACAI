@@ -300,6 +300,7 @@ No AST naming enforcement is implied by the structural filename checker.
 | src/adapters/camera/vqec_vision_raw_source_resolver.cpp | rsrsv | vqec_vision_ai_camer_rsrsv_ |
 | src/adapters/reference/vqec_vision_reference_source.cpp | rfsrc | vqec_vision_ai_refer_rfsrc_ |
 | src/adapters/reference/vqec_vision_reference_graph.cpp | rfgph | vqec_vision_ai_refer_rfgph_ |
+| src/adapters/reference/vqec_vision_reference_sink.cpp | rfsnk | vqec_vision_ai_refer_rfsnk_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
 | include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
 | include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |

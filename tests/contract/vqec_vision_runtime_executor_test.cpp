@@ -15,6 +15,7 @@
 #include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_reference_graph.hpp"
+#include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 #include "vqec_vision_runtime_executor.hpp"
@@ -330,12 +331,23 @@ int main() {
     runtime_feature_activation feature_wiring;
     feature_wiring.sources_[0].fanouts_[0] = &fanout;
 
+    output_gate output_policy_gate;
+    output_policy policy;
+    policy.revision_ = 1;
+    policy.not_before_ns_ = 0;
+    policy.expires_ns_ = 1000000000000000000ULL;
+    policy.rules_.push_back({"source_0", "intrusion", {}});
+    assert(output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(
+               policy, 0).code_ == status_code::ok);
+    reference_event_sink event_sink;
+
     std::unique_ptr<runtime_composition_bundle> bundle;
     assert(vqec_vision_ai_appl_rcfac_create_bundle(deployment, catalog, activation,
                decoders, trackers, bundle, &feature_wiring).code_ == status_code::ok);
     assert(bundle != nullptr && bundle->vqec_vision_ai_appl_rcfac_get_executor() != nullptr &&
            bundle->vqec_vision_ai_appl_rcfac_get_feature_pipeline(0) != nullptr);
     auto* executor = bundle->vqec_vision_ai_appl_rcfac_get_executor();
+    executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     auto* composition = bundle->vqec_vision_ai_appl_rcfac_get_composition();
     assert(composition->vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
 
@@ -366,6 +378,11 @@ int main() {
         tracked_count = tracked_by_model[0].observations_.size();
         if (taken.has_feature_fanout_) {
             event_count = events[0].events_.size();
+            feature_dispatch_report dispatch_report;
+            assert(executor->vqec_vision_ai_appl_rtexe_dispatch_events(
+                       events, taken.source_index_, taken.model_slot_, now_ns,
+                       dispatch_report).code_ == status_code::ok);
+            assert(dispatch_report.attempted_ == 1 && dispatch_report.delivered_ == 1);
         }
         routed = true;
     }

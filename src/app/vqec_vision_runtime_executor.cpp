@@ -1,4 +1,5 @@
 #include "vqec_vision_runtime_executor.hpp"
+#include "vqec_vision_feature_event_dispatch.hpp"
 
 #include <limits>
 #include <utility>
@@ -85,6 +86,58 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_request_stop(
     }
     last_now_ns_ = _steady_now_ns;
     return composition_.vqec_vision_ai_cntr_acomp_request_stop(_steady_now_ns);
+}
+
+void runtime_executor::vqec_vision_ai_appl_rtexe_bind_event_delivery(
+    output_gate& _gate, feature_event_sink_port& _sink) noexcept {
+    delivery_gate_ = &_gate;
+    delivery_sink_ = &_sink;
+}
+
+status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
+    const std::array<feature_event_batch,
+        feature_fanout_limits::g_max_feature_stages>& _events,
+    std::uint16_t _source_index, std::uint16_t _model_slot,
+    std::uint64_t _steady_now_ns, feature_dispatch_report& _report) {
+    _report = {};
+    if (delivery_gate_ == nullptr || delivery_sink_ == nullptr) {
+        return {status_code::invalid_state, "executor has no bound event delivery"};
+    }
+    if (_source_index >= source_count_ || pipelines_[_source_index] == nullptr) {
+        return {status_code::invalid_argument, "dispatch source index is invalid"};
+    }
+    auto* fanout = pipelines_[_source_index]->
+        vqec_vision_ai_appl_mmfpl_get_fanout(_model_slot);
+    if (fanout == nullptr) {
+        return {status_code::pending, "dispatch model slot has no feature fan-out"};
+    }
+    const auto stage_count = fanout->vqec_vision_ai_appl_ftfan_get_stage_count();
+    for (std::uint16_t ordinal = 0; ordinal < stage_count; ++ordinal) {
+        auto* stage = fanout->vqec_vision_ai_appl_ftfan_get_stage(ordinal);
+        if (stage == nullptr) {
+            continue;
+        }
+        const auto& config = stage->vqec_vision_ai_ftmgr_ftstg_get_config();
+        const auto& batch = _events[ordinal];
+        for (std::size_t index = 0; index < batch.events_.size(); ++index) {
+            ++_report.attempted_;
+            const auto delivered = vqec_vision_ai_outpt_ftdsp_dispatch_event(
+                batch, index, config, delivery_gate_->vqec_vision_ai_core_otgat_get_revision(),
+                _steady_now_ns, *delivery_gate_, *delivery_sink_);
+            if (delivered.code_ == status_code::ok) {
+                ++_report.delivered_;
+                continue;
+            }
+            ++_report.denied_;
+            if (_report.first_error_code_ == status_code::ok) {
+                _report.first_error_code_ = delivered.code_;
+                _report.first_error_slot_ = ordinal;
+            }
+        }
+    }
+    return _report.first_error_code_ == status_code::ok ?
+        status{} :
+        status{_report.first_error_code_, "feature event delivery rejected an output"};
 }
 
 application_composition_snapshot

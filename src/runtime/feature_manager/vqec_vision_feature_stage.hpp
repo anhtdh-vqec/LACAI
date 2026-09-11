@@ -19,6 +19,10 @@ public:
         bool _is_source_gap, feature_event_batch& _events);
     [[nodiscard]] bool vqec_vision_ai_ftmgr_ftstg_is_active() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_ftmgr_ftstg_is_faulted() const noexcept;
+    // Borrowed activation configuration; valid for the life of the stage. Used by the
+    // output boundary to authorize each event against the same identity the stage enforced.
+    [[nodiscard]] const feature_processor_config&
+    vqec_vision_ai_ftmgr_ftstg_get_config() const noexcept;
 
 private:
     feature_processor_port& processor_;

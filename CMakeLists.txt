@@ -208,7 +208,8 @@ endif()
 if(UNIX)
     add_library(vqec_vision_ai_reference STATIC
         src/adapters/reference/vqec_vision_reference_source.cpp
-        src/adapters/reference/vqec_vision_reference_graph.cpp)
+        src/adapters/reference/vqec_vision_reference_graph.cpp
+        src/adapters/reference/vqec_vision_reference_sink.cpp)
     target_include_directories(vqec_vision_ai_reference PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
     target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
@@ -348,10 +349,12 @@ set_target_properties(vqec_vision_ai_multi_model_feature_pipeline PROPERTIES CXX
 add_library(vqec_vision_ai_runtime_executor STATIC
     src/app/vqec_vision_runtime_executor.cpp)
 target_include_directories(vqec_vision_ai_runtime_executor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
 target_link_libraries(vqec_vision_ai_runtime_executor
     PUBLIC vqec_vision_ai_application_composition
-    vqec_vision_ai_multi_model_feature_pipeline)
+    vqec_vision_ai_multi_model_feature_pipeline
+    vqec_vision_ai_feature_event_dispatch)
 set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS OFF)
 
 # Required external service executable. Built only when the JSON loaders and the

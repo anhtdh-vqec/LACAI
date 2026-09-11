@@ -72,4 +72,9 @@ std::uint16_t feature_fanout::vqec_vision_ai_appl_ftfan_get_stage_count() const 
     return stage_count_;
 }
 
+feature_stage* feature_fanout::vqec_vision_ai_appl_ftfan_get_stage(
+    std::uint16_t _slot) noexcept {
+    return _slot < stage_count_ ? stages_[_slot] : nullptr;
+}
+
 }  // namespace vqec::vision::ai

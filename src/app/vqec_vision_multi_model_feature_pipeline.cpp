@@ -69,4 +69,9 @@ status multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_process_result(
         _events, _report.features_);
 }
 
+feature_fanout* multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_get_fanout(
+    std::uint16_t _model_slot) noexcept {
+    return _model_slot < model_count_ ? feature_fanouts_[_model_slot] : nullptr;
+}
+
 }  // namespace vqec::vision::ai

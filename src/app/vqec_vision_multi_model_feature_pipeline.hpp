@@ -34,6 +34,9 @@ public:
         std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>&
             _events,
         multi_model_feature_pipeline_report& _report);
+    // Borrowed fan-out bound to a model slot, or null when that slot has no consumer.
+    [[nodiscard]] feature_fanout*
+    vqec_vision_ai_appl_mmfpl_get_fanout(std::uint16_t _model_slot) noexcept;
 
 private:
     multi_model_result_router& result_router_;
