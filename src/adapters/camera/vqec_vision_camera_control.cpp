@@ -4,21 +4,14 @@
 #include <charconv>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
 bool vqec_vision_ai_camer_cctrl_is_identifier(const std::string& _value) {
-    if (_value.empty() || _value.size() > camera_protocol::g_max_identifier_bytes) {
-        return false;
-    }
-    for (const unsigned char value : _value) {
-        if (!((value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
-              (value >= '0' && value <= '9') || value == '_' || value == '-' ||
-              value == ':' || value == '.')) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, camera_protocol::g_max_identifier_bytes);
 }
 
 bool vqec_vision_ai_camer_cctrl_read_number(

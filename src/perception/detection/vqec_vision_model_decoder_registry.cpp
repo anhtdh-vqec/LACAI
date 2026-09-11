@@ -2,12 +2,23 @@
 
 #include <new>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
+namespace {
+
+bool vqec_vision_ai_detec_mdreg_is_contract(const std::string& _value) noexcept {
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, model_decoder_limits::g_max_contract_bytes);
+}
+
+}  // namespace
 
 status model_decoder_registry::vqec_vision_ai_detec_mdreg_register_decoder(
     const std::string& _contract, model_decoder_port& _decoder) {
-    if (_contract.empty() || _contract.size() > model_decoder_limits::g_max_contract_bytes) {
-        return {status_code::invalid_argument, "decoder contract is empty or too long"};
+    if (!vqec_vision_ai_detec_mdreg_is_contract(_contract)) {
+        return {status_code::invalid_argument,
+            "decoder contract is empty, too long or contains invalid characters"};
     }
     for (std::size_t index = 0; index < count_; ++index) {
         if (entries_[index].contract_ == _contract) {
@@ -17,7 +28,12 @@ status model_decoder_registry::vqec_vision_ai_detec_mdreg_register_decoder(
     if (count_ == entries_.size()) {
         return {status_code::resource_exhausted, "decoder registry capacity reached"};
     }
-    entries_[count_] = {_contract, &_decoder};
+    try {
+        entries_[count_] = {_contract, &_decoder};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "decoder registration allocation failed"};
+    }
     ++count_;
     return {};
 }
@@ -25,8 +41,9 @@ status model_decoder_registry::vqec_vision_ai_detec_mdreg_register_decoder(
 status model_decoder_registry::vqec_vision_ai_detec_mdreg_resolve_decoder(
     const std::string& _contract, model_decoder_port*& _decoder) const noexcept {
     _decoder = nullptr;
-    if (_contract.empty() || _contract.size() > model_decoder_limits::g_max_contract_bytes) {
-        return {status_code::invalid_argument, "decoder contract is empty or too long"};
+    if (!vqec_vision_ai_detec_mdreg_is_contract(_contract)) {
+        return {status_code::invalid_argument,
+            "decoder contract is empty, too long or contains invalid characters"};
     }
     for (std::size_t index = 0; index < count_; ++index) {
         if (entries_[index].contract_ == _contract) {

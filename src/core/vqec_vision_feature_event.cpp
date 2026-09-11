@@ -2,22 +2,14 @@
 
 #include <cmath>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
 bool vqec_vision_ai_core_ftevt_is_identifier(const std::string& _value) noexcept {
-    if (_value.empty() || _value.size() > feature_event_limits::g_max_identifier_bytes) {
-        return false;
-    }
-    for (const unsigned char character : _value) {
-        if (!((character >= 'a' && character <= 'z') ||
-              (character >= 'A' && character <= 'Z') ||
-              (character >= '0' && character <= '9') || character == '_' ||
-              character == '-' || character == '.' || character == ':')) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, feature_event_limits::g_max_identifier_bytes);
 }
 
 bool vqec_vision_ai_core_ftevt_is_kind_valid(feature_event_kind _kind) noexcept {

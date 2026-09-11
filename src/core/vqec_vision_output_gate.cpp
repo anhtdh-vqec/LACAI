@@ -3,21 +3,14 @@
 #include <algorithm>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
 bool vqec_vision_ai_core_otgat_is_identifier(const std::string& _value) noexcept {
-    if (_value.empty() || _value.size() > output_policy_limits::g_max_identifier_bytes) {
-        return false;
-    }
-    for (const unsigned char byte : _value) {
-        if (!((byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
-              (byte >= '0' && byte <= '9') || byte == '_' || byte == '-' ||
-              byte == '.' || byte == ':')) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, output_policy_limits::g_max_identifier_bytes);
 }
 
 bool vqec_vision_ai_core_otgat_are_attributes_valid(const std::vector<std::string>& _attributes) {

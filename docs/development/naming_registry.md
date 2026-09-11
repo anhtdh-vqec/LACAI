@@ -145,6 +145,11 @@ file_id `cmpro`, owner `camer`; constants only, no functions.
 Header-only `include/vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp`:
 file_id `pvlim`, owner `cntr`; constants only, no named functions.
 
+Header-only `include/vqec/vision/ai/contracts/vqec_vision_identifier.hpp`:
+file_id `ident`, owner `cntr`, prefix `vqec_vision_ai_cntr_ident_`. Shared bounded
+ASCII identifier check; callers keep their own per-contract byte ceiling. This is the
+single source of truth for the accepted character set so validators cannot diverge.
+
 FW ring wrapper: `src/adapters/fw_output/vqec_vision_ring_sink.cpp`, file_id `rgsnk`,
 prefix `vqec_vision_ai_fwout_rgsnk_`; paired private header uses the same stem.
 Sink overrides retain `vqec_vision_ai_cntr_encsk_`. Optional test owner

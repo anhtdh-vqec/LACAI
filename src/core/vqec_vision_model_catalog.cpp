@@ -4,24 +4,15 @@
 #include <limits>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {
 
 bool vqec_vision_ai_core_mdcat_is_identifier(const std::string& _value) noexcept {
-    if (_value.empty() || _value.size() > model_catalog_limits::g_max_identifier_bytes) {
-        return false;
-    }
-    for (const unsigned char character : _value) {
-        if (!((character >= 'a' && character <= 'z') ||
-              (character >= 'A' && character <= 'Z') ||
-              (character >= '0' && character <= '9') || character == '_' ||
-              character == '-' || character == '.' || character == ':')) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, model_catalog_limits::g_max_identifier_bytes);
 }
 
 bool vqec_vision_ai_core_mdcat_is_digest(const std::string& _value) noexcept {

@@ -3,23 +3,16 @@
 #include <limits>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
 constexpr std::size_t g_max_socket_path_bytes = 107;
 
 bool vqec_vision_ai_camer_rsrsv_is_identifier(const std::string& _value) noexcept {
-    if (_value.empty() || _value.size() > deployment_limits::g_max_identifier_bytes) {
-        return false;
-    }
-    for (const unsigned char value : _value) {
-        if (!((value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
-              (value >= '0' && value <= '9') || value == '_' || value == '-' ||
-              value == ':' || value == '.')) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, deployment_limits::g_max_identifier_bytes);
 }
 
 bool vqec_vision_ai_camer_rsrsv_is_socket_path(const std::string& _value) noexcept {
