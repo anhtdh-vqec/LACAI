@@ -167,6 +167,52 @@ public:
     }
 };
 
+class vqec_vision_ai_ctest_rtexe_failing_feature final : public feature_processor_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_validate_activation(
+        const feature_processor_config& _config) const override {
+        (void)_config;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_reset_epoch(
+        std::uint64_t _source_epoch) override {
+        (void)_source_epoch;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_process_observations(
+        const observation_batch& _tracked, std::uint64_t _now_monotonic_ns,
+        bool _is_source_gap, feature_event_batch& _events) override {
+        (void)_tracked;
+        (void)_now_monotonic_ns;
+        (void)_is_source_gap;
+        (void)_events;
+        return {status_code::io_error, "fixture failing feature"};
+    }
+};
+
+class vqec_vision_ai_ctest_rtexe_failing_factory final
+    : public feature_processor_factory_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
+        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
+        const feature_configuration& _configuration) const override {
+        (void)_feature;
+        (void)_processor_config;
+        (void)_configuration;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftfac_create_processor(
+        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
+        const feature_configuration& _configuration,
+        std::unique_ptr<feature_processor_port>& _processor) override {
+        (void)_feature;
+        (void)_processor_config;
+        (void)_configuration;
+        _processor = std::make_unique<vqec_vision_ai_ctest_rtexe_failing_feature>();
+        return {};
+    }
+};
+
 model_catalog_entry vqec_vision_ai_ctest_rtexe_make_model() {
     model_catalog_entry model;
     model.model_id_ = "detector";
@@ -233,6 +279,15 @@ feature_catalog vqec_vision_ai_ctest_rtexe_make_features() {
     feature.model_dependencies_ = {{"detector_role", "detector"}};
     feature.resources_ = {0, 4, 4, 4};
     features.features_.push_back(std::move(feature));
+    feature_catalog_entry failing;
+    failing.feature_id_ = "alert";
+    failing.feature_version_ = "1.0";
+    failing.processor_contract_ = "alert.processor.v1";
+    failing.configuration_schema_ = "alert.config.v1";
+    failing.input_mode_ = feature_input_mode::single_model;
+    failing.model_dependencies_ = {{"detector_role", "detector"}};
+    failing.resources_ = {0, 4, 4, 4};
+    features.features_.push_back(std::move(failing));
     return features;
 }
 
@@ -304,9 +359,12 @@ int main() {
 
     // Feature activation is a caller prerequisite; the runtime only borrows the fan-out.
     vqec_vision_ai_ctest_rtexe_feature_factory feature_factory;
+    vqec_vision_ai_ctest_rtexe_failing_factory failing_factory;
     feature_processor_registry feature_registry;
     assert(feature_registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
                "intrusion.processor.v1", feature_factory).code_ == status_code::ok);
+    assert(feature_registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
+               "alert.processor.v1", failing_factory).code_ == status_code::ok);
     feature_activation_manager feature_manager;
     assert(feature_manager.vqec_vision_ai_ftmgr_famgr_configure(
                features, catalog, deployment).code_ == status_code::ok);
@@ -319,15 +377,23 @@ int main() {
     requests[0].resource_admitted_ = true;
     requests[0].configuration_.schema_id_ = "intrusion.config.v1";
     requests[0].configuration_.revision_ = 1;
+    requests[1].source_id_ = "source_0";
+    requests[1].feature_id_ = "alert";
+    requests[1].desired_enabled_ = true;
+    requests[1].entitlement_granted_ = true;
+    requests[1].resource_admitted_ = true;
+    requests[1].configuration_.schema_id_ = "alert.config.v1";
+    requests[1].configuration_.revision_ = 1;
     feature_activation_snapshot feature_snapshot;
     assert(feature_manager.vqec_vision_ai_ftmgr_famgr_reconcile(
-               requests, 1, feature_registry, feature_snapshot).code_ == status_code::ok);
-    assert(feature_snapshot.ready_count_ == 1);
+               requests, 2, feature_registry, feature_snapshot).code_ == status_code::ok);
+    assert(feature_snapshot.ready_count_ == 2);
     feature_fanout fanout;
     std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages> stages{};
     stages[0] = feature_manager.vqec_vision_ai_ftmgr_famgr_get_stage(0);
-    assert(stages[0] != nullptr);
-    assert(fanout.vqec_vision_ai_appl_ftfan_configure(stages, 1).code_ == status_code::ok);
+    stages[1] = feature_manager.vqec_vision_ai_ftmgr_famgr_get_stage(1);
+    assert(stages[0] != nullptr && stages[1] != nullptr);
+    assert(fanout.vqec_vision_ai_appl_ftfan_configure(stages, 2).code_ == status_code::ok);
     runtime_feature_activation feature_wiring;
     feature_wiring.sources_[0].fanouts_[0] = &fanout;
 
@@ -337,6 +403,7 @@ int main() {
     policy.not_before_ns_ = 0;
     policy.expires_ns_ = 1000000000000000000ULL;
     policy.rules_.push_back({"source_0", "intrusion", {}});
+    policy.rules_.push_back({"source_0", "alert", {}});
     assert(output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(
                policy, 0).code_ == status_code::ok);
     reference_event_sink event_sink;
@@ -376,8 +443,14 @@ int main() {
         assert(tracked_by_model[0].observations_.size() == 1);
         assert(tracked_by_model[0].observations_[0].track_id_ == 1);
         tracked_count = tracked_by_model[0].observations_.size();
+        // One healthy feature plus one failing feature must both be retained: the tracked
+        // output and the successful batch survive, and the first error is recorded.
+        assert(taken.first_error_code_ != status_code::ok);
+        assert(taken.features_.processed_mask_ == 1U);
+        assert(taken.features_.failed_mask_ == (1U << 1));
         if (taken.has_feature_fanout_) {
             event_count = events[0].events_.size();
+            assert(events[1].events_.empty());
             feature_dispatch_report dispatch_report;
             assert(executor->vqec_vision_ai_appl_rtexe_dispatch_events(
                        events, taken.source_index_, taken.model_slot_, now_ns,
@@ -390,13 +463,27 @@ int main() {
     assert(tracked_count == 1);
     assert(event_count == 1);
 
+    // A05: stop while a routed result is still pending. The drain must consume/discard it
+    // so the composition can reach stopped instead of blocking on the pending slot.
+    bool pending_at_stop = false;
+    for (unsigned step = 0; step < 400 && !pending_at_stop; ++step, now_ns += 1000000) {
+        runtime_executor_report step_report;
+        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, step_report);
+        assert(progressed.code_ == status_code::ok ||
+               progressed.code_ == status_code::pending);
+        pending_at_stop = executor->vqec_vision_ai_appl_rtexe_has_pending();
+    }
+    assert(pending_at_stop);
     const auto stop_request =
         executor->vqec_vision_ai_appl_rtexe_request_stop(now_ns);
     assert(stop_request.code_ == status_code::ok ||
            stop_request.code_ == status_code::pending);
     now_ns += 1000000;
     bool stopped = false;
-    for (unsigned step = 0; step < 200 && !stopped; ++step, now_ns += 1000000) {
+    for (unsigned step = 0; step < 400 && !stopped; ++step, now_ns += 1000000) {
+        if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            executor->vqec_vision_ai_appl_rtexe_discard_pending();
+        }
         runtime_executor_report drain_report;
         const auto progressed =
             executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);

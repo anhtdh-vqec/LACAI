@@ -51,17 +51,27 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         vqec_vision_ai_appl_mmfpl_process_result(
             result, pump_report, _steady_now_ns, pending_tracked_, pending_events_,
             pipeline_report);
-    if (processed.code_ != status_code::ok) {
+    if (!pipeline_report.result_.has_tracked_) {
+        // The decode/track layer failed, so there is no valid routed output and nothing
+        // is retained. Surface the original routing error.
         return processed;
     }
+    // The result was routed successfully even if one or more feature stages failed. Keep
+    // the valid tracked observations and every successful feature batch exactly once and
+    // record the first feature error instead of discarding healthy work.
     pending_report_.source_index_ = source_index;
     pending_report_.model_slot_ = pipeline_report.result_.model_slot_;
     pending_report_.features_ = pipeline_report.features_;
-    pending_report_.has_tracked_ = pipeline_report.result_.has_tracked_;
+    pending_report_.has_tracked_ = true;
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
+    pending_report_.first_error_code_ = processed.code_;
     has_pending_ = true;
     _report = pending_report_;
     return {};
+}
+
+void runtime_executor::vqec_vision_ai_appl_rtexe_discard_pending() noexcept {
+    has_pending_ = false;
 }
 
 status runtime_executor::vqec_vision_ai_appl_rtexe_take_result(

@@ -594,9 +594,13 @@ int main(int _argc, char** _argv) {
     std::uint64_t now_ns = g_step_interval_ns;
     std::uint64_t steps = 0;
     std::uint32_t routed_source_mask = 0;
+    status_code first_error_code = status_code::ok;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
+        if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
+            first_error_code = report.first_error_code_;
+        }
         if (stepped.code_ == status_code::ok) {
             std::array<observation_batch, deployment_limits::g_max_models_per_source> tracked;
             std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> events;
@@ -622,6 +626,9 @@ int main(int _argc, char** _argv) {
                     static_cast<unsigned>(dispatch_report.delivered_));
             }
         } else if (stepped.code_ != status_code::pending) {
+            if (first_error_code == status_code::ok) {
+                first_error_code = stepped.code_;
+            }
             std::fprintf(stderr, "executor step failed (%d): %s\n",
                 static_cast<int>(stepped.code_), stepped.message_.c_str());
             break;
@@ -635,10 +642,21 @@ int main(int _argc, char** _argv) {
     (void)stop;
     bool stopped = false;
     for (unsigned drain = 0; drain < 1000 && !stopped; ++drain) {
+        // Drain must consume/discard a retained result, otherwise the executor refuses to
+        // advance and a result arriving at stop would prevent reaching stopped.
+        if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            executor->vqec_vision_ai_appl_rtexe_discard_pending();
+        }
         now_ns += g_step_interval_ns;
         runtime_executor_report drain_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
+        if (drain_report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
+            first_error_code = drain_report.first_error_code_;
+        }
         if (progressed.code_ != status_code::ok && progressed.code_ != status_code::pending) {
+            if (first_error_code == status_code::ok) {
+                first_error_code = progressed.code_;
+            }
             break;
         }
         stopped = executor->vqec_vision_ai_appl_rtexe_get_snapshot().state_ ==
@@ -648,11 +666,11 @@ int main(int _argc, char** _argv) {
     for (std::uint32_t mask = routed_source_mask; mask != 0; mask &= mask - 1U) {
         ++routed_sources;
     }
-    std::printf("service stopped=%s routed_sources=%u\n",
-        stopped ? "true" : "false", routed_sources);
+    std::printf("service stopped=%s routed_sources=%u first_error=%d\n",
+        stopped ? "true" : "false", routed_sources, static_cast<int>(first_error_code));
     // Owners (feature manager, fan-outs, registries, reference platform) outlive the
     // bundle; the bundle's composition must be stopped before they are destroyed.
-    if (!stopped) {
+    if (!stopped || first_error_code != status_code::ok) {
         return 1;
     }
     return routed_sources >= args.require_sources ? 0 : 1;
