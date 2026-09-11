@@ -33,6 +33,28 @@
 
 using namespace vqec::vision::ai;
 
+namespace service_harness {
+// Development-harness constants. Production values are supplied by validated deployment/
+// model/feature catalogs and a trusted resolver; these are not product defaults.
+inline constexpr std::uint64_t g_default_startup_timeout_ns = 30000000000ULL;
+inline constexpr std::uint64_t g_default_stop_timeout_ns = 10000000000ULL;
+inline constexpr int g_default_rpc_timeout_ms = 1000;
+inline constexpr std::uint64_t g_cycle_id_stride = 100;
+inline constexpr std::uint64_t g_policy_revision = 1;
+inline constexpr std::uint64_t g_config_revision = 1;
+inline constexpr std::uint64_t g_policy_expiry_ns = 1000000000000000000ULL;
+inline constexpr char g_model_root[] = "/opt/vqec/models/";
+inline constexpr char g_backend_library[] = "/usr/lib/libQnnHtp.so";
+inline constexpr char g_system_library[] = "/usr/lib/libQnnSystem.so";
+inline constexpr std::uint64_t g_output_bytes = 16;
+inline constexpr char g_box_tensor_name[] = "boxes";
+inline constexpr std::uint32_t g_box_elements = 4;
+inline constexpr char g_attribute_schema_id[] = "fixture.attribute";
+inline constexpr char g_attribute_schema_version[] = "1";
+inline constexpr char g_event_schema_id[] = "fixture.event";
+inline constexpr char g_event_schema_version[] = "1";
+}  // namespace service_harness
+
 namespace {
 
 volatile std::sig_atomic_t g_stop_requested = 0;
@@ -152,15 +174,15 @@ public:
             event.source_id_ = config_.source_id_;
             event.feature_id_ = config_.feature_id_;
             event.event_id_ = "fixture_" + std::to_string(++next_event_id_);
-            event.event_schema_id_ = "fixture.event";
-            event.event_schema_version_ = "1";
+            event.event_schema_id_ = service_harness::g_event_schema_id;
+            event.event_schema_version_ = service_harness::g_event_schema_version;
             event.kind_ = feature_event_kind::snapshot;
             event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
             event.config_revision_ = config_.config_revision_;
             event.track_ids_.push_back(item.track_id_);
             feature_event_field field;
-            field.schema_id_ = "fixture.attribute";
-            field.schema_version_ = "1";
+            field.schema_id_ = service_harness::g_attribute_schema_id;
+            field.schema_version_ = service_harness::g_attribute_schema_version;
             field.value_ = "present";
             field.confidence_ = 0.5F;
             field.quality_ = observation_quality::low;
@@ -250,7 +272,7 @@ bool vqec_vision_ai_appl_svcmn_load_feature_catalog(
 }
 
 std::string vqec_vision_ai_appl_svcmn_dev_model_path(const std::string& _model_id) {
-    return "/opt/vqec/models/" + _model_id + ".bin";
+    return std::string(service_harness::g_model_root) + _model_id + ".bin";
 }
 
 // Builds the parsed output metadata the runtime validates against the catalog identity.
@@ -261,8 +283,9 @@ model_outputs vqec_vision_ai_appl_svcmn_synthetic_outputs(const model_catalog_en
     outputs.model_version_ = _model.model_version_;
     outputs.artifact_sha256_ = _model.artifact_sha256_;
     outputs.decoder_contract_ = _model.decoder_contract_;
-    outputs.max_output_bytes_ = 16;
-    outputs.outputs_.push_back({"boxes", {1, 4}});
+    outputs.max_output_bytes_ = service_harness::g_output_bytes;
+    outputs.outputs_.push_back(
+        {service_harness::g_box_tensor_name, {1, service_harness::g_box_elements}});
     return outputs;
 }
 
@@ -396,9 +419,9 @@ int main(int _argc, char** _argv) {
 
     runtime_composition_activation activation;
     activation.source_count_ = static_cast<std::uint16_t>(deployment.sources_.size());
-    activation.startup_timeout_ns_ = 30000000000ULL;
-    activation.stop_timeout_ns_ = 10000000000ULL;
-    activation.rpc_timeout_ms_ = 1000;
+    activation.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
+    activation.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
+    activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
     for (std::uint16_t source_slot = 0; source_slot < activation.source_count_; ++source_slot) {
         const auto& source = deployment.sources_[source_slot];
         auto& source_activation = activation.sources_[source_slot];
@@ -423,8 +446,8 @@ int main(int _argc, char** _argv) {
             model_activation.paths_.artifact_ref_ = model->artifact_ref_;
             model_activation.paths_.model_path_ =
                 vqec_vision_ai_appl_svcmn_dev_model_path(model->model_id_);
-            model_activation.paths_.backend_path_ = "/usr/lib/libQnnHtp.so";
-            model_activation.paths_.system_path_ = "/usr/lib/libQnnSystem.so";
+            model_activation.paths_.backend_path_ = service_harness::g_backend_library;
+            model_activation.paths_.system_path_ = service_harness::g_system_library;
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
             model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
             model_activation.tracker_contract_ = g_reference_tracker_contract;
@@ -440,9 +463,9 @@ int main(int _argc, char** _argv) {
             model_activation.binding_.fw_memory_contract_ = "fw.dmabuf.v1";
             model_activation.binding_.backend_memory_contract_ = "qcom.dmabuf.v1";
             model_activation.binding_.preprocess_contract_ = model->preprocess_contract_;
-            model_activation.cycle_id_ =
-                static_cast<std::uint64_t>(source_slot) * 100U + model_slot + 1U;
-            model_activation.job_timeout_ns_ = 1000000000ULL;
+            model_activation.cycle_id_ = static_cast<std::uint64_t>(source_slot) *
+                    service_harness::g_cycle_id_stride + model_slot + 1U;
+            model_activation.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
         }
     }
 
@@ -489,7 +512,7 @@ int main(int _argc, char** _argv) {
                 request.entitlement_granted_ = true;
                 request.resource_admitted_ = true;
                 request.configuration_.schema_id_ = feature.configuration_schema_;
-                request.configuration_.revision_ = 1;
+                request.configuration_.revision_ = service_harness::g_config_revision;
                 request_slots[request_count] = {source_slot, slot};
                 ++request_count;
             }
@@ -506,14 +529,14 @@ int main(int _argc, char** _argv) {
             // Explicit output entitlement for the wired associations. The fixture feature
             // emits one field, so the rule must list it or delivery is denied.
             output_policy policy;
-            policy.revision_ = 1;
+            policy.revision_ = service_harness::g_policy_revision;
             policy.not_before_ns_ = 0;
-            policy.expires_ns_ = 1000000000000000000ULL;
+            policy.expires_ns_ = service_harness::g_policy_expiry_ns;
             for (std::uint16_t index = 0; index < request_count; ++index) {
                 output_scope_rule rule;
                 rule.source_id_ = requests[index].source_id_;
                 rule.feature_id_ = requests[index].feature_id_;
-                rule.attributes_.push_back("fixture.attribute");
+                rule.attributes_.push_back(service_harness::g_attribute_schema_id);
                 policy.rules_.push_back(std::move(rule));
             }
             const auto applied =

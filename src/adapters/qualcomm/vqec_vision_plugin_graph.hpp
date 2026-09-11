@@ -15,6 +15,12 @@
 
 namespace vqec::vision::ai {
 
+namespace graph_retention_limits {
+// Bounded containment domain for armed graphs that could not be safely torn down.
+inline constexpr unsigned g_slot_count = 4;
+inline constexpr unsigned g_invalid_slot = g_slot_count;
+}  // namespace graph_retention_limits
+
 class plugin_graph;
 
 // One domain per supervisor lifetime, serialized with all its graphs. Four slots.
@@ -130,7 +136,7 @@ private:
     struct implementation;
     std::unique_ptr<implementation> implementation_;
     std::shared_ptr<graph_retention> retention_;
-    unsigned retention_slot_{4};
+    unsigned retention_slot_{graph_retention_limits::g_invalid_slot};
 };
 
 }  // namespace vqec::vision::ai

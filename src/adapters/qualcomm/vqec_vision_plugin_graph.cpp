@@ -15,6 +15,12 @@
 namespace vqec::vision::ai {
 namespace {
 
+// Batch-1 NHWC RGB tensor, matching the reviewed single-image plugin plan.
+constexpr int g_tensor_batch_dimension = 1;
+constexpr int g_tensor_channel_dimension = 3;
+// Diagnostic text is bounded; it is error metadata, not a wire limit.
+constexpr std::size_t g_max_error_message_bytes = 1024;
+
 struct element_deleter {
     void operator()(GstElement* _element) const noexcept {
         if (_element != nullptr) {
@@ -175,8 +181,9 @@ caps_owner vqec_vision_ai_qcom_plgr_make_tensor_caps(const inference_plan& _plan
         _plan.input_type_ == tensor_type::uint8 ? "UINT8" : "FLOAT32", nullptr));
     value_holder tensors(GST_TYPE_ARRAY);
     value_holder dimensions(GST_TYPE_ARRAY);
-    const std::array<int, 4> shape{
-        1, static_cast<int>(_plan.tensor_height_), static_cast<int>(_plan.tensor_width_), 3};
+    const std::array<int, 4> shape{g_tensor_batch_dimension,
+        static_cast<int>(_plan.tensor_height_), static_cast<int>(_plan.tensor_width_),
+        g_tensor_channel_dimension};
     for (const auto dimension : shape) {
         value_holder value(G_TYPE_INT);
         g_value_set_int(&value.value_, dimension);
@@ -370,8 +377,9 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_probe_properties(
 }
 
 struct graph_retention::implementation {
-    std::array<bool, 4> reserved_{};
-    std::array<std::unique_ptr<plugin_graph::implementation>, 4> retained_{};
+    std::array<bool, graph_retention_limits::g_slot_count> reserved_{};
+    std::array<std::unique_ptr<plugin_graph::implementation>,
+        graph_retention_limits::g_slot_count> retained_{};
     ~implementation() noexcept {
         for (auto& graph : retained_) {
             if (graph) {
@@ -656,7 +664,8 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_poll_state() {
                 const auto* domain = g_quark_to_string(error->domain);
                 stored.domain_ = vqec_vision_ai_qcom_plgr_bounded_text(domain, 128);
                 stored.code_ = error->code;
-                stored.message_ = vqec_vision_ai_qcom_plgr_bounded_text(error->message, 1024);
+                stored.message_ = vqec_vision_ai_qcom_plgr_bounded_text(
+                    error->message, g_max_error_message_bytes);
             }
         } else if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_WARNING) {
             if (implementation_->warning_count_ != UINT64_MAX) {
@@ -700,7 +709,7 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_poll_state() {
         if (retention_) {
             retention_->implementation_->reserved_[retention_slot_] = false;
             retention_.reset();
-            retention_slot_ = 4;
+            retention_slot_ = graph_retention_limits::g_invalid_slot;
         }
     } else if (state == plugin_graph_state::loading && current == GST_STATE_READY) {
         state = plugin_graph_state::ready;
