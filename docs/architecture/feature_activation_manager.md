@@ -1,9 +1,9 @@
 # Feature activation manager
 
 `feature_activation_manager` is the cold-path owner that turns validated deployment,
-model and feature catalogs into effective per-source feature state. It keeps catalog
-revisions in the activation snapshot so downstream output and audit paths can reject
-stale state.
+model and feature catalogs into effective per-source feature state. It records the
+feature catalog, model catalog and deployment revisions in the activation snapshot so
+downstream output and audit paths can reject stale state.
 
 For each `(source_id, feature_id)` request the manager evaluates desired enablement,
 entitlement authorization, resource admission, model dependency assignment, then

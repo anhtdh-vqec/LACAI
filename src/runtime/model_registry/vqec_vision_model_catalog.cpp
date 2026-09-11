@@ -203,8 +203,8 @@ status vqec_vision_ai_mreg_mdcat_load_catalog(
     std::istream& _stream, model_catalog& _catalog,
     std::uint64_t& _declared_resident_bytes) {
     std::string document;
-    document.reserve(8192);
     try {
+        document.reserve(8192);
         char byte = 0;
         while (_stream.get(byte)) {
             if (document.size() == model_catalog_document_limits::g_max_document_bytes) {
@@ -217,6 +217,9 @@ status vqec_vision_ai_mreg_mdcat_load_catalog(
         if (!_stream.eof() || _stream.bad()) {
             return {status_code::io_error, "model catalog stream read failed"};
         }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+                "model catalog document allocation failed"};
     }
     if (_stream.bad() || (!_stream.eof() && _stream.fail())) {
         return {status_code::io_error, "cannot read model catalog"};
@@ -270,6 +273,8 @@ status vqec_vision_ai_mreg_mdcat_load_catalog(
         return {status_code::invalid_argument, "invalid model catalog structure or value"};
     } catch (const catalog_json::exception&) {
         return {status_code::invalid_argument, "malformed model catalog JSON"};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "model catalog parse allocation failed"};
     }
 }
 

@@ -3,6 +3,8 @@
 #include <new>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 
 status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_configure(
@@ -95,12 +97,12 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
             "feature activation request count is invalid"};
     }
     for (std::uint16_t index = 0; index < _request_count; ++index) {
-        if (_requests[index].source_id_.empty() ||
-            _requests[index].feature_id_.empty() ||
-            _requests[index].source_id_.size() >
-                feature_catalog_limits::g_max_identifier_bytes ||
-            _requests[index].feature_id_.size() >
-                feature_catalog_limits::g_max_identifier_bytes ||
+        if (!vqec_vision_ai_cntr_ident_is_valid(
+                _requests[index].source_id_,
+                feature_catalog_limits::g_max_identifier_bytes) ||
+            !vqec_vision_ai_cntr_ident_is_valid(
+                _requests[index].feature_id_,
+                feature_catalog_limits::g_max_identifier_bytes) ||
             vqec_vision_ai_ftmgr_famgr_find_source(_requests[index].source_id_) == nullptr ||
             vqec_vision_ai_ftmgr_famgr_find_feature(_requests[index].feature_id_) == nullptr) {
             return {status_code::invalid_argument,
@@ -119,6 +121,7 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
         feature_activation_limits::g_max_associations> candidate{};
     feature_activation_snapshot candidate_snapshot;
     candidate_snapshot.feature_catalog_revision_ = features_->revision_;
+    candidate_snapshot.model_catalog_revision_ = models_->revision_;
     candidate_snapshot.deployment_revision_ = deployment_->revision_;
     status first_error;
     bool has_error = false;

@@ -9,6 +9,13 @@
 
 namespace vqec::vision::ai {
 
+namespace tensor_contract_limits {
+inline constexpr std::size_t g_max_outputs = 16;
+inline constexpr std::uint64_t g_max_output_bytes = 64ULL * 1024ULL * 1024ULL;
+inline constexpr std::size_t g_max_name_bytes = 128;
+inline constexpr std::size_t g_max_rank = 8;
+}  // namespace tensor_contract_limits
+
 // Ordered packed FLOAT32 outputs only. Pure validation, no artifact or SDK inspection.
 // Success writes total payload bytes; failure preserves _required_bytes unchanged.
 [[nodiscard]] status vqec_vision_ai_core_tnctr_validate_outputs(

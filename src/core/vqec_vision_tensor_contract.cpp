@@ -7,16 +7,18 @@ namespace vqec::vision::ai {
 status vqec_vision_ai_core_tnctr_validate_outputs(
     const std::vector<float_tensor_spec>& _outputs, std::uint64_t _max_output_bytes,
     std::uint64_t& _required_bytes) {
-    if (_outputs.empty() || _outputs.size() > 16 || _max_output_bytes == 0 ||
-        _max_output_bytes > 64ULL * 1024 * 1024) {
+    if (_outputs.empty() || _outputs.size() > tensor_contract_limits::g_max_outputs ||
+        _max_output_bytes == 0 ||
+        _max_output_bytes > tensor_contract_limits::g_max_output_bytes) {
         return {status_code::invalid_argument, "invalid output count or byte budget"};
     }
     std::uint64_t total = 0;
     for (std::size_t index = 0; index < _outputs.size(); ++index) {
         const auto& output = _outputs[index];
-        if (output.name_.empty() || output.name_.size() > 128 ||
+        if (output.name_.empty() ||
+            output.name_.size() > tensor_contract_limits::g_max_name_bytes ||
             output.name_.find('\0') != std::string::npos || output.dimensions_.empty() ||
-            output.dimensions_.size() > 8) {
+            output.dimensions_.size() > tensor_contract_limits::g_max_rank) {
             return {status_code::invalid_argument, "invalid output name or rank"};
         }
         for (std::size_t previous = 0; previous < index; ++previous) {

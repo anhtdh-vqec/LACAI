@@ -49,6 +49,7 @@ struct feature_activation_record {
 
 struct feature_activation_snapshot {
     std::uint64_t feature_catalog_revision_{0};
+    std::uint64_t model_catalog_revision_{0};
     std::uint64_t deployment_revision_{0};
     std::uint16_t association_count_{0};
     std::uint16_t ready_count_{0};

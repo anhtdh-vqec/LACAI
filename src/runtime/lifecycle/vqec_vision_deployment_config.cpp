@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include <limits>
+#include <new>
 #include <set>
 #include <utility>
 
@@ -68,8 +69,8 @@ status vqec_vision_ai_life_dpcfg_load(
     std::istream& _stream, deployment_config& _config,
     std::uint64_t& _declared_resident_bytes) {
     std::string document;
-    document.reserve(4096);
     try {
+        document.reserve(4096);
         char byte = 0;
         while (_stream.get(byte)) {
             if (document.size() == deployment_document_limits::g_max_document_bytes) {
@@ -81,6 +82,8 @@ status vqec_vision_ai_life_dpcfg_load(
         if (!_stream.eof() || _stream.bad()) {
             return {status_code::io_error, "deployment config stream read failed"};
         }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "deployment config document allocation failed"};
     }
     if (_stream.bad() || (!_stream.eof() && _stream.fail())) {
         return {status_code::io_error, "cannot read deployment config"};
@@ -185,6 +188,8 @@ status vqec_vision_ai_life_dpcfg_load(
         return {status_code::invalid_argument, "invalid deployment config structure or value"};
     } catch (const deployment_json::exception&) {
         return {status_code::invalid_argument, "malformed deployment config JSON"};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "deployment config parse allocation failed"};
     }
 }
 

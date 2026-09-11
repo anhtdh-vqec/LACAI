@@ -45,6 +45,16 @@ bool vqec_vision_ai_core_mdcat_is_rate_at_most(
         static_cast<std::uint64_t>(_right_numerator) * _left_denominator;
 }
 
+// Minimum bytes for a batch-1 RGB input at the declared tensor geometry. The caller
+// must have validated the tensor dimensions first; the product then cannot overflow.
+std::uint64_t vqec_vision_ai_core_mdcat_minimum_input_bytes(
+    const model_catalog_entry& _model) noexcept {
+    const std::uint64_t element_bytes =
+        _model.input_type_ == tensor_type::float32 ? sizeof(float) : sizeof(std::uint8_t);
+    return static_cast<std::uint64_t>(_model.tensor_width_) * _model.tensor_height_ * 3 *
+        element_bytes;
+}
+
 status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _model) {
     const auto& constraints = _model.source_constraints_;
     const auto& resources = _model.resources_;
@@ -119,11 +129,8 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
         resources.max_concurrent_sources_ > deployment_limits::g_max_sources) {
         return {status_code::invalid_argument, "invalid model resource profile"};
     }
-    const std::uint64_t element_bytes =
-        _model.input_type_ == tensor_type::float32 ? sizeof(float) : sizeof(std::uint8_t);
-    const auto minimum_input_bytes = static_cast<std::uint64_t>(_model.tensor_width_) *
-        _model.tensor_height_ * 3 * element_bytes;
-    if (resources.max_tensor_bytes_per_source_ < minimum_input_bytes) {
+    if (resources.max_tensor_bytes_per_source_ <
+        vqec_vision_ai_core_mdcat_minimum_input_bytes(_model)) {
         return {status_code::resource_exhausted,
                 "model tensor budget cannot hold the declared input"};
     }
@@ -284,6 +291,14 @@ status vqec_vision_ai_core_mdcat_validate_model_outputs(
     if (required_bytes > _model.resources_.max_tensor_bytes_per_source_) {
         return {status_code::resource_exhausted,
                 "model outputs exceed declared per-source tensor budget"};
+    }
+    // The per-source tensor envelope must simultaneously hold the declared input and
+    // the resolved outputs; checking each independently would allow a joint overrun.
+    const auto minimum_input_bytes = vqec_vision_ai_core_mdcat_minimum_input_bytes(_model);
+    if (minimum_input_bytes >
+        _model.resources_.max_tensor_bytes_per_source_ - required_bytes) {
+        return {status_code::resource_exhausted,
+                "model input and outputs exceed declared per-source tensor budget"};
     }
     _required_output_bytes = required_bytes;
     return {};

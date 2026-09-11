@@ -1,6 +1,8 @@
 #include "vqec_vision_output_manifest.hpp"
 
+#include <cstddef>
 #include <initializer_list>
+#include <new>
 #include <set>
 #include <utility>
 
@@ -13,6 +15,9 @@ namespace {
 
 using manifest_json = nlohmann::json;
 struct invalid_manifest {};
+
+constexpr std::size_t g_max_manifest_document_bytes = 64U * 1024U;
+constexpr int g_max_manifest_json_depth = 16;
 
 void vqec_vision_ai_mreg_otman_require_keys(
     const manifest_json& _object, std::initializer_list<const char*> _keys) {
@@ -57,11 +62,11 @@ std::string vqec_vision_ai_mreg_otman_read_text(const manifest_json& _value, boo
 
 status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outputs& _manifest) {
     std::string document;
-    document.reserve(4096);
     try {
+        document.reserve(4096);
         char byte = 0;
         while (_stream.get(byte)) {
-            if (document.size() == 65536) {
+            if (document.size() == g_max_manifest_document_bytes) {
                 return {status_code::resource_exhausted, "manifest exceeds 64 KiB"};
             }
             document.push_back(byte);
@@ -70,6 +75,8 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
         if (!_stream.eof() || _stream.bad()) {
             return {status_code::io_error, "manifest stream read failed"};
         }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "manifest document allocation failed"};
     }
     if (_stream.bad() || (!_stream.eof() && _stream.fail())) {
         return {status_code::io_error, "cannot read model output manifest"};
@@ -78,7 +85,7 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
         std::vector<std::set<std::string>> object_keys;
         const auto callback = [&](int _depth, manifest_json::parse_event_t _event,
                                   manifest_json& _value) {
-            if (_depth > 16) {
+            if (_depth > g_max_manifest_json_depth) {
                 throw invalid_manifest{};
             }
             if (_event == manifest_json::parse_event_t::object_start) {
@@ -115,7 +122,8 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
         candidate.max_output_bytes_ =
             vqec_vision_ai_mreg_otman_read_uint(root.at("max_output_bytes"));
         const auto& outputs = root.at("outputs");
-        if (!outputs.is_array() || outputs.empty() || outputs.size() > 16) {
+        if (!outputs.is_array() || outputs.empty() ||
+            outputs.size() > tensor_contract_limits::g_max_outputs) {
             throw invalid_manifest{};
         }
         for (const auto& output : outputs) {
@@ -126,7 +134,8 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
             float_tensor_spec spec;
             spec.name_ = vqec_vision_ai_mreg_otman_read_text(output.at("name"), false);
             const auto& shape = output.at("shape");
-            if (!shape.is_array() || shape.empty() || shape.size() > 8) {
+            if (!shape.is_array() || shape.empty() ||
+                shape.size() > tensor_contract_limits::g_max_rank) {
                 throw invalid_manifest{};
             }
             for (const auto& axis : shape) {
@@ -150,6 +159,8 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
         return {status_code::invalid_argument, "invalid manifest structure or value"};
     } catch (const manifest_json::exception&) {
         return {status_code::invalid_argument, "malformed model output manifest JSON"};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "manifest parse allocation failed"};
     }
 }
 
