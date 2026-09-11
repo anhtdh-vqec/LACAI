@@ -144,8 +144,9 @@ selecting an admitted path.
    Perception/features and alternate vendor directories currently contain READMEs only;
    the service harness registers development fixtures, not usecase packages.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop
-   and safe ring startup/recovery to complete preview end to end. Feature events are taken
-   by the executor but not yet dispatched.
+   and safe ring startup/recovery to complete preview end to end. Feature events can be
+   authorized and delivered to a bound sink; bounded durable queue/retry and FW transport
+   remain.
 4. Full feature/entitlement manager and legacy AI D-Bus compatibility server. A service
    harness now exists, but process supervision, packaging/update integration,
    observability and the compatibility server remain.

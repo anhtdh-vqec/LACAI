@@ -92,6 +92,8 @@ it simply does not join across models yet.
 - No authenticated catalog/artifact resolution, signature or TOCTOU protection; loaders
   validate structure only.
 - The harness assumes one uniform source geometry for its fixture decoder.
-- No output/overlay/encoder path is driven yet; feature events are taken but not
-  dispatched, and the encoded sink is not attached.
+- Feature events can be authorized and delivered through an optional bound output gate
+  and feature-event sink; the reference sink is a development placeholder, not FW
+  transport, durability, dedup or retry. No overlay/encoder path is driven yet and the
+  encoded sink is not attached.
 - No service threads, signals beyond SIGINT/SIGTERM, or supervision/IPK packaging.
