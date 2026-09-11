@@ -1,5 +1,4 @@
-/build/
-/build-esdk/
+/build*/
 /out/
 /dist/
 /artifacts/
