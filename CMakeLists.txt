@@ -14,6 +14,7 @@ option(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG "Enable bounded JSON deployment c
 option(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG "Enable bounded JSON feature catalog loading" OFF)
 option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata checker" OFF)
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
+option(VQEC_VISION_AI_WERROR "Treat project warnings as errors" ON)
 
 if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK AND NOT VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
     message(FATAL_ERROR "Manifest checker requires VQEC_VISION_AI_ENABLE_MODEL_MANIFEST")
@@ -737,50 +738,27 @@ if(BUILD_TESTING)
     endif()
 endif()
 
-foreach(project_target vqec_vision_ai_core vqec_vision_ai_qualcomm
-        vqec_vision_ai_feature_catalog_test
-        vqec_vision_ai_feature_runtime vqec_vision_ai_feature_processor_registry_test
-        vqec_vision_ai_feature_activation_manager_test
-        vqec_vision_ai_tracker_registry_test
-        vqec_vision_ai_feature_catalog_config vqec_vision_ai_feature_catalog_loader_test
-        vqec_vision_ai_source_supervisor vqec_vision_ai_multi_source_supervisor_test
-        vqec_vision_ai_scheduler vqec_vision_ai_model_cadence_test
-        vqec_vision_ai_multi_model_pump vqec_vision_ai_multi_model_pump_test
-        vqec_vision_ai_multi_model_result_router vqec_vision_ai_multi_model_result_router_test
-        vqec_vision_ai_source_perception_factory_test
-        vqec_vision_ai_multi_model_feature_pipeline
-        vqec_vision_ai_multi_model_feature_pipeline_test
-        vqec_vision_ai_perception_result_stage vqec_vision_ai_perception_result_stage_test
-        vqec_vision_ai_perception_stage_factory_test
-        vqec_vision_ai_multi_model_session vqec_vision_ai_multi_model_session_test
-        vqec_vision_ai_inference_plan_test vqec_vision_ai_camera_wire
-        vqec_vision_ai_camera vqec_vision_ai_legacy_wire_test
-        vqec_vision_ai_camera_receiver_test vqec_vision_ai_raw_source_resolver_test
-        vqec_vision_ai_camera_control vqec_vision_ai_camera_dbus vqec_vision_ai_camera_control_test
-        vqec_vision_ai_gst_frame_bridge vqec_vision_ai_dmabuf_bridge_test
-        vqec_vision_ai_submission_window_test vqec_vision_ai_plugin_graph_test
-        vqec_vision_ai_tensor_output_test vqec_vision_ai_source_binding_test
-        vqec_vision_ai_frame_submission_test vqec_vision_ai_graph_fixture
-        vqec_vision_ai_graph_lifecycle_test vqec_vision_ai_camera_graph_pump
-        vqec_vision_ai_camera_graph_pump_test vqec_vision_ai_camera_session_test
-        vqec_vision_ai_tensor_contract_test vqec_vision_ai_model_manifest
-        vqec_vision_ai_output_manifest_test vqec_vision_ai_manifest_check
-        vqec_vision_ai_artifact_digest vqec_vision_ai_artifact_digest_test
-        vqec_vision_ai_output_gate_test vqec_vision_ai_preview_contract_test
-        vqec_vision_ai_preview_surface_test vqec_vision_ai_encoder_window_test
-        vqec_vision_ai_preview_pool_test vqec_vision_ai_encoder_preparation
-        vqec_vision_ai_encoder_preparation_test vqec_vision_ai_encoded_output_test
-        vqec_vision_ai_encoded_dispatch vqec_vision_ai_encoded_dispatch_test
-        vqec_vision_ai_fw_ring vqec_vision_ai_ring_sink_test
-        vqec_vision_ai_deployment_config vqec_vision_ai_deployment_config_test
-        vqec_vision_ai_deployment_loader_test vqec_vision_ai_model_catalog_test
-        vqec_vision_ai_model_catalog_config vqec_vision_ai_model_catalog_loader_test
-        vqec_vision_ai_admission vqec_vision_ai_activation_snapshot_test)
-    if(TARGET ${project_target})
+# Apply project warning policy to every build-system target defined in this
+# directory instead of a hand-maintained list, so a new target cannot silently
+# miss -Wall/-Wextra/-Wpedantic or -Werror. Imported/vendor targets are excluded.
+get_property(_vqec_vision_ai_directory_targets DIRECTORY
+    PROPERTY BUILDSYSTEM_TARGETS)
+foreach(project_target IN LISTS _vqec_vision_ai_directory_targets)
+    get_target_property(_vqec_vision_ai_target_type ${project_target} TYPE)
+    if(_vqec_vision_ai_target_type MATCHES
+       "^(STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|EXECUTABLE|OBJECT_LIBRARY)$")
         target_compile_options(${project_target} PRIVATE
             "$<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>"
             "$<$<CXX_COMPILER_ID:MSVC>:/W4>")
+        if(VQEC_VISION_AI_WERROR)
+            target_compile_options(${project_target} PRIVATE
+                "$<$<CXX_COMPILER_ID:GNU,Clang>:-Werror>"
+                "$<$<CXX_COMPILER_ID:MSVC>:/WX>")
+        endif()
+        set_target_properties(${project_target} PROPERTIES CXX_EXTENSIONS OFF)
     endif()
 endforeach()
+unset(_vqec_vision_ai_directory_targets)
+unset(_vqec_vision_ai_target_type)
 
 # No camera service executable, installation/IPK target or implicit board execution yet.
