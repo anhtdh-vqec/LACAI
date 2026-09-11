@@ -4,6 +4,7 @@
 #include <limits>
 #include <new>
 #include <utility>
+#include <vector>
 
 namespace vqec::vision::ai {
 namespace {
@@ -117,6 +118,68 @@ status vqec_vision_ai_appl_rcfac_compose_model(
     _perception.resolved_output_manifest_ref_ =
         _activation.resolved_output_manifest_ref_;
     _perception.outputs_ = _activation.outputs_;
+    return {};
+}
+
+// Rejects a feature activation descriptor that does not pin the same revisions or that
+// aliases a fan-out/stage across sources or model slots. A stage carries per-source
+// temporal state, so sharing it across bindings would silently mix two sources.
+status vqec_vision_ai_appl_rcfac_validate_feature_bindings(
+    const runtime_feature_activation& _features,
+    const std::array<std::unique_ptr<source_perception_bundle>,
+        deployment_limits::g_max_sources>& _perceptions,
+    std::uint16_t _source_count, std::uint64_t _deployment_revision,
+    std::uint64_t _catalog_revision) {
+    if (_features.source_count_ != _source_count ||
+        _features.deployment_revision_ != _deployment_revision ||
+        _features.catalog_revision_ != _catalog_revision) {
+        return {status_code::invalid_argument,
+            "feature activation descriptor does not match composition revisions"};
+    }
+    try {
+        std::vector<feature_fanout*> seen_fanouts;
+        std::vector<feature_stage*> seen_stages;
+        for (std::uint16_t source_slot = 0; source_slot < _source_count; ++source_slot) {
+            if (_perceptions[source_slot] == nullptr) {
+                return {status_code::invalid_state, "feature binding has no perception bundle"};
+            }
+            const auto model_count = _perceptions[source_slot]->
+                vqec_vision_ai_appl_spfac_get_model_count();
+            for (std::uint16_t model_slot = 0; model_slot < model_count; ++model_slot) {
+                auto* fanout = _features.sources_[source_slot].fanouts_[model_slot];
+                if (fanout == nullptr) {
+                    continue;
+                }
+                for (const auto* prior : seen_fanouts) {
+                    if (prior == fanout) {
+                        return {status_code::invalid_argument,
+                            "feature fan-out is bound to more than one source/model slot"};
+                    }
+                }
+                seen_fanouts.push_back(fanout);
+                const auto stage_count = fanout->vqec_vision_ai_appl_ftfan_get_stage_count();
+                if (stage_count == 0 ||
+                    stage_count > feature_fanout_limits::g_max_feature_stages) {
+                    return {status_code::invalid_state, "feature fan-out is not configured"};
+                }
+                for (std::uint16_t ordinal = 0; ordinal < stage_count; ++ordinal) {
+                    auto* stage = fanout->vqec_vision_ai_appl_ftfan_get_stage(ordinal);
+                    if (stage == nullptr) {
+                        return {status_code::invalid_state, "feature fan-out has a null stage"};
+                    }
+                    for (const auto* prior : seen_stages) {
+                        if (prior == stage) {
+                            return {status_code::invalid_argument,
+                                "feature stage is shared across source/model bindings"};
+                        }
+                    }
+                    seen_stages.push_back(stage);
+                }
+            }
+        }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "feature binding validation allocation failed"};
+    }
     return {};
 }
 
@@ -268,6 +331,16 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             candidate->sessions_[source_slot] = std::make_unique<multi_model_session>(
                 *_activation.sources_[source_slot].source_,
                 std::move(session_configs[source_slot]));
+        }
+
+        if (_features != nullptr) {
+            const auto feature_bindings =
+                vqec_vision_ai_appl_rcfac_validate_feature_bindings(
+                    *_features, candidate->perceptions_, _activation.source_count_,
+                    _deployment.revision_, _catalog.revision_);
+            if (feature_bindings.code_ != status_code::ok) {
+                return feature_bindings;
+            }
         }
 
         // One perception/feature pipeline per source. Feature fan-out wiring is optional;

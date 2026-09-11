@@ -50,9 +50,14 @@ struct runtime_source_feature_activation {
     std::array<feature_fanout*, deployment_limits::g_max_models_per_source> fanouts_{};
 };
 
+// Binding descriptor: pins the feature wiring to the exact deployment and catalog
+// revisions it was activated against, so it cannot be applied to another composition.
 struct runtime_feature_activation {
     std::array<runtime_source_feature_activation, deployment_limits::g_max_sources>
         sources_{};
+    std::uint64_t deployment_revision_{0};
+    std::uint64_t catalog_revision_{0};
+    std::uint16_t source_count_{0};
 };
 
 // Owns neutral coordinating objects only. RAW sources, inference graphs, decoder

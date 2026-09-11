@@ -395,6 +395,9 @@ int main() {
     assert(stages[0] != nullptr && stages[1] != nullptr);
     assert(fanout.vqec_vision_ai_appl_ftfan_configure(stages, 2).code_ == status_code::ok);
     runtime_feature_activation feature_wiring;
+    feature_wiring.deployment_revision_ = deployment.revision_;
+    feature_wiring.catalog_revision_ = catalog.revision_;
+    feature_wiring.source_count_ = 1;
     feature_wiring.sources_[0].fanouts_[0] = &fanout;
 
     output_gate output_policy_gate;
@@ -407,6 +410,16 @@ int main() {
     assert(output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(
                policy, 0).code_ == status_code::ok);
     reference_event_sink event_sink;
+
+    // B03: a feature descriptor pinned to other revisions must be rejected before any
+    // owner is created.
+    auto stale_wiring = feature_wiring;
+    stale_wiring.catalog_revision_ += 1;
+    std::unique_ptr<runtime_composition_bundle> rejected;
+    assert(vqec_vision_ai_appl_rcfac_create_bundle(deployment, catalog, activation,
+               decoders, trackers, rejected, &stale_wiring).code_ ==
+           status_code::invalid_argument);
+    assert(rejected == nullptr);
 
     std::unique_ptr<runtime_composition_bundle> bundle;
     assert(vqec_vision_ai_appl_rcfac_create_bundle(deployment, catalog, activation,

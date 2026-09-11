@@ -453,6 +453,9 @@ int main(int _argc, char** _argv) {
         deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source>
         fanouts{};
     runtime_feature_activation feature_wiring;
+    feature_wiring.deployment_revision_ = deployment.revision_;
+    feature_wiring.catalog_revision_ = catalog.revision_;
+    feature_wiring.source_count_ = activation.source_count_;
     bool has_feature_wiring = false;
     if (!features.features_.empty()) {
         const auto configured = feature_manager.vqec_vision_ai_ftmgr_famgr_configure(
