@@ -87,7 +87,8 @@ board acceptance.
 | A06 | Đóng | B04: guard replace bundle active; active-replacement rejection test |
 | A07 | Một phần | B06: `--mode production` fail-closed, steady-clock, first-error exit; readiness/registration thật còn lại |
 | A11 | Một phần | B05: đặt tên literal retention/tensor + service harness; inventory/schema policy đầy đủ còn lại |
-| A08–A10, A12–A15 | Chưa đóng | Thuộc G2/G3: arena xuyên chain, native dtype, board trace, resolver/authenticity, renderer/encoder/ring, temporal join, CI matrix |
+| A12 | Một phần | B07 (device-free): trusted artifact resolver, containment/allowed-root, fd-bound SHA-256, negative tests; signature/provenance store và platform owner thật còn lại |
+| A08–A10, A13–A15 | Chưa đóng | Thuộc G2/G3: arena xuyên chain, native dtype, board trace, renderer/encoder/ring, FW event transport, temporal join, CI matrix |
 
 Chưa đóng G1 “owner review” ở nghĩa người; agent không tự ký thay lead/owner. Xem commit
 `0012760`, `82387e6`, `9356ff3`, `77356fd`, `3aa17bd`, `060ba17`.
