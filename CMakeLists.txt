@@ -240,7 +240,8 @@ if(UNIX)
     add_library(vqec_vision_ai_reference STATIC
         src/adapters/reference/vqec_vision_reference_source.cpp
         src/adapters/reference/vqec_vision_reference_graph.cpp
-        src/adapters/reference/vqec_vision_reference_sink.cpp)
+        src/adapters/reference/vqec_vision_reference_sink.cpp
+        src/adapters/reference/vqec_vision_reference_processor.cpp)
     target_include_directories(vqec_vision_ai_reference PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
     target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
@@ -854,6 +855,14 @@ if(BUILD_TESTING)
         set_target_properties(vqec_vision_ai_reference_graph_test
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME reference_graph_dtypes COMMAND vqec_vision_ai_reference_graph_test)
+        add_executable(vqec_vision_ai_reference_processor_test
+            tests/unit/vqec_vision_reference_processor_test.cpp)
+        target_link_libraries(vqec_vision_ai_reference_processor_test
+            PRIVATE vqec_vision_ai_reference)
+        set_target_properties(vqec_vision_ai_reference_processor_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME reference_processor_preprocess
+            COMMAND vqec_vision_ai_reference_processor_test)
     endif()
     if(TARGET vqec_ai_vision_applications)
         add_test(NAME service_executable_smoke COMMAND vqec_ai_vision_applications
