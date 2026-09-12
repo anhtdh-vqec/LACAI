@@ -1,10 +1,14 @@
 # Qualcomm adapter — implementation blueprint
 
-Status: original direct-SDK blueprint; see ADR 0002 for current plugin-backed implementation.
-Baseline user-confirmed: QSC6490, Qualcomm Linux 1.8. Sysroot is not required to write code.
-Historical direct-SDK blueprint below is not current implementation status.
-Current plugin graph includes submission/result/drain source; runnable service and
-preview output are missing. See implementation_status.md and fw_release_compatibility.md.
+Status: original direct-SDK blueprint. The current adapter provides two neutral-port
+backends: the released plugin graph ([ADR 0002](../adr/0002_qualcomm_plugin_backend.md))
+and the optional LACAI-owned QNN engine ([ADR 0003](../adr/0003_owned_qnn_engine.md),
+[execution policy](qualcomm_execution_policy.md)). They share the same
+`inference_graph_port`, scheduling and ownership; backend choice is policy/capability, not a
+model-name branch. Baseline user-confirmed: QSC6490, Qualcomm Linux 1.8. Sysroot is not
+required to write code. Historical direct-SDK blueprint below is not current implementation
+status. Runnable production service, live board qualification and preview output are
+missing. See implementation_status.md and fw_release_compatibility.md.
 Preview renderer/encoder must be separate from the inference graph and preserve the
 released H264/ring contract; selecting Codec2 requires board evidence, not just factory availability.
 Read docs/research/qualcomm_plugins_reference.md for all plugin usage details.

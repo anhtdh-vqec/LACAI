@@ -13,26 +13,66 @@ jobs:
         run: bash tools/vqec_vision_check_source_layout.sh
 
   # Target validation requires the approved eSDK and is never faked with a host
-  # compiler. Set the ESDK_ROOT repository variable on a self-hosted linux runner
-  # to enable this job; otherwise it is skipped rather than reported as passing.
-  esdk:
+  # compiler. Set the ESDK_ROOT repository variable on a self-hosted linux runner to
+  # enable these jobs; otherwise they are skipped rather than reported as passing.
+  # See docs/testing/esdk_configuration_matrix.md.
+  esdk-neutral:
     if: ${{ vars.ESDK_ROOT != '' }}
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
+      - name: Configure (neutral)
         run: |
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
-          cmake -S . -B build-ci -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+          cmake -S . -B build-ci-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
             "-DCMAKE_CROSSCOMPILING_EMULATOR=${{ vars.ESDK_ROOT }}/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-      - name: Build
+      - name: Build (neutral)
         run: |
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
-          cmake --build build-ci -j"$(nproc)"
-      - name: Test
+          cmake --build build-ci-neutral -j"$(nproc)"
+      - name: Test (neutral)
         run: |
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
-          ctest --test-dir build-ci --output-on-failure
+          ctest --test-dir build-ci-neutral --output-on-failure
+
+  esdk-expanded:
+    if: ${{ vars.ESDK_ROOT != '' }}
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (expanded)
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          qnn=OFF
+          qairt_arg=""
+          if [ -n "${{ vars.QAIRT_ROOT }}" ]; then
+            qnn=ON
+            qairt_arg="-DVQEC_VISION_AI_QAIRT_ROOT=${{ vars.QAIRT_ROOT }}"
+          fi
+          cmake -S . -B build-ci-expanded -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DVQEC_VISION_AI_ENABLE_CAMERA=ON \
+            -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+            -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON \
+            -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
+            -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
+            -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON \
+            -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
+            -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON \
+            -DVQEC_VISION_AI_BUILD_MANIFEST_CHECK=ON \
+            -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON \
+            -DVQEC_VISION_AI_ENABLE_QNN_ENGINE="$qnn" $qairt_arg \
+            "-DCMAKE_CROSSCOMPILING_EMULATOR=${{ vars.ESDK_ROOT }}/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
+      - name: Build (expanded)
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          cmake --build build-ci-expanded -j"$(nproc)"
+      - name: Test (expanded)
+        run: |
+          set -euo pipefail
+          source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          ctest --test-dir build-ci-expanded --output-on-failure

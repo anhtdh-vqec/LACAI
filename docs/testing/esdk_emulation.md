@@ -1,5 +1,8 @@
 # AArch64 logic tests through eSDK
 
+Configuration/evidence option matrix: [esdk_configuration_matrix.md](esdk_configuration_matrix.md).
+A configuration whose SDK or runner is unavailable is not-run, never green.
+
 The eSDK contains qemu-aarch64 8.2.7 at
 `/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64`.
 It becomes available after sourcing the SDK environment. Checking only the initial

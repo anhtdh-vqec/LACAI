@@ -4,6 +4,16 @@ Current source inventory, checked against `src/`, public headers, test sources a
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
 must not be interpreted as the current missing-feature list.
 
+2026-09-12 update (model-agnostic optimization S01/S04/S08): `qneng_probe_capabilities`
+now advertises only implemented operations (synchronous single job with graph-native
+output; async, shared/registered memory, artifact update and multi-model domains report
+unsupported), tensor identity is resolved and validated once in `prepare` and re-checked
+in full before execute, and unsupported model classes (multi-input, dynamic shape, stateful
+sequence, artifact update, batch) are rejected at activation before hardware acquisition.
+Neutral 53/53 and expanded 71/71 pass under eSDK QEMU. Board qualification, async/shared
+execution and pooled output allocation remain open; see
+[model_agnostic_optimization_plan](../planning/model_agnostic_optimization_plan.md) section 8.
+
 ## Evidence level
 
 Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
