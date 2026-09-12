@@ -1,10 +1,20 @@
 # defaults
 
-Versioned examples, not product defaults. Do not enable purchased features automatically.
-Product profiles and budgets must come from board-qualified workloads.
+Versioned examples, never product defaults. Do not enable purchased features automatically.
 
-`deployment.example.json` demonstrates two identical FW RAW source references. One may
-originate from Camera Service and one from FW-owned RTSP decode on AI Box; AI APP does not
-model that distinction. Its dimensions,
-rates, memory values, model assignments and released `detect0`/`detect1` outputs are
-illustrative; never install it as an effective configuration without product review.
+- **Status:** example only
+- **Rule:** product profiles and budgets must come from board-qualified workloads
+
+## Contents
+
+| File | Purpose |
+|---|---|
+| `deployment.example.json` | Demonstrates two identical FW RAW source references |
+
+The example dimensions, rates, memory values, model assignments and released
+`detect0`/`detect1` outputs are illustrative. Never install it as an effective configuration
+without product review; FW RAW-source resolution and board admission stay outside JSON parsing.
+
+## See also
+
+- [Deployment schema](../schemas/deployment.schema.json), [multi-source configuration](../../docs/architecture/multi_source_configuration.md)

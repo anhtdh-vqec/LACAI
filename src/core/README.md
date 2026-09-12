@@ -1,42 +1,47 @@
-# Core
+# core
 
-The deployment validator provides checked global/per-source memory admission and a
-transactional bind from the deployment-owned source profile into a model-owned inference
-plan. It allocates no pools and proves no board workload. See
-docs/architecture/multi_source_configuration.md.
+Pure, header-visible validation and bookkeeping shared by every adapter and application
+module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenCV types.
 
-vqec_vision_output_generation.cpp issues nonzero monotonic output binding identities
-across sink rebuilds without reset/wrap. One serialized runtime owner must share the
-allocator; it is not a global singleton or cross-process identity service. See
-docs/architecture/output_generation.md. Runtime wiring and executed tests remain pending.
+- **Status:** source-delivered — unit/contract tests run under the eSDK QEMU configuration
+- **Naming registry:** `core` (`dpval`, `infpl`, `subwn`, `srcbd`, `tnctr`, `inexe`, `otgat`, `ftevt`, `ftcat`, `otgen`, `encot`, `pvpol`, `encwn`, `pvsrf`, `pvctr`)
+- **Depends on:** `include/vqec/vision/ai/contracts/`
+- **Used by:** `src/app/`, `src/outputs/`, adapters through neutral contracts
 
-vqec_vision_preview_pool.cpp preallocates bounded CPU surfaces with per-acquisition
-lease ownership; only final reader release allows reuse. No hardware import/rendering
-or encoder integration. See docs/architecture/preview_pool.md; tests are source-only.
+## Responsibility
 
-vqec_vision_encoder_window.cpp adds bounded preview input admission and correlated
-encoder completion bookkeeping using submission_window. It owns no image memory and
-cannot detect hardware completion. See docs/architecture/encoder_window.md.
+- Validate deployment/source/model/feature descriptors and packed NV12 byte counts.
+- Own frame-correlated submission bookkeeping, relative PTS mapping and drain/fault state.
+- Authorize outputs from revision-aware source/feature/attribute scopes.
+- Validate preview overlay, encoded-AU and feature-event envelopes with bounded limits.
 
-vqec_vision_preview_contract.cpp validates neutral overlay metadata and borrowed H264
-AU envelopes against exact frame/geometry, freshness/revision and bounded byte limits.
-No rendering, allocation, authorization decision or H264 syntax decoding is implied.
-See docs/architecture/preview_contract.md. Source-only unit tests run through the approved eSDK configuration; device evidence remains separate.
+## Contents
 
-Implemented source: vqec_vision_inference_plan.cpp provides pure typed plan validation and
-checked packed NV12 byte count for the initial Qualcomm graph slice.
-No GStreamer/vendor/OpenCV dependency. No I/O or model loading in plan validation.
+| Path | Purpose |
+|---|---|
+| `vqec_vision_deployment_config.cpp` | Checked global/per-source memory admission and transactional plan bind |
+| `vqec_vision_inference_plan.cpp` | Pure typed plan validation and checked packed NV12 byte count |
+| `vqec_vision_source_binding.cpp` | Explicit source geometry/color/memory-policy validation |
+| `vqec_vision_tensor_contract.cpp` | Ordered packed output name/shape/byte validation |
+| `vqec_vision_submission_window.cpp` | Fixed-capacity admission, PTS mapping, input/result completion, drain |
+| `vqec_vision_output_gate.cpp` | Revision-aware source/feature/attribute authorization and invalidation |
+| `vqec_vision_feature_event.cpp`, `vqec_vision_feature_catalog.cpp` | Neutral feature event and catalog validation |
+| `vqec_vision_output_generation.cpp` | Nonzero monotonic output binding identities across sink rebuilds |
+| `vqec_vision_encoded_output.cpp` | Immutable owned H264 output behind the neutral `encoded_sink` port |
+| `vqec_vision_preview_pool.cpp`, `vqec_vision_preview_surface.cpp` | Bounded CPU surfaces with per-acquisition lease ownership |
+| `vqec_vision_encoder_window.cpp`, `vqec_vision_encoder_contract.cpp` | Preview input admission and correlated encoder completion bookkeeping |
+| `vqec_vision_preview_contract.cpp` | Overlay metadata and borrowed H264 AU envelope validation |
+| `vqec_vision_inference_execution.cpp` | Inference capability/policy/domain/shared-buffer/model-update validation |
 
-vqec_vision_submission_window.cpp adds fixed-capacity admission bookkeeping, relative PTS mapping,
-and explicit input/result completion plus drain/fault state. It owns no frame resources
-and is now used by the private Qualcomm graph without introducing vendor types into
-core. See docs/architecture/submission_window.md. Hardware validation remains pending.
+## Limits and next work
 
-source_binding validates explicit source geometry/color/memory-policy metadata.
-tensor_contract validates ordered packed FLOAT32 output names/shapes and checked
-total bytes. Both camera_session preflight and plugin_graph use the same output
-validator. No model-kit file parser, signature verification or decoder is implied.
+- Pool, encoder and submission code owns no image memory and cannot detect hardware completion.
+- `output_generation` runtime wiring and executed tests remain pending.
+- Trusted grant verification and serialized output dispatch integration stay outside the pure evaluator.
+- No model-kit parser, signature verification or decoder is implied.
 
-output_gate adds revision-aware source/feature/attribute authorization, validity checks
-and explicit invalidation without touching graph resources. Trusted grant verification
-and serialized output dispatch integration remain outside this pure evaluator.
+## See also
+
+- [Multi-source configuration](../../docs/architecture/multi_source_configuration.md)
+- [Submission window](../../docs/architecture/submission_window.md), [output generation](../../docs/architecture/output_generation.md)
+- [Preview pool](../../docs/architecture/preview_pool.md), [encoder window](../../docs/architecture/encoder_window.md)

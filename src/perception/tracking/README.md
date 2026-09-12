@@ -1,19 +1,33 @@
 # tracking
 
-Per-source tracking state, association and ID continuity; source epoch resets.
+Per-source tracking state, association and ID continuity with explicit source-epoch resets.
 
-`tracker_port` defines the neutral boundary after model decoding. Implementations receive
-explicit monotonic time and source-gap information, return observation batches with track
-IDs and reset state on a new source epoch. Qualcomm/GStreamer types and association
-algorithms stay behind the implementation boundary.
+- **Status:** source-delivered port + registry + coordinator — concrete association missing
+- **Naming registry:** `track` (`trkst`, `trreg`)
+- **Depends on:** neutral `tracker_port`, decoded observation batches
+- **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`
 
-`vqec_vision_tracking_stage` is the serialized portable coordinator. It validates
-detections, resets the tracker on a new source epoch, enforces monotonic process time and
-publishes only validated tracked batches. An ambiguous update failure faults that epoch;
-only a successful reset for a later epoch permits processing to resume.
+## Responsibility
 
-`tracker_registry` resolves an activation-supplied tracker contract to a borrowed
-factory and creates one tracker owner for each source/model binding. It is bounded and
-keeps implementation and vendor choices behind the neutral `tracker_port` boundary;
-composition remains responsible for authenticating the binding and selecting the
-contract.
+- Receive explicit monotonic time and source-gap information from the coordinator.
+- Return observation batches with track IDs and reset state on a new source epoch.
+- Keep association algorithms and vendor choices behind the neutral `tracker_port` boundary.
+- Create exactly one tracker owner per source/model binding from an activation-supplied contract.
+
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `vqec_vision_tracking_stage.cpp` | Serialized coordinator: validation, epoch reset, monotonic time, fault isolation |
+| `vqec_vision_tracker_registry.cpp` | Bounded activation-time mapping from tracker contract to a factory |
+
+## Limits and next work
+
+- Concrete association/tracking implementation and replay qualification remain pending.
+- An ambiguous update failure faults that epoch; only a successful later-epoch reset resumes.
+- Composition owns authenticating the binding and selecting the contract.
+
+## See also
+
+- [Tracking stage](../../../docs/architecture/tracking_stage.md), [tracker registry](../../../docs/architecture/tracker_registry.md)
+- [Tracker port](../../../docs/architecture/tracker_registry.md)

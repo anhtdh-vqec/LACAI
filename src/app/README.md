@@ -1,48 +1,48 @@
 # app
 
-vqec_vision_encoder_preparation.cpp composes portable encoder admission with CPU pool
-acquisition/rollback, cancellation, sealed input handoff, guarded neutral-backend submission
-and combined backend/ledger drain. It is a separate host-compatible target without
-Camera/GStreamer requirements. Concrete hardware encoder and rendering remain missing. See docs/architecture/encoder_preparation.md; the reference harness and contract tests run; production backend tests remain open.
+Application composition: binds admitted sessions, modules and owner factories to the neutral
+ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
-Composition wiring belongs here; no feature rules in main.
+- **Status:** source-delivered — service harness runs device-free under QEMU; production owners and threads missing
+- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `enprp`, `rcfac`)
+- **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
+- **Used by:** `vqec_ai_vision_applications` executable
 
-camera_graph_pump now connects an already-started raw_source_port to a configured,
-running inference_graph_port, arms from the first receiver epoch and polls/submits one
-bounded step at a time. No thread, per-frame RPC or executable service is added.
-See docs/architecture/camera_graph_pump.md for supervisor ownership and stop ordering.
-camera_session now drives one acquisition through validation/start/pump/drain/release
-with explicit startup/stop deadlines and uncertain-RPC reconciliation. It borrows owners.
-multi_source_supervisor now binds exactly 1..16 already-composed source_session_port owners and
-advances one non-blocking source slot per call with bounded round-robin selection. A source
-fault is reported and drained without stopping healthy slots; a global stop is latched for
-all slots. The supervisor borrows sessions exclusively and performs no destructor shutdown,
-thread creation, FW RPC construction, source resolution or BSP reset. See
-multi_source_supervisor.md, camera_session.md and multi_source_configuration.md in
-docs/architecture. Bounded FW RAW-reference resolution exists in the camera adapter. Authenticated registry
-RPC, transactional owner construction, service main and full entitlement remain missing. camera_session implements this port for one model. The separate portable
-multi_model_pump now receives one frame, applies fixed-capacity cadence and shares the owner
-with every accepting graph. It does not own graph/FW lifecycle; a multi-model source session
-now supplies that orchestration: all graphs are preflighted before one FW acquisition,
-started by stable model slot, then drained/unloaded before source release. See
-docs/architecture/multi_model_pump.md and docs/architecture/multi_model_session.md.
+## Responsibility
 
-`vqec_vision_perception_result_stage` reconstructs exact source frame identity from a
-completed submission ticket, validates tensor pipeline PTS, then composes the configured
-decoder and tracker transactionally. `vqec_vision_multi_model_result_router` selects one
-such stage by immutable model slot, keeps independent epoch/frame/PTS progress per slot and
-derives explicit tracker gaps without assuming round-robin results describe the same frame.
-`vqec_vision_perception_stage_factory` now constructs one owned decoder/tracker/result
-bundle per source/model binding from runtime registries. Decoder implementations remain
-borrowed; the bundle owns its tracker and all stage objects in safe destruction order.
-`vqec_vision_multi_model_feature_pipeline` then invokes only the optional feature fan-out
-bound to that result's model slot. Features that require several models still need an
-explicit bounded temporal join.
+- Own one acquisition lifecycle through validate/start/pump/drain/release with explicit deadlines.
+- Fan one frame owner out to every due model graph and route results by stable model slot.
+- Reconstruct source identity from retained submission tickets, then compose decode/track/feature.
+- Provide the take-once delivery slot so the executor cannot run ahead of an unconsumed result.
 
-`vqec_vision_feature_fanout` advances a fixed activation-time list of feature stages from
-one tracked batch. It records numeric per-slot success/failure and continues healthy
-features after a peer faults; output delivery remains separate.
+## Contents
 
-`application_composition` binds admitted sessions and drives the supervisor with a
-one-result delivery slot. The executor must call `take_result` before further progress,
-including drain. See docs/architecture/application_composition.md.
+| Path | Purpose |
+|---|---|
+| `vqec_vision_camera_graph_pump.cpp` | Connects a started `raw_source_port` to a running `inference_graph_port`, one bounded step per call |
+| `vqec_vision_camera_session.cpp` | One-model validate/start/drain/release lifecycle with RPC reconciliation |
+| `vqec_vision_multi_model_pump.cpp` | Receive once, cadence-select, share owner, submit per binding (raw-frame or tensor) |
+| `vqec_vision_multi_model_session.cpp` | Preflight all graphs, one FW acquisition, partial-start rollback, all-graph drain |
+| `vqec_vision_multi_source_supervisor.cpp` | Bind 1..16 borrowed sessions, round-robin progress, per-source fault isolation, latched stop |
+| `vqec_vision_perception_result_stage.cpp` | Correlate tensor PTS with retained source identity, decode + track transactionally |
+| `vqec_vision_multi_model_result_router.cpp` | Select a stage by immutable model slot, keep independent per-slot progress |
+| `vqec_vision_perception_stage_factory.cpp`, `vqec_vision_source_perception_factory.cpp` | Construct owned decoder/tracker/result bundles per source/model binding |
+| `vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Stable-slot feature fan-out with per-feature isolation; route results to direct consumers |
+| `vqec_vision_application_composition.cpp` | Bind admitted sessions and drive the supervisor with a one-result slot |
+| `vqec_vision_runtime_composition_factory.cpp` | Build the admission snapshot and compose catalog-bound sessions/perception groups |
+| `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
+| `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; `--mode harness` runs, `--mode production` fails closed |
+| `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
+
+## Limits and next work
+
+- Decoder implementations are borrowed; tracker ownership is per binding.
+- Multi-model features still need an explicit bounded temporal join.
+- Authenticated FW registry RPC, trusted artifact resolution and production platform owners remain missing.
+- No thread, per-frame RPC or hardware completion is added here; production backend tests are open.
+
+## See also
+
+- [Camera graph pump](../../docs/architecture/camera_graph_pump.md), [multi-model pump](../../docs/architecture/multi_model_pump.md)
+- [Multi-model session](../../docs/architecture/multi_model_session.md), [multi-source supervisor](../../docs/architecture/multi_source_supervisor.md)
+- [Runtime executor](../../docs/architecture/runtime_executor.md), [application composition](../../docs/architecture/application_composition.md)

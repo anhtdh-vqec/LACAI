@@ -1,33 +1,44 @@
 # camera
 
-Legacy third-stream media receiver source is now present (not built or board-tested).
+Private FW RAW-source adapter: legacy third-stream media receiver, lease control and
+activation-time RAW-reference resolution. Implements the neutral `raw_source_port` without
+leaking Camera Service wire or product-origin types into application code.
 
-- legacy_wire: portable native-endian 104-byte decoder with strict NV12 view validation;
-  cold-path limits can be composed from a validated FW RAW deployment source. The released
-  AI Camera binding is `third`; AI Box must expose the same consumer semantics after FW decode.
-- frame_source: optional Linux SOCK_SEQPACKET/SCM_RIGHTS receiver with peer UID check.
-- received_frame: shared completion ownership; final owner ACKs on the original session.
-- camera_control: Start/Stop lease state machine with ambiguous-outcome reconciliation.
-- dbus_rpc: optional private GIO binding for the current FW string-valued a{sv} contract.
-- source_lifecycle: combined acquisition/connect/receive/drain/release for one cycle.
-- raw_source_resolver: bounded activation-time mapping from opaque `raw_source_ref` to
-  the exact control identity/socket/producer/ABI route, with no Camera/Box branch.
-- src/app/camera_graph_pump connects this receiver to the Qualcomm graph while keeping
-  this camera adapter free of GStreamer dependencies. No live FW inference run yet.
+- **Status:** source-delivered — not board-qualified; no live FW inference run yet
+- **Naming registry:** `camer` (`lwire`, `frsrc`, `cctrl`, `cmrpc`, `dbrpc`, `srclc`, `rsrsv`, `cmpro`)
+- **Depends on:** neutral `raw_source_port` and core source-binding validation
+- **Used by:** `src/app/camera_graph_pump`, `camera_session`, `multi_source_supervisor`
 
-Read [combined lifecycle](../../../docs/architecture/camera_source_lifecycle.md).
-Stop is explicit and returns pending while frame readers remain. A stopped lifecycle
-is terminal; the supervisor supplies fresh request IDs for the next acquisition.
+## Responsibility
 
-Read [control client contract](../../../docs/architecture/camera_control_client.md).
-Build option VQEC_VISION_AI_ENABLE_CAMERA_DBUS enables the GIO transport independently
-of the Linux media receiver. Pure state-machine tests do not require GIO or a real bus.
+- Decode the released 104-byte native-endian frame header with strict NV12 view validation.
+- Receive frames over SOCK_SEQPACKET/SCM_RIGHTS with a peer UID check and session-owned ACK.
+- Drive Start/Stop lease reconciliation, combined acquisition lifecycle and source release.
+- Map an opaque `raw_source_ref` to the exact control identity/socket/producer/ABI route
+  without a Camera/Box branch.
 
-Read [implementation boundary](../../../docs/architecture/camera_legacy_adapter.md)
-and [FW baseline](../../../docs/contracts/fw_camera_integration_requirements.md).
-Caller must retain every frame owner until hardware completion, acquire the camera
-lease before connect and release it only after all readers/sessions drain.
-The process-level 1..16-source supervisor advances one source session per bounded
-round-robin call; one source lifecycle must be shared by compatible model/feature
-consumers rather than recreated per consumer. See
-[RAW-source resolution](../../../docs/architecture/raw_source_resolution.md).
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `vqec_vision_legacy_wire.cpp` | Portable 104-byte decoder with NV12 view validation |
+| `vqec_vision_frame_source.cpp` | Optional Linux receiver with peer UID check |
+| `vqec_vision_received_frame` (in frame source) | Shared completion ownership; final owner ACKs on the original session |
+| `vqec_vision_camera_control.cpp`, `vqec_vision_camera_rpc.hpp` | Start/Stop lease state machine with ambiguous-outcome reconciliation |
+| `vqec_vision_dbus_rpc.cpp` | Optional private GIO binding for the current FW `a{sv}` contract |
+| `vqec_vision_source_lifecycle.cpp` | Acquire/connect/receive/drain/release for one cycle |
+| `vqec_vision_raw_source_resolver.cpp` | Bounded activation-time RAW-reference resolution |
+
+## Limits and next work
+
+- Caller must retain every frame owner until hardware completion, acquire the lease before
+  connect and release it only after all readers/sessions drain.
+- A stopped lifecycle is terminal; the supervisor supplies fresh request IDs.
+- Authenticated registry RPC and live transport validation remain open.
+- One lifecycle is shared by compatible consumers; do not recreate it per model/feature.
+
+## See also
+
+- [Camera source lifecycle](../../../docs/architecture/camera_source_lifecycle.md), [control client](../../../docs/architecture/camera_control_client.md)
+- [Legacy adapter boundary](../../../docs/architecture/camera_legacy_adapter.md), [RAW-source resolution](../../../docs/architecture/raw_source_resolution.md)
+- [RAW-source port](../../../docs/architecture/raw_source_port.md), [FW camera baseline](../../../docs/contracts/fw_camera_integration_requirements.md)

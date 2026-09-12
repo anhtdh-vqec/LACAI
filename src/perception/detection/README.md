@@ -1,30 +1,37 @@
 # detection
 
-`model_decoder_port` now defines the neutral boundary for model-specific tensor decoding.
-It validates the catalog/output identity and decodes one owned tensor result into a bounded
-`observation_batch` tied to the expected frame key. Qualcomm/GStreamer types and model
-algorithms stay outside this contract. Concrete detector decoders, geometry/NMS semantics,
-and replay qualification remain unimplemented; portable tracking/feature boundaries are
-available separately.
+Neutral model-decoding boundary from owned tensor results to tracked observations. Keeps
+model algorithms and vendor types out of `src/core` and `src/app`.
 
-`model_decode_stage` is the first portable consumer of that boundary. It decodes into a
-temporary batch, validates frame identity/geometry and observation limits, then publishes
-the batch atomically. A decoder error or invalid observation never overwrites the previous
-published batch.
-Decoder exceptions are converted to `io_error`, and composition can verify that the
-stage's configured geometry matches its source activation before processing results.
+- **Status:** source-delivered contract + registry — concrete detector decoders missing
+- **Naming registry:** `detec` (`mdstg`, `mdreg`, `tnrd`)
+- **Depends on:** `model_decoder_port`, output-manifest identity, neutral observation contract
+- **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`
 
-`model_decoder_registry` binds the catalog's immutable `decoder_contract` to a
-non-owning decoder implementation during activation. It has bounded capacity,
-rejects duplicate/invalid contracts and returns `unsupported` for an unknown
-contract; it never constructs a decoder or silently selects a fallback.
-It can also validate a parsed output manifest against the selected catalog identity
-and invoke the registered decoder's own manifest validation before activation.
+## Responsibility
 
-`tensor_reader` provides bounded name lookup and manifest shape/value-count checks for
-decoder implementations. It performs no model-specific postprocess and does not expose
-Qualcomm or GStreamer types.
+- Validate catalog/output identity and decode one owned tensor result into a bounded `observation_batch`.
+- Publish a decoded batch atomically; a decoder error or invalid observation never overwrites
+  the previous published batch.
+- Bind a catalog `decoder_contract` to a non-owning decoder at activation and reject unknown contracts.
+- Provide bounded tensor lookup and manifest shape/value-count checks for decoders.
 
-Decoder registry activation validation contains package exceptions: allocation failure
-returns resource_exhausted, other exceptions return io_error. Registrations remain
-unchanged. This callback is validation-only and must not mutate live decoder state.
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `vqec_vision_model_decode_stage.cpp` | Transactional decode: temporary batch, identity/geometry/limit checks, atomic publish |
+| `vqec_vision_model_decoder_registry.cpp` | Bounded contract-to-decoder mapping; validates output-manifest identity |
+| `vqec_vision_tensor_reader.cpp` | Bounded name lookup and manifest shape/value-count validation |
+
+## Limits and next work
+
+- Concrete detector geometry/NMS semantics and model implementations remain unimplemented.
+- Registry activation validation is validation-only and must not mutate live decoder state.
+- Decoder exceptions are contained (`resource_exhausted`/`io_error`) without changing registrations.
+
+## See also
+
+- [Perception result stage](../../../docs/architecture/perception_result_stage.md)
+- [Model output manifest](../../../docs/architecture/model_output_manifest.md)
+- [Tensor output](../../../docs/architecture/tensor_output.md)

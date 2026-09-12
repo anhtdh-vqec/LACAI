@@ -1,96 +1,155 @@
-# VQEC Vision AI Applications
+# VQEC Vision AI Applications (LACAI)
 
-Source inventory update (2026-09-10): source includes the existing FW third
-NV12/FD receiver, strict legacy decoder and session-owned ACK; configured targets now
-cross-build with the AArch64 eSDK, and all 65 unit/contract binaries pass natively on the
-QCS6490 target. See [board smoke evidence](docs/testing/qsc6490_board.md); live FW/model,
-hardware-completion, performance and recovery qualification remain open.
-See [camera adapter implementation boundary](docs/architecture/camera_legacy_adapter.md).
-The released camera adapter follows FW effective profiles; the new deployment contract
-requires explicit per-source dimensions/FPS and supports 1..16 unified FW RAW inputs on
-both AI Camera and AI Box without a fixed 4K/1080p default. RTSP demux/decode on AI Box is
-entirely FW-owned and invisible to AI APP. This is a parser ceiling, not a board
-capacity claim. Start/Stop state machine and optional GIO D-Bus client
-are now source-delivered; see [control client contract](docs/architecture/camera_control_client.md).
-Combined control/media lifecycle is now source-delivered with explicit drain/release;
-see [source lifecycle](docs/architecture/camera_source_lifecycle.md).
-FD-to-GstMemory wrapping is now source-delivered; see
-[memory bridge contract](docs/architecture/dmabuf_memory_bridge.md).
-Submission/result/drain source is present and cross-builds. `runtime_executor` now drives
-the composition through decode/track/feature and a device-free reference backend backs the
-`vqec_ai_vision_applications` service harness, which runs end to end under QEMU; hardware
-completion validation, real package registration and live FW/model integration remain
-pending. Current status is maintained in
-[implementation status](docs/development/implementation_status.md).
+![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
+![Target QCS6490](https://img.shields.io/badge/target-QCS6490%20%2F%20Qualcomm%20Linux%201.8-blue)
+![Tests](https://img.shields.io/badge/logic%20tests-71%20passing%20(QEMU)-green)
+![Status](https://img.shields.io/badge/status-base--ready-yellow)
 
-Workspace greenfield C++17 của team AI APP. Baseline tài liệu: 2026-09-06.
-Build và test phải dùng toolchain eSDK tại `/home/a/Workspace/eSDK`; host compiler không
-được dùng làm bằng chứng xác nhận target.
-Trạng thái: **có source camera, multi-source/multi-model, Qualcomm inference, feature
-integration catalog/pipeline, output helpers, runtime executor và service harness chạy
-device-free; eSDK cross-build đạt và 66/66 logic test đạt dưới QEMU, chưa có live model/FW
-hoặc app thay release**.
+Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
+AI Box, chạy inference/feature đa model và sản xuất overlay + H264 vào FW ring. FW giữ
+sensor/ISP/RTSP/UI/recording; AI APP chỉ sở hữu perception và preview overlay/encode.
 
-Current priorities: [FW release compatibility](docs/contracts/fw_release_compatibility.md)
-and [replacement execution gates](docs/planning/fw_compatibility_execution.md).
-Neutral admitted owner construction is documented in
+Tài liệu trạng thái nguồn sự thật: [implementation status](docs/development/implementation_status.md).
+Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
+
+## Trạng thái hiện tại
+
+| Mảng | Trạng thái | Bằng chứng / còn lại |
+|---|---|---|
+| Contracts / core neutral | Source-delivered | Validator, plan, ledger, output policy, feature/model catalog |
+| Camera adapter (FW RAW) | Source-delivered | Wire decoder, SOCK_SEQPACKET/SCM_RIGHTS, lease Start/Stop, source lifecycle; chưa live FW |
+| Multi-source / multi-model pump | Source-delivered | 1..16 session, cadence, shared-owner fan-out; device-free tested |
+| Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; board-tested ở mức lifecycle |
+| QNN engine LACAI-owned | Source-delivered | dlopen + device + compose + execute + `inference_graph_port`; chưa qualify trên board |
+| Perception / feature pipeline | Source-delivered (ports) | Decoder/tracker/feature là contract + registry; thuật toán thật chưa có |
+| Output / preview / encoded | Helpers delivered | Chưa ghép thành pipeline chạy thật; thiếu renderer + hardware encoder |
+| Service `vqec_ai_vision_applications` | Harness chạy được | Chạy device-free dưới QEMU; production mode fail-closed |
+
+**Bằng chứng logic:** cấu hình default (mọi option OFF) **53/53** test và cấu hình mở rộng
+(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **71/71** test
+chạy 100% dưới eSDK QEMU. Cấu hình mở rộng trước đó cũng pass natively trên QCS6490.
+Đây là logic/wiring evidence, **không** phải board/BSP, model-accuracy, performance hay
+zero-copy acceptance. Chi tiết: [esdk_emulation](docs/testing/esdk_emulation.md),
+[qsc6490_board](docs/testing/qsc6490_board.md), [qnn board runbook](docs/testing/qnn_board_validation.md).
+
+## Kiến trúc tổng quan
+
+```text
+        FW (sensor/ISP/RTSP/decode)                    FW (RTSP/UI/recording)
+                 │ NV12/FD lease                              ▲
+                 ▼                                             │ H264 + metadata
+   raw_source_port ─► multi_source_supervisor ─► multi_model_session
+                                                        │
+                                     image_processor_port│ (NV12 → tensor)
+                                                        ▼
+                              inference_graph_port ◄── QNN engine (owned) / plugin graph
+                                                        │
+                                                        ▼
+      perception_result_stage ─► tracking / attributes ─► feature pipeline / fan-out
+                                                        │
+                                                        ▼
+                                 output_gate ─► overlay + encoded_sink (FW ring)
+```
+
+Application chỉ phụ thuộc neutral ports; vendor/QNN/GStreamer chỉ nằm trong `src/adapters/`.
+Xem [system architecture](docs/architecture/system_architecture.md) và
 [runtime composition factory](docs/architecture/runtime_composition_factory.md).
-AI APP must produce overlay/H264 into the released FW ring; FW retains RTSP/UI/recording.
-Source filenames use `vqec_vision_`; run the structural check with
-`powershell -NoProfile -File tools/vqec_vision_check_source_layout.ps1`.
+
+## Cấu trúc repository
+
+| Path | Nội dung |
+|---|---|
+| `include/vqec/vision/ai/contracts/` | Descriptor/interface neutral công khai (không vendor type) |
+| `include/vqec/vision/ai/ports/` | Port runtime neutral (`raw_source`, `inference_graph`, `image_processor`, `tracker`, ...) |
+| `src/core/` | Validation/plan/ledger/policy thuần, không I/O |
+| `src/app/` | Composition: pump, session, supervisor, pipeline, executor, service main |
+| `src/perception/` | Detection/tracking/attributes/embedding/ocr/pose |
+| `src/features/` | 13 gói feature (metadata + processor) |
+| `src/outputs/` | Overlay, encoded dispatch, feature-event dispatch |
+| `src/runtime/` | Admission, lifecycle, model registry, feature manager, scheduler |
+| `src/adapters/` | Qualcomm, camera, FW control/output, reference, platform để trống |
+| `docs/` | Architecture, ADR, contracts, research, testing, development |
+| `config/`, `manifests/` | Schema + example cho deployment/model/feature catalog |
+| `tools/`, `.github/workflows/` | Checker cấu trúc, smoke script, CI |
+
+## Build và test
+
+Bắt buộc dùng toolchain eSDK; host compiler không được coi là bằng chứng.
+
+```bash
+source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
+
+# Cấu hình default (mọi adapter OFF)
+cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+  "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
+cmake --build build-esdk-neutral -j4
+ctest --test-dir build-esdk-neutral --output-on-failure
+
+# Cấu hình mở rộng (Camera, D-Bus, GStreamer, Qualcomm, JSON, digest, QNN engine)
+cmake -S . -B build-esdk-full -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+  -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
+  -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
+  -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
+  -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON -DVQEC_VISION_AI_BUILD_MANIFEST_CHECK=ON \
+  -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON \
+  "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
+cmake --build build-esdk-full -j4
+ctest --test-dir build-esdk-full --output-on-failure
+```
+
+Kiểm tra cấu trúc filename/include (read-only):
+
+```bash
+powershell -NoProfile -File tools/vqec_vision_check_source_layout.ps1
+```
+
+Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
+[QNN validation runbook](docs/testing/qnn_board_validation.md).
 
 ## Đọc theo thứ tự
 
-1. [Quy tắc bắt buộc](AGENTS.md).
-2. [Code convention](docs/development/code_convention.md).
-3. [Registry tên](docs/development/naming_registry.md).
-4. [Kiến trúc](docs/architecture/system_architecture.md).
-5. [Phân tích source Qualcomm](docs/research/qualcomm_source_review.md).
-6. [Thiết kế adapter Qualcomm](docs/architecture/qualcomm_adapter.md).
-7. [Camera contract](docs/contracts/camera_service.md), [Model contract](docs/contracts/model_integration.md),
-   [FW control và entitlement](docs/contracts/fw_control.md).
-   Contract gửi đội FW: [FW–AI APP integration contract](docs/contracts/fw_ai_app_contract.md).
-8. [13 bài AI và traffic](docs/architecture/feature_catalog.md).
-9. [Kế hoạch 12 tuần](docs/planning/delivery_plan.md).
-10. [Review và nghiệm thu](docs/development/review_checklist.md).
-11. [Tra cứu inventory plugin Qualcomm](docs/research/qualcomm_plugins_reference.md).
-12. [Ranh giới adapter và cách dùng plugin Qualcomm](docs/architecture/qualcomm_plugin_adapter_reference.md).
-13. [Quyết định dùng plugin backend](docs/adr/0002_qualcomm_plugin_backend.md).
-14. [Source đã có và phần chưa triển khai](docs/development/implementation_status.md).
-15. [Cấu hình 1..16 source và memory/zero-copy ledger](docs/architecture/multi_source_configuration.md).
-16. [Model-team catalog và cross-admission](docs/architecture/model_catalog.md).
+1. [Quy tắc bắt buộc](AGENTS.md)
+2. [Code convention](docs/development/code_convention.md), [naming registry](docs/development/naming_registry.md) và [documentation style](docs/development/documentation_style.md)
+3. [Kiến trúc hệ thống](docs/architecture/system_architecture.md)
+4. [Qualcomm source review](docs/research/qualcomm_source_review.md) và [Qualcomm adapter](docs/architecture/qualcomm_adapter.md)
+5. [Owned QNN engine ADR](docs/adr/0003_owned_qnn_engine.md) và [execution policy](docs/architecture/qualcomm_execution_policy.md)
+6. Contracts: [camera service](docs/contracts/camera_service.md), [model integration](docs/contracts/model_integration.md), [FW control](docs/contracts/fw_control.md)
+7. [FW–AI APP integration contract](docs/contracts/fw_ai_app_contract.md) và [FW release compatibility](docs/contracts/fw_release_compatibility.md)
+8. [Feature catalog](docs/architecture/feature_catalog.md) và [model catalog](docs/architecture/model_catalog.md)
+9. [Multi-source configuration](docs/architecture/multi_source_configuration.md)
+10. [Implementation status](docs/development/implementation_status.md), [review checklist](docs/development/review_checklist.md)
+11. [Delivery plan](docs/planning/delivery_plan.md)
 
 ## Phạm vi
 
-- Nhận 1..16 logical FW RAW source với cùng NV12/FD lease contract trên AI Camera và
-  AI Box; profile explicit. Sensor/ISP/RTSP/demux/decode/credential đều thuộc FW.
-- C++17, không OpenCV trong production; vendor SDK chỉ ở adapters.
-- Qualcomm là target đầu tiên; contract trung lập cho Rockchip/MediaTek/Novatek.
+- Nhận 1..16 logical FW RAW source cùng NV12/FD lease contract trên AI Camera và AI Box;
+  profile explicit, không mặc định 4K/1080p. Sensor/ISP/RTSP/demux/decode thuộc FW.
+- C++17, không OpenCV trong production; vendor SDK chỉ nằm trong `src/adapters/`.
+- Qualcomm (QCS6490 / Qualcomm Linux 1.8) là target đầu tiên; contract trung lập cho
+  Rockchip/MediaTek/Novatek.
 - Runtime chia sẻ perception giữa các feature tương thích; bật/tắt theo entitlement.
-- Package runtime/backend/feature/model độc lập; không đồng nghĩa mỗi feature một process.
-- Tham khảo source Qualcomm bên ngoài, không copy hoặc sửa repository đó.
-- Không coi source mẫu là bằng chứng hiệu năng, SDK compatibility hoặc zero-copy trên board.
+- AI sở hữu preview overlay/encode/ring production; FW sở hữu RTSP/UI và recording.
+- Epoch/clock/ownership/quantization của tensor phải tường minh; không release buffer khi
+  hardware còn có thể truy cập.
 
-## Những gì chưa được xác nhận
+## Bên thứ ba
 
-Người dùng đã xác nhận target QSC6490, Qualcomm Linux 1.8 và plugin đã chạy/tối ưu.
-Phiên bản binary/model cụ thể, camera transport và KPI workload cần pin khi tích hợp.
-Không yêu cầu sysroot để bắt đầu viết source. Các contract ở đây là đề xuất để bốn team ký,
-không phải API đã được FW cung cấp.
+| Thành phần | Vai trò | License |
+|---|---|---|
+| `third_party/qai_appbuilder` (submodule) | Reference cơ chế plugin QNN, không link | BSD-3-Clause |
+| `third_party/qairt` (symlink, gitignored) | QAIRT/QNN SDK dùng để build QNN engine | Qualcomm proprietary |
+| `third_party/nlohmann` | JSON parser vendored | MIT |
 
-Đã có validation/config loaders, activation snapshot, Camera lease bridge/session,
-Qualcomm graph submit/result/drain, cadence, shared-frame multi-model session và
-multi-source supervisor qua neutral ports. Feature activation manager và tracker factory
-registry hiện đã tạo effective-state/owner boundary theo contract. Nhánh output đã có
-CPU preview pool, encoder ledger/preparation/submit/drain helpers, authorized event
-dispatch và optional FW SDK ring sink; chưa ghép thành pipeline chạy thực tế.
-Qualcomm plugin factory probing is available at the adapter boundary; it reports
-runtime availability without selecting a fallback backend.
-CMake targets và unit/contract-test source đã có; cross-build eSDK đạt, 66/66 binary
-unit/contract pass trực tiếp trên QCS6490. eSDK cũng có QEMU cho logic smoke; xem
-[hướng dẫn emulation](docs/testing/esdk_emulation.md).
-Chưa có decoder/tracker/feature thực tế, overlay renderer, concrete hardware encoder,
-service vqec_ai_vision_applications/IPK, CI chạy tự động hoặc AST naming checker.
-Structural filename checker đã có. Xem bảng kiểm kê source và phần thiếu tại
-[implementation status](docs/development/implementation_status.md).
-Không có model, dữ liệu khuôn mặt, key/license thật hay vendor binary trong Git.
+Xem [third_party/README.md](third_party/README.md). Không commit model binary, SDK private,
+dữ liệu sinh trắc học hay secret.
+
+## Giới hạn đã biết
+
+- Chưa có live FW/model integration, board qualification cho QNN engine, hardware-completion,
+  performance, thermal hay recovery evidence.
+- Chưa có decoder/tracker/feature/renderer/hardware encoder thật; đây là các port + registry.
+- Owned QNN engine hiện execute sync/copy; async, shared/registered memory và LoRA mới có
+  contract, chưa dùng trong execute.
+- CI workflow có job eSDK đang gate sau `vars.ESDK_ROOT`; chưa có bằng chứng runner được cấu hình.
+- Structural checker kiểm filename/include/CMake, không phải AST naming hay ownership validator.

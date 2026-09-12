@@ -1,41 +1,47 @@
-# Qualcomm plugin backend — current source boundary
+# qualcomm
 
-User-supplied target: QSC6490 / Qualcomm Linux 1.8. No board qualification yet.
-Read docs/research/qualcomm_plugins_reference.md and ADR 0002.
+Private Qualcomm adapter for QSC6490 / Qualcomm Linux 1.8. Contains the released plugin
+graph backend and the optional LACAI-owned QNN engine, both behind neutral ports.
 
-## Source delivered, not built/tested
+- **Status:** source-delivered — plugin lifecycle fixtures pass on QCS6490; owned QNN engine not board-qualified
+- **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`)
+- **Depends on:** neutral `inference_graph_port`, core plan/contract validation
+- **Used by:** application composition through `inference_graph_port` only
 
-- vqec_vision_plugin_graph.cpp: runtime factory/property/enum probing,
-  factory/property validation, explicit FastCV/QNN
-  configuration, READY source binding, PLAYING, bounded submission and result polling,
-  independent input/result completion, EOS/drain and unload guards.
-- vqec_vision_inference_graph.cpp: vendor-neutral inference_graph_port adapter; owns the
-  retention reference and is the only app-facing conversion from native handle to Linux FD.
-- One outstanding job per graph; internal ticket PTS is separate from source timestamp.
-  Armed destruction retains resources in a four-slot supervisor domain. Restoration
-  supports late completion, not cancellation or BSP recovery.
-- vqec_vision_frame_submission.cpp: reserve/wrap/commit/push primitive used by the graph.
-- vqec_vision_dmabuf_bridge.cpp: read-only FD memory, original plane layout and root-memory
-  owner retention. Final memory release requires the downstream lifetime contract;
-  it does not independently prove hardware synchronization. Its exact geometry/allocation
-  ceiling can be composed from a validated deployment source.
-- vqec_vision_tensor_output.cpp: bounded ordered FLOAT32 extraction and shape checks.
-- Test source covers synthetic lifecycle/ownership/state cases, without board execution.
+## Responsibility
 
-## Missing and constrained
+- Provide a caller-supplied plugin graph with explicit factory/property validation.
+- Convert a native handle to a Linux FD exactly once and retain the memory owner on root memory.
+- Extract ordered typed tensors (`INT8..FLOAT32`, quantized-blob ownership) from results.
+- Provide an owned QNN engine: dlopen, backend/device, capability probe, context + model-lib
+  compose, typed tensor metadata, synchronous execute and a graph-port binding.
 
-No runnable service, concrete decoder/tracker, preview renderer/encoder or integrated
-FW ring runtime. A guarded FW ring sink exists in a separate optional adapter target.
-No native multi-dtype/multi-graph QNN, batch/temporal/ROI scheduler or signed-grant runtime.
-Input is single linear NV12 image; model input NHWC RGB/BGR UINT8/FLOAT32 within plan
-limits. Golden preprocessing, SDK interoperability and performance remain unverified.
-Successful graph assembly is not inference qualification.
+## Contents
 
-AI APP owns preview overlay/encode in a separate output adapter; FW owns capture,
-RTSP/UI and recording. See docs/contracts/fw_release_compatibility.md. Do not add
-camera capture or preview encoding into this inference graph.
+| Path | Purpose |
+|---|---|
+| `vqec_vision_plugin_graph.cpp` | Factory/property/enum probing, READY bind, PLAYING, bounded submission and result polling |
+| `vqec_vision_inference_graph.cpp` | Neutral `inference_graph_port` adapter; owns the retention reference |
+| `vqec_vision_frame_submission.cpp` | Reserve/wrap/commit/push primitive; one outstanding job per graph |
+| `vqec_vision_dmabuf_bridge.cpp` | Read-only FD memory, original plane layout, root-memory owner retention |
+| `vqec_vision_tensor_output.cpp` | Bounded ordered tensor extraction (typed) and shape checks |
+| `vqec_vision_sdk_loader.cpp` | Optional QNN runtime `dlopen` loader with pinned QAIRT |
+| `vqec_vision_qnn_engine.cpp` | Owned QNN backend/device/context/model-lib compose + sync execute + probe |
+| `vqec_vision_qnn_inference_graph.cpp` | `inference_graph_port` binding with tensor submission |
+| `vqec_vision_backend_factory.cpp` | Builds the owned engine+graph bundle from resolved paths; fails closed |
 
-Build options VQEC_VISION_AI_ENABLE_QUALCOMM and VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE
-are available. The latter enables standard GStreamer fixtures without Qualcomm models.
-See docs/architecture/qualcomm_submission_lifecycle.md and dmabuf_memory_bridge.md
-for drain/retention limitations. No claim of bounded vendor teardown or zero-copy.
+## Limits and next work
+
+- No runnable service, concrete decoder/tracker, preview renderer/encoder or integrated FW ring runtime here.
+- Plugin reports FLOAT32 outputs; native multi-dtype/multi-graph QNN and a batch/temporal/ROI scheduler are missing.
+- Owned QNN engine currently executes synchronously with copies; async, shared/registered
+  memory and LoRA have contracts but are not wired into execute.
+- Golden preprocessing, SDK interoperability, performance and BSP recovery remain unverified.
+  Successful graph assembly is not inference qualification.
+
+## See also
+
+- [Qualcomm adapter](../../../docs/architecture/qualcomm_adapter.md), [plugin adapter reference](../../../docs/architecture/qualcomm_plugin_adapter_reference.md)
+- [Submission lifecycle](../../../docs/architecture/qualcomm_submission_lifecycle.md), [dmabuf memory bridge](../../../docs/architecture/dmabuf_memory_bridge.md)
+- [Owned QNN engine ADR](../../../docs/adr/0003_owned_qnn_engine.md), [execution policy](../../../docs/architecture/qualcomm_execution_policy.md)
+- [QNN board validation](../../../docs/testing/qnn_board_validation.md)

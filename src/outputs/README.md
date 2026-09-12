@@ -1,32 +1,38 @@
 # outputs
 
-vqec_vision_encoded_dispatch.cpp now provides synchronous one-AU dispatch through
-output_gate, freshness/correlation and ring generation/demand checks. No internal queue,
-retry. It also supplies one-event backend polling/preflight and dispatch/ledger handling;
-delivery status is separate from event completion. An optional private FW ring sink exists
-but is not runtime-wired into a service event loop.
-Trusted renderer must supply complete scopes bound to pixels;
-that integration is missing. See docs/architecture/encoded_dispatch.md.
+Portable output path: overlay metadata preparation, encoded-AU routing and feature-event
+delivery. AI owns preview overlay/encode/ring production through private adapters; FW owns
+RTSP/UI, recording and persistent evidence/search.
 
-Core now provides immutable owned H264 output and a neutral synchronous encoded_sink
-port. Runtime routing/queue admission and FW sink lifecycle wiring remain missing; see
-docs/architecture/encoded_output.md. No real output delivery is available yet.
+- **Status:** source-delivered helpers — end-to-end output pipeline not implemented
+- **Naming registry:** `outpt` (`encdp`, `ftdsp`, `ovrpr`)
+- **Depends on:** `src/core/` output policy and neutral `encoded_sink`/event-sink contracts
+- **Used by:** runtime executor and, later, a threaded service event loop
 
-Neutral overlay commands, preview demand/freshness policy, encoded-AU routing and
-event delivery. AI owns preview overlay/encoding/ring production through private adapters;
-FW owns RTSP/UI, recording, persistent evidence/search. End-to-end output is not implemented.
-See docs/contracts/fw_release_compatibility.md and docs/planning/fw_compatibility_execution.md.
+## Responsibility
 
-`vqec_vision_overlay_preparation.cpp` provides the portable metadata step before a
-renderer adapter. It authorizes the complete requested scope, validates observations,
-maps boxes to overlay metadata and publishes transactionally. It does not render pixels
-or select a Qualcomm plugin.
-The authorized variant returns the exact scope list used for authorization together with
-the overlay, so encoded dispatch can reuse trusted scope context without inferring it
-from pixels or H264 bytes.
-The scoped variant supports several feature/attribute authorizations under one policy
-revision and rejects mixed revisions or more than the shared rendered-scope ceiling.
+- Authorize the complete requested scope before rendering or dispatch, using the exact scope list.
+- Map validated observations into neutral overlay metadata without rendering pixels.
+- Dispatch one encoded AU or one feature event synchronously through a neutral sink, deriving
+  authorization from actual payload fields immediately before delivery.
 
-`vqec_vision_feature_event_dispatch` validates one event and derives authorization from
-its actual field schema IDs immediately before synchronous sink delivery. It supplies no
-queue or FW transport; retry keeps the original event and policy revision.
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `vqec_vision_encoded_dispatch.cpp` | Synchronous one-AU dispatch through `output_gate` with freshness/correlation and ring generation/demand checks |
+| `vqec_vision_overlay_preparation.cpp` | Authorizes scope, validates observations, publishes overlay metadata transactionally |
+| `vqec_vision_feature_event_dispatch.cpp` | Validates one event and dispatches it synchronously; retry keeps the original event/revision |
+
+## Limits and next work
+
+- No internal queue, retry or FW transport; delivery status is separate from event completion.
+- Trusted renderer must supply complete scopes bound to pixels; that integration is missing.
+- The optional FW ring sink is not runtime-wired into a service event loop.
+- No real output delivery is available yet.
+
+## See also
+
+- [Encoded dispatch](../../docs/architecture/encoded_dispatch.md), [encoded output](../../docs/architecture/encoded_output.md)
+- [Feature event dispatch](../../docs/architecture/feature_event_dispatch.md)
+- [FW release compatibility](../../docs/contracts/fw_release_compatibility.md)
