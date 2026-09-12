@@ -197,22 +197,30 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(
     if (!vqec_vision_ai_qcom_qneng_is_open()) {
         return {status_code::invalid_state, "QNN engine is not open"};
     }
-    const auto& impl = *implementation_;
-    const auto& qnn = *impl.qnn_;
+    // S01/O01: advertise only operations this adapter actually implements. SDK symbols may
+    // be present (graphExecuteAsync, memRegister, contextApplyBinarySection) without a
+    // wired lifecycle path, so capability must not be inherited from symbol presence.
+    // Effective capability is the intersection of adapter + model graph + backend + policy.
+    //
+    // Implemented here: synchronous client-buffer execute of one graph with graph-native
+    // (typed) output. Not implemented yet: async execute, shared/registered buffers,
+    // artifact/LoRA update and multi-model execution domains; those report unsupported so
+    // a policy that needs them is rejected before load or submit. Perf profile and compute
+    // affinity are not applied, so only the default balanced profile is offered and the
+    // accelerator topology stays unadvertised (0).
     inference_capabilities capabilities;
     capabilities.supported_dtype_mask_ = vqec_vision_ai_qcom_qneng_supported_dtype_mask();
-    capabilities.perf_profile_mask_ = impl.device_ != nullptr ?
-        static_cast<std::uint8_t>(0x0FU) :
+    capabilities.perf_profile_mask_ =
         static_cast<std::uint8_t>(1U << static_cast<unsigned>(inference_perf_profile::balanced));
+    capabilities.compute_unit_count_ = 0;
     capabilities.graph_count_ = 1;
-    capabilities.supports_async_ = qnn.graphExecuteAsync != nullptr;
-    capabilities.max_inflight_jobs_ = capabilities.supports_async_ ? 2 : 1;
-    capabilities.supports_shared_memory_ =
-        qnn.memRegister != nullptr && qnn.memDeRegister != nullptr;
-    capabilities.max_shared_registrations_ = capabilities.supports_shared_memory_ ? 64 : 0;
+    capabilities.max_inflight_jobs_ = 1;
+    capabilities.max_shared_registrations_ = 0;
+    capabilities.supports_async_ = false;
     capabilities.supports_native_output_ = true;
-    capabilities.supports_artifact_update_ = qnn.contextApplyBinarySection != nullptr;
-    capabilities.supports_multi_model_domain_ = true;
+    capabilities.supports_shared_memory_ = false;
+    capabilities.supports_artifact_update_ = false;
+    capabilities.supports_multi_model_domain_ = false;
     const auto valid = vqec_vision_ai_core_inexe_validate_capabilities(capabilities);
     if (valid.code_ != status_code::ok) {
         return valid;

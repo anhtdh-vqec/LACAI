@@ -26,10 +26,32 @@ private SDK.
 
 `qnn_sdk_libraries` dynamically loads the backend and system libraries and resolves the
 QNN interface provider without exposing a QNN type in its header. `qnn_engine` then
-creates the backend and, when the interface provides it, the device, and probes
-capabilities (async via `graphExecuteAsync`, shared memory via `memRegister`, artifact
-update via `contextApplyBinarySection`, perf profiles when a device exists). A failed
-device creation is a fault on the admitted HTP path, not a silent CPU downgrade.
+creates the backend and, when the interface provides it, the device. A failed device
+creation is a fault on the admitted HTP path, not a silent CPU downgrade.
+
+## Capability inventory (S01)
+
+`qnn_engine` advertises only the operations the adapter implements, never every symbol the
+resolved interface happens to expose. `available` (SDK symbol resolveable), `implemented`
+(the adapter has a wired lifecycle path), `qualified` (board evidence exists) and
+`admitted` (policy accepted for a model) are separate states; the probed capability is the
+intersection of adapter + model graph + backend + policy.
+
+| Capability | SDK symbol seen | Adapter implemented | Advertised now |
+|---|---|---|---|
+| Synchronous client-buffer execute | `graphExecute` | yes | `mode=synchronous`, `max_inflight_jobs=1` |
+| Native (graph-dtype) output | `graphExecute` | yes | `supports_native_output=true` |
+| Async execute | `graphExecuteAsync` | no | `supports_async=false` |
+| Shared/registered buffers | `memRegister`/`memDeRegister` | no | `supports_shared_memory=false`, bound `0` |
+| Artifact / LoRA update | `contextApplyBinarySection` | no | `supports_artifact_update=false` |
+| Multi-model execution domain | one context | no | `supports_multi_model_domain=false`, `graph_count=1` |
+| Perf profile | HTP perf infra | not applied | only `balanced` |
+| Compute-unit affinity/topology | HTP device infra | not probed | `compute_unit_count=0` |
+
+An unimplemented operation is reported unsupported so
+`vqec_vision_ai_core_inexe_policy_is_supported` rejects a dependent policy before load or
+submit; each row moves to `implemented` only with the matching lifecycle path and negative
+tests. Board qualification is still required before any row becomes `qualified`.
 
 `prepare` creates a context, `dlopen`s one QNN model library (`.so` from
 qnn-model-lib-generator), resolves `QnnModel_composeGraphs`/`QnnModel_freeGraphsInfo`,

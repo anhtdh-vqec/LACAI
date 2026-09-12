@@ -33,7 +33,9 @@ public:
         const std::string& _backend_library, const std::string& _system_library,
         const inference_execution_policy& _policy);
     [[nodiscard]] bool vqec_vision_ai_qcom_qneng_is_open() const noexcept;
-    // Reports capabilities derived from the resolved interface and created device.
+    // Reports the capabilities this adapter implements, not every SDK symbol it can
+    // resolve. An unimplemented operation (async, shared memory, artifact update,
+    // multi-model domain) is reported unsupported so policy admission fails closed.
     [[nodiscard]] status vqec_vision_ai_qcom_qneng_probe_capabilities(
         inference_capabilities& _capabilities) const noexcept;
 

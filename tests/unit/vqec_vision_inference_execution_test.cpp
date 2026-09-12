@@ -292,6 +292,70 @@ int main() {
                   update, no_update).code_ == status_code::unsupported);
     }
 
+    // S01: the owned QNN adapter advertises only implemented operations. This mirrors the
+    // engine profile (single graph, synchronous client buffers, native output, no async /
+    // shared memory / update / domain) so every unimplemented request is rejected before
+    // load or submit even when the SDK exposes the corresponding symbol.
+    {
+        inference_capabilities engine;
+        engine.supported_dtype_mask_ = full_dtype_mask();
+        engine.perf_profile_mask_ = static_cast<std::uint8_t>(
+            1U << static_cast<unsigned>(inference_perf_profile::balanced));
+        engine.graph_count_ = 1;
+        engine.max_inflight_jobs_ = 1;
+        engine.supports_native_output_ = true;
+        check(vqec_vision_ai_core_inexe_validate_capabilities(engine).code_ ==
+              status_code::ok);
+
+        inference_execution_policy policy;  // synchronous, copy, balanced, native off
+        check(vqec_vision_ai_core_inexe_policy_is_supported(policy, engine).code_ ==
+              status_code::ok);
+
+        auto native_policy = policy;
+        native_policy.prefer_native_output_ = true;
+        check(vqec_vision_ai_core_inexe_policy_is_supported(
+                  native_policy, engine).code_ == status_code::ok);
+
+        auto async_policy = policy;
+        async_policy.mode_ = inference_execution_mode::asynchronous;
+        async_policy.max_inflight_jobs_ = 2;
+        check(vqec_vision_ai_core_inexe_policy_is_supported(
+                  async_policy, engine).code_ == status_code::unsupported);
+
+        auto shared_policy = policy;
+        shared_policy.memory_ = inference_memory_mode::registered_shared;
+        check(vqec_vision_ai_core_inexe_policy_is_supported(
+                  shared_policy, engine).code_ == status_code::unsupported);
+
+        auto throughput_policy = policy;
+        throughput_policy.profile_ = inference_perf_profile::high_throughput;
+        check(vqec_vision_ai_core_inexe_policy_is_supported(
+                  throughput_policy, engine).code_ == status_code::unsupported);
+
+        auto affinity_policy = policy;
+        affinity_policy.compute_unit_count_ = 1;
+        affinity_policy.compute_unit_affinity_ = 0x01;
+        check(vqec_vision_ai_core_inexe_policy_is_supported(
+                  affinity_policy, engine).code_ == status_code::unsupported);
+
+        inference_model_update update;
+        update.base_model_id_ = "edgeface_xxs";
+        update.base_model_version_ = "1.0";
+        update.update_artifact_ref_ = "edgeface_xxs_lora_v2";
+        update.update_artifact_sha256_ = std::string(64, 'a');
+        update.update_revision_ = 2;
+        check(vqec_vision_ai_core_inexe_model_update_supported(
+                  update, engine).code_ == status_code::unsupported);
+
+        inference_execution_domain domain;
+        domain.domain_id_ = "qnn_single";
+        domain.max_graphs_ = 2;
+        domain.max_inflight_jobs_ = 2;
+        domain.allows_shared_context_ = true;
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, engine, 2, 2).code_ == status_code::unsupported);
+    }
+
     std::cout << "inference execution failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }
