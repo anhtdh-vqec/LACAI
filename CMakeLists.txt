@@ -5,6 +5,9 @@ option(VQEC_VISION_AI_ENABLE_FW_RING "Enable wrapper for externally supplied FW 
 set(VQEC_VISION_AI_FW_RING_TARGET "camera_ai_common" CACHE STRING "Existing version-pinned FW SDK target")
 
 option(VQEC_VISION_AI_ENABLE_QUALCOMM "Enable the private GStreamer Qualcomm adapter" OFF)
+option(VQEC_VISION_AI_ENABLE_QNN_ENGINE "Enable the LACAI-owned QNN engine adapter" OFF)
+set(VQEC_VISION_AI_QAIRT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/qairt" CACHE PATH
+    "Approved QAIRT SDK root (headers under include/QNN, libraries under lib)")
 option(VQEC_VISION_AI_ENABLE_CAMERA "Enable Linux legacy camera FD receiver" OFF)
 option(VQEC_VISION_AI_ENABLE_CAMERA_DBUS "Enable Camera Service GIO D-Bus transport" OFF)
 option(VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE "Enable Linux FD to GstMemory bridge" OFF)
@@ -211,6 +214,23 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     target_link_libraries(vqec_vision_ai_qualcomm
         PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)
     set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
+if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
+    if(NOT EXISTS "${VQEC_VISION_AI_QAIRT_ROOT}/include/QNN/QnnInterface.h")
+        message(FATAL_ERROR
+            "QNN headers not found under VQEC_VISION_AI_QAIRT_ROOT="
+            "${VQEC_VISION_AI_QAIRT_ROOT}")
+    endif()
+    add_library(vqec_vision_ai_qnn_engine STATIC
+        src/adapters/qualcomm/vqec_vision_sdk_loader.cpp)
+    target_include_directories(vqec_vision_ai_qnn_engine PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
+    target_include_directories(vqec_vision_ai_qnn_engine PRIVATE
+        "${VQEC_VISION_AI_QAIRT_ROOT}/include/QNN")
+    target_link_libraries(vqec_vision_ai_qnn_engine
+        PUBLIC vqec_vision_ai_core PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(vqec_vision_ai_qnn_engine PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 if(UNIX)

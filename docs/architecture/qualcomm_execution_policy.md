@@ -17,6 +17,16 @@ memory, perf profile, native-output request, affinity or inflight bound is rejec
 reason. The adapter never silently downgrades; a permitted degraded mode must be an
 explicit, observable policy.
 
+## Build integration
+
+`VQEC_VISION_AI_QAIRT_ROOT` (default `third_party/qairt`, a symlink to the installed
+private SDK) supplies the QNN headers. `VQEC_VISION_AI_ENABLE_QNN_ENGINE=ON` builds the
+LACAI-owned engine target; it is OFF by default so the neutral base does not depend on a
+private SDK. `qnn_sdk_libraries` dynamically loads the backend and system libraries and
+resolves the QNN interface provider without exposing a QNN type in its header. It does
+not create a backend/device/context, so it proves neither accelerator availability nor
+execution; those are later A4 steps qualified on the board.
+
 ## Contract mapping
 
 | Neutral field | Meaning | Qualcomm mechanism |
