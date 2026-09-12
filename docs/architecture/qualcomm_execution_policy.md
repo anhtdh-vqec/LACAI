@@ -40,6 +40,12 @@ synchronous `graphExecute` and returns native-dtype output blobs. The wrapper st
 used by generated model libraries are mirrored as local ABI types instead of including the
 restricted SDK example header.
 
+`vqec_vision_ai_qcom_bfact_create` builds one owned bundle from the trusted
+`resolved_model_paths`: it opens the engine with the resolved backend/system libraries,
+probes capabilities, fails closed when the validated policy is unsupported, and constructs
+the graph binding. It does not configure, load or execute, so platform owner factories and
+runtime composition can bind it exactly like the plugin or reference graph.
+
 `qnn_inference_graph` implements `inference_graph_port` over the engine: configure/load
 compose the model, start validates the declared outputs against the composed graph, arm
 configures the bounded submission window, and `submit_tensors` executes and correlates the
