@@ -128,8 +128,18 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_frame(
         "QNN graph requires preprocessed tensor submission from a neutral preprocessing stage"};
 }
 
+status qnn_inference_graph::vqec_vision_ai_ports_infgr_get_input_specs(
+    std::vector<tensor_spec>& _inputs) const {
+    if (!is_prepared_) {
+        return {status_code::invalid_state, "QNN graph is not loaded"};
+    }
+    _inputs = input_specs_;
+    return {};
+}
+
 status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_tensors(
-    const preview_frame_key& _frame, const std::vector<tensor_blob>& _inputs,
+    std::uint64_t _source_epoch, std::uint64_t _source_frame_id,
+    std::uint64_t _source_pts_ns, const std::vector<tensor_blob>& _inputs,
     std::uint64_t _steady_now_ns, submission_ticket& _ticket) {
     if (state_ != inference_graph_state::running || !is_window_configured_) {
         return {status_code::invalid_state, "QNN graph is not armed"};
@@ -151,8 +161,7 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_tensors(
     }
     submission_ticket ticket;
     const auto reserved = window_.vqec_vision_ai_core_subwn_reserve(
-        _frame.source_epoch_, _frame.frame_id_, _frame.source_pts_ns_, _steady_now_ns,
-        ticket);
+        _source_epoch, _source_frame_id, _source_pts_ns, _steady_now_ns, ticket);
     if (reserved.code_ != status_code::ok) {
         return reserved;
     }

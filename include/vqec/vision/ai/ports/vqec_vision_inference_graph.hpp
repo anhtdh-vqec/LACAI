@@ -6,7 +6,6 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_source_binding.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
@@ -60,14 +59,25 @@ public:
     [[nodiscard]] virtual submission_ticket
     vqec_vision_ai_ports_infgr_get_pending_ticket() const noexcept = 0;
 
+    // Reports the model input tensor identity the backend expects, so a neutral
+    // preprocessing stage can target it. Default is unsupported.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_get_input_specs(
+        std::vector<tensor_spec>& _inputs) const {
+        _inputs.clear();
+        return {status_code::unsupported, "backend does not expose input tensor specs"};
+    }
+
     // Tensor submission for a backend that does not preprocess pixels itself. The caller
     // owns preprocessing and supplies the exact model input blobs plus the source frame
     // identity used to correlate the result. Default is unsupported: a raw-frame backend
     // keeps using submit_frame, and the pixel-preprocessing path stays neutral.
     [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_submit_tensors(
-        const preview_frame_key& _frame, const std::vector<tensor_blob>& _inputs,
+        std::uint64_t _source_epoch, std::uint64_t _source_frame_id,
+        std::uint64_t _source_pts_ns, const std::vector<tensor_blob>& _inputs,
         std::uint64_t _steady_now_ns, submission_ticket& _ticket) {
-        (void)_frame;
+        (void)_source_epoch;
+        (void)_source_frame_id;
+        (void)_source_pts_ns;
         (void)_inputs;
         (void)_steady_now_ns;
         (void)_ticket;

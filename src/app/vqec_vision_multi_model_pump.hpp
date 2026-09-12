@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "vqec_vision_model_cadence.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
@@ -14,6 +15,10 @@ struct multi_model_graph_binding {
     inference_graph_port* graph_{nullptr};
     std::uint64_t cycle_id_{0};
     std::uint64_t job_timeout_ns_{0};
+    // Optional neutral preprocessing for a backend that does not preprocess pixels.
+    // When set, the binding's plan is required and the pump submits preprocessed tensors.
+    image_processor_port* processor_{nullptr};
+    const inference_plan* plan_{nullptr};
 };
 
 struct multi_model_pump_report {
@@ -58,6 +63,8 @@ private:
     std::array<multi_model_graph_binding, deployment_limits::g_max_models_per_source>
         bindings_{};
     std::array<bool, deployment_limits::g_max_models_per_source> is_armed_{};
+    std::array<tensor_spec, deployment_limits::g_max_models_per_source> target_specs_{};
+    std::array<bool, deployment_limits::g_max_models_per_source> has_target_spec_{};
     std::uint64_t last_now_ns_{0};
     std::uint16_t model_count_{0};
     std::uint16_t result_cursor_{0};

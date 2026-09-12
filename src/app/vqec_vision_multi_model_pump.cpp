@@ -29,6 +29,10 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
             binding.job_timeout_ns_ == std::numeric_limits<std::uint64_t>::max()) {
             return {status_code::invalid_argument, "invalid model graph binding"};
         }
+        if ((binding.processor_ == nullptr) != (binding.plan_ == nullptr)) {
+            return {status_code::invalid_argument,
+                "preprocessing requires both a processor and an inference plan"};
+        }
         for (std::uint16_t prior = 0; prior < slot; ++prior) {
             if (_bindings[prior].graph_ == binding.graph_) {
                 return {status_code::invalid_argument, "model graph is bound more than once"};
@@ -44,6 +48,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     bindings_ = bindings;
     cadence_ = cadence;
     model_count_ = _binding_count;
+    has_target_spec_.fill(false);
     is_configured_ = true;
     return {};
 }
@@ -187,8 +192,38 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
         auto& graph = *bindings_[slot].graph_;
         submission_ticket ticket;
-        const auto submitted = graph.vqec_vision_ai_ports_infgr_submit_frame(
-            frame, _steady_now_ns, ticket);
+        status submitted;
+        if (bindings_[slot].processor_ != nullptr) {
+            if (!has_target_spec_[slot]) {
+                std::vector<tensor_spec> inputs;
+                const auto specs = graph.vqec_vision_ai_ports_infgr_get_input_specs(inputs);
+                if (specs.code_ != status_code::ok || inputs.size() != 1) {
+                    _report.error_model_slot_ = slot;
+                    is_failed_ = true;
+                    return specs.code_ == status_code::ok ?
+                        status{status_code::unsupported,
+                            "tensor preprocessing requires exactly one model input"} :
+                        specs;
+                }
+                target_specs_[slot] = inputs[0];
+                has_target_spec_[slot] = true;
+            }
+            std::vector<tensor_blob> blobs;
+            const auto preprocessed =
+                bindings_[slot].processor_->vqec_vision_ai_ports_imgpr_preprocess(
+                    frame, *bindings_[slot].plan_, target_specs_[slot], blobs);
+            if (preprocessed.code_ != status_code::ok) {
+                _report.error_model_slot_ = slot;
+                is_failed_ = true;
+                return preprocessed;
+            }
+            submitted = graph.vqec_vision_ai_ports_infgr_submit_tensors(
+                frame.descriptor_.session_epoch_, frame.descriptor_.buffer_id_,
+                frame.descriptor_.pts_ns_, blobs, _steady_now_ns, ticket);
+        } else {
+            submitted = graph.vqec_vision_ai_ports_infgr_submit_frame(
+                frame, _steady_now_ns, ticket);
+        }
         if (ticket.token_.job_id_ != 0) {
             _report.submitted_tickets_[slot] = ticket;
             _report.submitted_model_mask_ = static_cast<std::uint16_t>(

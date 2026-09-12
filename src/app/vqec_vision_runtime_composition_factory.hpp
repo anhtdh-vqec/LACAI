@@ -18,6 +18,8 @@ namespace vqec::vision::ai {
 struct runtime_model_activation {
     std::string model_id_;
     inference_graph_port* graph_{nullptr};
+    // Optional neutral preprocessing for a backend that does not preprocess pixels.
+    image_processor_port* processor_{nullptr};
     resolved_model_paths paths_;
     std::string resolved_output_manifest_ref_;
     model_outputs outputs_;

@@ -34,8 +34,11 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_frame(
         const raw_frame& _frame, std::uint64_t _steady_now_ns,
         submission_ticket& _ticket) override;
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_get_input_specs(
+        std::vector<tensor_spec>& _inputs) const override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_tensors(
-        const preview_frame_key& _frame, const std::vector<tensor_blob>& _inputs,
+        std::uint64_t _source_epoch, std::uint64_t _source_frame_id,
+        std::uint64_t _source_pts_ns, const std::vector<tensor_blob>& _inputs,
         std::uint64_t _steady_now_ns, submission_ticket& _ticket) override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_poll_result(
         std::uint64_t _steady_now_ns, tensor_result& _result) override;

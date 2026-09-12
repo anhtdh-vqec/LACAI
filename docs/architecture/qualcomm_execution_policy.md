@@ -48,10 +48,13 @@ runtime composition can bind it exactly like the plugin or reference graph.
 
 `qnn_inference_graph` implements `inference_graph_port` over the engine: configure/load
 compose the model, start validates the declared outputs against the composed graph, arm
-configures the bounded submission window, and `submit_tensors` executes and correlates the
-result to the source frame. `submit_frame` is rejected because pixel preprocessing is a
-separate neutral stage; the engine never treats a raw NV12 frame as model input. The graph
-reports the engine's probed capabilities.
+configures the bounded submission window, `get_input_specs` reports the model input tensor
+and `submit_tensors` executes and correlates the result to the source frame. `submit_frame`
+is rejected because pixel preprocessing is a separate neutral stage; the engine never
+treats a raw NV12 frame as model input. The graph reports the engine's probed capabilities.
+A pump binding that carries an `image_processor_port` and its plan preprocesses the frame
+with the neutral stage and submits tensors; a binding without one keeps raw-frame
+submission, so both backends share the same scheduling, cadence and ownership.
 
 These steps still prove neither accelerator availability nor execution correctness until
 run on the board; callers must serialize engine calls on the backend worker.

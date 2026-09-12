@@ -22,9 +22,12 @@ the engine's probed capabilities.
 Two submission shapes exist. `submit_frame` takes a raw frame for backends that
 preprocess pixels themselves (the GStreamer converter path). `submit_tensors` takes the
 already-preprocessed model input blobs plus the source frame identity, for a backend that
-does not preprocess; it defaults to `unsupported`. The owned QNN graph implements
-`submit_tensors` and rejects `submit_frame`, keeping pixel preprocessing an explicit
-neutral stage rather than hidden inside the accelerator adapter.
+does not preprocess; it defaults to `unsupported`, and `get_input_specs` reports the target
+tensor identity so a neutral preprocessing stage can aim at it. The owned QNN graph
+implements `submit_tensors` and rejects `submit_frame`, keeping pixel preprocessing an
+explicit neutral stage rather than hidden inside the accelerator adapter. A pump binding
+may carry an optional `image_processor_port`; when present the pump preprocesses the frame
+with the binding's plan and submits tensors, otherwise it submits the raw frame.
 
 The contract and validators are in `vqec_vision_inference_execution.hpp`; fail-closed
 semantics and Qualcomm mapping are in

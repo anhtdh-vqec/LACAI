@@ -16,10 +16,10 @@ public:
     reference_image_processor& operator=(const reference_image_processor& _other) = delete;
 
     [[nodiscard]] status vqec_vision_ai_ports_imgpr_validate(
-        const nv12_frame_view& _view, const inference_plan& _plan,
+        const raw_frame& _frame, const inference_plan& _plan,
         const tensor_spec& _target) const override;
     [[nodiscard]] status vqec_vision_ai_ports_imgpr_preprocess(
-        const nv12_frame_view& _view, const inference_plan& _plan,
+        const raw_frame& _frame, const inference_plan& _plan,
         const tensor_spec& _target, std::vector<tensor_blob>& _outputs) override;
 };
 

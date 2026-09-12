@@ -32,10 +32,10 @@ unset policy preserves output on rejection. The fan-out fixture expects source e
 matching its supplied frame instead of inventing epoch 1. Production code is unchanged.
 [Corrected CTest output](esdk_neutral_ctest_corrected_2026_09_09.txt) records this run.
 
-2026-09-11 update: a fresh default (all options OFF) configuration registers 51 tests,
+2026-09-11 update: a fresh default (all options OFF) configuration registers 53 tests,
 including the device-free runtime executor end-to-end contract. The expanded configuration
 enables Camera, GIO D-Bus, the GStreamer bridge, the Qualcomm adapter, the vendored-nlohmann
-JSON loaders, the output-manifest checker and SHA-256 digest, and registers 69 tests,
+JSON loaders, the output-manifest checker and SHA-256 digest, and registers 71 tests,
 including the `vqec_ai_vision_applications` service smoke test and the production-mode
 fail-closed test. Both run 100% under SDK QEMU in this workspace. These additions are
 logic/wiring evidence only.

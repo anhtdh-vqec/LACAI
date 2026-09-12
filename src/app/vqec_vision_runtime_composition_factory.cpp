@@ -103,6 +103,7 @@ status vqec_vision_ai_appl_rcfac_compose_model(
     }
 
     _graph_config.graph_ = _activation.graph_;
+    _graph_config.processor_ = _activation.processor_;
     _graph_config.plan_ = std::move(plan);
     _graph_config.binding_ = _activation.binding_;
     _graph_config.outputs_ = _activation.outputs_.outputs_;

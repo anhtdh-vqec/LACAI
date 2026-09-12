@@ -227,6 +227,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/runtime/scheduler/vqec_vision_model_cadence.cpp | mdcad | vqec_vision_ai_sched_mdcad_ |
 | tests/unit/vqec_vision_model_cadence_test.cpp | mctst | vqec_vision_ai_unit_mctst_ |
 | tests/unit/vqec_vision_multi_model_pump_test.cpp | mmpst | vqec_vision_ai_unit_mmpst_ |
+| tests/unit/vqec_vision_multi_model_pump_tensor_test.cpp | mptst | vqec_vision_ai_unit_mptst_ |
 | tests/unit/vqec_vision_multi_model_session_test.cpp | mmsts | vqec_vision_ai_unit_mmsts_ |
 | tests/contract/vqec_vision_camera_session_test.cpp | cstst | vqec_vision_ai_ctest_cstst_ |
 | tests/contract/vqec_vision_camera_graph_pump_test.cpp | cgtst | vqec_vision_ai_ctest_cgtst_ |

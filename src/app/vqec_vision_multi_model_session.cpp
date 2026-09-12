@@ -111,8 +111,12 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
         if (outputs.code_ != status_code::ok) {
             return outputs;
         }
-        pump_bindings[slot] = {graph_config.graph_, graph_config.cycle_id_,
-                               graph_config.job_timeout_ns_};
+        pump_bindings[slot].graph_ = graph_config.graph_;
+        pump_bindings[slot].cycle_id_ = graph_config.cycle_id_;
+        pump_bindings[slot].job_timeout_ns_ = graph_config.job_timeout_ns_;
+        pump_bindings[slot].processor_ = graph_config.processor_;
+        pump_bindings[slot].plan_ = graph_config.processor_ != nullptr ?
+            &config_.graphs_[slot].plan_ : nullptr;
     }
     return pump_.vqec_vision_ai_appl_mmump_configure(
         config_.cadence_, pump_bindings, config_.graph_count_);

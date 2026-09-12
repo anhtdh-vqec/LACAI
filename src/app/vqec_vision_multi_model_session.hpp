@@ -25,6 +25,8 @@ enum class multi_model_session_state {
 
 struct multi_model_graph_config {
     inference_graph_port* graph_{nullptr};
+    // Optional neutral preprocessing for a backend that does not preprocess pixels.
+    image_processor_port* processor_{nullptr};
     inference_plan plan_;
     source_binding binding_;
     std::vector<tensor_spec> outputs_;
