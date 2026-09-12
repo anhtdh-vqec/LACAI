@@ -1,0 +1,3 @@
+[submodule "third_party/qai_appbuilder"]
+	path = third_party/qai_appbuilder
+	url = https://github.com/qualcomm/qai-appbuilder

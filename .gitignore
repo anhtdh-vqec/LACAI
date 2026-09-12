@@ -22,3 +22,6 @@ compile_commands.json
 *.pem
 *.key
 .env
+
+# Private Qualcomm QAIRT SDK (installed externally; never commit) and its symlink
+/third_party/qairt
