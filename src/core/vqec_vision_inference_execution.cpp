@@ -238,4 +238,44 @@ bool vqec_vision_ai_core_inexe_dtype_supported(
         vqec_vision_ai_core_inexe_dtype_bit(_dtype)) != 0;
 }
 
+status vqec_vision_ai_core_inexe_validate_shared_buffer(
+    const inference_shared_buffer& _buffer) noexcept {
+    if (_buffer.registration_id_ == 0 || _buffer.allocation_id_ == 0 ||
+        _buffer.generation_ == 0) {
+        return {status_code::invalid_argument,
+            "shared buffer registration/allocation/generation must be nonzero"};
+    }
+    if (_buffer.bytes_ == 0 ||
+        _buffer.bytes_ > inference_execution_limits::g_max_shared_buffer_bytes) {
+        return {status_code::invalid_argument, "shared buffer size is invalid"};
+    }
+    if (_buffer.access_ != shared_buffer_access::read_only &&
+        _buffer.access_ != shared_buffer_access::read_write) {
+        return {status_code::invalid_argument, "shared buffer access mode is invalid"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_core_inexe_shared_buffer_supported(
+    const inference_shared_buffer& _buffer,
+    const inference_capabilities& _capabilities,
+    std::uint16_t _active_registrations) noexcept {
+    const auto valid_buffer = vqec_vision_ai_core_inexe_validate_shared_buffer(_buffer);
+    if (valid_buffer.code_ != status_code::ok) {
+        return valid_buffer;
+    }
+    const auto valid_capabilities =
+        vqec_vision_ai_core_inexe_validate_capabilities(_capabilities);
+    if (valid_capabilities.code_ != status_code::ok) {
+        return valid_capabilities;
+    }
+    if (!_capabilities.supports_shared_memory_) {
+        return {status_code::unsupported, "backend does not support shared memory"};
+    }
+    if (_active_registrations >= _capabilities.max_shared_registrations_) {
+        return {status_code::resource_exhausted, "shared buffer registration capacity reached"};
+    }
+    return {};
+}
+
 }  // namespace vqec::vision::ai

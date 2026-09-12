@@ -47,6 +47,16 @@ aggregate inflight beyond the backend bound, and multi-graph admission when shar
 support is absent. A domain is not an authorization decision and does not change buffer
 ownership or completion semantics.
 
+## Shared/registered buffers
+
+`inference_shared_buffer` names one imported/registered allocation by
+`allocation_id`/`generation`, not by a numeric FD, so a stale FD is never treated as
+identity. `memory_mode::registered_shared` selects this path; the runtime checks the
+descriptor and remaining capacity with
+`vqec_vision_ai_core_inexe_shared_buffer_supported` and fails closed when the backend does
+not advertise shared memory. A valid descriptor proves none of import, zero-copy, cache
+coherency or completion; those require the BSP contract and board trace.
+
 ## Explicit ownership and bounds (unchanged)
 
 Async or shared memory never changes completion semantics: a submitted job owns its shared

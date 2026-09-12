@@ -17,7 +17,22 @@ inline constexpr std::uint16_t g_max_shared_registrations = 64;
 inline constexpr std::uint32_t g_max_priority = 7;
 inline constexpr std::size_t g_max_domain_id_bytes = 128;
 inline constexpr std::uint16_t g_max_domain_graphs = 64;
+inline constexpr std::uint64_t g_max_shared_buffer_bytes = 1ULL << 34;
 }  // namespace inference_execution_limits
+
+// Access an accelerator may have to a registered shared buffer. Read-only input must stay
+// read-only; AI overlay/encode uses a separate writable AI-owned surface.
+enum class shared_buffer_access { read_only, read_write };
+
+// Neutral identity of one imported/registered buffer. Identity is allocation + generation,
+// not a numeric FD. A generation change invalidates every prior registration.
+struct inference_shared_buffer {
+    std::uint64_t registration_id_{0};
+    std::uint64_t allocation_id_{0};
+    std::uint64_t generation_{0};
+    std::uint64_t bytes_{0};
+    shared_buffer_access access_{shared_buffer_access::read_only};
+};
 
 // How a model graph executes relative to its caller. Vendor-neutral; an adapter maps it
 // to its own execution mechanism without leaking vendor types into this contract.
@@ -100,6 +115,18 @@ struct inference_execution_domain {
 
 [[nodiscard]] bool vqec_vision_ai_core_inexe_dtype_supported(
     const inference_capabilities& _capabilities, tensor_element_type _dtype) noexcept;
+
+// Structural validation only. A valid descriptor is not proof of import, zero-copy,
+// cache coherency or device completion; those require BSP evidence.
+[[nodiscard]] status vqec_vision_ai_core_inexe_validate_shared_buffer(
+    const inference_shared_buffer& _buffer) noexcept;
+
+// Fail-closed check that a backend advertising shared memory can accept this descriptor
+// and remaining registration capacity.
+[[nodiscard]] status vqec_vision_ai_core_inexe_shared_buffer_supported(
+    const inference_shared_buffer& _buffer,
+    const inference_capabilities& _capabilities,
+    std::uint16_t _active_registrations) noexcept;
 
 }  // namespace vqec::vision::ai
 

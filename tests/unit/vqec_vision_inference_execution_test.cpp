@@ -219,6 +219,47 @@ int main() {
                   domain, capped, 2, 3).code_ == status_code::resource_exhausted);
     }
 
+    // Shared/registered buffer identity and admission.
+    {
+        inference_shared_buffer buffer;
+        buffer.registration_id_ = 1;
+        buffer.allocation_id_ = 42;
+        buffer.generation_ = 3;
+        buffer.bytes_ = 640U * 640U * 3U;
+        buffer.access_ = shared_buffer_access::read_only;
+        check(vqec_vision_ai_core_inexe_validate_shared_buffer(buffer).code_ ==
+              status_code::ok);
+        check(vqec_vision_ai_core_inexe_shared_buffer_supported(
+                  buffer, capabilities, 0).code_ == status_code::ok);
+
+        auto bad = buffer;
+        bad.registration_id_ = 0;
+        check(vqec_vision_ai_core_inexe_validate_shared_buffer(bad).code_ ==
+              status_code::invalid_argument);
+        bad = buffer;
+        bad.bytes_ = 0;
+        check(vqec_vision_ai_core_inexe_validate_shared_buffer(bad).code_ ==
+              status_code::invalid_argument);
+        bad = buffer;
+        bad.bytes_ = inference_execution_limits::g_max_shared_buffer_bytes + 1U;
+        check(vqec_vision_ai_core_inexe_validate_shared_buffer(bad).code_ ==
+              status_code::invalid_argument);
+        bad = buffer;
+        bad.access_ = static_cast<shared_buffer_access>(99);
+        check(vqec_vision_ai_core_inexe_validate_shared_buffer(bad).code_ ==
+              status_code::invalid_argument);
+
+        auto no_shared = capabilities;
+        no_shared.supports_shared_memory_ = false;
+        no_shared.max_shared_registrations_ = 0;
+        check(vqec_vision_ai_core_inexe_shared_buffer_supported(
+                  buffer, no_shared, 0).code_ == status_code::unsupported);
+        check(vqec_vision_ai_core_inexe_shared_buffer_supported(
+                  buffer, capabilities,
+                  capabilities.max_shared_registrations_).code_ ==
+              status_code::resource_exhausted);
+    }
+
     std::cout << "inference execution failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }
