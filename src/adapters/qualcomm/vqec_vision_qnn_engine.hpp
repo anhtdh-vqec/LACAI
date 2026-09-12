@@ -1,11 +1,14 @@
 #ifndef VQEC_VISION_AI_QCOM_QNN_ENGINE_HPP
 #define VQEC_VISION_AI_QCOM_QNN_ENGINE_HPP
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
 
 namespace vqec::vision::ai {
 
@@ -33,7 +36,23 @@ public:
     // Reports capabilities derived from the resolved interface and created device.
     [[nodiscard]] status vqec_vision_ai_qcom_qneng_probe_capabilities(
         inference_capabilities& _capabilities) const noexcept;
-    // Releases device, backend and libraries in dependency order; idempotent.
+
+    // Creates a context and loads one QNN model library (the `.so` produced by
+    // qnn-model-lib-generator), composing its graphs. Exactly one graph is supported in
+    // this step; a multi-graph library is rejected rather than partially used.
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_library);
+
+    // Reports the composed graph input/output tensor identity (name, shape, dtype,
+    // quantization). Order is the vendor graph order and must be bound by the caller.
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_get_tensors(
+        std::vector<tensor_spec>& _inputs, std::vector<tensor_spec>& _outputs) const;
+
+    // Synchronous client-buffer execution. Every input blob must match the graph input
+    // dtype and packed byte count; outputs are allocated and returned in graph order.
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_execute(
+        const std::vector<tensor_blob>& _inputs, std::vector<tensor_blob>& _outputs);
+
+    // Releases graphs, context, device, backend and libraries in dependency order.
     void vqec_vision_ai_qcom_qneng_close() noexcept;
 
 private:

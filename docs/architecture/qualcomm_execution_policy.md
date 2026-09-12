@@ -31,9 +31,17 @@ capabilities (async via `graphExecuteAsync`, shared memory via `memRegister`, ar
 update via `contextApplyBinarySection`, perf profiles when a device exists). A failed
 device creation is a fault on the admitted HTP path, not a silent CPU downgrade.
 
-Neither step creates a context, composes a graph or executes, so they prove neither
-accelerator availability nor execution; context/graph/execute are later A4 steps
-qualified on the board. Callers must serialize engine calls on the backend worker.
+`prepare` creates a context, `dlopen`s one QNN model library (`.so` from
+qnn-model-lib-generator), resolves `QnnModel_composeGraphs`/`QnnModel_freeGraphsInfo`,
+composes its graphs and rejects a multi-graph library. `get_tensors` reports the composed
+input/output tensor identity (name, shape, dtype, quantization with
+`zero_point = -offset`). `execute` binds client buffers for the single graph, runs
+synchronous `graphExecute` and returns native-dtype output blobs. The wrapper structures
+used by generated model libraries are mirrored as local ABI types instead of including the
+restricted SDK example header.
+
+These steps still prove neither accelerator availability nor execution correctness until
+run on the board; callers must serialize engine calls on the backend worker.
 
 ## Contract mapping
 

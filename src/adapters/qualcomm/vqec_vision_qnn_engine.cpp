@@ -1,10 +1,14 @@
 #include "vqec_vision_qnn_engine.hpp"
 
 #include <cstdint>
+#include <utility>
+
+#include <dlfcn.h>
 
 #include <QnnInterface.h>  // private QAIRT SDK header, not a project include
 
 #include "vqec_vision_sdk_loader.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {
@@ -26,6 +30,94 @@ std::uint32_t vqec_vision_ai_qcom_qneng_supported_dtype_mask() noexcept {
         vqec_vision_ai_qcom_qneng_dtype_bit(tensor_element_type::float32);
 }
 
+tensor_element_type vqec_vision_ai_qcom_qneng_map_dtype(Qnn_DataType_t _type) noexcept {
+    switch (_type) {
+        case QNN_DATATYPE_INT_8:
+        case QNN_DATATYPE_SFIXED_POINT_8:
+            return tensor_element_type::int8;
+        case QNN_DATATYPE_UINT_8:
+        case QNN_DATATYPE_UFIXED_POINT_8:
+            return tensor_element_type::uint8;
+        case QNN_DATATYPE_INT_16:
+        case QNN_DATATYPE_SFIXED_POINT_16:
+            return tensor_element_type::int16;
+        case QNN_DATATYPE_UINT_16:
+        case QNN_DATATYPE_UFIXED_POINT_16:
+            return tensor_element_type::uint16;
+        case QNN_DATATYPE_INT_32:
+        case QNN_DATATYPE_SFIXED_POINT_32:
+            return tensor_element_type::int32;
+        case QNN_DATATYPE_UINT_32:
+        case QNN_DATATYPE_UFIXED_POINT_32:
+            return tensor_element_type::uint32;
+        case QNN_DATATYPE_INT_64:
+            return tensor_element_type::int64;
+        case QNN_DATATYPE_UINT_64:
+            return tensor_element_type::uint64;
+        case QNN_DATATYPE_FLOAT_16:
+            return tensor_element_type::float16;
+        case QNN_DATATYPE_FLOAT_32:
+            return tensor_element_type::float32;
+        default:
+            break;
+    }
+    return tensor_element_type::unknown;
+}
+
+tensor_spec vqec_vision_ai_qcom_qneng_make_spec(const Qnn_Tensor_t& _tensor) {
+    tensor_spec spec;
+    if (_tensor.version != QNN_TENSOR_VERSION_2) {
+        return spec;
+    }
+    const auto& v2 = _tensor.v2;
+    if (v2.name != nullptr) {
+        spec.name_ = v2.name;
+    }
+    spec.dtype_ = vqec_vision_ai_qcom_qneng_map_dtype(v2.dataType);
+    if (v2.dimensions != nullptr) {
+        for (std::uint32_t axis = 0; axis < v2.rank; ++axis) {
+            spec.dimensions_.push_back(v2.dimensions[axis]);
+        }
+    }
+    if (v2.quantizeParams.encodingDefinition == QNN_DEFINITION_DEFINED &&
+        v2.quantizeParams.quantizationEncoding == QNN_QUANTIZATION_ENCODING_SCALE_OFFSET &&
+        v2.quantizeParams.scaleOffsetEncoding.scale > 0.0F) {
+        spec.quantization_.is_quantized_ = true;
+        spec.quantization_.scale_ = v2.quantizeParams.scaleOffsetEncoding.scale;
+        // QNN stores real = (stored + offset) * scale; the neutral convention is
+        // real = (stored - zero_point) * scale.
+        spec.quantization_.zero_point_ =
+            -v2.quantizeParams.scaleOffsetEncoding.offset;
+    }
+    return spec;
+}
+
+// ABI mirror of the QNN sample-app wrapper structures used by generated model libraries.
+// The layout must match the model library built by qnn-model-lib-generator; we declare it
+// locally instead of including the restricted SDK example header.
+struct qnn_model_graph_config_info {
+    char* graphName;
+    const QnnGraph_Config_t** graphConfigs;
+};
+
+struct qnn_model_graph_info {
+    Qnn_GraphHandle_t graph;
+    char* graphName;
+    Qnn_Tensor_t* inputTensors;
+    std::uint32_t numInputTensors;
+    Qnn_Tensor_t* outputTensors;
+    std::uint32_t numOutputTensors;
+};
+
+using model_error_t = std::int32_t;
+using compose_graphs_fn = model_error_t (*)(
+    Qnn_BackendHandle_t, QNN_INTERFACE_VER_TYPE, Qnn_ContextHandle_t,
+    const qnn_model_graph_config_info**, std::uint32_t,
+    qnn_model_graph_info***, std::uint32_t*, bool, QnnLog_Callback_t, QnnLog_Level_t);
+using free_graphs_fn = model_error_t (*)(qnn_model_graph_info***, std::uint32_t);
+
+constexpr model_error_t g_model_no_error = 0;
+
 }  // namespace
 
 struct qnn_engine::implementation {
@@ -33,7 +125,14 @@ struct qnn_engine::implementation {
     const QNN_INTERFACE_VER_TYPE* qnn_{nullptr};
     Qnn_BackendHandle_t backend_{nullptr};
     Qnn_DeviceHandle_t device_{nullptr};
+    Qnn_ContextHandle_t context_{nullptr};
+    void* model_handle_{nullptr};
+    compose_graphs_fn compose_{nullptr};
+    free_graphs_fn free_graphs_{nullptr};
+    qnn_model_graph_info** graphs_{nullptr};
+    std::uint32_t graph_count_{0};
     bool is_open_{false};
+    bool is_prepared_{false};
 };
 
 qnn_engine::qnn_engine() : implementation_(std::make_unique<implementation>()) {}
@@ -61,8 +160,8 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_open(
     if (loaded.code_ != status_code::ok) {
         return loaded;
     }
-    const auto* provider =
-        static_cast<const QnnInterface_t*>(impl.libraries_.vqec_vision_ai_qcom_sdkld_get_provider());
+    const auto* provider = static_cast<const QnnInterface_t*>(
+        impl.libraries_.vqec_vision_ai_qcom_sdkld_get_provider());
     if (provider == nullptr) {
         impl.libraries_.vqec_vision_ai_qcom_sdkld_close();
         return {status_code::unsupported, "QNN interface provider is unavailable"};
@@ -98,11 +197,12 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(
     if (!vqec_vision_ai_qcom_qneng_is_open()) {
         return {status_code::invalid_state, "QNN engine is not open"};
     }
-    const auto& qnn = *implementation_->qnn_;
+    const auto& impl = *implementation_;
+    const auto& qnn = *impl.qnn_;
     inference_capabilities capabilities;
     capabilities.supported_dtype_mask_ = vqec_vision_ai_qcom_qneng_supported_dtype_mask();
-    capabilities.perf_profile_mask_ = implementation_->device_ != nullptr ?
-        static_cast<std::uint8_t>(0x0FU) :  // all profiles require a device/perf infrastructure
+    capabilities.perf_profile_mask_ = impl.device_ != nullptr ?
+        static_cast<std::uint8_t>(0x0FU) :
         static_cast<std::uint8_t>(1U << static_cast<unsigned>(inference_perf_profile::balanced));
     capabilities.graph_count_ = 1;
     capabilities.supports_async_ = qnn.graphExecuteAsync != nullptr;
@@ -121,11 +221,154 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(
     return {};
 }
 
+status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_library) {
+    if (!vqec_vision_ai_qcom_qneng_is_open()) {
+        return {status_code::invalid_state, "QNN engine is not open"};
+    }
+    if (_model_library.empty()) {
+        return {status_code::invalid_argument, "model library path is required"};
+    }
+    auto& impl = *implementation_;
+    if (impl.is_prepared_) {
+        return {status_code::invalid_state, "QNN engine already has a prepared model"};
+    }
+    if (impl.qnn_->contextCreate == nullptr ||
+        impl.qnn_->contextCreate(impl.backend_, impl.device_, nullptr, &impl.context_) !=
+            QNN_SUCCESS ||
+        impl.context_ == nullptr) {
+        return {status_code::io_error, "QNN context creation failed"};
+    }
+    impl.model_handle_ = ::dlopen(_model_library.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (impl.model_handle_ == nullptr) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::io_error, "cannot load QNN model library"};
+    }
+    impl.compose_ = reinterpret_cast<compose_graphs_fn>(
+        ::dlsym(impl.model_handle_, "QnnModel_composeGraphs"));
+    impl.free_graphs_ = reinterpret_cast<free_graphs_fn>(
+        ::dlsym(impl.model_handle_, "QnnModel_freeGraphsInfo"));
+    if (impl.compose_ == nullptr || impl.free_graphs_ == nullptr) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::unsupported, "model library does not expose QNN compose functions"};
+    }
+    const auto composed = impl.compose_(
+        impl.backend_, *impl.qnn_, impl.context_, nullptr, 0,
+        &impl.graphs_, &impl.graph_count_, false, nullptr, QNN_LOG_LEVEL_ERROR);
+    if (composed != g_model_no_error || impl.graphs_ == nullptr || impl.graph_count_ == 0) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::unsupported, "QNN model graph composition failed"};
+    }
+    if (impl.graph_count_ != 1) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::unsupported, "only single-graph model libraries are supported"};
+    }
+    impl.is_prepared_ = true;
+    return {};
+}
+
+status qnn_engine::vqec_vision_ai_qcom_qneng_get_tensors(
+    std::vector<tensor_spec>& _inputs, std::vector<tensor_spec>& _outputs) const {
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "QNN engine has no prepared model"};
+    }
+    const auto* graph = implementation_->graphs_[0];
+    if (graph == nullptr || graph->inputTensors == nullptr || graph->outputTensors == nullptr) {
+        return {status_code::protocol_error, "composed graph tensor metadata is missing"};
+    }
+    std::vector<tensor_spec> inputs;
+    std::vector<tensor_spec> outputs;
+    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
+        inputs.push_back(vqec_vision_ai_qcom_qneng_make_spec(graph->inputTensors[index]));
+    }
+    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+        outputs.push_back(vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]));
+    }
+    _inputs = std::move(inputs);
+    _outputs = std::move(outputs);
+    return {};
+}
+
+status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
+    const std::vector<tensor_blob>& _inputs, std::vector<tensor_blob>& _outputs) {
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "QNN engine has no prepared model"};
+    }
+    auto& impl = *implementation_;
+    auto* graph = impl.graphs_[0];
+    if (graph == nullptr) {
+        return {status_code::invalid_state, "QNN model graph is unavailable"};
+    }
+    if (_inputs.size() != graph->numInputTensors) {
+        return {status_code::invalid_argument, "input tensor count differs from the model graph"};
+    }
+    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
+        auto& tensor = graph->inputTensors[index];
+        const auto spec = vqec_vision_ai_qcom_qneng_make_spec(tensor);
+        if (spec.dtype_ == tensor_element_type::unknown) {
+            return {status_code::unsupported, "model input tensor dtype is unsupported"};
+        }
+        if (_inputs[index].spec_.dtype_ != spec.dtype_ ||
+            _inputs[index].bytes_.size() !=
+                vqec_vision_ai_core_tnctr_shape_bytes(spec)) {
+            return {status_code::invalid_argument,
+                "input blob does not match the model graph tensor dtype/shape"};
+        }
+    }
+    std::vector<tensor_blob> outputs;
+    outputs.reserve(graph->numOutputTensors);
+    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+        tensor_blob blob;
+        blob.spec_ = vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]);
+        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(blob.spec_);
+        if (bytes == 0) {
+            return {status_code::unsupported, "model output tensor metadata is invalid"};
+        }
+        blob.bytes_.resize(static_cast<std::size_t>(bytes));
+        outputs.push_back(std::move(blob));
+    }
+    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
+        auto& tensor = graph->inputTensors[index];
+        tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
+        tensor.v2.clientBuf.data = const_cast<std::uint8_t*>(_inputs[index].bytes_.data());
+        tensor.v2.clientBuf.dataSize = _inputs[index].bytes_.size();
+    }
+    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+        auto& tensor = graph->outputTensors[index];
+        tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
+        tensor.v2.clientBuf.data = outputs[index].bytes_.data();
+        tensor.v2.clientBuf.dataSize = outputs[index].bytes_.size();
+    }
+    const auto executed = impl.qnn_->graphExecute(
+        graph->graph, graph->inputTensors, graph->numInputTensors,
+        graph->outputTensors, graph->numOutputTensors, nullptr, nullptr);
+    if (executed != QNN_SUCCESS) {
+        return {status_code::io_error, "QNN graph execution failed"};
+    }
+    _outputs = std::move(outputs);
+    return {};
+}
+
 void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
     if (implementation_ == nullptr) {
         return;
     }
     auto& impl = *implementation_;
+    if (impl.graphs_ != nullptr && impl.free_graphs_ != nullptr) {
+        (void)impl.free_graphs_(&impl.graphs_, impl.graph_count_);
+    }
+    impl.graphs_ = nullptr;
+    impl.graph_count_ = 0;
+    impl.compose_ = nullptr;
+    impl.free_graphs_ = nullptr;
+    if (impl.model_handle_ != nullptr) {
+        ::dlclose(impl.model_handle_);
+        impl.model_handle_ = nullptr;
+    }
+    if (impl.qnn_ != nullptr && impl.context_ != nullptr && impl.qnn_->contextFree != nullptr) {
+        (void)impl.qnn_->contextFree(impl.context_, nullptr);
+    }
+    impl.context_ = nullptr;
+    impl.is_prepared_ = false;
     if (impl.qnn_ != nullptr && impl.device_ != nullptr && impl.qnn_->deviceFree != nullptr) {
         (void)impl.qnn_->deviceFree(impl.device_);
     }
