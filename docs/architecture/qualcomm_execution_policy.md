@@ -36,6 +36,17 @@ explicit, observable policy.
 `compute_unit_count == 0` means the backend does not advertise topology; any policy that
 requests units or affinity is then rejected rather than guessed.
 
+## Execution domain
+
+`inference_execution_domain` is the neutral identity and capacity of one shared accelerator
+resource domain (one backend/device/context). Several model graphs may bind to one domain
+so one HTP context is reused instead of one context per model. The adapter owns the real
+domain object; the runtime admits the aggregate with
+`vqec_vision_ai_core_inexe_domain_admits`, which rejects over-capacity graph counts,
+aggregate inflight beyond the backend bound, and multi-graph admission when shared-context
+support is absent. A domain is not an authorization decision and does not change buffer
+ownership or completion semantics.
+
 ## Explicit ownership and bounds (unchanged)
 
 Async or shared memory never changes completion semantics: a submitted job owns its shared

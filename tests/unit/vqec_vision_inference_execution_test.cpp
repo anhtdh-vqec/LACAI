@@ -176,6 +176,49 @@ int main() {
                   too_many, capped).code_ == status_code::unsupported);
     }
 
+    // Execution domain identity, capacity and aggregate admission.
+    {
+        inference_execution_domain domain;
+        domain.domain_id_ = "qcs6490_htp0";
+        domain.max_graphs_ = 4;
+        domain.max_inflight_jobs_ = 8;
+        domain.allows_shared_context_ = true;
+        check(vqec_vision_ai_core_inexe_validate_domain(domain).code_ == status_code::ok);
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, capabilities, 2, 6).code_ == status_code::ok);
+
+        auto bad = domain;
+        bad.domain_id_.clear();
+        check(vqec_vision_ai_core_inexe_validate_domain(bad).code_ ==
+              status_code::invalid_argument);
+        bad = domain;
+        bad.max_graphs_ = 0;
+        check(vqec_vision_ai_core_inexe_validate_domain(bad).code_ ==
+              status_code::invalid_argument);
+
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, capabilities, 0, 1).code_ == status_code::invalid_argument);
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, capabilities, 5, 6).code_ == status_code::resource_exhausted);
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, capabilities, 1, 9).code_ == status_code::resource_exhausted);
+
+        auto no_share = domain;
+        no_share.allows_shared_context_ = false;
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  no_share, capabilities, 2, 2).code_ == status_code::unsupported);
+
+        auto no_multi = capabilities;
+        no_multi.supports_multi_model_domain_ = false;
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, no_multi, 2, 2).code_ == status_code::unsupported);
+
+        auto capped = capabilities;
+        capped.max_inflight_jobs_ = 1;
+        check(vqec_vision_ai_core_inexe_domain_admits(
+                  domain, capped, 2, 3).code_ == status_code::resource_exhausted);
+    }
+
     std::cout << "inference execution failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }

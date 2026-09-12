@@ -1,7 +1,9 @@
 #ifndef VQEC_VISION_AI_CONTRACTS_INFERENCE_EXECUTION_HPP
 #define VQEC_VISION_AI_CONTRACTS_INFERENCE_EXECUTION_HPP
 
+#include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
@@ -13,6 +15,8 @@ inline constexpr std::uint8_t g_max_compute_units = 8;
 inline constexpr std::uint16_t g_max_inflight_jobs = 16;
 inline constexpr std::uint16_t g_max_shared_registrations = 64;
 inline constexpr std::uint32_t g_max_priority = 7;
+inline constexpr std::size_t g_max_domain_id_bytes = 128;
+inline constexpr std::uint16_t g_max_domain_graphs = 64;
 }  // namespace inference_execution_limits
 
 // How a model graph executes relative to its caller. Vendor-neutral; an adapter maps it
@@ -61,9 +65,29 @@ struct inference_execution_policy {
     bool prefer_native_output_{false};
 };
 
+// One shared accelerator resource domain that several model graphs may bind to (one
+// backend/device/context). Identity and capacity only; the adapter owns the real domain
+// object and the runtime admits the aggregate against it.
+struct inference_execution_domain {
+    std::string domain_id_;
+    std::uint16_t max_graphs_{0};
+    std::uint16_t max_inflight_jobs_{0};
+    bool allows_shared_context_{false};
+};
+
 // Structural validation only; no I/O, allocation or vendor call.
 [[nodiscard]] status vqec_vision_ai_core_inexe_validate_capabilities(
     const inference_capabilities& _capabilities) noexcept;
+
+[[nodiscard]] status vqec_vision_ai_core_inexe_validate_domain(
+    const inference_execution_domain& _domain) noexcept;
+
+// Admits a graph set and its aggregate inflight bound into a domain owned by a backend
+// whose capabilities are supplied. Multi-graph admission requires shared-context support.
+[[nodiscard]] status vqec_vision_ai_core_inexe_domain_admits(
+    const inference_execution_domain& _domain,
+    const inference_capabilities& _domain_capabilities,
+    std::uint16_t _graph_count, std::uint32_t _total_inflight_jobs) noexcept;
 
 [[nodiscard]] status vqec_vision_ai_core_inexe_validate_policy(
     const inference_execution_policy& _policy) noexcept;

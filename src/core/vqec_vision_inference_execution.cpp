@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
@@ -92,6 +94,60 @@ status vqec_vision_ai_core_inexe_validate_capabilities(
     if (!_capabilities.supports_async_ && _capabilities.max_inflight_jobs_ != 1) {
         return {status_code::invalid_argument,
             "synchronous capability cannot allow more than one inflight job"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_core_inexe_validate_domain(
+    const inference_execution_domain& _domain) noexcept {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _domain.domain_id_, inference_execution_limits::g_max_domain_id_bytes)) {
+        return {status_code::invalid_argument, "execution domain id is invalid"};
+    }
+    if (_domain.max_graphs_ == 0 ||
+        _domain.max_graphs_ > inference_execution_limits::g_max_domain_graphs) {
+        return {status_code::invalid_argument, "execution domain graph capacity is invalid"};
+    }
+    if (_domain.max_inflight_jobs_ == 0 ||
+        _domain.max_inflight_jobs_ > inference_execution_limits::g_max_inflight_jobs) {
+        return {status_code::invalid_argument, "execution domain inflight bound is invalid"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_core_inexe_domain_admits(
+    const inference_execution_domain& _domain,
+    const inference_capabilities& _domain_capabilities,
+    std::uint16_t _graph_count, std::uint32_t _total_inflight_jobs) noexcept {
+    const auto valid_domain = vqec_vision_ai_core_inexe_validate_domain(_domain);
+    if (valid_domain.code_ != status_code::ok) {
+        return valid_domain;
+    }
+    const auto valid_capabilities =
+        vqec_vision_ai_core_inexe_validate_capabilities(_domain_capabilities);
+    if (valid_capabilities.code_ != status_code::ok) {
+        return valid_capabilities;
+    }
+    if (_graph_count == 0 || _total_inflight_jobs == 0) {
+        return {status_code::invalid_argument, "domain admission requires graphs and jobs"};
+    }
+    if (_graph_count > _domain.max_graphs_) {
+        return {status_code::resource_exhausted, "domain graph capacity exceeded"};
+    }
+    if (_graph_count > 1 &&
+        (!_domain.allows_shared_context_ ||
+            !_domain_capabilities.supports_multi_model_domain_)) {
+        return {status_code::unsupported,
+            "multi-graph domain requires shared-context support"};
+    }
+    if (_total_inflight_jobs > _domain.max_inflight_jobs_) {
+        return {status_code::resource_exhausted, "domain inflight bound exceeded"};
+    }
+    const auto aggregate =
+        static_cast<std::uint64_t>(_domain_capabilities.max_inflight_jobs_) * _graph_count;
+    if (static_cast<std::uint64_t>(_total_inflight_jobs) > aggregate) {
+        return {status_code::resource_exhausted,
+            "aggregate inflight exceeds backend capacity"};
     }
     return {};
 }
