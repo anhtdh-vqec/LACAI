@@ -194,4 +194,18 @@ vqec_vision_ai_ports_infgr_get_pending_ticket() const noexcept {
     return pending_ticket_;
 }
 
+inference_capabilities reference_inference_graph::
+vqec_vision_ai_ports_infgr_get_capabilities() const noexcept {
+    inference_capabilities capabilities;
+    // Every reviewed element type (int8..float32 are ordinals 1..10).
+    capabilities.supported_dtype_mask_ =
+        static_cast<std::uint32_t>((1U << 11U) - 2U);
+    capabilities.perf_profile_mask_ = static_cast<std::uint8_t>(
+        1U << static_cast<unsigned>(inference_perf_profile::balanced));
+    capabilities.graph_count_ = 1;
+    capabilities.max_inflight_jobs_ = 1;
+    capabilities.supports_native_output_ = true;
+    return capabilities;
+}
+
 }  // namespace vqec::vision::ai

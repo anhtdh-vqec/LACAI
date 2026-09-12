@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_source_binding.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
@@ -57,6 +58,27 @@ public:
     vqec_vision_ai_ports_infgr_get_outstanding() const noexcept = 0;
     [[nodiscard]] virtual submission_ticket
     vqec_vision_ai_ports_infgr_get_pending_ticket() const noexcept = 0;
+
+    // Conservative default: one synchronous graph, copy memory, float32 only. An adapter
+    // overrides this to advertise accelerator optimizations it can actually satisfy.
+    [[nodiscard]] virtual inference_capabilities
+    vqec_vision_ai_ports_infgr_get_capabilities() const noexcept {
+        inference_capabilities capabilities;
+        capabilities.supported_dtype_mask_ = static_cast<std::uint32_t>(1U)
+            << static_cast<std::uint32_t>(tensor_element_type::float32);
+        capabilities.perf_profile_mask_ = static_cast<std::uint8_t>(
+            1U << static_cast<unsigned>(inference_perf_profile::balanced));
+        capabilities.graph_count_ = 1;
+        capabilities.max_inflight_jobs_ = 1;
+        return capabilities;
+    }
+
+    // Fail-closed by default: a request the adapter did not advertise is rejected.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_validate_policy(
+        const inference_execution_policy& _policy) const {
+        return vqec_vision_ai_core_inexe_policy_is_supported(
+            _policy, vqec_vision_ai_ports_infgr_get_capabilities());
+    }
 };
 
 }  // namespace vqec::vision::ai

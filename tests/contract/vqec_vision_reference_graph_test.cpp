@@ -49,6 +49,29 @@ tensor_spec vqec_vision_ai_ctest_rfgpt_spec(
 
 int main() {
     reference_inference_graph graph;
+
+    // Capability/policy wiring: the reference backend advertises all reviewed dtypes and
+    // native output, and the fail-closed validator rejects shared/async requests it did
+    // not advertise.
+    const auto capabilities = graph.vqec_vision_ai_ports_infgr_get_capabilities();
+    assert(capabilities.supports_native_output_);
+    assert(vqec_vision_ai_core_inexe_dtype_supported(
+        capabilities, tensor_element_type::int8));
+    assert(vqec_vision_ai_core_inexe_dtype_supported(
+        capabilities, tensor_element_type::float32));
+    inference_execution_policy policy;
+    assert(graph.vqec_vision_ai_ports_infgr_validate_policy(policy).code_ == status_code::ok);
+    policy.prefer_native_output_ = true;
+    assert(graph.vqec_vision_ai_ports_infgr_validate_policy(policy).code_ == status_code::ok);
+    policy.memory_ = inference_memory_mode::registered_shared;
+    assert(graph.vqec_vision_ai_ports_infgr_validate_policy(policy).code_ ==
+           status_code::unsupported);
+    policy = {};
+    policy.mode_ = inference_execution_mode::asynchronous;
+    policy.max_inflight_jobs_ = 2;
+    assert(graph.vqec_vision_ai_ports_infgr_validate_policy(policy).code_ ==
+           status_code::unsupported);
+
     assert(graph.vqec_vision_ai_ports_infgr_validate_activation().code_ == status_code::ok);
     assert(graph.vqec_vision_ai_ports_infgr_configure(vqec_vision_ai_ctest_rfgpt_plan()).code_ ==
            status_code::ok);

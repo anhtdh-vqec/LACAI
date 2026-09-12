@@ -54,6 +54,10 @@ public:
     vqec_vision_ai_ports_infgr_get_outstanding() const noexcept override;
     [[nodiscard]] submission_ticket
     vqec_vision_ai_ports_infgr_get_pending_ticket() const noexcept override;
+    // The reference backend carries every reviewed dtype and produces native typed blobs,
+    // but it is synchronous and copies, so it advertises no async/shared/update support.
+    [[nodiscard]] inference_capabilities
+    vqec_vision_ai_ports_infgr_get_capabilities() const noexcept override;
 
 private:
     reference_graph_config config_;
