@@ -6,6 +6,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_source_binding.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
@@ -58,6 +59,21 @@ public:
     vqec_vision_ai_ports_infgr_get_outstanding() const noexcept = 0;
     [[nodiscard]] virtual submission_ticket
     vqec_vision_ai_ports_infgr_get_pending_ticket() const noexcept = 0;
+
+    // Tensor submission for a backend that does not preprocess pixels itself. The caller
+    // owns preprocessing and supplies the exact model input blobs plus the source frame
+    // identity used to correlate the result. Default is unsupported: a raw-frame backend
+    // keeps using submit_frame, and the pixel-preprocessing path stays neutral.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_submit_tensors(
+        const preview_frame_key& _frame, const std::vector<tensor_blob>& _inputs,
+        std::uint64_t _steady_now_ns, submission_ticket& _ticket) {
+        (void)_frame;
+        (void)_inputs;
+        (void)_steady_now_ns;
+        (void)_ticket;
+        return {status_code::unsupported,
+            "backend does not accept preprocessed tensor submission"};
+    }
 
     // Conservative default: one synchronous graph, copy memory, float32 only. An adapter
     // overrides this to advertise accelerator optimizations it can actually satisfy.

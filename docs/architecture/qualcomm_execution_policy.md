@@ -40,6 +40,13 @@ synchronous `graphExecute` and returns native-dtype output blobs. The wrapper st
 used by generated model libraries are mirrored as local ABI types instead of including the
 restricted SDK example header.
 
+`qnn_inference_graph` implements `inference_graph_port` over the engine: configure/load
+compose the model, start validates the declared outputs against the composed graph, arm
+configures the bounded submission window, and `submit_tensors` executes and correlates the
+result to the source frame. `submit_frame` is rejected because pixel preprocessing is a
+separate neutral stage; the engine never treats a raw NV12 frame as model input. The graph
+reports the engine's probed capabilities.
+
 These steps still prove neither accelerator availability nor execution correctness until
 run on the board; callers must serialize engine calls on the backend worker.
 

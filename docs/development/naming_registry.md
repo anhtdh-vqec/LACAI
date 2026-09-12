@@ -75,7 +75,7 @@ Chỉ thư mục có hàm cần ID; thư mục tài liệu/manifest không cần
 | src/adapters/qualcomm/vqec_vision_buffer_manager.cpp | bufmg | vqec_vision_ai_qcom_bufmg_ |
 | src/adapters/qualcomm/vqec_vision_backend_factory.cpp | bfact | vqec_vision_ai_qcom_bfact_ |
 | src/adapters/qualcomm/vqec_vision_sdk_loader.cpp | sdkld | vqec_vision_ai_qcom_sdkld_ |
-| src/adapters/qualcomm/vqec_vision_qnn_engine.cpp | qneng | vqec_vision_ai_qcom_qneng_ |
+| src/adapters/qualcomm/vqec_vision_qnn_inference_graph.cpp | qnig | vqec_vision_ai_qcom_qnig_ |
 | src/adapters/qualcomm/vqec_vision_c2d_processor.cpp | c2dpr | vqec_vision_ai_qcom_c2dpr_ |
 | src/adapters/camera/vqec_vision_frame_source.cpp | frsrc | vqec_vision_ai_camer_frsrc_ |
 | src/core/vqec_vision_frame_lease.cpp | frlse | vqec_vision_ai_core_frlse_ |

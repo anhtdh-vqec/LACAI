@@ -16,8 +16,17 @@ validated neutral data rather than a vendor branch in orchestration. The default
 deliberately conservative (one synchronous graph, copy memory, float32 only) and fails
 closed, so an adapter must override capabilities to advertise what it can satisfy. The
 reference backend advertises every reviewed dtype and native output; the plugin-backed
-Qualcomm adapter keeps the conservative default until the owned QNN engine exists. The
-contract and validators are in `vqec_vision_inference_execution.hpp`; fail-closed
+Qualcomm adapter keeps the conservative default; the owned `qnn_inference_graph` reports
+the engine's probed capabilities.
+
+Two submission shapes exist. `submit_frame` takes a raw frame for backends that
+preprocess pixels themselves (the GStreamer converter path). `submit_tensors` takes the
+already-preprocessed model input blobs plus the source frame identity, for a backend that
+does not preprocess; it defaults to `unsupported`. The owned QNN graph implements
+`submit_tensors` and rejects `submit_frame`, keeping pixel preprocessing an explicit
+neutral stage rather than hidden inside the accelerator adapter.
+
+The contract and validators are in `vqec_vision_inference_execution.hpp`; fail-closed
 semantics and Qualcomm mapping are in
 [qualcomm execution policy](qualcomm_execution_policy.md) and
 [ADR 0003](../adr/0003_owned_qnn_engine.md).
