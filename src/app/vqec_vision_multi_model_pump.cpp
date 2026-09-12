@@ -53,6 +53,31 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     return {};
 }
 
+status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
+    if (!is_configured_) {
+        return {status_code::invalid_state, "multi-model pump is not configured"};
+    }
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        if (bindings_[slot].processor_ == nullptr) {
+            has_target_spec_[slot] = false;
+            continue;
+        }
+        std::vector<tensor_spec> inputs;
+        const auto specs =
+            bindings_[slot].graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
+        if (specs.code_ != status_code::ok) {
+            return specs;
+        }
+        if (inputs.size() != 1) {
+            return {status_code::unsupported,
+                "tensor preprocessing requires exactly one model input"};
+        }
+        target_specs_[slot] = inputs[0];
+        has_target_spec_[slot] = true;
+    }
+    return {};
+}
+
 void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
     is_stopping_ = true;
 }

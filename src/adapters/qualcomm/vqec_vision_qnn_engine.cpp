@@ -64,6 +64,15 @@ tensor_element_type vqec_vision_ai_qcom_qneng_map_dtype(Qnn_DataType_t _type) no
     return tensor_element_type::unknown;
 }
 
+bool vqec_vision_ai_qcom_qneng_same_spec(
+    const tensor_spec& _left, const tensor_spec& _right) noexcept {
+    return _left.name_ == _right.name_ && _left.dimensions_ == _right.dimensions_ &&
+        _left.dtype_ == _right.dtype_ &&
+        _left.quantization_.is_quantized_ == _right.quantization_.is_quantized_ &&
+        _left.quantization_.scale_ == _right.quantization_.scale_ &&
+        _left.quantization_.zero_point_ == _right.quantization_.zero_point_;
+}
+
 tensor_spec vqec_vision_ai_qcom_qneng_make_spec(const Qnn_Tensor_t& _tensor) {
     tensor_spec spec;
     if (_tensor.version != QNN_TENSOR_VERSION_2) {
@@ -131,6 +140,9 @@ struct qnn_engine::implementation {
     free_graphs_fn free_graphs_{nullptr};
     qnn_model_graph_info** graphs_{nullptr};
     std::uint32_t graph_count_{0};
+    // Resolved once at prepare so execute reconstructs no tensor metadata on the hot path.
+    std::vector<tensor_spec> input_specs_;
+    std::vector<tensor_spec> output_specs_;
     bool is_open_{false};
     bool is_prepared_{false};
 };
@@ -270,6 +282,40 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         vqec_vision_ai_qcom_qneng_close();
         return {status_code::unsupported, "only single-graph model libraries are supported"};
     }
+    const auto* graph = impl.graphs_[0];
+    if (graph == nullptr || graph->inputTensors == nullptr || graph->outputTensors == nullptr ||
+        graph->numInputTensors == 0 || graph->numOutputTensors == 0) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::unsupported, "composed graph tensor metadata is missing"};
+    }
+    // Resolve and validate tensor identity once, off the execute hot path. An unsupported
+    // dtype or a zero-byte shape is rejected here, before any submit, not per frame.
+    impl.input_specs_.clear();
+    impl.output_specs_.clear();
+    impl.input_specs_.reserve(graph->numInputTensors);
+    impl.output_specs_.reserve(graph->numOutputTensors);
+    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
+        const auto spec = vqec_vision_ai_qcom_qneng_make_spec(graph->inputTensors[index]);
+        if (spec.dtype_ == tensor_element_type::unknown ||
+            vqec_vision_ai_core_tnctr_shape_bytes(spec) == 0) {
+            impl.input_specs_.clear();
+            impl.output_specs_.clear();
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "model input tensor identity is unsupported"};
+        }
+        impl.input_specs_.push_back(spec);
+    }
+    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+        const auto spec = vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]);
+        if (spec.dtype_ == tensor_element_type::unknown ||
+            vqec_vision_ai_core_tnctr_shape_bytes(spec) == 0) {
+            impl.input_specs_.clear();
+            impl.output_specs_.clear();
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "model output tensor identity is unsupported"};
+        }
+        impl.output_specs_.push_back(spec);
+    }
     impl.is_prepared_ = true;
     return {};
 }
@@ -279,20 +325,8 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_get_tensors(
     if (implementation_ == nullptr || !implementation_->is_prepared_) {
         return {status_code::invalid_state, "QNN engine has no prepared model"};
     }
-    const auto* graph = implementation_->graphs_[0];
-    if (graph == nullptr || graph->inputTensors == nullptr || graph->outputTensors == nullptr) {
-        return {status_code::protocol_error, "composed graph tensor metadata is missing"};
-    }
-    std::vector<tensor_spec> inputs;
-    std::vector<tensor_spec> outputs;
-    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
-        inputs.push_back(vqec_vision_ai_qcom_qneng_make_spec(graph->inputTensors[index]));
-    }
-    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
-        outputs.push_back(vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]));
-    }
-    _inputs = std::move(inputs);
-    _outputs = std::move(outputs);
+    _inputs = implementation_->input_specs_;
+    _outputs = implementation_->output_specs_;
     return {};
 }
 
@@ -306,28 +340,27 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     if (graph == nullptr) {
         return {status_code::invalid_state, "QNN model graph is unavailable"};
     }
-    if (_inputs.size() != graph->numInputTensors) {
+    if (_inputs.size() != impl.input_specs_.size() ||
+        impl.input_specs_.size() != graph->numInputTensors) {
         return {status_code::invalid_argument, "input tensor count differs from the model graph"};
     }
-    for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
-        auto& tensor = graph->inputTensors[index];
-        const auto spec = vqec_vision_ai_qcom_qneng_make_spec(tensor);
-        if (spec.dtype_ == tensor_element_type::unknown) {
-            return {status_code::unsupported, "model input tensor dtype is unsupported"};
-        }
-        if (_inputs[index].spec_.dtype_ != spec.dtype_ ||
+    // Full identity check against the cached graph contract: name, shape, dtype and
+    // quantization must all match, not only the total byte count.
+    for (std::size_t index = 0; index < impl.input_specs_.size(); ++index) {
+        const auto& expected = impl.input_specs_[index];
+        if (!vqec_vision_ai_qcom_qneng_same_spec(_inputs[index].spec_, expected) ||
             _inputs[index].bytes_.size() !=
-                vqec_vision_ai_core_tnctr_shape_bytes(spec)) {
+                vqec_vision_ai_core_tnctr_shape_bytes(expected)) {
             return {status_code::invalid_argument,
-                "input blob does not match the model graph tensor dtype/shape"};
+                "input blob does not match the model graph tensor identity"};
         }
     }
     std::vector<tensor_blob> outputs;
-    outputs.reserve(graph->numOutputTensors);
-    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+    outputs.reserve(impl.output_specs_.size());
+    for (const auto& spec : impl.output_specs_) {
         tensor_blob blob;
-        blob.spec_ = vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]);
-        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(blob.spec_);
+        blob.spec_ = spec;
+        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
         if (bytes == 0) {
             return {status_code::unsupported, "model output tensor metadata is invalid"};
         }

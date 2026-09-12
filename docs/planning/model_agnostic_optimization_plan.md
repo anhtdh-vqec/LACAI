@@ -308,7 +308,8 @@ Oxx/Sxx với commit, config, test/evidence, reviewer và limitations còn lại
 | Bước | Trạng thái | Thay đổi | Kiểm chứng | Còn lại |
 |---|---|---|---|---|
 | S01 | Đã triển khai (device-free) | `qneng_probe_capabilities` chỉ công bố synchronous một job + native output; `supports_async/shared_memory/artifact_update/multi_model_domain = false`; chỉ profile `balanced`; topology `0`. Thêm negative test vào `vqec_vision_inference_execution_test`; bảng capability inventory trong `qualcomm_execution_policy.md`. | default 53/53, expanded 71/71 dưới eSDK QEMU | Board qualification; async/shared/update/domain chỉ bật khi có lifecycle path + negative tests. O11 vẫn mở ở mức contract. |
-| S02–S11 | Chưa thực hiện | | | Các bước cần board/measurement (S02/S05/S07/S09/S10) hoặc phụ thuộc S01–S05 (S03/S04/S06/S08/S11). |
+| S04 | Một phần (device-free) | O05/O07: engine resolve + cache input/output spec tại `prepare` (validate dtype/shape ở đây, `get_tensors` trả cache, `execute` không dựng lại metadata và so khớp đầy đủ name/shape/dtype/quantization). Pump thêm `resolve_targets`, session gọi sau khi mọi graph running để bỏ lazy lookup trên hot path. | default 53/53, expanded 71/71 dưới eSDK QEMU | O05 (alloc output bytes mỗi call) và O08 (container churn) cần pool slot + instrumentation; phụ thuộc S05. Chưa có zero steady-state allocation claim. |
+| S02/S03/S05–S11 | Chưa thực hiện | | | Các bước cần board/measurement (S02/S05/S07/S09/S10) hoặc phụ thuộc S01–S05 (S03/S06/S08/S11). |
 
 Quy ước trạng thái: `Đã triển khai (device-free)` nghĩa là source + test + tài liệu đã có
 và chạy dưới eSDK QEMU; không phải board/BSP, model-accuracy, performance hay zero-copy

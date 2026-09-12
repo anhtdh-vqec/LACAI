@@ -46,6 +46,10 @@ public:
         const std::array<multi_model_graph_binding,
             deployment_limits::g_max_models_per_source>& _bindings,
         std::uint16_t _binding_count);
+    // Resolves and caches the input tensor identity of every preprocessing binding once,
+    // after its graph is loaded and before any frame is received, so the per-frame path
+    // performs no metadata lookup (S04/O07). A non-preprocessing binding is unaffected.
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_resolve_targets();
     [[nodiscard]] status vqec_vision_ai_appl_mmump_pump_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         multi_model_pump_report& _report);

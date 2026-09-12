@@ -47,7 +47,10 @@ currently may allocate/copy in the Qualcomm implementation.
 
 The pump does not configure/load/start/drain/unload graphs or acquire/release FW.
 `multi_model_session` owns that lifecycle once per source, validates each graph before the
-first FW acquisition, then supplies running owners to this pump. Per-board admission must
+first FW acquisition, then supplies running owners to this pump. After every graph is
+running and before any frame is received, the session calls
+`vqec_vision_ai_appl_mmump_resolve_targets`, which resolves and caches each preprocessing
+binding's model input identity so the per-frame path performs no metadata lookup. Per-board admission must
 reduce configured model/source counts when measured graph, memory, accelerator, encoder or
 thermal limits are lower than the schema ceiling.
 

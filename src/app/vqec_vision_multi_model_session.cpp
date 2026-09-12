@@ -159,9 +159,17 @@ status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
             if (graph.vqec_vision_ai_ports_infgr_get_state() ==
                 inference_graph_state::running) {
                 ++active_graph_slot_;
-                state_ = active_graph_slot_ == config_.graph_count_ ?
-                    multi_model_session_state::running :
-                    multi_model_session_state::configuring;
+                if (active_graph_slot_ == config_.graph_count_) {
+                    // Every graph is loaded; resolve preprocessing targets now so no frame
+                    // is received before the model input identity is known (S04/O07).
+                    progress = pump_.vqec_vision_ai_appl_mmump_resolve_targets();
+                    if (progress.code_ != status_code::ok) {
+                        break;
+                    }
+                    state_ = multi_model_session_state::running;
+                } else {
+                    state_ = multi_model_session_state::configuring;
+                }
             }
             break;
         default:

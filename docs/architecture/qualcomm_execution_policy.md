@@ -55,12 +55,16 @@ tests. Board qualification is still required before any row becomes `qualified`.
 
 `prepare` creates a context, `dlopen`s one QNN model library (`.so` from
 qnn-model-lib-generator), resolves `QnnModel_composeGraphs`/`QnnModel_freeGraphsInfo`,
-composes its graphs and rejects a multi-graph library. `get_tensors` reports the composed
-input/output tensor identity (name, shape, dtype, quantization with
-`zero_point = -offset`). `execute` binds client buffers for the single graph, runs
-synchronous `graphExecute` and returns native-dtype output blobs. The wrapper structures
-used by generated model libraries are mirrored as local ABI types instead of including the
-restricted SDK example header.
+composes its graphs and rejects a multi-graph library. `prepare` resolves and validates the
+input/output tensor identity once (name, shape, dtype, quantization with
+`zero_point = -offset`); `get_tensors` returns that cache and `execute` reconstructs no
+tensor metadata on the hot path. `execute` re-checks each input against the full cached
+identity (name, shape, dtype and quantization, not only byte count), binds client buffers
+for the single graph, runs synchronous `graphExecute` and returns native-dtype output
+blobs. The wrapper structures used by generated model libraries are mirrored as local ABI
+types instead of including the restricted SDK example header. Output bytes are still
+allocated per call until the pooled native-output lease (S05) is wired; that remaining
+allocation and any SDK staging are not yet measured.
 
 `vqec_vision_ai_qcom_bfact_create` builds one owned bundle from the trusted
 `resolved_model_paths`: it opens the engine with the resolved backend/system libraries,

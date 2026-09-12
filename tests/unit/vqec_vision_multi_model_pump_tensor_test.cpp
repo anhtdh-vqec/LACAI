@@ -185,6 +185,7 @@ int main() {
     multi_model_pump pump(source);
     assert(pump.vqec_vision_ai_appl_mmump_configure(cadence, bindings, 1).code_ ==
            status_code::ok);
+    assert(pump.vqec_vision_ai_appl_mmump_resolve_targets().code_ == status_code::ok);
     tensor_result result;
     multi_model_pump_report report;
     for (std::uint64_t now = 1; now < 20 && graph.tensor_submissions_ == 0; ++now) {
