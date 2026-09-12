@@ -57,6 +57,15 @@ descriptor and remaining capacity with
 not advertise shared memory. A valid descriptor proves none of import, zero-copy, cache
 coherency or completion; those require the BSP contract and board trace.
 
+## Adapter / LoRA updates
+
+`inference_model_update` binds an immutable update artifact to an exact base model
+identity and revision. The runtime validates it and checks
+`vqec_vision_ai_core_inexe_model_update_supported` against the backend capability before
+use. An update is applied only while the graph is idle and drained; the artifact is
+authenticated by the trusted resolver. An update never changes buffer ownership,
+completion semantics or the effective output policy.
+
 ## Explicit ownership and bounds (unchanged)
 
 Async or shared memory never changes completion semantics: a submitted job owns its shared

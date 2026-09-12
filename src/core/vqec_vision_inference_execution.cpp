@@ -7,6 +7,8 @@
 namespace vqec::vision::ai {
 namespace {
 
+constexpr std::size_t g_inexe_model_identifier_bytes = 128;
+
 std::uint32_t vqec_vision_ai_core_inexe_dtype_bit(tensor_element_type _type) noexcept {
     return static_cast<std::uint32_t>(1U) << static_cast<std::uint32_t>(_type);
 }
@@ -236,6 +238,46 @@ bool vqec_vision_ai_core_inexe_dtype_supported(
     }
     return (_capabilities.supported_dtype_mask_ &
         vqec_vision_ai_core_inexe_dtype_bit(_dtype)) != 0;
+}
+
+status vqec_vision_ai_core_inexe_validate_model_update(
+    const inference_model_update& _update) noexcept {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _update.base_model_id_, g_inexe_model_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _update.base_model_version_, g_inexe_model_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _update.update_artifact_ref_, g_inexe_model_identifier_bytes)) {
+        return {status_code::invalid_argument, "model update identity is invalid"};
+    }
+    if (_update.update_artifact_sha256_.size() != 64 ||
+        _update.update_artifact_sha256_.find_first_not_of("0123456789abcdef") !=
+            std::string::npos) {
+        return {status_code::invalid_argument, "model update digest is invalid"};
+    }
+    if (_update.update_revision_ == 0 ||
+        _update.update_revision_ == std::numeric_limits<std::uint64_t>::max()) {
+        return {status_code::invalid_argument, "model update revision is invalid"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_core_inexe_model_update_supported(
+    const inference_model_update& _update,
+    const inference_capabilities& _capabilities) noexcept {
+    const auto valid_update = vqec_vision_ai_core_inexe_validate_model_update(_update);
+    if (valid_update.code_ != status_code::ok) {
+        return valid_update;
+    }
+    const auto valid_capabilities =
+        vqec_vision_ai_core_inexe_validate_capabilities(_capabilities);
+    if (valid_capabilities.code_ != status_code::ok) {
+        return valid_capabilities;
+    }
+    if (!_capabilities.supports_artifact_update_) {
+        return {status_code::unsupported, "backend does not support artifact updates"};
+    }
+    return {};
 }
 
 status vqec_vision_ai_core_inexe_validate_shared_buffer(

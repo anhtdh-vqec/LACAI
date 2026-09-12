@@ -116,6 +116,26 @@ struct inference_execution_domain {
 [[nodiscard]] bool vqec_vision_ai_core_inexe_dtype_supported(
     const inference_capabilities& _capabilities, tensor_element_type _dtype) noexcept;
 
+// Adapter/LoRA update bound to an exact base model identity and immutable artifact. A
+// model-update descriptor is data; the runtime may apply it only while the graph is idle
+// and drained, with the artifact authenticated by the trusted resolver.
+struct inference_model_update {
+    std::string base_model_id_;
+    std::string base_model_version_;
+    std::string update_artifact_ref_;
+    std::string update_artifact_sha256_;
+    std::uint64_t update_revision_{0};
+};
+
+// Structural validation only. A valid descriptor is not proof of authenticity.
+[[nodiscard]] status vqec_vision_ai_core_inexe_validate_model_update(
+    const inference_model_update& _update) noexcept;
+
+// Fail-closed check that a backend advertising updateable artifacts can accept updates.
+[[nodiscard]] status vqec_vision_ai_core_inexe_model_update_supported(
+    const inference_model_update& _update,
+    const inference_capabilities& _capabilities) noexcept;
+
 // Structural validation only. A valid descriptor is not proof of import, zero-copy,
 // cache coherency or device completion; those require BSP evidence.
 [[nodiscard]] status vqec_vision_ai_core_inexe_validate_shared_buffer(

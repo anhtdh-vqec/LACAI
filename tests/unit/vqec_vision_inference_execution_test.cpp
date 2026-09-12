@@ -260,6 +260,38 @@ int main() {
               status_code::resource_exhausted);
     }
 
+    // Adapter/LoRA model-update descriptor.
+    {
+        inference_model_update update;
+        update.base_model_id_ = "edgeface_xxs";
+        update.base_model_version_ = "1.0";
+        update.update_artifact_ref_ = "edgeface_xxs_lora_v2";
+        update.update_artifact_sha256_ = std::string(64, 'a');
+        update.update_revision_ = 2;
+        check(vqec_vision_ai_core_inexe_validate_model_update(update).code_ ==
+              status_code::ok);
+        check(vqec_vision_ai_core_inexe_model_update_supported(
+                  update, capabilities).code_ == status_code::ok);
+
+        auto bad = update;
+        bad.base_model_id_.clear();
+        check(vqec_vision_ai_core_inexe_validate_model_update(bad).code_ ==
+              status_code::invalid_argument);
+        bad = update;
+        bad.update_artifact_sha256_ = std::string(64, 'z');
+        check(vqec_vision_ai_core_inexe_validate_model_update(bad).code_ ==
+              status_code::invalid_argument);
+        bad = update;
+        bad.update_revision_ = 0;
+        check(vqec_vision_ai_core_inexe_validate_model_update(bad).code_ ==
+              status_code::invalid_argument);
+
+        auto no_update = capabilities;
+        no_update.supports_artifact_update_ = false;
+        check(vqec_vision_ai_core_inexe_model_update_supported(
+                  update, no_update).code_ == status_code::unsupported);
+    }
+
     std::cout << "inference execution failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }
