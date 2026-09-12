@@ -22,10 +22,18 @@ explicit, observable policy.
 `VQEC_VISION_AI_QAIRT_ROOT` (default `third_party/qairt`, a symlink to the installed
 private SDK) supplies the QNN headers. `VQEC_VISION_AI_ENABLE_QNN_ENGINE=ON` builds the
 LACAI-owned engine target; it is OFF by default so the neutral base does not depend on a
-private SDK. `qnn_sdk_libraries` dynamically loads the backend and system libraries and
-resolves the QNN interface provider without exposing a QNN type in its header. It does
-not create a backend/device/context, so it proves neither accelerator availability nor
-execution; those are later A4 steps qualified on the board.
+private SDK.
+
+`qnn_sdk_libraries` dynamically loads the backend and system libraries and resolves the
+QNN interface provider without exposing a QNN type in its header. `qnn_engine` then
+creates the backend and, when the interface provides it, the device, and probes
+capabilities (async via `graphExecuteAsync`, shared memory via `memRegister`, artifact
+update via `contextApplyBinarySection`, perf profiles when a device exists). A failed
+device creation is a fault on the admitted HTP path, not a silent CPU downgrade.
+
+Neither step creates a context, composes a graph or executes, so they prove neither
+accelerator availability nor execution; context/graph/execute are later A4 steps
+qualified on the board. Callers must serialize engine calls on the backend worker.
 
 ## Contract mapping
 

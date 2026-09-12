@@ -223,7 +223,8 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
             "${VQEC_VISION_AI_QAIRT_ROOT}")
     endif()
     add_library(vqec_vision_ai_qnn_engine STATIC
-        src/adapters/qualcomm/vqec_vision_sdk_loader.cpp)
+        src/adapters/qualcomm/vqec_vision_sdk_loader.cpp
+        src/adapters/qualcomm/vqec_vision_qnn_engine.cpp)
     target_include_directories(vqec_vision_ai_qnn_engine PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
     target_include_directories(vqec_vision_ai_qnn_engine PRIVATE
