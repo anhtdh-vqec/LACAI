@@ -292,6 +292,10 @@ Portable Linux/CI counterpart `tools/vqec_vision_check_source_layout.sh` shares 
 logical owner and performs the same read-only checks. No AST naming enforcement is
 implied by the structural filename checker.
 
+Board-side helper `tools/vqec_vision_qnn_board_smoke.sh` runs `qnn-net-run` for one model
+library against a pinned QAIRT runtime; it writes only the output directory and does not
+modify the repository.
+
 ### Camera transport additions (2026-09-06)
 
 | Logical owner path | file_id | Prefix |
