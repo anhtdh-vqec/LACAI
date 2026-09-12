@@ -45,7 +45,8 @@ add_library(vqec_vision_ai_core STATIC
     src/core/vqec_vision_encoded_output.cpp src/core/vqec_vision_output_generation.cpp
     src/core/vqec_vision_encoder_contract.cpp src/core/vqec_vision_observation.cpp
     src/core/vqec_vision_deployment_config.cpp src/core/vqec_vision_model_catalog.cpp
-    src/core/vqec_vision_feature_event.cpp src/core/vqec_vision_feature_catalog.cpp)
+    src/core/vqec_vision_feature_event.cpp src/core/vqec_vision_feature_catalog.cpp
+    src/core/vqec_vision_inference_execution.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -712,6 +713,12 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/manifests/models/output_fixture.json)
         endif()
     endif()
+    add_executable(vqec_vision_ai_inference_execution_test
+        tests/unit/vqec_vision_inference_execution_test.cpp)
+    target_link_libraries(vqec_vision_ai_inference_execution_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_inference_execution_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME inference_execution_validation
+        COMMAND vqec_vision_ai_inference_execution_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

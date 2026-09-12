@@ -1,8 +1,20 @@
 # Vendor-neutral inference-graph port
 
 Status: interface, Qualcomm forwarding adapter and single-model app migration delivered;
-multi-model fan-out/session integration is also source-delivered. Other platform adapters
-and device verification remain pending.
+multi-model fan-out/session integration is also source-delivered. A neutral execution
+capability/policy contract is source-delivered (A1); port wiring, the owned QNN engine and
+device verification remain pending.
+
+## Execution capability and policy
+
+The port will expose a probed `inference_capabilities` and validate an
+`inference_execution_policy` before any resource is acquired, so accelerator
+optimizations (async, registered/shared memory, native output, compute-unit affinity,
+perf profile, adapter updates) are requested as validated neutral data rather than a
+vendor branch in orchestration. The contract and validators are delivered in
+`vqec_vision_inference_execution.hpp`; the fail-closed semantics and Qualcomm mapping are
+in [qualcomm execution policy](qualcomm_execution_policy.md) and
+[ADR 0003](../adr/0003_owned_qnn_engine.md).
 
 `inference_graph_port` is the only model-execution dependency allowed in application
 orchestration. It exposes explicit configure/load/bind/start/arm/submit/poll/drain/unload
