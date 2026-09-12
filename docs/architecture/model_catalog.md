@@ -58,3 +58,25 @@ prove resource measurements.
 
 The example digest and memory values are synthetic. Model team must replace them with an
 accepted package and board report; product deployment must not install the example.
+
+## Model class coverage (S08)
+
+A new model inside a supported class is added by package/decoder/config only, never a
+core/pump branch. A class is `implemented` only after a conformance fixture exists; the
+rest is rejected with `unsupported` at activation, before hardware acquisition, rather than
+inferred from a model name or a matching total tensor byte count.
+
+| Class | Declared | Implemented in this base | Rejection point |
+|---|---|---|---|
+| Single image input, fixed shape | yes | QNN engine + reference; pump preprocessing path | n/a |
+| Multi-input graph | contract only | no | `multi_model_pump::resolve_targets` -> `unsupported` |
+| Dynamic shape (zero/absent dim) | contract only | no | `qnn_engine::prepare` -> `unsupported` (zero-byte shape) |
+| Per-tensor quantization | yes | engine maps scale/offset; graph-native typed output | n/a |
+| Per-axis quantization | not modeled | no | input/output identity mismatch -> reject |
+| Batch > 1 | contract only | no | graph identity/first-dim mismatch -> reject |
+| Stateful / temporal sequence | contract only (`temporal_join`) | no | feature catalog rejects a required join without a bounded window |
+| Artifact / LoRA update | contract only | no | `capabilities.supports_artifact_update` is false |
+
+Dynamic shape, stateful sequence and artifact update need an explicit envelope, pool
+profile, generation/drain and source-epoch/reset policy before they can be enabled; the
+descriptors exist but no conformance fixture or board evidence does.

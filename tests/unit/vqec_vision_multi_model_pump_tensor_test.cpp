@@ -83,11 +83,15 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_get_input_specs(
         std::vector<tensor_spec>& _inputs) const override {
-        tensor_spec spec;
-        spec.name_ = "input";
-        spec.dimensions_ = {1, 8, 8, 3};
-        spec.dtype_ = tensor_element_type::float32;
-        _inputs = {spec};
+        std::vector<tensor_spec> specs;
+        for (std::size_t index = 0; index < input_count_; ++index) {
+            tensor_spec spec;
+            spec.name_ = index == 0 ? "input" : "input2";
+            spec.dimensions_ = {1, 8, 8, 3};
+            spec.dtype_ = tensor_element_type::float32;
+            specs.push_back(std::move(spec));
+        }
+        _inputs = std::move(specs);
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_tensors(
@@ -119,6 +123,7 @@ public:
     unsigned frame_submissions_{0};
     unsigned tensor_submissions_{0};
     std::uint64_t next_job_id_{0};
+    std::size_t input_count_{1};
 };
 
 class fake_processor final : public image_processor_port {
@@ -194,5 +199,25 @@ int main() {
     assert(graph.tensor_submissions_ == 1);
     assert(graph.frame_submissions_ == 0);
     assert(processor.calls_ == 1);
+
+    // S08/O09: a model class this base does not preprocess (multi-input, dynamic or
+    // stateful) is rejected at activation, before any frame is received, instead of being
+    // inferred from the model name or a matching total byte count.
+    {
+        fake_graph multi_graph;
+        multi_graph.input_count_ = 2;
+        std::array<multi_model_graph_binding, deployment_limits::g_max_models_per_source>
+            multi_bindings{};
+        multi_bindings[0].graph_ = &multi_graph;
+        multi_bindings[0].cycle_id_ = 8;
+        multi_bindings[0].job_timeout_ns_ = 1000000000;
+        multi_bindings[0].processor_ = &processor;
+        multi_bindings[0].plan_ = &plan;
+        multi_model_pump multi_pump(source);
+        assert(multi_pump.vqec_vision_ai_appl_mmump_configure(
+                   cadence, multi_bindings, 1).code_ == status_code::ok);
+        assert(multi_pump.vqec_vision_ai_appl_mmump_resolve_targets().code_ ==
+               status_code::unsupported);
+    }
     return 0;
 }
