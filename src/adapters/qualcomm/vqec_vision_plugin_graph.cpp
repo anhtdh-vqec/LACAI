@@ -176,9 +176,10 @@ status vqec_vision_ai_qcom_plgr_add_element(
 }
 
 caps_owner vqec_vision_ai_qcom_plgr_make_tensor_caps(const inference_plan& _plan) {
+    const char* input_type = vqec_vision_ai_qcom_tnout_ml_type_name(_plan.input_type_);
     caps_owner caps(gst_caps_new_simple(
         "neural-network/tensors", "type", G_TYPE_STRING,
-        _plan.input_type_ == tensor_type::uint8 ? "UINT8" : "FLOAT32", nullptr));
+        input_type != nullptr ? input_type : "UNKNOWN", nullptr));
     value_holder tensors(GST_TYPE_ARRAY);
     value_holder dimensions(GST_TYPE_ARRAY);
     const std::array<int, 4> shape{g_tensor_batch_dimension,
@@ -237,7 +238,7 @@ struct plugin_graph::implementation {
     std::uint64_t warning_count_{0};
     GstElement* source_{nullptr};  // Borrowed from pipeline.
     GstElement* sink_{nullptr};
-    std::vector<float_tensor_spec> outputs_;
+    std::vector<tensor_spec> outputs_;
     std::uint64_t max_output_bytes_{0};
     bool eos_seen_{false};
     std::unique_ptr<submission_window> window_;
@@ -771,7 +772,7 @@ status plugin_graph::vqec_vision_ai_qcom_plgr_bind_source(const source_binding& 
 }
 
 status plugin_graph::vqec_vision_ai_qcom_plgr_start_stream(
-    const std::vector<float_tensor_spec>& _outputs, std::uint64_t _max_output_bytes) {
+    const std::vector<tensor_spec>& _outputs, std::uint64_t _max_output_bytes) {
     if (!implementation_ || implementation_->state_ != plugin_graph_state::ready) {
         return {status_code::invalid_state, "start_stream requires a READY model"};
     }

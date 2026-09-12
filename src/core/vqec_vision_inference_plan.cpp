@@ -1,6 +1,7 @@
 #include <vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp>
 
 #include <vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp>
+#include <vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp>
 
 #include <cmath>
 
@@ -72,8 +73,12 @@ status vqec_vision_ai_core_infpl_validate_plan(const inference_plan& _plan) {
         default:
             return {status_code::invalid_argument, "Model image placement must be explicit"};
     }
-    if (_plan.input_type_ != tensor_type::uint8 && _plan.input_type_ != tensor_type::float32) {
-        return {status_code::unsupported, "Initial graph supports UINT8 or FLOAT32 input only"};
+    if (vqec_vision_ai_core_tnctr_element_size(_plan.input_type_) == 0 ||
+        _plan.input_type_ == tensor_element_type::int64 ||
+        _plan.input_type_ == tensor_element_type::uint64) {
+        // The reviewed converter/plugin path can produce the smaller integer and float
+        // element types; 64-bit input is not a supported preprocessing target.
+        return {status_code::unsupported, "unsupported model input element type"};
     }
     if (_plan.channel_order_ != channel_order::rgb && _plan.channel_order_ != channel_order::bgr) {
         return {status_code::invalid_argument, "Unsupported channel order"};
@@ -85,11 +90,13 @@ status vqec_vision_ai_core_infpl_validate_plan(const inference_plan& _plan) {
             return {status_code::invalid_argument, "Invalid plugin normalization coefficient"};
         }
     }
-    if (_plan.input_type_ == tensor_type::uint8 &&
+    if (_plan.input_type_ != tensor_element_type::float32 &&
         (_plan.mean_ != std::array<double, 3>{0.0, 0.0, 0.0} ||
          _plan.sigma_ != std::array<double, 3>{1.0, 1.0, 1.0})) {
+        // Integer/fp16 converter output is not paired with FP32 mean/sigma coefficients;
+        // custom normalization requires the explicit FLOAT32 path.
         return {status_code::unsupported,
-                "UINT8 custom quantization requires a separate verified path"};
+                "custom normalization requires a FLOAT32 model input"};
     }
     if (!vqec_vision_ai_core_infpl_is_absolute_path(_plan.model_path_) ||
         !(vqec_vision_ai_core_infpl_has_suffix(_plan.model_path_, ".bin") ||

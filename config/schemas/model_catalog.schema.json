@@ -39,7 +39,7 @@
       "properties": {
         "width": { "type": "integer", "minimum": 8, "maximum": 4096 },
         "height": { "type": "integer", "minimum": 8, "maximum": 4096 },
-        "dtype": { "enum": ["uint8", "float32"] },
+        "dtype": { "enum": ["int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float16", "float32"] },
         "channel_order": { "enum": ["rgb", "bgr"] },
         "placement": { "enum": ["top_left", "centre", "stretch"] },
         "mean": {

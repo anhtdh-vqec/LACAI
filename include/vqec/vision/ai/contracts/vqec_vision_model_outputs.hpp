@@ -16,7 +16,7 @@ struct model_outputs {
     std::string artifact_sha256_;
     std::string decoder_contract_;
     std::uint64_t max_output_bytes_{0};
-    std::vector<float_tensor_spec> outputs_;
+    std::vector<tensor_spec> outputs_;
 };
 
 }  // namespace vqec::vision::ai

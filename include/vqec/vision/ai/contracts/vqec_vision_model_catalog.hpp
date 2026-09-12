@@ -51,7 +51,7 @@ struct model_catalog_entry {
     std::string graph_name_;
     std::uint32_t tensor_width_{0};
     std::uint32_t tensor_height_{0};
-    tensor_type input_type_{tensor_type::uint8};
+    tensor_element_type input_type_{tensor_element_type::uint8};
     channel_order channel_order_{channel_order::rgb};
     image_placement placement_{image_placement::unspecified};
     std::array<double, 3> mean_{0.0, 0.0, 0.0};

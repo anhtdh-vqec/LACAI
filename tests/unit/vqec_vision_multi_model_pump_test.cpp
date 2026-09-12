@@ -99,7 +99,7 @@ public:
     }
 
     [[nodiscard]] vqec::vision::ai::status vqec_vision_ai_ports_infgr_start(
-        const std::vector<vqec::vision::ai::float_tensor_spec>& _outputs,
+        const std::vector<vqec::vision::ai::tensor_spec>& _outputs,
         std::uint64_t _max_output_bytes) override {
         (void)_outputs;
         (void)_max_output_bytes;

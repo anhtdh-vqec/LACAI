@@ -100,11 +100,14 @@ internal ticket PTS and polls results/input completion independently. EOS plus j
 gates unload. Armed destruction retains the graph in its reserved domain slot; restoration
 allows late reconciliation, not DMA cancellation or safe process termination.
 
-Input is a single linear NV12 image; model input is batch1 NHWC RGB/BGR, UINT8 identity or
-FLOAT32 explicit plugin coefficients. Output extraction checks ordered FLOAT32 metadata
-and performs bounded CPU copies. Multiple application graph instances do not add native
-multi-graph/mixed-dtype support to the QNN wrapper. FD duplication/shared ownership does
-not establish end-to-end zero-copy or hardware completion.
+Input is a single linear NV12 image; model input is batch1 NHWC RGB/BGR with any reviewed
+element type (INT8..FLOAT32); non-FLOAT32 input requires identity normalization and only
+FLOAT32 accepts explicit plugin mean/sigma. Output extraction is dtype-generic across the
+same set, sizes bytes by element type and copies exact packed bytes into owned typed blobs.
+Genuine per-tensor mixed dtype and non-FLOAT32 output are limited by the single-type caps
+and by the installed plugin's FLOAT32 output workaround, so they are rejected rather than
+reinterpreted; native output dtype requires the direct-SDK backend. FD duplication/shared
+ownership does not establish end-to-end zero-copy or hardware completion.
 Factory and property probing report availability and mutability from the target GStreamer
 registry without choosing a fallback backend; deployment policy remains responsible for
 selecting an admitted path.

@@ -52,7 +52,30 @@ int main() {
           status_code::invalid_argument);
     parse(replace("\"shape\":[1,4]", "\"shape\":[1,4],\"shape\":[1,4]"),
           status_code::invalid_argument);
-    parse(replace("\"dtype\":\"float32\"", "\"dtype\":\"uint8\""), status_code::unsupported);
+    // Reviewed dtypes parse; an unknown spelling is rejected.
+    {
+        std::istringstream stream(replace("\"dtype\":\"float32\"", "\"dtype\":\"int8\""));
+        model_outputs parsed;
+        check(vqec_vision_ai_mreg_otman_load_manifest(stream, parsed).code_ ==
+              status_code::ok);
+        check(parsed.outputs_.size() == 2 &&
+              parsed.outputs_[0].dtype_ == tensor_element_type::int8);
+    }
+    {
+        auto text = replace(
+            "{\"name\":\"boxes\",\"dtype\":\"float32\",\"shape\":[1,4]}",
+            "{\"name\":\"boxes\",\"dtype\":\"int8\",\"shape\":[1,4],"
+            "\"quantization\":{\"scale\":0.5,\"zero_point\":-1}}");
+        std::istringstream stream(text);
+        model_outputs parsed;
+        check(vqec_vision_ai_mreg_otman_load_manifest(stream, parsed).code_ ==
+              status_code::ok);
+        check(parsed.outputs_.size() == 2 && parsed.outputs_[0].quantization_.is_quantized_ &&
+              parsed.outputs_[0].quantization_.scale_ == 0.5F &&
+              parsed.outputs_[0].quantization_.zero_point_ == -1);
+    }
+    parse(replace("\"dtype\":\"float32\"", "\"dtype\":\"bfloat16\""),
+          status_code::unsupported);
     parse(replace("\"shape\":[1,4]", "\"shape\":[0,4]"), status_code::invalid_argument);
     parse(replace("\"shape\":[1,4]", "\"shape\":[-1,4]"), status_code::invalid_argument);
     parse(replace("\"shape\":[1,4]", "\"shape\":[true,4]"), status_code::invalid_argument);

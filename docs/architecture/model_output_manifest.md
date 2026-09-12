@@ -2,11 +2,15 @@
 
 Source candidate; not a verified model registry or complete Model Integration Package.
 Root fields, all required: schema_version=1, model_id, model_version, artifact_sha256,
-decoder_contract, max_output_bytes, outputs. Each output contains exactly name, dtype
-(float32), shape. Order is preserved. No unknown or duplicate object keys are allowed.
-Identity/decoder strings are 1..128 ASCII letters/digits/dot/colon/underscore/hyphen.
-Digest is 64 lowercase hex characters. Names/shapes/budget follow tensor_contract.
-Numeric fields must be unsigned JSON integers, never strings, booleans or floats.
+decoder_contract, max_output_bytes, outputs. Each output contains name, dtype, shape and
+an optional quantization object. dtype is one of int8, uint8, int16, uint16, int32,
+uint32, int64, uint64, float16, float32. quantization, when present, contains exactly
+scale and zero_point with the convention real = (stored - zero_point) * scale; floating
+tensors must not be quantized. Order is preserved. No unknown or duplicate object keys
+are allowed. Identity/decoder strings are 1..128 ASCII letters/digits/dot/colon/
+underscore/hyphen. Digest is 64 lowercase hex characters. Names/shapes/budget follow
+tensor_contract, which sizes each element by its dtype. Numeric fields must be JSON
+numbers of the right kind, never strings or booleans.
 
 Loader consumes a caller-opened stream (at most 65537 bytes), with a 64 KiB document
 limit and depth <=16. Stream may block: use during startup only. Parser DOM overhead
@@ -26,7 +30,11 @@ hash comparison. It does not close the immutable-artifact/path association requi
 Before session configuration, the application must match identity/hash/decoder to an
 authenticated model kit and verify its target/preprocess contract. No artifact paths
 are accepted here. Example metadata is synthetic, never a deployable model release.
-Mixed dtype, dynamic output shapes and native quantized outputs remain unsupported.
+Dynamic output shapes remain unsupported: dimensions are fixed per manifest. The
+manifest itself now carries every reviewed element type and explicit quantization, but a
+backend must still negotiate the matching caps type; the installed Qualcomm plugin
+currently reports FLOAT32 outputs, so a non-FLOAT32 output contract is rejected on that
+path rather than silently reinterpreted (see [tensor output](tensor_output.md)).
 
 The output document is referenced by, but deliberately not embedded in, the
 [model catalog](model_catalog.md). Before activation, runtime must match model identity,

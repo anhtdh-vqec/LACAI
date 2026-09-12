@@ -163,7 +163,7 @@ void vqec_vision_ai_unit_mctst_check_output_binding() {
     outputs.artifact_sha256_ = model.artifact_sha256_;
     outputs.decoder_contract_ = model.decoder_contract_;
     outputs.max_output_bytes_ = 16;
-    float_tensor_spec boxes;
+    tensor_spec boxes;
     boxes.name_ = "boxes";
     boxes.dimensions_ = {1, 4};
     outputs.outputs_.push_back(boxes);

@@ -10,8 +10,8 @@ validation is claimed.
 
 Configure the private graph, load to READY, bind the admitted source, then start_stream.
 Source geometry/FPS must match the plan; bound colorimetry/chroma-site are applied to
-appsrc caps. Unload clears binding. start_stream validates ordered FLOAT32 output specs
-and a per-result byte budget. See [source binding](source_binding.md).
+appsrc caps. Unload clears binding. start_stream validates ordered typed output specs
+(INT8..FLOAT32) and a per-result byte budget. See [source binding](source_binding.md).
 
 The graph uses frame_submission for reserve/wrap/commit/appsrc push. Arming reserves a
 retention-domain slot before input access. One outstanding job per graph bounds application
@@ -27,7 +27,9 @@ sync=false and enable-last-sample=false avoid clock waiting and last-sample rete
 
 poll_state uses zero-wait state polling and a bounded 32-message bus drain. Result polling
 uses try_pull_sample(timeout=0), validates current ticket PTS and ordered tensor metadata,
-and copies bounded FLOAT32 output into owned tensor_result before releasing the sample.
+and copies bounded typed output bytes into owned tensor_result before releasing the sample.
+The caps type must match the model output dtype; the installed plugin reports FLOAT32, so a
+non-FLOAT32 contract is rejected on this path (see [tensor output](tensor_output.md)).
 Internal pipeline PTS is distinct from the original source timestamp. Successful extraction
 is a CPU copy, not a device/cache synchronization or model-accuracy result.
 

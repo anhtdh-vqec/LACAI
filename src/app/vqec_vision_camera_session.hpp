@@ -19,7 +19,7 @@ enum class camera_session_state {
 struct camera_session_config {
     inference_plan plan_;
     source_binding binding_;
-    std::vector<float_tensor_spec> outputs_;
+    std::vector<tensor_spec> outputs_;
     std::uint64_t max_output_bytes_{0};
     std::uint64_t cycle_id_{0};
     std::uint64_t job_timeout_ns_{1000000000};

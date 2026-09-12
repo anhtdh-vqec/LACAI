@@ -7,6 +7,7 @@
 #include <string>
 
 #include <vqec/vision/ai/contracts/vqec_vision_status.hpp>
+#include <vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp>
 
 namespace vqec::vision::ai {
 
@@ -21,7 +22,6 @@ inline constexpr std::uint32_t g_max_output_queue_buffers = 16;
 inline constexpr std::size_t g_max_path_bytes = 4096;
 }  // namespace inference_limits
 
-enum class tensor_type { uint8, float32 };
 enum class channel_order { rgb, bgr };
 enum class image_placement { unspecified, top_left, centre, stretch };
 
@@ -35,7 +35,7 @@ struct inference_plan {
     std::uint32_t fps_denominator_{0};
     std::uint32_t tensor_width_{0};
     std::uint32_t tensor_height_{0};
-    tensor_type input_type_{tensor_type::uint8};
+    tensor_element_type input_type_{tensor_element_type::uint8};
     channel_order channel_order_{channel_order::rgb};
     image_placement placement_{image_placement::unspecified};
     std::array<double, 3> mean_{0.0, 0.0, 0.0};

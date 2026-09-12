@@ -817,6 +817,13 @@ if(BUILD_TESTING)
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME runtime_executor_e2e COMMAND vqec_vision_ai_runtime_executor_test)
         set_tests_properties(runtime_executor_e2e PROPERTIES TIMEOUT 10)
+        add_executable(vqec_vision_ai_reference_graph_test
+            tests/contract/vqec_vision_reference_graph_test.cpp)
+        target_link_libraries(vqec_vision_ai_reference_graph_test
+            PRIVATE vqec_vision_ai_reference)
+        set_target_properties(vqec_vision_ai_reference_graph_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME reference_graph_dtypes COMMAND vqec_vision_ai_reference_graph_test)
     endif()
     if(TARGET vqec_ai_vision_applications)
         add_test(NAME service_executable_smoke COMMAND vqec_ai_vision_applications

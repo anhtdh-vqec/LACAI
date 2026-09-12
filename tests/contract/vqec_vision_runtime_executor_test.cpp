@@ -317,7 +317,7 @@ runtime_composition_activation vqec_vision_ai_ctest_rtexe_make_activation(
     model.outputs_.artifact_sha256_ = _model.artifact_sha256_;
     model.outputs_.decoder_contract_ = _model.decoder_contract_;
     model.outputs_.max_output_bytes_ = 16;
-    model.outputs_.outputs_.push_back({"boxes", {1, 4}});
+    model.outputs_.outputs_.push_back({"boxes", {1, 4}, tensor_element_type::float32, {}});
     model.tracker_contract_ = "bytetrack.v1";
     model.binding_.width_ = g_width;
     model.binding_.height_ = g_height;

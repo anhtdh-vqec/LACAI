@@ -71,7 +71,7 @@ status qualcomm_inference_graph::vqec_vision_ai_ports_infgr_bind_source(
 }
 
 status qualcomm_inference_graph::vqec_vision_ai_ports_infgr_start(
-    const std::vector<float_tensor_spec>& _outputs,
+    const std::vector<tensor_spec>& _outputs,
     std::uint64_t _max_output_bytes) {
     return graph_.vqec_vision_ai_qcom_plgr_start_stream(_outputs, _max_output_bytes);
 }

@@ -294,7 +294,7 @@ model_outputs vqec_vision_ai_appl_svcmn_synthetic_outputs(const model_catalog_en
     outputs.decoder_contract_ = _model.decoder_contract_;
     outputs.max_output_bytes_ = service_harness::g_output_bytes;
     outputs.outputs_.push_back(
-        {service_harness::g_box_tensor_name, {1, service_harness::g_box_elements}});
+        {service_harness::g_box_tensor_name, {1, service_harness::g_box_elements}, tensor_element_type::float32, {}});
     return outputs;
 }
 

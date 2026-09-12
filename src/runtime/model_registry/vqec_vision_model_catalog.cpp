@@ -8,6 +8,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
@@ -76,15 +78,14 @@ std::array<double, 3> vqec_vision_ai_mreg_mdcat_read_coefficients(
     return coefficients;
 }
 
-tensor_type vqec_vision_ai_mreg_mdcat_read_tensor_type(const catalog_json& _value) {
+tensor_element_type vqec_vision_ai_mreg_mdcat_read_tensor_type(
+    const catalog_json& _value) {
     const auto name = vqec_vision_ai_mreg_mdcat_read_text(_value);
-    if (name == "uint8") {
-        return tensor_type::uint8;
+    const auto type = vqec_vision_ai_core_tnctr_element_type_from_name(name);
+    if (type == tensor_element_type::unknown) {
+        throw invalid_catalog_document{};
     }
-    if (name == "float32") {
-        return tensor_type::float32;
-    }
-    throw invalid_catalog_document{};
+    return type;
 }
 
 channel_order vqec_vision_ai_mreg_mdcat_read_channel_order(

@@ -68,9 +68,14 @@ void vqec_vision_ai_unit_mltst_check_loader() {
         vqec_vision_ai_unit_mltst_replace(
             "\"schema_version\":1", "\"schema_version\":2"),
         status_code::unsupported);
+    // Any reviewed dtype is accepted; an unknown spelling is rejected.
     vqec_vision_ai_unit_mltst_require_load(
         vqec_vision_ai_unit_mltst_replace(
-            "\"dtype\":\"uint8\"", "\"dtype\":\"int8\""),
+            "\"dtype\":\"uint8\"", "\"dtype\":\"float16\""),
+        status_code::ok);
+    vqec_vision_ai_unit_mltst_require_load(
+        vqec_vision_ai_unit_mltst_replace(
+            "\"dtype\":\"uint8\"", "\"dtype\":\"bfloat16\""),
         status_code::invalid_argument);
     vqec_vision_ai_unit_mltst_require_load(
         std::string(g_valid_catalog) + std::string(

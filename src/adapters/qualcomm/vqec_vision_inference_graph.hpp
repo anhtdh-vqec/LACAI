@@ -23,7 +23,7 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_infgr_bind_source(
         const source_binding& _binding) override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_start(
-        const std::vector<float_tensor_spec>& _outputs,
+        const std::vector<tensor_spec>& _outputs,
         std::uint64_t _max_output_bytes) override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
         std::uint64_t _cycle_id, std::uint64_t _source_epoch,

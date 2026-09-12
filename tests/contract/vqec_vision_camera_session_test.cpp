@@ -75,7 +75,7 @@ camera_session_config vqec_vision_ai_ctest_cstst_make_config() {
     config.binding_.fw_memory_contract_ = "fixture:fw";
     config.binding_.backend_memory_contract_ = "fixture:backend";
     config.binding_.preprocess_contract_ = "fixture:golden";
-    config.outputs_ = {{"fixture", {256}}};
+    config.outputs_ = {{"fixture", {256}, tensor_element_type::float32, {}}};
     config.max_output_bytes_ = 1024;
     config.cycle_id_ = 1;
     config.stop_timeout_ns_ = 50;
@@ -100,7 +100,7 @@ int main() {
         manifest.model_version_ = "1.0";
         manifest.artifact_sha256_ = std::string(64, 'a');
         manifest.decoder_contract_ = "fixture.raw.v1";
-        manifest.outputs_ = {{"scores", {1}}};
+        manifest.outputs_ = {{"scores", {1}, tensor_element_type::float32, {}}};
         manifest.max_output_bytes_ = 4;
         model_output_selection selection{"fixture", "1.0", std::string(64, 'a'), "wrong"};
         check(vqec_vision_ai_appl_camsn_bind_model_outputs(manifest, selection, config).code_ ==
@@ -143,7 +143,7 @@ int main() {
     }
     {
         auto malformed = vqec_vision_ai_ctest_cstst_make_config();
-        malformed.outputs_ = {{"duplicate", {1}}, {"duplicate", {1}}};
+        malformed.outputs_ = {{"duplicate", {1}, tensor_element_type::float32, {}}, {"duplicate", {1}, tensor_element_type::float32, {}}};
         camera_session rejected(source, graph_port, malformed);
         check(rejected.vqec_vision_ai_appl_camsn_step(0, result, report).code_ ==
               status_code::invalid_argument);

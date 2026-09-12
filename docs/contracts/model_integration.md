@@ -1,16 +1,21 @@
 # AI Model Integration Package — proposal v1
 
-Implementation update: ordered packed FLOAT32 output metadata now has a shared pure
-validator, tensor_contract, called by camera_session before StartStream and by the
-Qualcomm graph before PLAYING. Limits: 1..16 unique nonempty names (<=128 bytes,
-no embedded NUL), rank 1..8, positive dimensions <=INT32_MAX, total payload within
-an explicit budget <=64 MiB. Dimension multiplication is checked before arithmetic.
-Order is preserved, never sorted or inferred from model names. This is the current
-plugin output subset, not a universal model schema or support for mixed/native dtype.
-Failure leaves the computed-byte output unchanged and does not acquire Camera resources.
-It validates supplied metadata, not agreement with artifact tensors, hashes/signatures,
-golden accuracy, decoder semantics or entitlement. The output-only JSON loader and
-read-only checker now exist; full model-kit loading/authentication remain unimplemented.
+Implementation update: ordered packed output metadata now has a shared pure validator,
+tensor_contract, called by camera_session before StartStream and by the Qualcomm graph
+before PLAYING. Each tensor declares one of int8, uint8, int16, uint16, int32, uint32,
+int64, uint64, float16, float32 plus optional integer quantization
+(`real = (stored - zero_point) * scale`); floating tensors must not be quantized. Limits:
+1..16 unique nonempty names (<=128 bytes, no embedded NUL), rank 1..8, positive dimensions
+<=INT32_MAX, total payload within an explicit budget <=64 MiB, sized by element dtype.
+Dimension multiplication is checked before arithmetic. Order is preserved, never sorted or
+inferred from model names. The adapter carries every reviewed element type, but a backend
+must negotiate the matching caps type: the installed Qualcomm plugin reports FLOAT32
+outputs, and genuine per-tensor mixed dtype is rejected by the single-type caps. This is
+not a universal model schema or proof of native multi-dtype execution. Failure leaves the
+computed-byte output unchanged and does not acquire Camera resources. It validates supplied
+metadata, not agreement with artifact tensors, hashes/signatures, golden accuracy, decoder
+semantics or entitlement. The output-only JSON loader and read-only checker now exist; full
+model-kit loading/authentication remain unimplemented.
 See [output manifest contract](../architecture/model_output_manifest.md).
 Bounded SHA-256 comparison is available separately; read the
 [artifact integrity boundary](../architecture/artifact_digest.md) before connecting it

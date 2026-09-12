@@ -6,6 +6,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
 
 namespace vqec::vision::ai {
 namespace {
@@ -49,10 +50,12 @@ bool vqec_vision_ai_core_mdcat_is_rate_at_most(
 // must have validated the tensor dimensions first; the product then cannot overflow.
 std::uint64_t vqec_vision_ai_core_mdcat_minimum_input_bytes(
     const model_catalog_entry& _model) noexcept {
-    const std::uint64_t element_bytes =
-        _model.input_type_ == tensor_type::float32 ? sizeof(float) : sizeof(std::uint8_t);
+    const auto element_bytes = vqec_vision_ai_core_tnctr_element_size(_model.input_type_);
+    if (element_bytes == 0) {
+        return 0;
+    }
     return static_cast<std::uint64_t>(_model.tensor_width_) * _model.tensor_height_ * 3 *
-        element_bytes;
+        static_cast<std::uint64_t>(element_bytes);
 }
 
 status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _model) {
@@ -73,8 +76,9 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
         _model.tensor_height_ < inference_limits::g_min_tensor_dimension ||
         _model.tensor_width_ > inference_limits::g_max_tensor_dimension ||
         _model.tensor_height_ > inference_limits::g_max_tensor_dimension ||
-        (_model.input_type_ != tensor_type::uint8 &&
-         _model.input_type_ != tensor_type::float32) ||
+        vqec_vision_ai_core_tnctr_element_size(_model.input_type_) == 0 ||
+        _model.input_type_ == tensor_element_type::int64 ||
+        _model.input_type_ == tensor_element_type::uint64 ||
         (_model.channel_order_ != channel_order::rgb &&
          _model.channel_order_ != channel_order::bgr) ||
         (_model.placement_ != image_placement::top_left &&
@@ -89,10 +93,10 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
             return {status_code::invalid_argument, "invalid model normalization"};
         }
     }
-    if (_model.input_type_ == tensor_type::uint8 &&
+    if (_model.input_type_ != tensor_element_type::float32 &&
         (_model.mean_ != std::array<double, 3>{0.0, 0.0, 0.0} ||
          _model.sigma_ != std::array<double, 3>{1.0, 1.0, 1.0})) {
-        return {status_code::unsupported, "UINT8 custom normalization is not qualified"};
+        return {status_code::unsupported, "custom normalization requires a FLOAT32 input"};
     }
     if (_model.inference_fps_numerator_ == 0 ||
         _model.inference_fps_denominator_ == 0 ||

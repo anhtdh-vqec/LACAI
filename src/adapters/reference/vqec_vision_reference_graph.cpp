@@ -9,19 +9,16 @@ namespace vqec::vision::ai {
 namespace {
 
 tensor_result vqec_vision_ai_refer_rfgph_make_zero_result(
-    const std::vector<float_tensor_spec>& _outputs, std::uint64_t _pipeline_pts_ns,
+    const std::vector<tensor_spec>& _outputs, std::uint64_t _pipeline_pts_ns,
     std::uint64_t _max_output_bytes) {
     tensor_result result;
     result.pipeline_pts_ns_ = _pipeline_pts_ns;
     for (const auto& spec : _outputs) {
-        std::uint64_t elements = 1;
-        for (const auto dimension : spec.dimensions_) {
-            elements *= dimension;
-        }
-        float_tensor_result tensor;
+        tensor_blob tensor;
         tensor.spec_ = spec;
-        if (elements <= _max_output_bytes / sizeof(float)) {
-            tensor.values_.assign(static_cast<std::size_t>(elements), 0.0F);
+        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
+        if (bytes != 0 && bytes <= _max_output_bytes) {
+            tensor.bytes_.assign(static_cast<std::size_t>(bytes), 0U);
         }
         result.tensors_.push_back(std::move(tensor));
     }
@@ -74,7 +71,7 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_bind_source(
 }
 
 status reference_inference_graph::vqec_vision_ai_ports_infgr_start(
-    const std::vector<float_tensor_spec>& _outputs, std::uint64_t _max_output_bytes) {
+    const std::vector<tensor_spec>& _outputs, std::uint64_t _max_output_bytes) {
     if (state_ != inference_graph_state::ready) {
         return {status_code::invalid_state, "reference graph must be bound to start"};
     }

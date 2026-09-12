@@ -15,10 +15,12 @@ inline constexpr std::size_t g_max_rank = 8;
 
 [[nodiscard]] status vqec_vision_ai_detec_tnrd_find_tensor(
     const tensor_result& _result, const std::string& _name,
-    const float_tensor_result*& _tensor) noexcept;
+    const tensor_blob*& _tensor) noexcept;
 
+// Confirms the blob identity (name/shape/dtype) and packed byte count match the manifest.
+// It does not reinterpret or cast element values; consumers use spec_.dtype_/quantization_.
 [[nodiscard]] status vqec_vision_ai_detec_tnrd_validate_tensor(
-    const float_tensor_result& _tensor, const float_tensor_spec& _expected) noexcept;
+    const tensor_blob& _tensor, const tensor_spec& _expected) noexcept;
 
 }  // namespace vqec::vision::ai
 

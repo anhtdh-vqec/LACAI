@@ -75,7 +75,7 @@ public:
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_start(
-        const std::vector<float_tensor_spec>& _outputs,
+        const std::vector<tensor_spec>& _outputs,
         std::uint64_t _max_output_bytes) override {
         (void)_outputs;
         (void)_max_output_bytes;
@@ -261,7 +261,7 @@ runtime_model_activation vqec_vision_ai_ctest_rcfct_make_model_activation(
     activation.outputs_.artifact_sha256_ = _model.artifact_sha256_;
     activation.outputs_.decoder_contract_ = _model.decoder_contract_;
     activation.outputs_.max_output_bytes_ = 16;
-    activation.outputs_.outputs_.push_back({"boxes", {1, 4}});
+    activation.outputs_.outputs_.push_back({"boxes", {1, 4}, tensor_element_type::float32, {}});
     activation.tracker_contract_ = "bytetrack.v1";
     activation.binding_.width_ = 1920;
     activation.binding_.height_ = 1080;

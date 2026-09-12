@@ -27,7 +27,7 @@ struct multi_model_graph_config {
     inference_graph_port* graph_{nullptr};
     inference_plan plan_;
     source_binding binding_;
-    std::vector<float_tensor_spec> outputs_;
+    std::vector<tensor_spec> outputs_;
     std::uint64_t max_output_bytes_{0};
     std::uint64_t cycle_id_{0};
     std::uint64_t job_timeout_ns_{1000000000};

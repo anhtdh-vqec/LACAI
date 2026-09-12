@@ -39,7 +39,7 @@ void vqec_vision_ai_unit_iptst_check_valid_plans() {
     if (vqec_vision_ai_core_infpl_get_packed_frame_bytes(plan) != 12441600ULL) {
         throw std::runtime_error("Incorrect packed 4K NV12 byte count");
     }
-    plan.input_type_ = tensor_type::float32;
+    plan.input_type_ = tensor_element_type::float32;
     plan.channel_order_ = channel_order::bgr;
     plan.mean_ = {0.5, 0.5, 0.5};
     plan.sigma_ = {2.0, 2.0, 2.0};
@@ -84,7 +84,7 @@ void vqec_vision_ai_unit_iptst_check_preprocessing() {
     vqec_vision_ai_unit_iptst_require_status(
         plan, status_code::unsupported, "unverified UINT8 quantization");
     plan = vqec_vision_ai_unit_iptst_make_valid_plan();
-    plan.input_type_ = static_cast<tensor_type>(999);
+    plan.input_type_ = static_cast<tensor_element_type>(999);
     vqec_vision_ai_unit_iptst_require_status(
         plan, status_code::unsupported, "unknown tensor type");
 }

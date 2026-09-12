@@ -1,11 +1,21 @@
 #include <cassert>
 #include <stdexcept>
+#include <utility>
 
 #include "vqec_vision_model_decode_stage.hpp"
 
 using namespace vqec::vision::ai;
 
 namespace {
+
+tensor_blob vqec_vision_ai_ctest_mdsct_boxes() {
+    tensor_blob boxes;
+    boxes.spec_.name_ = "boxes";
+    boxes.spec_.dimensions_ = {1, 4};
+    boxes.spec_.dtype_ = tensor_element_type::float32;
+    boxes.bytes_.assign(16, 0U);
+    return boxes;
+}
 
 class fake_decoder final : public model_decoder_port {
 public:
@@ -45,7 +55,7 @@ int main() {
     assert(stage.vqec_vision_ai_detec_mdstg_validate_geometry({320, 180}).code_ ==
            status_code::invalid_state);
     tensor_result result;
-    result.tensors_.push_back({{"boxes", {1, 4}}, {0.0F, 1.0F, 2.0F, 3.0F}});
+    result.tensors_.push_back(vqec_vision_ai_ctest_mdsct_boxes());
     const preview_frame_key frame{0, 0, 3, 9, 100};
     observation_batch observations;
     assert(stage.vqec_vision_ai_detec_mdstg_decode_result(result, frame, observations).code_ ==
@@ -57,7 +67,7 @@ int main() {
         result, frame, observations);
     assert(failed.code_ == status_code::invalid_argument);
     assert(observations.observations_.size() == 1U);
-    result.tensors_.push_back({{"boxes", {1, 4}}, {0.0F, 1.0F, 2.0F, 3.0F}});
+    result.tensors_.push_back(vqec_vision_ai_ctest_mdsct_boxes());
     decoder.should_throw_ = true;
     assert(stage.vqec_vision_ai_detec_mdstg_decode_result(
                result, frame, observations).code_ == status_code::io_error);

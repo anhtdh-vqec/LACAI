@@ -106,7 +106,7 @@ model_outputs vqec_vision_ai_ctest_spfct_make_outputs(
     outputs.artifact_sha256_ = _model.artifact_sha256_;
     outputs.decoder_contract_ = _model.decoder_contract_;
     outputs.max_output_bytes_ = 16;
-    outputs.outputs_.push_back({"boxes", {1, 4}});
+    outputs.outputs_.push_back({"boxes", {1, 4}, tensor_element_type::float32, {}});
     return outputs;
 }
 

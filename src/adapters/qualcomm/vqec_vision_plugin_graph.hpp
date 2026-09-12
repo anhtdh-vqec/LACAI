@@ -106,7 +106,7 @@ public:
     // Does not acquire the camera, validate evidence artifacts or synchronize memory.
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_bind_source(const source_binding& _binding);
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_start_stream(
-        const std::vector<float_tensor_spec>& _outputs, std::uint64_t _max_output_bytes);
+        const std::vector<tensor_spec>& _outputs, std::uint64_t _max_output_bytes);
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_request_drain();
     [[nodiscard]] status vqec_vision_ai_qcom_plgr_arm_submission(
         std::uint64_t _cycle_id, std::uint64_t _source_epoch, std::uint64_t _job_timeout_ns,

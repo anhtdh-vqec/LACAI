@@ -8,8 +8,8 @@ current HEAD evidence.
 The current verified inventory is: runtime executor, reference service executable,
 feature activation and slot mapping, model/feature/tracker registries, multi-source and
 multi-model orchestration, Qualcomm plugin graph, output helpers, structural checker and
-conditional eSDK CI workflow. The expanded eSDK configuration registers 66 tests and
-passes 66/66 in this workspace.
+conditional eSDK CI workflow. The expanded eSDK configuration registers 68 tests and
+passes 68/68 in this workspace.
 
 Known open boundaries are intentionally retained in architecture and contract documents:
 real Camera/FW registry and stream, authenticated artifact/path resolution, concrete

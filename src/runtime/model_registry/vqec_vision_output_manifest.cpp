@@ -1,7 +1,10 @@
 #include "vqec_vision_output_manifest.hpp"
 
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <new>
 #include <set>
 #include <utility>
@@ -56,6 +59,29 @@ std::string vqec_vision_ai_mreg_otman_read_text(const manifest_json& _value, boo
         }
     }
     return text;
+}
+
+float vqec_vision_ai_mreg_otman_read_scale(const manifest_json& _value) {
+    if (!_value.is_number()) {
+        throw invalid_manifest{};
+    }
+    const auto number = _value.get<double>();
+    if (!std::isfinite(number) || number <= 0.0 || number > 3.402823466e38) {
+        throw invalid_manifest{};
+    }
+    return static_cast<float>(number);
+}
+
+std::int32_t vqec_vision_ai_mreg_otman_read_zero_point(const manifest_json& _value) {
+    if (!_value.is_number_integer()) {
+        throw invalid_manifest{};
+    }
+    const auto number = _value.get<std::int64_t>();
+    if (number < std::numeric_limits<std::int32_t>::min() ||
+        number > std::numeric_limits<std::int32_t>::max()) {
+        throw invalid_manifest{};
+    }
+    return static_cast<std::int32_t>(number);
 }
 
 }  // namespace
@@ -127,12 +153,22 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
             throw invalid_manifest{};
         }
         for (const auto& output : outputs) {
-            vqec_vision_ai_mreg_otman_require_keys(output, {"name", "dtype", "shape"});
-            if (!output.at("dtype").is_string() || output.at("dtype") != "float32") {
-                return {status_code::unsupported, "only FLOAT32 output metadata is supported"};
+            if (!output.is_object() || !output.contains("name") || !output.contains("dtype") ||
+                !output.contains("shape") || output.size() < 3 || output.size() > 4) {
+                throw invalid_manifest{};
             }
-            float_tensor_spec spec;
+            const bool has_quantization = output.contains("quantization");
+            if (output.size() != (has_quantization ? 4U : 3U)) {
+                throw invalid_manifest{};
+            }
+            const auto dtype = vqec_vision_ai_core_tnctr_element_type_from_name(
+                vqec_vision_ai_mreg_otman_read_text(output.at("dtype"), false));
+            if (dtype == tensor_element_type::unknown) {
+                return {status_code::unsupported, "unsupported tensor dtype"};
+            }
+            tensor_spec spec;
             spec.name_ = vqec_vision_ai_mreg_otman_read_text(output.at("name"), false);
+            spec.dtype_ = dtype;
             const auto& shape = output.at("shape");
             if (!shape.is_array() || shape.empty() ||
                 shape.size() > tensor_contract_limits::g_max_rank) {
@@ -144,6 +180,15 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
                     throw invalid_manifest{};
                 }
                 spec.dimensions_.push_back(static_cast<std::uint32_t>(dimension));
+            }
+            if (has_quantization) {
+                const auto& quantization = output.at("quantization");
+                vqec_vision_ai_mreg_otman_require_keys(quantization, {"scale", "zero_point"});
+                spec.quantization_.is_quantized_ = true;
+                spec.quantization_.scale_ =
+                    vqec_vision_ai_mreg_otman_read_scale(quantization.at("scale"));
+                spec.quantization_.zero_point_ =
+                    vqec_vision_ai_mreg_otman_read_zero_point(quantization.at("zero_point"));
             }
             candidate.outputs_.push_back(std::move(spec));
         }

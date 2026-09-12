@@ -78,11 +78,11 @@ void vqec_vision_ai_ctest_gltst_start(plugin_graph& _graph) {
     binding.backend_memory_contract_ = "fixture:backend";
     binding.preprocess_contract_ = "fixture:golden";
     vqec_vision_ai_ctest_gltst_require(
-        _graph.vqec_vision_ai_qcom_plgr_start_stream({{"bytes", {256}}}, 1024).code_ ==
+        _graph.vqec_vision_ai_qcom_plgr_start_stream({{"bytes", {256}, tensor_element_type::float32, {}}}, 1024).code_ ==
             status_code::invalid_state);
     vqec_vision_ai_ctest_gltst_require(
         _graph.vqec_vision_ai_qcom_plgr_bind_source(binding).code_ == status_code::ok);
-    const auto started = _graph.vqec_vision_ai_qcom_plgr_start_stream({{"bytes", {256}}}, 1024);
+    const auto started = _graph.vqec_vision_ai_qcom_plgr_start_stream({{"bytes", {256}, tensor_element_type::float32, {}}}, 1024);
     vqec_vision_ai_ctest_gltst_require(
         started.code_ == status_code::ok || started.code_ == status_code::pending);
     vqec_vision_ai_ctest_gltst_wait("PLAYING", [&]() {

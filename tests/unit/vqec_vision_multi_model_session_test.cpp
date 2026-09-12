@@ -106,7 +106,7 @@ public:
     }
 
     [[nodiscard]] vqec::vision::ai::status vqec_vision_ai_ports_infgr_start(
-        const std::vector<vqec::vision::ai::float_tensor_spec>& _outputs,
+        const std::vector<vqec::vision::ai::tensor_spec>& _outputs,
         std::uint64_t _max_output_bytes) override {
         (void)_outputs;
         (void)_max_output_bytes;
@@ -238,7 +238,8 @@ vqec_vision_ai_unit_mmsts_make_graph_config(
     config.binding_.fw_memory_contract_ = "fixture:fw";
     config.binding_.backend_memory_contract_ = "fixture:backend";
     config.binding_.preprocess_contract_ = "fixture:preprocess";
-    config.outputs_ = {{"scores", {1}}};
+    config.outputs_ = {
+        {"scores", {1}, vqec::vision::ai::tensor_element_type::float32, {}}};
     config.max_output_bytes_ = 4;
     config.cycle_id_ = _cycle_id;
     config.job_timeout_ns_ = 1000000;

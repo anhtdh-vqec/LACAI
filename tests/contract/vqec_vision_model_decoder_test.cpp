@@ -1,6 +1,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
 
 #include <cassert>
+#include <utility>
 
 using namespace vqec::vision::ai;
 
@@ -37,11 +38,12 @@ int main() {
     assert(decoder.vqec_vision_ai_cntr_mddec_validate(outputs).code_ == status_code::ok);
 
     tensor_result result;
-    float_tensor_result boxes;
+    tensor_blob boxes;
     boxes.spec_.name_ = "boxes";
     boxes.spec_.dimensions_ = {1, 4};
-    boxes.values_ = {0.0F, 1.0F, 2.0F, 3.0F};
-    result.tensors_.push_back(boxes);
+    boxes.spec_.dtype_ = tensor_element_type::float32;
+    boxes.bytes_.assign(16, 0U);  // four float32 elements
+    result.tensors_.push_back(std::move(boxes));
     preview_frame_key frame;
     frame.frame_id_ = 9;
     observation_batch observations;
