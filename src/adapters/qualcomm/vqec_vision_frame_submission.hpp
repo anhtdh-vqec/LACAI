@@ -33,6 +33,8 @@ private:
         frame_submission& _submission);
     submission_ticket ticket_;
     std::unique_ptr<read_completion> completion_;
+    // Adapter-lifetime DMA-BUF allocator; avoids per-frame allocator construction.
+    dmabuf_allocator_context allocator_;
     bool input_done_{false};
     bool result_done_{false};
 };

@@ -55,7 +55,7 @@ status vqec_vision_ai_qcom_frsub_push_frame(
     std::unique_ptr<read_completion> completion;
     const auto wrapped = vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
         _descriptor, _frame_fd, std::move(_owner), _profile, prepared.ticket_,
-        prepared.buffer_, completion);
+        _submission.allocator_, prepared.buffer_, completion);
     if (wrapped.code_ != status_code::ok) {
         return wrapped;
     }

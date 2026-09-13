@@ -35,15 +35,6 @@ struct fd_owner {
     }
 };
 
-struct allocator_owner {
-    GstAllocator* value_{nullptr};
-    ~allocator_owner() noexcept {
-        if (value_ != nullptr) {
-            gst_object_unref(value_);
-        }
-    }
-};
-
 struct memory_owner {
     GstMemory* value_{nullptr};
     ~memory_owner() noexcept {
@@ -103,6 +94,22 @@ status vqec_vision_ai_qcom_dmbrg_validate_frame(const frame_descriptor& _descrip
 
 } // namespace
 
+dmabuf_allocator_context::~dmabuf_allocator_context() noexcept {
+    if (allocator_ != nullptr) {
+        gst_object_unref(allocator_);
+    }
+}
+
+status vqec_vision_ai_qcom_dmbrg_ensure_allocator(dmabuf_allocator_context& _context) {
+    if (_context.allocator_ == nullptr) {
+        _context.allocator_ = gst_dmabuf_allocator_new();
+        if (_context.allocator_ == nullptr) {
+            return {status_code::resource_exhausted, "cannot create DMA-BUF allocator"};
+        }
+    }
+    return {};
+}
+
 status vqec_vision_ai_qcom_dmbrg_make_profile(
     const source_deployment_config& _source, dmabuf_bridge_profile& _profile) {
     if (_source.raw_source_ref_.empty() || _source.profile_.width_ == 0 ||
@@ -131,6 +138,7 @@ status vqec_vision_ai_qcom_dmbrg_make_profile(
 status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor, int _frame_fd,
                                             const std::shared_ptr<const void>& _owner,
                                             const dmabuf_bridge_profile& _profile,
+                                            dmabuf_allocator_context& _allocator,
                                             GstBuffer*& _buffer) {
     if (_buffer != nullptr || _frame_fd < 0 || !_owner) {
         return {status_code::invalid_argument, "output must be null; frame FD and owner required"};
@@ -145,12 +153,13 @@ status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor,
     if (duplicate.value_ < 0) {
         return {status_code::io_error, "cannot duplicate camera FD"};
     }
-    allocator_owner allocator{gst_dmabuf_allocator_new()};
-    if (allocator.value_ == nullptr) {
-        return {status_code::resource_exhausted, "cannot create DMA-BUF allocator"};
+    // Reuse the adapter-lifetime allocator instead of constructing one per frame.
+    const auto ensured = vqec_vision_ai_qcom_dmbrg_ensure_allocator(_allocator);
+    if (ensured.code_ != status_code::ok) {
+        return ensured;
     }
     memory_owner memory{
-        gst_dmabuf_allocator_alloc(allocator.value_, duplicate.value_,
+        gst_dmabuf_allocator_alloc(_allocator.allocator_, duplicate.value_,
                                    static_cast<gsize>(_descriptor.allocation_size_bytes_))};
     if (memory.value_ == nullptr) {
         return {status_code::resource_exhausted, "cannot wrap camera DMA-BUF allocation"};
@@ -189,8 +198,8 @@ status vqec_vision_ai_qcom_dmbrg_wrap_frame(const frame_descriptor& _descriptor,
 status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
     const frame_descriptor& _descriptor, int _frame_fd,
     const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
-    const submission_ticket& _ticket, GstBuffer*& _buffer,
-    std::unique_ptr<read_completion>& _completion) {
+    const submission_ticket& _ticket, dmabuf_allocator_context& _allocator,
+    GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion) {
     if (_buffer != nullptr || _completion || !_owner || _ticket.token_.cycle_id_ == 0 ||
         _ticket.token_.job_id_ == 0 || _ticket.pipeline_pts_ns_ == UINT64_MAX ||
         _ticket.source_epoch_ != _descriptor.session_epoch_ ||
@@ -205,7 +214,7 @@ status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
     tracked->signal_ = observer->signal_;
     tracked->owner_ = _owner;
     const auto wrapped = vqec_vision_ai_qcom_dmbrg_wrap_frame(
-        _descriptor, _frame_fd, tracked, _profile, _buffer);
+        _descriptor, _frame_fd, tracked, _profile, _allocator, _buffer);
     if (wrapped.code_ != status_code::ok) {
         return wrapped;
     }

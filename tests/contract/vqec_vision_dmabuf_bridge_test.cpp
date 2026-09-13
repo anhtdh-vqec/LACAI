@@ -73,11 +73,12 @@ int main() {
     descriptor.pts_ns_ = 123456;
     descriptor.duration_ns_ = 40000000;
     dmabuf_bridge_profile profile{32, 8, 4096};
+    vqec::vision::ai::dmabuf_allocator_context allocator;
     test_buffers buffers;
     auto invalid = descriptor;
     invalid.memory_offset_bytes_ = UINT64_MAX;
     if (vqec_vision_ai_qcom_dmbrg_wrap_frame(
-            invalid, original_fd, owner, profile, buffers.original_).code_ !=
+            invalid, original_fd, owner, profile, allocator, buffers.original_).code_ !=
             status_code::invalid_argument || buffers.original_ != nullptr ||
         ::fcntl(original_fd, F_GETFD) == -1) {
         return 1;
@@ -85,12 +86,12 @@ int main() {
     invalid = descriptor;
     invalid.offsets_[1] = 16;
     if (vqec_vision_ai_qcom_dmbrg_wrap_frame(
-            invalid, original_fd, owner, profile, buffers.original_).code_ !=
+            invalid, original_fd, owner, profile, allocator, buffers.original_).code_ !=
         status_code::invalid_argument) {
         return 1;
     }
     if (vqec_vision_ai_qcom_dmbrg_wrap_frame(
-            descriptor, original_fd, {}, profile, buffers.original_).code_ !=
+            descriptor, original_fd, {}, profile, allocator, buffers.original_).code_ !=
         status_code::invalid_argument) {
         return 1;
     }
@@ -107,7 +108,7 @@ int main() {
     auto wrong_ticket = ticket;
     wrong_ticket.source_frame_id_++;
     if (vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-            descriptor, original_fd, owner, profile, wrong_ticket,
+            descriptor, original_fd, owner, profile, wrong_ticket, allocator,
             buffers.original_, completion).code_ != status_code::invalid_argument ||
         buffers.original_ != nullptr || completion) {
         return 1;
@@ -115,13 +116,13 @@ int main() {
     wrong_ticket = ticket;
     wrong_ticket.source_pts_ns_++;
     if (vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-            descriptor, original_fd, owner, profile, wrong_ticket,
+            descriptor, original_fd, owner, profile, wrong_ticket, allocator,
             buffers.original_, completion).code_ != status_code::invalid_argument ||
         buffers.original_ != nullptr || completion) {
         return 1;
     }
     if (vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
-            descriptor, original_fd, owner, profile, ticket,
+            descriptor, original_fd, owner, profile, ticket, allocator,
             buffers.original_, completion).code_ != status_code::ok || !completion) {
         return 1;
     }

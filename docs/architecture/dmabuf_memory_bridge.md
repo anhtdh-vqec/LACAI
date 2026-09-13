@@ -34,7 +34,10 @@ owner still retains the original received_frame and legacy ACK session. The Qual
 bridge has no camera-adapter dependency; core never sees GStreamer types.
 The bridge validates geometry/layout/ranges and an explicit expected source profile.
 It duplicates the FD with CLOEXEC and wraps the full allocation with GstDmaBufAllocator,
-then sets the memory's valid view to memory_offset_bytes/view_size_bytes.
+then sets the memory's valid view to memory_offset_bytes/view_size_bytes. One
+`dmabuf_allocator_context` is owned for the adapter lifetime (created lazily by
+`vqec_vision_ai_qcom_dmbrg_ensure_allocator`), not constructed per frame; the allocator is
+reference-counted and reused across all frames of the graph.
 GstVideoMeta offsets remain relative to that view, not shifted again by mem_offset.
 No mmap, pixel copy, color conversion or tensor allocation occurs here.
 

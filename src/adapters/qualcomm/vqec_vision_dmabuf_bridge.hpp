@@ -25,6 +25,18 @@ struct dmabuf_bridge_profile {
 [[nodiscard]] status vqec_vision_ai_qcom_dmbrg_make_profile(
     const source_deployment_config& _source, dmabuf_bridge_profile& _profile);
 
+// Owns one DMA-BUF allocator for the adapter lifetime. GStreamer allocators are
+// reference-counted and safe to reuse across frames; creating one per frame is wasteful at
+// multi-camera frame rates. Create once, keep it alive while frames may be produced.
+struct dmabuf_allocator_context {
+    GstAllocator* allocator_{nullptr};
+    ~dmabuf_allocator_context() noexcept;
+};
+
+// Idempotent: creates the allocator on first use and returns ok if one is available.
+[[nodiscard]] status vqec_vision_ai_qcom_dmbrg_ensure_allocator(
+    dmabuf_allocator_context& _context);
+
 struct input_release_signal;
 
 // Observer owns only a signal, never the camera frame. Poll on the serialized job executor.
@@ -40,8 +52,8 @@ private:
     friend status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
         const frame_descriptor& _descriptor, int _frame_fd,
         const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
-        const submission_ticket& _ticket, GstBuffer*& _buffer,
-        std::unique_ptr<read_completion>& _completion);
+        const submission_ticket& _ticket, dmabuf_allocator_context& _allocator,
+        GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion);
     std::shared_ptr<input_release_signal> signal_;
     submission_token token_;
     bool reported_{false};
@@ -52,8 +64,8 @@ private:
 [[nodiscard]] status vqec_vision_ai_qcom_dmbrg_wrap_tracked_frame(
     const frame_descriptor& _descriptor, int _frame_fd,
     const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
-    const submission_ticket& _ticket, GstBuffer*& _buffer,
-    std::unique_ptr<read_completion>& _completion);
+    const submission_ticket& _ticket, dmabuf_allocator_context& _allocator,
+    GstBuffer*& _buffer, std::unique_ptr<read_completion>& _completion);
 
 // Private GStreamer boundary. Caller initializes GStreamer before calling.
 // _frame_fd is borrowed; _owner must own that FD and keep the FW frame leased.
@@ -65,7 +77,7 @@ private:
 [[nodiscard]] status vqec_vision_ai_qcom_dmbrg_wrap_frame(
     const frame_descriptor& _descriptor, int _frame_fd,
     const std::shared_ptr<const void>& _owner, const dmabuf_bridge_profile& _profile,
-    GstBuffer*& _buffer);
+    dmabuf_allocator_context& _allocator, GstBuffer*& _buffer);
 
 }  // namespace vqec::vision::ai
 
