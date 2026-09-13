@@ -283,6 +283,13 @@ target_link_libraries(vqec_vision_ai_inference_worker
     PUBLIC vqec_vision_ai_core vqec_vision_ai_scheduler Threads::Threads)
 set_target_properties(vqec_vision_ai_inference_worker PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_recovery_controller STATIC
+    src/runtime/lifecycle/vqec_vision_recovery_controller.cpp)
+target_include_directories(vqec_vision_ai_recovery_controller PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/lifecycle>)
+target_link_libraries(vqec_vision_ai_recovery_controller PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_recovery_controller PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_multi_model_pump STATIC
     src/app/vqec_vision_multi_model_pump.cpp)
 target_include_directories(vqec_vision_ai_multi_model_pump PUBLIC
@@ -778,6 +785,14 @@ if(BUILD_TESTING)
         PRIVATE vqec_vision_ai_core Threads::Threads)
     set_target_properties(vqec_vision_ai_tensor_pool_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME tensor_pool_bounded_reuse COMMAND vqec_vision_ai_tensor_pool_test)
+    add_executable(vqec_vision_ai_recovery_controller_test
+        tests/unit/vqec_vision_recovery_controller_test.cpp)
+    target_link_libraries(vqec_vision_ai_recovery_controller_test
+        PRIVATE vqec_vision_ai_recovery_controller)
+    set_target_properties(vqec_vision_ai_recovery_controller_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME recovery_controller_backoff
+        COMMAND vqec_vision_ai_recovery_controller_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

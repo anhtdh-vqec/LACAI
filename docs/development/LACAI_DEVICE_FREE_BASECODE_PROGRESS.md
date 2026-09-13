@@ -14,7 +14,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 5 | Bounded inference worker | **module** | `bee8c8e`; pump wiring pending |
 | 6 | Tensor pool | **module** | this change; output/input wiring pending |
 | 7 | Production composition root + fake platform | partial | `--mode production` fails closed; no fake production owner yet |
-| 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; no backoff/reconnect machine |
+| 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; per-source backoff/retry-budget controller added (this change); reconnect wiring pending |
 | 9 | Model/package admission hardening | partial | capability/metadata/model-class gates (`b20ae11`, `52fe276`, `595ed08`) |
 | 10 | Scheduler QoS semantics | partial | explicit policy, unsupported rejected `d469495`; queue semantics pending |
 | 11 | Secondary/ROI inference contract | todo | deferred; needs ADR |
@@ -28,7 +28,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR`; no sanitizer job |
 | 20 | Wire/parser fuzzing | todo | — |
 | 21 | FD/resource leak tests | todo | planned with worker/pool |
-| 22 | Deterministic time abstraction | todo | needed for deadline/backoff tests |
+| 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |
 | 23 | Explicit epoch semantics | partial | worker stale-epoch flag; broader audit pending |
 | 24 | State machine invariants as tests | todo | — |
 | 25 | C++ naming cleanup | deferred | AGENTS mandates current scheme; needs lead/ADR |
