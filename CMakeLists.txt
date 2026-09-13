@@ -269,6 +269,15 @@ target_include_directories(vqec_vision_ai_scheduler PUBLIC
 target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_scheduler PROPERTIES CXX_EXTENSIONS OFF)
 
+find_package(Threads REQUIRED)
+add_library(vqec_vision_ai_inference_worker STATIC
+    src/runtime/scheduler/vqec_vision_inference_worker.cpp)
+target_include_directories(vqec_vision_ai_inference_worker PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/scheduler>)
+target_link_libraries(vqec_vision_ai_inference_worker
+    PUBLIC vqec_vision_ai_core vqec_vision_ai_scheduler Threads::Threads)
+set_target_properties(vqec_vision_ai_inference_worker PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_multi_model_pump STATIC
     src/app/vqec_vision_multi_model_pump.cpp)
 target_include_directories(vqec_vision_ai_multi_model_pump PUBLIC
@@ -751,6 +760,13 @@ if(BUILD_TESTING)
     set_target_properties(vqec_vision_ai_inference_execution_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME inference_execution_validation
         COMMAND vqec_vision_ai_inference_execution_test)
+    add_executable(vqec_vision_ai_inference_worker_test
+        tests/unit/vqec_vision_inference_worker_test.cpp)
+    target_link_libraries(vqec_vision_ai_inference_worker_test
+        PRIVATE vqec_vision_ai_inference_worker)
+    set_target_properties(vqec_vision_ai_inference_worker_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME inference_worker_bounded_execution
+        COMMAND vqec_vision_ai_inference_worker_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

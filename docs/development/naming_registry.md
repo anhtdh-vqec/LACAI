@@ -225,6 +225,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/app/vqec_vision_multi_source_supervisor.cpp | mssup | vqec_vision_ai_appl_mssup_ |
 | tests/unit/vqec_vision_multi_source_supervisor_test.cpp | mstst | vqec_vision_ai_unit_mstst_ |
 | src/runtime/scheduler/vqec_vision_model_cadence.cpp | mdcad | vqec_vision_ai_sched_mdcad_ |
+| src/runtime/scheduler/vqec_vision_inference_worker.cpp | inwrk | vqec_vision_ai_sched_inwrk_ |
+| tests/unit/vqec_vision_inference_worker_test.cpp | iwtst | vqec_vision_ai_unit_iwtst_ |
 | tests/unit/vqec_vision_model_cadence_test.cpp | mctst | vqec_vision_ai_unit_mctst_ |
 | tests/unit/vqec_vision_multi_model_pump_test.cpp | mmpst | vqec_vision_ai_unit_mmpst_ |
 | tests/unit/vqec_vision_multi_model_pump_tensor_test.cpp | mptst | vqec_vision_ai_unit_mptst_ |
