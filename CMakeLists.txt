@@ -247,7 +247,8 @@ if(UNIX)
         src/adapters/reference/vqec_vision_reference_graph.cpp
         src/adapters/reference/vqec_vision_reference_sink.cpp
         src/adapters/reference/vqec_vision_reference_processor.cpp
-        src/adapters/reference/vqec_vision_reference_tracker.cpp)
+        src/adapters/reference/vqec_vision_reference_tracker.cpp
+        src/adapters/reference/vqec_vision_reference_feature.cpp)
     target_include_directories(vqec_vision_ai_reference PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
     target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
@@ -894,6 +895,14 @@ if(BUILD_TESTING)
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME reference_tracker_association
             COMMAND vqec_vision_ai_reference_tracker_test)
+        add_executable(vqec_vision_ai_reference_feature_test
+            tests/unit/vqec_vision_reference_feature_test.cpp)
+        target_link_libraries(vqec_vision_ai_reference_feature_test
+            PRIVATE vqec_vision_ai_reference)
+        set_target_properties(vqec_vision_ai_reference_feature_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME reference_feature_events
+            COMMAND vqec_vision_ai_reference_feature_test)
         add_executable(vqec_vision_ai_runtime_executor_test
             tests/contract/vqec_vision_runtime_executor_test.cpp)
         target_link_libraries(vqec_vision_ai_runtime_executor_test PRIVATE
