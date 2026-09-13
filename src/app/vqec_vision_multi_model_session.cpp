@@ -61,9 +61,15 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
         config_.rpc_timeout_ms_ < 1 || config_.rpc_timeout_ms_ > 60000) {
         return {status_code::invalid_argument, "invalid multi-model session configuration"};
     }
+    if (config_.drain_policy_ != multi_model_drain_policy::drain_and_discard &&
+        config_.drain_policy_ != multi_model_drain_policy::drain_and_deliver) {
+        return {status_code::invalid_argument, "invalid multi-model drain policy"};
+    }
     if (source_.vqec_vision_ai_ports_rawsr_get_state() != raw_source_state::idle) {
         return {status_code::invalid_state, "multi-model session requires an idle source"};
     }
+    has_drain_result_ = false;
+    drain_result_ = {};
 
     const auto& source_plan = config_.graphs_[0].plan_;
     if (config_.cadence_.source_fps_numerator_ != source_plan.fps_numerator_ ||
@@ -212,9 +218,17 @@ status multi_model_session::vqec_vision_ai_appl_mmses_stop_graph(
         return graph.vqec_vision_ai_ports_infgr_request_drain();
     }
     if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
-        tensor_result discarded;
+        tensor_result polled;
         const auto result = graph.vqec_vision_ai_ports_infgr_poll_result(
-            _steady_now_ns, discarded);
+            _steady_now_ns, polled);
+        // Stop semantics are explicit: retain the last result only when the policy asks for
+        // it; otherwise reconcile ownership and discard it.
+        if (result.code_ == status_code::ok &&
+            config_.drain_policy_ == multi_model_drain_policy::drain_and_deliver &&
+            !has_drain_result_) {
+            drain_result_ = std::move(polled);
+            has_drain_result_ = true;
+        }
         if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
             return result.code_ == status_code::ok ?
                 status{status_code::pending, "waiting for graph readers"} : result;
@@ -387,6 +401,17 @@ multi_model_session::vqec_vision_ai_appl_mmses_get_snapshot() const noexcept {
 const status& multi_model_session::vqec_vision_ai_appl_mmses_get_last_error()
     const noexcept {
     return last_error_;
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_take_drain_result(
+    tensor_result& _result) {
+    if (!has_drain_result_) {
+        return {status_code::pending, "no delivered drain result is retained"};
+    }
+    _result = std::move(drain_result_);
+    drain_result_ = {};
+    has_drain_result_ = false;
+    return {};
 }
 
 status multi_model_session::vqec_vision_ai_appl_srcsn_step(

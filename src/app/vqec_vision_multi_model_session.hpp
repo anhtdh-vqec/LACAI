@@ -35,6 +35,15 @@ struct multi_model_graph_config {
     std::uint64_t job_timeout_ns_{1000000000};
 };
 
+// Explicit stop semantics for a result that becomes ready while graphs drain. A model
+// hot-swap/update may need the last result; a shutdown may not. This is never implicit.
+enum class multi_model_drain_policy {
+    // Reconcile ownership and discard the business result (default shutdown behavior).
+    drain_and_discard,
+    // Retain the last completed result for the caller via take_drain_result.
+    drain_and_deliver
+};
+
 struct multi_model_session_config {
     std::array<multi_model_graph_config, deployment_limits::g_max_models_per_source>
         graphs_{};
@@ -43,6 +52,7 @@ struct multi_model_session_config {
     std::uint64_t stop_timeout_ns_{10000000000};
     std::uint16_t graph_count_{0};
     int rpc_timeout_ms_{1000};
+    multi_model_drain_policy drain_policy_{multi_model_drain_policy::drain_and_discard};
 };
 
 struct multi_model_session_snapshot {
@@ -72,6 +82,9 @@ public:
         std::uint64_t _steady_now_ns);
     [[nodiscard]] multi_model_session_snapshot
     vqec_vision_ai_appl_mmses_get_snapshot() const noexcept;
+    // Moves out the result retained by a drain_and_deliver stop, then clears the slot.
+    // Returns pending when the policy discarded it or no result was ever ready.
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_take_drain_result(tensor_result& _result);
     [[nodiscard]] const status&
     vqec_vision_ai_appl_mmses_get_last_error() const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
@@ -98,8 +111,10 @@ private:
     std::uint64_t last_now_ns_{0};
     std::uint64_t start_ns_{0};
     std::uint64_t stop_ns_{0};
+    tensor_result drain_result_;
     std::uint16_t active_graph_slot_{0};
     std::uint16_t drain_graph_slot_{0};
+    bool has_drain_result_{false};
     bool is_recovery_required_{false};
 };
 

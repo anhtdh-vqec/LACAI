@@ -363,6 +363,56 @@ int main() {
     check(first.unload_calls_ == 1 && second.unload_calls_ == 1);
     check(session.vqec_vision_ai_appl_srcsn_get_health().phase_ ==
           source_session_phase::stopped);
+    // Default drain_and_discard retains nothing.
+    check(session.vqec_vision_ai_appl_mmses_take_drain_result(result).code_ ==
+          status_code::pending);
+
+    // Section 13: drain policy is explicit. drain_and_deliver retains the last result that
+    // becomes ready while draining instead of leaving the stop semantics implicit.
+    {
+        fake_session_source drain_source;
+        fake_session_graph drain_graph;
+        multi_model_session_config drain_config;
+        drain_config.graph_count_ = 1;
+        drain_config.graphs_[0] =
+            vqec_vision_ai_unit_mmsts_make_graph_config(drain_graph, 31);
+        drain_config.cadence_.source_fps_numerator_ = 25;
+        drain_config.cadence_.source_fps_denominator_ = 1;
+        drain_config.cadence_.model_count_ = 1;
+        drain_config.cadence_.model_fps_numerators_[0] = 25;
+        drain_config.cadence_.model_fps_denominators_[0] = 1;
+        drain_config.startup_timeout_ns_ = 1000;
+        drain_config.stop_timeout_ns_ = 1000;
+        drain_config.drain_policy_ = multi_model_drain_policy::drain_and_deliver;
+        multi_model_session drain_session(drain_source, drain_config);
+        check(drain_session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
+              status_code::pending);
+        std::uint64_t now = 1;
+        while (drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::running && now <= 20) {
+            const auto status =
+                drain_session.vqec_vision_ai_appl_mmses_step(now, result, progress);
+            check(status.code_ == status_code::pending || status.code_ == status_code::ok);
+            ++now;
+        }
+        drain_source.vqec_vision_ai_unit_mmsts_supply_frame(1);
+        check(drain_session.vqec_vision_ai_appl_mmses_step(now++, result, progress).code_ ==
+              status_code::ok);
+        drain_graph.vqec_vision_ai_unit_mmsts_complete_result();
+        check(drain_session.vqec_vision_ai_appl_mmses_request_stop(now++).code_ ==
+              status_code::ok);
+        while (drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::stopped && now <= 40) {
+            (void)drain_session.vqec_vision_ai_appl_mmses_step(now++, result, progress);
+        }
+        check(drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+              multi_model_session_state::stopped);
+        tensor_result drained;
+        check(drain_session.vqec_vision_ai_appl_mmses_take_drain_result(drained).code_ ==
+              status_code::ok);
+        check(drain_session.vqec_vision_ai_appl_mmses_take_drain_result(drained).code_ ==
+              status_code::pending);
+    }
 
     std::cout << "multi-model session failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;

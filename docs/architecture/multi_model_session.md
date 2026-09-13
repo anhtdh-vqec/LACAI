@@ -41,6 +41,12 @@ startup/running state. Graph slots are reconciled in order:
 4. unload ready, drained or faulted graphs;
 5. accept only empty/configured with zero outstanding work as reconciled.
 
+A result that becomes ready during step 2 follows an explicit `drain_policy`, never an
+implicit one: `drain_and_discard` (default) reconciles ownership and drops the business
+result, while `drain_and_deliver` retains the last result for the caller through
+`vqec_vision_ai_appl_mmses_take_drain_result`. A model hot-swap/update uses deliver; a
+shutdown uses discard.
+
 The source is stopped only after every graph slot reaches that gate. Timeout sets
 `recovery_required` but never clears a job, releases an owner, closes a handle or skips FW
 lease reconciliation. First operational error is retained for diagnostics. The caller must
