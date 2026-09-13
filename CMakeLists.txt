@@ -40,7 +40,9 @@ if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST OR VQEC_VISION_AI_ENABLE_MODEL_CATALOG O
     endif()
 endif()
 
+find_package(Threads REQUIRED)
 add_library(vqec_vision_ai_core STATIC
+    src/core/vqec_vision_tensor_pool.cpp
     src/core/vqec_vision_inference_plan.cpp src/core/vqec_vision_submission_window.cpp src/core/vqec_vision_source_binding.cpp
     src/core/vqec_vision_tensor_contract.cpp src/core/vqec_vision_output_gate.cpp
     src/core/vqec_vision_preview_contract.cpp src/core/vqec_vision_preview_surface.cpp
@@ -53,6 +55,9 @@ add_library(vqec_vision_ai_core STATIC
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_include_directories(vqec_vision_ai_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/core>)
+target_link_libraries(vqec_vision_ai_core PUBLIC Threads::Threads)
 set_target_properties(vqec_vision_ai_core PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_detection STATIC
@@ -269,7 +274,6 @@ target_include_directories(vqec_vision_ai_scheduler PUBLIC
 target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_scheduler PROPERTIES CXX_EXTENSIONS OFF)
 
-find_package(Threads REQUIRED)
 add_library(vqec_vision_ai_inference_worker STATIC
     src/runtime/scheduler/vqec_vision_inference_worker.cpp)
 target_include_directories(vqec_vision_ai_inference_worker PUBLIC
@@ -767,6 +771,12 @@ if(BUILD_TESTING)
     set_target_properties(vqec_vision_ai_inference_worker_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME inference_worker_bounded_execution
         COMMAND vqec_vision_ai_inference_worker_test)
+    add_executable(vqec_vision_ai_tensor_pool_test
+        tests/unit/vqec_vision_tensor_pool_test.cpp)
+    target_link_libraries(vqec_vision_ai_tensor_pool_test
+        PRIVATE vqec_vision_ai_core Threads::Threads)
+    set_target_properties(vqec_vision_ai_tensor_pool_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME tensor_pool_bounded_reuse COMMAND vqec_vision_ai_tensor_pool_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)
