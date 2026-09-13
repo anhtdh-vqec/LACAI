@@ -192,6 +192,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
         auto& graph = *bindings_[slot].graph_;
         if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
+            // drop_if_busy semantics: cadence activation rejects any other dispatch policy
+            // until a bounded per-model queue exists (review section 10).
             _report.busy_model_mask_ = static_cast<std::uint16_t>(
                 _report.busy_model_mask_ | bit);
             continue;

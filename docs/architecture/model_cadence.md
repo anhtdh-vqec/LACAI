@@ -32,7 +32,13 @@ the source frame rate is rejected.
 
 This scheduler decides eligibility only. `multi_model_pump` now checks graph capacity,
 skips a due selection when that graph remains busy, shares one received frame owner across
-accepted graphs and reports fixed-slot submission masks. The implemented multi_model_session
+accepted graphs and reports fixed-slot submission masks.
+
+Dispatch QoS is explicit per model through `model_dispatch_policy`. Only `drop_if_busy`
+(newest-frame-wins for live detection) is implemented; `latest_wins`, `must_process_once`
+and `event_triggered` need a bounded per-model queue and are rejected as `unsupported` at
+activation rather than silently behaving like `drop_if_busy`. This keeps the OCR/face/
+event-model QoS gap visible instead of implicit. The implemented multi_model_session
 owns graph lifecycle and source drain. Authenticated admission/entitlement activation remains
 external integration work; the session does not enforce grants. FW may ACK only
 after the last hardware reader completes. No throughput or hardware-acceleration claim

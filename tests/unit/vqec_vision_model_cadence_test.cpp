@@ -85,6 +85,25 @@ int main() {
     check(scheduler.vqec_vision_ai_sched_mdcad_select(104, selection).code_ ==
           status_code::ok);
 
+    // Section 10: dispatch QoS is explicit per model. Only drop_if_busy is implemented; a
+    // policy that needs a bounded per-model queue is rejected before activation.
+    {
+        auto policy = config;
+        policy.dispatch_policies_[0] = model_dispatch_policy::must_process_once;
+        model_cadence_scheduler policy_scheduler;
+        check(policy_scheduler.vqec_vision_ai_sched_mdcad_configure(policy).code_ ==
+              status_code::unsupported);
+        policy.dispatch_policies_[0] = model_dispatch_policy::drop_if_busy;
+        check(policy_scheduler.vqec_vision_ai_sched_mdcad_configure(policy).code_ ==
+              status_code::ok);
+        model_dispatch_policy resolved{model_dispatch_policy::must_process_once};
+        check(policy_scheduler.vqec_vision_ai_sched_mdcad_get_dispatch_policy(
+                  1, resolved).code_ == status_code::ok);
+        check(resolved == model_dispatch_policy::drop_if_busy);
+        check(policy_scheduler.vqec_vision_ai_sched_mdcad_get_dispatch_policy(
+                  7, resolved).code_ == status_code::invalid_argument);
+    }
+
     std::cout << "model cadence failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }

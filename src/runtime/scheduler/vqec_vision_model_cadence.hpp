@@ -8,6 +8,18 @@
 
 namespace vqec::vision::ai {
 
+// How a due model is served when its graph already has an outstanding job. Camera live
+// detection wants drop_if_busy (newest frame wins). Event/OCR/face models may need a
+// different semantics, but those need a bounded per-model queue and are not implemented
+// here: they are rejected as unsupported at activation rather than silently behaving like
+// drop_if_busy.
+enum class model_dispatch_policy {
+    drop_if_busy,
+    latest_wins,
+    must_process_once,
+    event_triggered
+};
+
 struct model_cadence_config {
     std::uint32_t source_fps_numerator_{0};
     std::uint32_t source_fps_denominator_{0};
@@ -16,6 +28,9 @@ struct model_cadence_config {
         model_fps_numerators_{};
     std::array<std::uint32_t, deployment_limits::g_max_models_per_source>
         model_fps_denominators_{};
+    // Per-model dispatch policy; defaults to drop_if_busy.
+    std::array<model_dispatch_policy, deployment_limits::g_max_models_per_source>
+        dispatch_policies_{};
 };
 
 struct model_cadence_selection {
@@ -41,12 +56,16 @@ public:
         const model_cadence_config& _config);
     [[nodiscard]] status vqec_vision_ai_sched_mdcad_select(
         std::uint64_t _frame_sequence, model_cadence_selection& _selection);
+    [[nodiscard]] status vqec_vision_ai_sched_mdcad_get_dispatch_policy(
+        std::uint16_t _model_slot, model_dispatch_policy& _policy) const;
     [[nodiscard]] bool vqec_vision_ai_sched_mdcad_is_configured() const noexcept;
 
 private:
     std::array<std::uint64_t, deployment_limits::g_max_models_per_source> increments_{};
     std::array<std::uint64_t, deployment_limits::g_max_models_per_source> thresholds_{};
     std::array<std::uint64_t, deployment_limits::g_max_models_per_source> phases_{};
+    std::array<model_dispatch_policy, deployment_limits::g_max_models_per_source>
+        dispatch_policies_{};
     std::uint64_t last_frame_sequence_{0};
     std::uint16_t model_count_{0};
     bool is_configured_{false};
