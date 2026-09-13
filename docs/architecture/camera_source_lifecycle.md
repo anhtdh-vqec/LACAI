@@ -33,11 +33,15 @@ the overall shutdown deadline and BSP escalation; expiry is not permission to re
 
 frame_source now maintains a shared count across current and detached sessions and
 enforces a total cap of four live frames per receiver, not four per reconnect.
-Final received_frame destruction attempts ACK, closes its FD, releases its session
-reference and only THEN decrements the cross-session count. Thus observing zero
-does not race ahead of the old-session reference release. The receiver closes its
-own current-session reference before control StopStream. Failed ACK remains a
-transport fault; zero local readers does not assert that FW processed every ACK.
+Final received_frame destruction queues its ACK token on the originating session,
+closes its FD, releases its session reference and only THEN decrements the
+cross-session count. The session release queue sends nonblocking, retries on EAGAIN
+and faults only past a bounded deadline or queue depth, so destruction never blocks
+and a temporarily full send buffer does not lose the ACK. Thus observing zero does
+not race ahead of the old-session reference release. The receiver closes its own
+current-session reference before control StopStream. A hard transport error or the
+release deadline remains a transport fault; zero local readers does not assert that
+FW processed every ACK.
 
 When StartStream's outcome is unknown and stop was requested, stop replays the same
 Start request to recover the handle; it does not connect the raw socket. Once the

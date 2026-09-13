@@ -5,6 +5,8 @@
 #include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <deque>
+#include <mutex>
 #include <utility>
 
 #include <poll.h>
@@ -18,6 +20,11 @@ struct camera_reader_count {
     std::atomic<unsigned> outstanding_{0};
 };
 
+struct camera_pending_release {
+    std::uint64_t token_{0};
+    std::chrono::steady_clock::time_point queued_at_{};
+};
+
 struct camera_session {
     int socket_fd_{-1};
     legacy_frame_limits limits_;
@@ -25,6 +32,11 @@ struct camera_session {
     std::uint64_t last_buffer_id_{0};
     std::atomic<bool> healthy_{true};
     std::shared_ptr<camera_reader_count> reader_count_;
+    // Serialized release queue: final owners hand off ACK tokens here instead of sending
+    // from their destructor, so EAGAIN is retried later rather than faulting on the spot.
+    std::mutex release_mutex_;
+    std::deque<camera_pending_release> pending_releases_;
+    bool releases_faulted_{false};
 
     ~camera_session() noexcept {
         if (socket_fd_ >= 0) {
@@ -48,23 +60,73 @@ struct received_fds {
     }
 };
 
+// Sends queued release tokens nonblocking. A full buffer keeps the token queued for a later
+// flush; exceeding the retry deadline or a hard transport error faults the session. The
+// caller must not already hold release_mutex_.
+void vqec_vision_ai_camer_frsrc_flush_releases(camera_session& _session) noexcept {
+    std::lock_guard<std::mutex> lock(_session.release_mutex_);
+    const auto now = std::chrono::steady_clock::now();
+    while (!_session.pending_releases_.empty()) {
+        const auto& pending = _session.pending_releases_.front();
+        const auto age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - pending.queued_at_).count();
+        const std::uint64_t token = pending.token_;
+        const auto sent = ::send(_session.socket_fd_, &token, sizeof(token),
+                                 MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (sent == static_cast<ssize_t>(sizeof(token))) {
+            _session.pending_releases_.pop_front();
+            continue;
+        }
+        if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+            if (age_ms >= camera_receiver_limits::g_release_deadline_ms) {
+                _session.releases_faulted_ = true;
+                _session.healthy_.store(false);
+            }
+            return;
+        }
+        _session.releases_faulted_ = true;
+        _session.healthy_.store(false);
+        return;
+    }
+}
+
+// Completion handoff used by the final frame owner. Never blocks and never sends on a
+// session other than the one that delivered the frame.
+void vqec_vision_ai_camer_frsrc_release_completion(
+    camera_session& _session, std::uint64_t _token) noexcept {
+    {
+        std::lock_guard<std::mutex> lock(_session.release_mutex_);
+        if (_session.releases_faulted_) {
+            return;
+        }
+        _session.pending_releases_.push_back({_token, std::chrono::steady_clock::now()});
+        if (_session.pending_releases_.size() > camera_receiver_limits::g_max_pending_releases) {
+            _session.releases_faulted_ = true;
+            _session.healthy_.store(false);
+            _session.pending_releases_.clear();
+            return;
+        }
+    }
+    vqec_vision_ai_camer_frsrc_flush_releases(_session);
+}
+
 }  // namespace
 
 received_frame::~received_frame() noexcept {
     if (frame_fd_ >= 0) {
-        // The final owner is the completion boundary, not receive or appsrc push.
-        const auto token = descriptor_.buffer_id_;
-        const auto sent = ::send(session_->socket_fd_, &token, sizeof(token),
-                                 MSG_NOSIGNAL | MSG_DONTWAIT);
-        if (sent != static_cast<ssize_t>(sizeof(token))) {
-            // No blocking retry in destruction and no ACK on a replacement session.
-            session_->healthy_.store(false);
+        // The final owner is the completion boundary: hand the ACK token to the session
+        // release queue, then drop the local FD. Sending is the queue's job, so a full send
+        // buffer does not block destruction and does not fault on the first EAGAIN.
+        if (session_ != nullptr) {
+            vqec_vision_ai_camer_frsrc_release_completion(*session_, descriptor_.buffer_id_);
         }
         ::close(frame_fd_);
-        const auto readers = session_->reader_count_;
+        const auto readers = session_ != nullptr ? session_->reader_count_ : nullptr;
         session_.reset();
-        // Publish drain completion only after ACK/FD close/session release above.
-        readers->outstanding_.fetch_sub(1);
+        // Publish drain completion only after ACK handoff/FD close/session release above.
+        if (readers != nullptr) {
+            readers->outstanding_.fetch_sub(1);
+        }
     }
 }
 
@@ -131,7 +193,12 @@ status frame_source::vqec_vision_ai_camer_frsrc_receive(
     if (_frame || _timeout_ms < 0 || _timeout_ms > 60000) {
         return {status_code::invalid_argument, "output must be empty and timeout in 0..60000 ms"};
     }
-    if (!session_ || !session_->healthy_.load()) {
+    if (session_ == nullptr) {
+        return {status_code::source_lost, "camera session absent or faulted"};
+    }
+    // Retry queued release ACKs here: this is the normal retry pump between receive calls.
+    vqec_vision_ai_camer_frsrc_flush_releases(*session_);
+    if (!session_->healthy_.load()) {
         return {status_code::source_lost, "camera session absent or faulted"};
     }
     if (reader_count_->outstanding_.load() >= camera_receiver_limits::g_max_live_frames) {
@@ -237,6 +304,11 @@ status frame_source::vqec_vision_ai_camer_frsrc_receive(
 }
 
 void frame_source::vqec_vision_ai_camer_frsrc_disconnect() noexcept {
+    if (session_ != nullptr) {
+        // Best-effort flush before detaching; outstanding frames keep the session (and its
+        // release queue) alive and retry on their own final release.
+        vqec_vision_ai_camer_frsrc_flush_releases(*session_);
+    }
     session_.reset();
 }
 

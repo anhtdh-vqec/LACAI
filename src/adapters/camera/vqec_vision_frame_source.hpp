@@ -1,6 +1,7 @@
 #ifndef VQEC_VISION_AI_CAMERA_FRAME_SOURCE_HPP
 #define VQEC_VISION_AI_CAMERA_FRAME_SOURCE_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -15,6 +16,11 @@ struct camera_reader_count;
 namespace camera_receiver_limits {
 // Released receiver contract: at most four live leases across all sessions.
 inline constexpr unsigned g_max_live_frames = 4;
+// Bounded release dispatch. A final owner queues its ACK token; the session sends it
+// nonblocking with retry and faults only after this many queued tokens or this deadline,
+// so a full socket buffer never blocks or faults destruction on first EAGAIN.
+inline constexpr std::size_t g_max_pending_releases = 16;
+inline constexpr int g_release_deadline_ms = 1000;
 }  // namespace camera_receiver_limits
 
 struct camera_source_config {

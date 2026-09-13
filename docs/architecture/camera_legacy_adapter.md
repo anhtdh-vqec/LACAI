@@ -37,20 +37,24 @@ sessions). It does not map, copy or import image pixels.
 
 received_frame is shared immutable ownership: retain the shared owner across
 every synchronous/asynchronous reader and every derived memory view. Its last
-destruction attempts a nonblocking ACK on the original session and closes the FD.
-This is safe only when owner lifetime tracks actual completion. Never retain only
-the borrowed integer FD after releasing the frame object. No destructor waits for
-hardware, and no timer fabricates completion. Future GstMemory bridge must retain
-this owner until all reading memory views are released after device completion.
+destruction hands the ACK token to the originating session's release queue and
+closes the FD; the queue performs the nonblocking send, retries on EAGAIN and only
+faults the session past a bounded deadline or bounded queue depth. Destruction
+therefore never blocks and never faults on a single full send buffer. This is safe
+only when owner lifetime tracks actual completion. Never retain only the borrowed
+integer FD after releasing the frame object. No destructor waits for hardware, and
+no timer fabricates completion. Future GstMemory bridge must retain this owner until
+all reading memory views are released after device completion.
 
 Disconnect drops the receiver's session reference; outstanding frames retain the
-old socket. It is not a cancellation primitive. New sessions receive monotonically
-increasing receiver-local epochs; callers add their runtime/source identity.
-Wire buf_id must increase within a session (as in the current producer).
-Malformed packet marks the session faulted without closing the socket underneath
-outstanding readers; no further receive is allowed. Each delivered frame still
-attempts its ACK on that same session. Last session owner closes the socket.
-Failed ACK marks transport fault, does not reconnect or resend onto a new session.
+old socket and its release queue. It is not a cancellation primitive. New sessions
+receive monotonically increasing receiver-local epochs; callers add their runtime/
+source identity. Wire buf_id must increase within a session (as in the current
+producer). Malformed packet marks the session faulted without closing the socket
+underneath outstanding readers; no further receive is allowed. Each delivered frame
+still queues its ACK on that same session. Last session owner closes the socket.
+A hard transport error or an exceeded release deadline marks transport fault; the
+receiver never reconnects or resends onto a new session.
 
 AI cannot prevent FW independently recycling after its own stop/disconnect.
 FW P0 safety sign-off remains mandatory; shared ownership alone does not solve it.
