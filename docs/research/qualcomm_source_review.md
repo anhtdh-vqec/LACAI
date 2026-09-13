@@ -20,7 +20,7 @@ SDK proprietary. Chưa compile/run trên board, chưa đo throughput/accuracy.
 Source local là bằng chứng hành vi của bản plugin này, không là cam kết mọi SDK.
 
 Mọi build/test/CMake của LACAI dùng eSDK tại `/home/a/Workspace/eSDK`; việc đọc
-source plugin không thay thế kiểm tra runtime trên image QSC6490.
+source plugin không thay thế kiểm tra runtime trên image QCS6490.
 
 Các đường dẫn dưới đây tương đối với repository trên; line number là snapshot.
 
@@ -76,7 +76,7 @@ Các đường dẫn dưới đây tương đối với repository trên; line n
 ## Hướng sử dụng
 
 Updated by ADR 0002: first implement a private plugin-backed adapter on the
-user-confirmed QSC6490 / Qualcomm Linux 1.8 baseline; direct SDK is optional later.
+user-confirmed QCS6490 / Qualcomm Linux 1.8 baseline; direct SDK is optional later.
 The original direct-SDK preference below is historical, not a blocker for coding.
 Benchmark riêng: dùng vendor sample trên cùng model/input/board để đối chiếu.
 Không fork nguyên plugin stack thành core AI; không thêm pipeline encode/display

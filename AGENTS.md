@@ -12,7 +12,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   docs/architecture/qualcomm_adapter.md.
   Also read docs/research/qualcomm_plugins_reference.md,
   docs/architecture/qualcomm_plugin_adapter_reference.md and
-  docs/adr/0002_qualcomm_plugin_backend.md. The user-confirmed target is QSC6490
+  docs/adr/0002_qualcomm_plugin_backend.md. The user-confirmed target is QCS6490
   / Qualcomm Linux 1.8. Do not block source implementation on missing sysroot.
 
 ## Non-negotiable

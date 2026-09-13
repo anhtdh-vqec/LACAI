@@ -5,7 +5,7 @@ Owner/reviewer: AI APP lead (user); production validation remains pending.
 
 ## Context
 
-User confirms Qualcomm plugins run and are optimized on QSC6490, Qualcomm Linux 1.8.
+User confirms Qualcomm plugins run and are optimized on QCS6490, Qualcomm Linux 1.8.
 User requests source implementation now, without building or requiring a sysroot.
 
 ## Decision

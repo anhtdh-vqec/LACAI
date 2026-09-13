@@ -1,4 +1,4 @@
-# Qualcomm plugins reference — QSC6490 / Qualcomm Linux 1.8
+# Qualcomm plugins reference — QCS6490 / Qualcomm Linux 1.8
 
 Ngày cập nhật: 2026-09-09. Repository được đọc trực tiếp:
 `/home/a/Workspace/gst-plugins-qti-oss`.
@@ -11,9 +11,9 @@ phụ lục như cấu hình triển khai cố định.
 
 ## 1. Baseline và phạm vi sử dụng tài liệu
 
-Người dùng xác nhận các plugin đã chạy và được tối ưu trên **QSC6490,
+Người dùng xác nhận các plugin đã chạy và được tối ưu trên **QCS6490,
 Qualcomm Linux 1.8**. Đây là baseline thiết bị do người dùng cung cấp, không phải
-benchmark do agent chạy. Giữ nguyên tên QSC6490 như cung cấp; không tự sửa SoC ID.
+benchmark do agent chạy. Giữ nguyên tên QCS6490 như cung cấp; không tự sửa SoC ID.
 Không cần sysroot để viết source; mọi CMake/build/test của LACAI phải dùng eSDK
 tại `/home/a/Workspace/eSDK` theo rule dự án.
 

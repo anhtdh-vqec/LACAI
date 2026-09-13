@@ -23,7 +23,7 @@ Không dùng “tương thích hiện tại” để miễn kiểm chứng owner
 Tài liệu này tự đủ để gửi cho FW. Các đường dẫn source bên dưới tính từ repository
 `vqec_camera_service`, snapshot commit `139d335913e19e5a33a36fa8f8d706009892db44`.
 Kết luận dựa trên đọc source, chưa phải kết quả đo trên board.
-Target theo thông tin dự án: QSC6490 / Qualcomm Linux 1.8.
+Target theo thông tin dự án: QCS6490 / Qualcomm Linux 1.8.
 
 ## 2. Baseline FW mà AI sẽ tuân theo
 

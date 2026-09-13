@@ -5,7 +5,7 @@ backends: the released plugin graph ([ADR 0002](../adr/0002_qualcomm_plugin_back
 and the optional LACAI-owned QNN engine ([ADR 0003](../adr/0003_owned_qnn_engine.md),
 [execution policy](qualcomm_execution_policy.md)). They share the same
 `inference_graph_port`, scheduling and ownership; backend choice is policy/capability, not a
-model-name branch. Baseline user-confirmed: QSC6490, Qualcomm Linux 1.8. Sysroot is not
+model-name branch. Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot is not
 required to write code. Historical direct-SDK blueprint below is not current implementation
 status. Runnable production service, live board qualification and preview output are
 missing. See implementation_status.md and fw_release_compatibility.md.

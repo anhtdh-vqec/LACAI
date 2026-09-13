@@ -1,6 +1,6 @@
 # qualcomm
 
-Private Qualcomm adapter for QSC6490 / Qualcomm Linux 1.8. Contains the released plugin
+Private Qualcomm adapter for QCS6490 / Qualcomm Linux 1.8. Contains the released plugin
 graph backend and the optional LACAI-owned QNN engine, both behind neutral ports.
 
 - **Status:** source-delivered — plugin lifecycle fixtures pass on QCS6490; owned QNN engine not board-qualified

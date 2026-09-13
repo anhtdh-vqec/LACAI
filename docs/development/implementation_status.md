@@ -99,7 +99,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 
 ## Qualcomm implementation boundary
 
-User-confirmed target: QSC6490 / Qualcomm Linux 1.8. [ADR 0002](../adr/0002_qualcomm_plugin_backend.md)
+User-confirmed target: QCS6490 / Qualcomm Linux 1.8. [ADR 0002](../adr/0002_qualcomm_plugin_backend.md)
 selects a private GStreamer graph:
 
 ```text

@@ -3,14 +3,14 @@
 This document is the implementation reference for using the Qualcomm GStreamer
 stack from LACAI. It records the source that was inspected and the boundary that
 keeps that stack replaceable. It does not claim that a plugin is present on a
-particular image or that a path is qualified on QSC6490.
+particular image or that a path is qualified on QCS6490.
 
 ## Source baseline
 
 The source reviewed was `/home/a/Workspace/gst-plugins-qti-oss` at commit
 `0cdf24a99c625fa616564ebf82fd8813c744ed82` (2026-09-09). The checkout was clean;
 it is an external reference and must not be modified or copied into LACAI.
-The target supplied by the product team is QSC6490 with Qualcomm Linux 1.8.
+The target supplied by the product team is QCS6490 with Qualcomm Linux 1.8.
 Runtime availability, ABI, enum values and caps are still established on the
 target image with `gst-inspect-1.0` and a board smoke test.
 
