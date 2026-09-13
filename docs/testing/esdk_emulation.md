@@ -43,6 +43,11 @@ including the `vqec_ai_vision_applications` service smoke test and the productio
 fail-closed test. Both run 100% under SDK QEMU in this workspace. These additions are
 logic/wiring evidence only.
 
+2026-09-13 update: the device-free basecode plan added two tested modules — the bounded
+inference worker (`bee8c8e`) and the tensor pool (`50099b2`) — plus the camera release
+dispatcher. The default configuration now registers 55 tests and the expanded one 73, all
+passing under SDK QEMU. These are still logic/wiring evidence, not device acceptance.
+
 An expanded configuration with Camera, GIO D-Bus, the GStreamer frame bridge and the
 Qualcomm adapter enabled builds 57 tests. The corresponding binaries pass 57/57 under
 SDK QEMU with an isolated target-sysroot GStreamer registry, and also pass 57/57 when
