@@ -98,6 +98,16 @@ int main() {
     const auto running = supervisor.vqec_vision_ai_appl_mssup_get_snapshot();
     check(running.running_sources_ == 1 && running.stopped_sources_ == 1);
     check(running.first_error_code_ == status_code::source_lost);
+    // Section 12: the isolated source error is visible on its own channel and counters,
+    // not only as a swallowed pending return.
+    check(running.fault_event_total_ == 1 && running.faulted_sources_ == 1 &&
+          running.source_fault_codes_[1] == status_code::source_lost &&
+          running.source_fault_codes_[0] == status_code::ok);
+    multi_source_fault_event fault;
+    check(supervisor.vqec_vision_ai_appl_mssup_take_fault(fault).code_ == status_code::ok);
+    check(fault.source_index_ == 1 && fault.code_ == status_code::source_lost);
+    check(supervisor.vqec_vision_ai_appl_mssup_take_fault(fault).code_ ==
+          status_code::pending);
     check(supervisor.vqec_vision_ai_appl_mssup_request_stop(6).code_ == status_code::ok);
     check(healthy.stop_requests_ == 1 && faulted.stop_requests_ == 1);
     check(supervisor.vqec_vision_ai_appl_mssup_get_state() ==

@@ -40,9 +40,18 @@ Per-source progress has fixed due/submitted/busy masks plus a primary numeric mo
 no model string lookup is needed on the running path. A
 source-level error is isolated: its session already enters its own drain path, healthy
 slots continue to progress, and the supervisor returns `pending` rather than converting
-that source fault into a process-wide failure. The caller must publish the reported fault
-and must use `has_result` before consuming the returned tensor. Invalid supervisor state,
-time or binding remains a supervisor API error.
+that source fault into a process-wide failure. The caller must use `has_result` before
+consuming the returned tensor. Invalid supervisor state, time or binding remains a
+supervisor API error.
+
+An isolated fault is never invisible: it is recorded on a bounded, independent fault
+channel. `multi_source_supervisor_snapshot` carries `fault_event_total_`,
+`faulted_sources_` and a per-source `source_fault_codes_` array, and
+`vqec_vision_ai_appl_mssup_take_fault` pops the oldest retained
+`multi_source_fault_event` (source index, code, monotonic time). A caller loop that only
+checks the step code still cannot miss the error, and counters feed telemetry
+(disconnect/fault totals). Fault duration and last-frame age remain session/telemetry
+fields, not supervisor guesses.
 
 ## Stop and recovery
 

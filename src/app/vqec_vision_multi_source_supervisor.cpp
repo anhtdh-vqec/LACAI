@@ -130,6 +130,12 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
     _report.source_progress_ = progress;
     _report.has_source_ = true;
     _report.has_result_ = progress.has_result_;
+    if (source_code != status_code::ok && source_code != status_code::pending) {
+        // Keep fault isolation (one source does not stop the rest) but publish the error on
+        // the independent fault channel so it is never an invisible pending.
+        vqec_vision_ai_appl_mssup_record_fault(
+            selected_index, source_code, _steady_now_ns);
+    }
     vqec_vision_ai_appl_mssup_refresh_state();
 
     if (state_ == multi_source_supervisor_state::stopped) {
@@ -175,6 +181,41 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_state() const noexcept {
     return state_;
 }
 
+void multi_source_supervisor::vqec_vision_ai_appl_mssup_record_fault(
+    std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept {
+    if (_source_index < deployment_limits::g_max_sources) {
+        source_fault_codes_[_source_index] = _code;
+    }
+    multi_source_fault_event event;
+    event.source_index_ = _source_index;
+    event.code_ = _code;
+    event.at_ns_ = _at_ns;
+    if (fault_event_count_ < g_max_supervisor_fault_events) {
+        fault_events_[(static_cast<std::size_t>(fault_event_head_) + fault_event_count_) %
+            g_max_supervisor_fault_events] = event;
+        ++fault_event_count_;
+    } else {
+        // Bounded ring: overwrite the oldest retained event.
+        fault_events_[fault_event_head_] = event;
+        fault_event_head_ = static_cast<std::uint16_t>(
+            (fault_event_head_ + 1U) % g_max_supervisor_fault_events);
+    }
+    ++fault_event_total_;
+}
+
+status multi_source_supervisor::vqec_vision_ai_appl_mssup_take_fault(
+    multi_source_fault_event& _fault) {
+    if (fault_event_count_ == 0) {
+        return {status_code::pending, "no source fault event is queued"};
+    }
+    _fault = fault_events_[fault_event_head_];
+    fault_events_[fault_event_head_] = {};
+    fault_event_head_ = static_cast<std::uint16_t>(
+        (fault_event_head_ + 1U) % g_max_supervisor_fault_events);
+    --fault_event_count_;
+    return {};
+}
+
 multi_source_supervisor_snapshot
 multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept {
     multi_source_supervisor_snapshot snapshot;
@@ -183,6 +224,7 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept
     snapshot.catalog_revision_ = config_.catalog_revision_;
     snapshot.declared_sources_ = config_.source_count_;
     snapshot.bound_sources_ = bound_count_;
+    snapshot.fault_event_total_ = fault_event_total_;
     for (std::uint16_t index = 0;
          index < config_.source_count_ && index < sessions_.size(); ++index) {
         if (sessions_[index] == nullptr) {
@@ -205,6 +247,10 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept
         }
         if (source.is_recovery_required_) {
             ++snapshot.recovery_sources_;
+        }
+        if (source_fault_codes_[index] != status_code::ok) {
+            snapshot.source_fault_codes_[index] = source_fault_codes_[index];
+            ++snapshot.faulted_sources_;
         }
         if (snapshot.first_error_code_ == status_code::ok &&
             source.first_error_code_ != status_code::ok) {

@@ -10,6 +10,9 @@
 namespace vqec::vision::ai {
 
 inline constexpr std::uint16_t g_invalid_source_index = UINT16_MAX;
+// Bounded per-source fault channel so an isolated source error stays observable even
+// though step() keeps returning pending to preserve fault isolation.
+inline constexpr std::uint16_t g_max_supervisor_fault_events = 32;
 
 enum class multi_source_supervisor_state {
     binding,
@@ -33,6 +36,12 @@ struct multi_source_progress_report {
     bool has_result_{false};
 };
 
+struct multi_source_fault_event {
+    std::uint16_t source_index_{g_invalid_source_index};
+    status_code code_{status_code::ok};
+    std::uint64_t at_ns_{0};
+};
+
 struct multi_source_supervisor_snapshot {
     multi_source_supervisor_state supervisor_state_{
         multi_source_supervisor_state::binding};
@@ -45,6 +54,9 @@ struct multi_source_supervisor_snapshot {
     std::uint16_t stopping_sources_{0};
     std::uint16_t stopped_sources_{0};
     std::uint16_t recovery_sources_{0};
+    std::uint16_t faulted_sources_{0};
+    std::uint32_t fault_event_total_{0};
+    std::array<status_code, deployment_limits::g_max_sources> source_fault_codes_{};
     status_code first_error_code_{status_code::ok};
 };
 
@@ -68,17 +80,28 @@ public:
     vqec_vision_ai_appl_mssup_get_state() const noexcept;
     [[nodiscard]] multi_source_supervisor_snapshot
     vqec_vision_ai_appl_mssup_get_snapshot() const noexcept;
+    // Pops the oldest recorded per-source fault event; pending when none is queued. This is
+    // an independent channel, so an isolated source error is never an invisible pending.
+    [[nodiscard]] status vqec_vision_ai_appl_mssup_take_fault(
+        multi_source_fault_event& _fault);
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_mssup_check_time(
         std::uint64_t _steady_now_ns);
     void vqec_vision_ai_appl_mssup_refresh_state() noexcept;
+    void vqec_vision_ai_appl_mssup_record_fault(
+        std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept;
 
     multi_source_supervisor_config config_;
     std::array<source_session_port*, deployment_limits::g_max_sources> sessions_{};
     multi_source_supervisor_state state_{multi_source_supervisor_state::binding};
+    std::array<status_code, deployment_limits::g_max_sources> source_fault_codes_{};
+    std::array<multi_source_fault_event, g_max_supervisor_fault_events> fault_events_{};
     std::uint16_t bound_count_{0};
     std::uint16_t next_source_index_{0};
+    std::uint16_t fault_event_head_{0};
+    std::uint16_t fault_event_count_{0};
+    std::uint32_t fault_event_total_{0};
     std::uint64_t last_now_ns_{0};
 };
 
