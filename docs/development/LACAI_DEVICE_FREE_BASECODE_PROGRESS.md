@@ -40,10 +40,10 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 
 ## Next
 
-1. Wire the bounded inference worker into the pump/session so the production path actually
-   runs the backend off the control thread (WP-02 exit criteria).
-2. Wire the tensor pool into preprocess + backend output to remove steady-state allocation.
-3. Production composition root with a fake platform owner and a no-fallback E2E test
-   (WP-04).
-4. Recovery state machine + deterministic clock, then leak and invariant tests.
-5. One real decoder and one reference tracker (WP-05).
+1. Production composition root with a fake platform owner and a no-fallback E2E test:
+   `--mode production --platform fake` runs, `--platform qualcomm` fails closed.
+2. Wire the bounded inference worker into the pump/session and the tensor pool into
+   preprocess/output so the running path is non-blocking and steady-state allocation-free.
+3. Wire the recovery controller into a source reconnect loop; add leak and invariant tests.
+4. One real decoder, secondary/ROI contract, fake output pipeline.
+5. Preprocess conformance suite, CMake split, sanitizers, fuzzing, benchmarks.
