@@ -30,6 +30,11 @@ public:
 
     [[nodiscard]] status vqec_vision_ai_sched_inwrk_execute(
         const inference_work_item& _item) override {
+        {
+            std::lock_guard<std::mutex> start_lock(start_mutex_);
+            ++entered_;
+            start_condition_.notify_all();
+        }
         std::unique_lock<std::mutex> lock(mutex_);
         condition_.wait(lock, [this]() { return is_open_.load(); });
         ++calls_;
@@ -40,13 +45,24 @@ public:
         return {};
     }
 
+    // Blocks until at least _count worker calls have entered the executor. Deterministic
+    // replacement for a sleep when a test needs an item popped off the queue.
+    bool wait_started(unsigned _count) {
+        std::unique_lock<std::mutex> start_lock(start_mutex_);
+        return start_condition_.wait_for(start_lock, std::chrono::seconds(3),
+            [this, _count]() { return entered_.load() >= _count; });
+    }
+
     unsigned calls() const { return calls_.load(); }
 
 private:
     std::mutex mutex_;
     std::condition_variable condition_;
+    std::mutex start_mutex_;
+    std::condition_variable start_condition_;
     std::atomic<bool> is_open_{false};
     std::atomic<unsigned> calls_{0};
+    std::atomic<unsigned> entered_{0};
     std::uint64_t last_job_id_{0};
     std::uint16_t fail_source_{UINT16_MAX};
 };
@@ -131,7 +147,9 @@ int main() {
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(1, 0, 0, 1), model_dispatch_policy::drop_if_busy).code_ ==
               status_code::ok);
-        // The worker is blocked on the gate, so this second item fills the queue.
+        // Wait until item 1 left the queue and is blocked in the executor, so item 2 is
+        // guaranteed to be the one that fills the queue.
+        check(executor.wait_started(1));
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(2, 0, 0, 1), model_dispatch_policy::drop_if_busy).code_ ==
               status_code::ok);
@@ -160,6 +178,7 @@ int main() {
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(10, 0, 1, 1), model_dispatch_policy::drop_if_busy).code_ ==
               status_code::ok);
+        check(executor.wait_started(1));
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(11, 0, 0, 1), model_dispatch_policy::latest_wins).code_ ==
               status_code::ok);
@@ -270,7 +289,9 @@ int main() {
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(50, 0, 0, 1), model_dispatch_policy::drop_if_busy).code_ ==
               status_code::ok);
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        // Wait until job 50 has left the queue and is blocked in the executor, so the next
+        // item deterministically stays pending and is the one cancelled by stop.
+        check(executor.wait_started(1));
         check(worker.vqec_vision_ai_sched_inwrk_submit(
                   make_item(51, 0, 1, 1), model_dispatch_policy::drop_if_busy).code_ ==
               status_code::ok);

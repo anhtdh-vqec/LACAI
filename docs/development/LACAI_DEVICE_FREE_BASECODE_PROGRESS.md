@@ -20,7 +20,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 11 | Secondary/ROI inference contract | todo | deferred; needs ADR |
 | 12 | Preprocess conformance suite | partial | CPU reference processor exists; golden vectors pending |
 | 13 | Real CPU decoder | todo | needs model metadata/decoder implementation |
-| 14 | Reference tracker | todo | — |
+| 14 | Reference tracker | **done** | this change |
 | 15 | Feature/event engine tests | todo | processor contracts exist |
 | 16 | Output fake pipeline | todo | encoded/overlay helpers exist |
 | 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
