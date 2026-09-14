@@ -99,7 +99,8 @@ it simply does not join across models yet.
 ## Metrics
 
 `vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
-events delivered/denied/failed). The service prints one `metrics ...` line at stop. This is
+events delivered/denied/failed) plus routed-result latency sum/max/samples. The service
+prints one `metrics ...` line at stop including `e2e_avg_us`/`e2e_max_us`. This is
 a seed telemetry surface, not a histogram/export pipeline; per-stage latency histograms and
 a metrics sink/transport are still open.
 
