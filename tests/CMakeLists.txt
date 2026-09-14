@@ -227,6 +227,14 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME multi_source_supervision
         COMMAND vqec_vision_ai_multi_source_supervisor_test)
+    add_executable(vqec_vision_ai_multi_source_supervisor_async_test
+        unit/vqec_vision_multi_source_supervisor_async_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_source_supervisor_async_test
+        PRIVATE vqec_vision_ai_source_supervisor Threads::Threads)
+    set_target_properties(vqec_vision_ai_multi_source_supervisor_async_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_source_supervision_async
+        COMMAND vqec_vision_ai_multi_source_supervisor_async_test)
     add_executable(vqec_vision_ai_activation_snapshot_test
         unit/vqec_vision_activation_snapshot_test.cpp)
     target_link_libraries(vqec_vision_ai_activation_snapshot_test
@@ -337,7 +345,7 @@
         add_test(NAME output_manifest_validation COMMAND vqec_vision_ai_output_manifest_test)
         if(TARGET vqec_vision_ai_manifest_check)
             add_test(NAME output_manifest_example COMMAND vqec_vision_ai_manifest_check
-                ${CMAKE_CURRENT_SOURCE_DIR}/manifests/models/output_fixture.json)
+                ${CMAKE_SOURCE_DIR}/manifests/models/output_fixture.json)
         endif()
     endif()
     add_executable(vqec_vision_ai_inference_execution_test

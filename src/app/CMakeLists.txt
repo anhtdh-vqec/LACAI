@@ -12,7 +12,8 @@ add_library(vqec_vision_ai_source_supervisor STATIC
     vqec_vision_multi_source_supervisor.cpp)
 target_include_directories(vqec_vision_ai_source_supervisor PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_core)
+target_link_libraries(vqec_vision_ai_source_supervisor
+    PUBLIC vqec_vision_ai_core vqec_vision_ai_source_session_worker)
 set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_source_session_worker STATIC

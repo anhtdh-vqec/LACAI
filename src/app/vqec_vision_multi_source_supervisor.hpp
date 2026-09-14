@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "vqec_vision_source_session.hpp"
+#include "vqec_vision_source_session_worker.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
 
 namespace vqec::vision::ai {
@@ -25,6 +26,10 @@ struct multi_source_supervisor_config {
     std::uint64_t deployment_revision_{0};
     std::uint64_t catalog_revision_{0};
     std::uint16_t source_count_{0};
+    // When true, each bound session runs on a `source_session_worker` so a blocking backend
+    // call inside a session step cannot stall other sources. Default false keeps the
+    // synchronous serialized behavior.
+    bool use_session_workers_{false};
 };
 
 struct multi_source_progress_report {
@@ -65,6 +70,7 @@ struct multi_source_supervisor_snapshot {
 class multi_source_supervisor {
 public:
     explicit multi_source_supervisor(multi_source_supervisor_config _config) noexcept;
+    ~multi_source_supervisor() noexcept;
     multi_source_supervisor(const multi_source_supervisor& _other) = delete;
     multi_source_supervisor& operator=(const multi_source_supervisor& _other) = delete;
 
@@ -84,6 +90,8 @@ public:
     // an independent channel, so an isolated source error is never an invisible pending.
     [[nodiscard]] status vqec_vision_ai_appl_mssup_take_fault(
         multi_source_fault_event& _fault);
+    // Joins every session worker (async mode). Safe to call without activation or twice.
+    [[nodiscard]] status vqec_vision_ai_appl_mssup_drain();
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_mssup_check_time(
@@ -91,14 +99,20 @@ private:
     void vqec_vision_ai_appl_mssup_refresh_state() noexcept;
     void vqec_vision_ai_appl_mssup_record_fault(
         std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_mssup_step_async(
+        std::uint64_t _steady_now_ns, tensor_result& _result,
+        multi_source_progress_report& _report);
 
     multi_source_supervisor_config config_;
     std::array<source_session_port*, deployment_limits::g_max_sources> sessions_{};
+    std::array<source_session_worker, deployment_limits::g_max_sources> workers_{};
     multi_source_supervisor_state state_{multi_source_supervisor_state::binding};
     std::array<status_code, deployment_limits::g_max_sources> source_fault_codes_{};
     std::array<multi_source_fault_event, g_max_supervisor_fault_events> fault_events_{};
     std::uint16_t bound_count_{0};
     std::uint16_t next_source_index_{0};
+    std::uint16_t next_result_index_{0};
+    bool async_mode_{false};
     std::uint16_t fault_event_head_{0};
     std::uint16_t fault_event_count_{0};
     std::uint32_t fault_event_total_{0};

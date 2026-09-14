@@ -53,6 +53,15 @@ checks the step code still cannot miss the error, and counters feed telemetry
 (disconnect/fault totals). Fault duration and last-frame age remain session/telemetry
 fields, not supervisor guesses.
 
+## Async execution (opt-in)
+
+`multi_source_supervisor_config::use_session_workers_` runs each bound session on its own
+`source_session_worker`. `step` then polls at most one completion round-robin and requests
+one non-blocking step on the next available slot, so a blocking backend call inside a slow
+source cannot stall the control loop or the other sources. Faults are still isolated onto
+the fault channel, stop queues a session stop per worker, and `drain()` joins every worker
+(the destructor also drains). Synchronous behavior remains the default.
+
 ## Stop and recovery
 
 Global stop latches `request_stop` for every bound session without issuing FW RPC in that

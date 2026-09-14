@@ -9,6 +9,10 @@ multi_source_supervisor::multi_source_supervisor(
     multi_source_supervisor_config _config) noexcept
     : config_(_config) {}
 
+multi_source_supervisor::~multi_source_supervisor() noexcept {
+    (void)vqec_vision_ai_appl_mssup_drain();
+}
+
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_check_time(
     std::uint64_t _steady_now_ns) {
     if (_steady_now_ns == std::numeric_limits<std::uint64_t>::max() ||
@@ -66,8 +70,31 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_activate() {
             return {status_code::invalid_state, "activation requires every session idle"};
         }
     }
+    if (config_.use_session_workers_) {
+        for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
+            const auto started =
+                workers_[index].vqec_vision_ai_appl_sswrk_start(*sessions_[index]);
+            if (started.code_ != status_code::ok) {
+                for (std::uint16_t prior = 0; prior < index; ++prior) {
+                    (void)workers_[prior].vqec_vision_ai_appl_sswrk_drain();
+                }
+                return started;
+            }
+        }
+        async_mode_ = true;
+    }
     next_source_index_ = 0;
+    next_result_index_ = 0;
     state_ = multi_source_supervisor_state::running;
+    return {};
+}
+
+status multi_source_supervisor::vqec_vision_ai_appl_mssup_drain() {
+    for (std::uint16_t index = 0;
+         index < config_.source_count_ && index < sessions_.size(); ++index) {
+        (void)workers_[index].vqec_vision_ai_appl_sswrk_drain();
+    }
+    async_mode_ = false;
     return {};
 }
 
@@ -99,6 +126,9 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
     }
     if (state_ == multi_source_supervisor_state::stopped) {
         return {};
+    }
+    if (async_mode_) {
+        return vqec_vision_ai_appl_mssup_step_async(_steady_now_ns, _result, _report);
     }
 
     source_session_port* selected = nullptr;
@@ -148,6 +178,65 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
         status{} : status{status_code::pending, {}};
 }
 
+status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
+    std::uint64_t _steady_now_ns, tensor_result& _result,
+    multi_source_progress_report& _report) {
+    // Poll at most one completion per call, round-robin, so a fast source cannot starve
+    // result progress for the others.
+    for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
+        const auto index = static_cast<std::uint16_t>(
+            (static_cast<unsigned>(next_result_index_) + offset) % config_.source_count_);
+        if (sessions_[index] == nullptr) {
+            continue;
+        }
+        status step_status;
+        tensor_result candidate;
+        source_session_progress progress;
+        if (workers_[index].vqec_vision_ai_appl_sswrk_poll_completion(
+                step_status, candidate, progress).code_ != status_code::ok) {
+            continue;
+        }
+        _report.source_index_ = index;
+        _report.source_status_ = step_status;
+        _report.source_health_ = sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+        _report.source_progress_ = progress;
+        _report.has_source_ = true;
+        _report.has_result_ = progress.has_result_;
+        if (progress.has_result_) {
+            _result = std::move(candidate);
+        }
+        if (step_status.code_ != status_code::ok && step_status.code_ != status_code::pending) {
+            vqec_vision_ai_appl_mssup_record_fault(index, step_status.code_, _steady_now_ns);
+        }
+        next_result_index_ = static_cast<std::uint16_t>(
+            (static_cast<unsigned>(index) + 1U) % config_.source_count_);
+        vqec_vision_ai_appl_mssup_refresh_state();
+        return _report.has_result_ ?
+            status{} : status{status_code::pending, "async source produced no result yet"};
+    }
+    // No completion ready: request one non-blocking step on the next available slot.
+    for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
+        const auto index = static_cast<std::uint16_t>(
+            (static_cast<unsigned>(next_source_index_) + offset) % config_.source_count_);
+        if (sessions_[index] == nullptr ||
+            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ ==
+                source_session_phase::stopped) {
+            continue;
+        }
+        if (workers_[index].vqec_vision_ai_appl_sswrk_request_step(_steady_now_ns).code_ ==
+            status_code::ok) {
+            next_source_index_ = static_cast<std::uint16_t>(
+                (static_cast<unsigned>(index) + 1U) % config_.source_count_);
+            _report.source_index_ = index;
+            _report.has_source_ = true;
+            vqec_vision_ai_appl_mssup_refresh_state();
+            return {status_code::pending, "async source step requested"};
+        }
+    }
+    vqec_vision_ai_appl_mssup_refresh_state();
+    return {status_code::pending, "no async source step could be requested"};
+}
+
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_request_stop(
     std::uint64_t _steady_now_ns) {
     const auto time = vqec_vision_ai_appl_mssup_check_time(_steady_now_ns);
@@ -166,8 +255,9 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_request_stop(
     state_ = multi_source_supervisor_state::stopping;
     for (std::uint16_t index = 0;
          index < config_.source_count_ && index < sessions_.size(); ++index) {
-        const auto stopped = sessions_[index]->vqec_vision_ai_appl_srcsn_request_stop(
-            _steady_now_ns);
+        const auto stopped = async_mode_ ?
+            workers_[index].vqec_vision_ai_appl_sswrk_request_stop(_steady_now_ns) :
+            sessions_[index]->vqec_vision_ai_appl_srcsn_request_stop(_steady_now_ns);
         if (first_error.code_ == status_code::ok && stopped.code_ != status_code::ok) {
             first_error = stopped;
         }
