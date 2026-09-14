@@ -622,4 +622,16 @@
             --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_features.json
             --steps 160 --require-sources 2)
         set_tests_properties(service_production_fake_smoke PROPERTIES TIMEOUT 20)
+        # Reference platform runs the real reference tracker and zone feature end to end
+        # (M5). It must route, emit at least one feature event and stop cleanly.
+        add_test(NAME service_production_reference_smoke COMMAND vqec_ai_vision_applications
+            --mode production --platform reference
+            --deployment ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_deployment.json
+            --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
+            --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_features.json
+            --steps 160 --require-sources 2)
+        set_tests_properties(service_production_reference_smoke PROPERTIES
+            TIMEOUT 20
+            PASS_REGULAR_EXPRESSION "delivered=[1-9][0-9]*"
+            FAIL_REGULAR_EXPRESSION "stopped=false;first_error=[1-9]")
     endif()

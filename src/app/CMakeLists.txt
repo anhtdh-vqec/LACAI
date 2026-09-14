@@ -122,7 +122,9 @@ if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config A
    TARGET vqec_vision_ai_model_catalog_config AND TARGET vqec_vision_ai_feature_catalog_config)
     add_executable(vqec_ai_vision_applications
         vqec_vision_service_main.cpp
-        vqec_vision_fake_platform.cpp)
+        vqec_vision_fake_platform.cpp
+        vqec_vision_reference_platform.cpp
+        vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_runtime_composition_factory
         vqec_vision_ai_reference

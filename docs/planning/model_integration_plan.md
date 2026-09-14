@@ -31,7 +31,9 @@ Not a reason to touch the scheduler/runtime per model: a new model must be
 | MI-04 | partial | `yolov8_decoder` implemented and tested device-free (channel-first xywh dequant, inverse letterbox, clip, per-class NMS, threshold, bound, missing/mismatch/dtype/NaN negatives). Confirmed box format/space from the model team. Golden decoded parity pending reference detections. `dense_decoder` is not reused (layout differs). |
 | MI-05 | **done** | `vqec_vision_model_runner` (board tool): reads the package io_manifest/preprocess/decoder JSON, opens the owned QNN engine, cross-checks declared input identity against the graph, preprocesses an NV12 fixture, executes, decodes with `yolov8_decoder` and prints/emits a JSON report. Runtime validation on board is MI-06. |
 | MI-06 | partial | Board: runner ran the real package end to end, and raw outputs through the real preprocess path are byte-identical to `qnn-net-run` (2/2). M2 preprocess golden and M4 decoded golden still need the model team reference data; M1 declared-vs-graph identity check is implemented in the runner. |
-| MI-07..MI-11 | todo | see commit order |
+| MI-07 | todo | Qualcomm production platform owner; `--platform qualcomm` still fails closed. Reordered after MI-08. |
+| MI-08 | **done (device-free)** | `reference_platform` owner (`--platform reference`) wires the real `reference_tracker` and `reference_zone_feature` behind the neutral ports with the shared `fixture_detector`. Integration exposed and fixed two bugs: the reference tracker left detections untracked on a source gap, and the reference feature stamped events with the monotonic step clock instead of the source PTS domain. `service_production_reference_smoke` asserts routing, at least one delivered zone event and a clean stop. See [reference platform](../architecture/reference_platform.md). |
+| MI-09..MI-11 | todo | see commit order |
 
 ## 2. Gate 0 — three contract fixes before the first model
 

@@ -2,39 +2,10 @@
 
 #include <utility>
 
+#include "vqec_vision_fixture_detector.hpp"
+
 namespace vqec::vision::ai {
 namespace {
-
-// Development fake detector: emits one low-quality person box per result. It performs no
-// tensor semantics and proves only that the decode/track/feature pipeline is wired.
-class fake_platform_decoder final : public model_decoder_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_cntr_mddec_validate(
-        const model_outputs& _outputs) const override {
-        return _outputs.outputs_.empty() ?
-            status{status_code::unsupported, "fake decoder requires an output"} : status{};
-    }
-    [[nodiscard]] status vqec_vision_ai_cntr_mddec_decode(
-        const tensor_result& _result, const preview_frame_key& _expected_frame,
-        observation_batch& _observations) override {
-        (void)_result;
-        observation_batch candidate;
-        candidate.frame_ = _expected_frame;
-        candidate.geometry_ = {width_, height_};
-        observation item;
-        item.frame_ = _expected_frame;
-        item.class_id_ = "person";
-        item.box_ = {0.0F, 0.0F, 10.0F, 10.0F, 0xffffffffU, "person"};
-        item.confidence_ = 0.5F;
-        item.quality_ = observation_quality::low;
-        candidate.observations_.push_back(std::move(item));
-        _observations = std::move(candidate);
-        return {};
-    }
-
-    std::uint32_t width_{640};
-    std::uint32_t height_{480};
-};
 
 // Development fake tracker: assigns a fresh monotonic id per detection.
 class fake_platform_tracker final : public tracker_port {
@@ -170,7 +141,7 @@ public:
 
 struct fake_platform::implementation {
     fake_platform_config config_;
-    fake_platform_decoder decoder_;
+    fixture_detector decoder_;
     fake_platform_tracker_factory tracker_factory_;
     fake_platform_feature_factory feature_factory_;
     bool is_configured_{false};
@@ -196,8 +167,8 @@ status fake_platform::vqec_vision_ai_appl_fkplt_configure(
         return {status_code::invalid_argument, "invalid fake platform configuration"};
     }
     impl.config_ = _config;
-    impl.decoder_.width_ = _config.source_width_;
-    impl.decoder_.height_ = _config.source_height_;
+    impl.decoder_ = fixture_detector(
+        fixture_detector_config{_config.source_width_, _config.source_height_});
     impl.feature_factory_ = fake_platform_feature_factory{_config};
     impl.is_configured_ = true;
     return {};

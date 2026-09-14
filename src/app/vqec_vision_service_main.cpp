@@ -33,6 +33,7 @@
 #include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_fake_platform.hpp"
+#include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
 using namespace vqec::vision::ai;
@@ -241,52 +242,99 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr, "deployment source count exceeds runtime support\n");
         return 1;
     }
-    // Platform selection. Production requires an explicit platform; an unset or unwired
-    // platform fails closed instead of substituting the development harness. The fake
-    // platform owners produce no real detections and are selected only by name.
-    const bool use_fake_platform = args.platform == "fake";
-    if (args.production_mode && !use_fake_platform) {
+    // Platform selection. Production requires an explicit device-free platform; an unset
+    // or unwired platform fails closed instead of substituting the development harness.
+    // `fake` proves wiring only; `reference` wires the real reference tracker and zone
+    // feature. Both are selected by name and never fall back implicitly.
+    const bool use_reference_platform = args.platform == "reference";
+    const bool platform_named = args.platform == "fake" || args.platform == "reference";
+    if (args.production_mode && !platform_named) {
         std::fprintf(stderr,
-            "production mode: --platform %s is not wired; use --platform fake for the "
-            "device-free fake platform. Refusing fixture fallback\n",
+            "production mode: --platform %s is not wired; use --platform fake or "
+            "--platform reference for a device-free platform. Refusing fixture fallback\n",
             args.platform.c_str());
         return 3;
     }
 
-    // Fake platform owners: registered for every catalog contract so the composition has a
+    // Platform owners: registered for every catalog contract so the composition has a
     // concrete decoder/tracker/feature set. Selected explicitly, never implicitly.
+    const auto source_width = deployment.sources_.front().profile_.width_;
+    const auto source_height = deployment.sources_.front().profile_.height_;
     fake_platform platform;
-    const auto platform_configured = platform.vqec_vision_ai_appl_fkplt_configure(
-        {deployment.sources_.front().profile_.width_,
-            deployment.sources_.front().profile_.height_});
-    if (platform_configured.code_ != status_code::ok) {
-        std::fprintf(stderr, "fake platform configure failed (%d): %s\n",
-            static_cast<int>(platform_configured.code_), platform_configured.message_.c_str());
-        return 1;
-    }
+    reference_platform reference;
     model_decoder_registry decoders;
-    const auto decoders_registered =
-        platform.vqec_vision_ai_appl_fkplt_register_decoders(catalog, decoders);
-    if (decoders_registered.code_ != status_code::ok) {
-        std::fprintf(stderr, "cannot register fake platform decoders (%d): %s\n",
-            static_cast<int>(decoders_registered.code_), decoders_registered.message_.c_str());
-        return 1;
-    }
     tracker_registry trackers;
-    const auto tracker_registered =
-        platform.vqec_vision_ai_appl_fkplt_register_tracker(trackers);
-    if (tracker_registered.code_ != status_code::ok) {
-        std::fprintf(stderr, "cannot register fake platform tracker (%d): %s\n",
-            static_cast<int>(tracker_registered.code_), tracker_registered.message_.c_str());
-        return 1;
-    }
     feature_processor_registry feature_registry;
-    const auto features_registered =
-        platform.vqec_vision_ai_appl_fkplt_register_features(features, feature_registry);
-    if (features_registered.code_ != status_code::ok) {
-        std::fprintf(stderr, "cannot register fake platform features (%d): %s\n",
-            static_cast<int>(features_registered.code_), features_registered.message_.c_str());
-        return 1;
+    std::string tracker_contract;
+    std::string attribute_schema_id;
+    if (use_reference_platform) {
+        const auto configured = reference.vqec_vision_ai_appl_rplat_configure(
+            {source_width, source_height});
+        if (configured.code_ != status_code::ok) {
+            std::fprintf(stderr, "reference platform configure failed (%d): %s\n",
+                static_cast<int>(configured.code_), configured.message_.c_str());
+            return 1;
+        }
+        const auto registered_decoders =
+            reference.vqec_vision_ai_appl_rplat_register_decoders(catalog, decoders);
+        if (registered_decoders.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register reference platform decoders (%d): %s\n",
+                static_cast<int>(registered_decoders.code_),
+                registered_decoders.message_.c_str());
+            return 1;
+        }
+        const auto registered_tracker =
+            reference.vqec_vision_ai_appl_rplat_register_tracker(trackers);
+        if (registered_tracker.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register reference platform tracker (%d): %s\n",
+                static_cast<int>(registered_tracker.code_),
+                registered_tracker.message_.c_str());
+            return 1;
+        }
+        const auto registered_features =
+            reference.vqec_vision_ai_appl_rplat_register_features(features, feature_registry);
+        if (registered_features.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register reference platform features (%d): %s\n",
+                static_cast<int>(registered_features.code_),
+                registered_features.message_.c_str());
+            return 1;
+        }
+        tracker_contract = reference.vqec_vision_ai_appl_rplat_get_tracker_contract();
+        attribute_schema_id = reference.vqec_vision_ai_appl_rplat_get_attribute_schema_id();
+    } else {
+        const auto configured = platform.vqec_vision_ai_appl_fkplt_configure(
+            {source_width, source_height});
+        if (configured.code_ != status_code::ok) {
+            std::fprintf(stderr, "fake platform configure failed (%d): %s\n",
+                static_cast<int>(configured.code_), configured.message_.c_str());
+            return 1;
+        }
+        const auto registered_decoders =
+            platform.vqec_vision_ai_appl_fkplt_register_decoders(catalog, decoders);
+        if (registered_decoders.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register fake platform decoders (%d): %s\n",
+                static_cast<int>(registered_decoders.code_),
+                registered_decoders.message_.c_str());
+            return 1;
+        }
+        const auto registered_tracker =
+            platform.vqec_vision_ai_appl_fkplt_register_tracker(trackers);
+        if (registered_tracker.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register fake platform tracker (%d): %s\n",
+                static_cast<int>(registered_tracker.code_),
+                registered_tracker.message_.c_str());
+            return 1;
+        }
+        const auto registered_features =
+            platform.vqec_vision_ai_appl_fkplt_register_features(features, feature_registry);
+        if (registered_features.code_ != status_code::ok) {
+            std::fprintf(stderr, "cannot register fake platform features (%d): %s\n",
+                static_cast<int>(registered_features.code_),
+                registered_features.message_.c_str());
+            return 1;
+        }
+        tracker_contract = platform.vqec_vision_ai_appl_fkplt_get_tracker_contract();
+        attribute_schema_id = platform.vqec_vision_ai_appl_fkplt_get_config().attribute_schema_id_;
     }
 
     // Output boundary for the harness: a permissive-but-explicit policy plus a
@@ -338,8 +386,7 @@ int main(int _argc, char** _argv) {
             model_activation.paths_.system_path_ = service_harness::g_system_library;
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
             model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
-            model_activation.tracker_contract_ =
-                platform.vqec_vision_ai_appl_fkplt_get_tracker_contract();
+            model_activation.tracker_contract_ = tracker_contract;
             model_activation.binding_.width_ = source.profile_.width_;
             model_activation.binding_.height_ = source.profile_.height_;
             model_activation.binding_.fps_numerator_ = source.profile_.fps_numerator_;
@@ -425,8 +472,7 @@ int main(int _argc, char** _argv) {
                 output_scope_rule rule;
                 rule.source_id_ = requests[index].source_id_;
                 rule.feature_id_ = requests[index].feature_id_;
-                rule.attributes_.push_back(
-                    platform.vqec_vision_ai_appl_fkplt_get_config().attribute_schema_id_);
+                rule.attributes_.push_back(attribute_schema_id);
                 policy.rules_.push_back(std::move(rule));
             }
             const auto applied =
