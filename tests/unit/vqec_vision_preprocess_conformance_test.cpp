@@ -161,6 +161,25 @@ int main() {
         ::close(fixture.fd_);
     }
 
+    // A caller that keeps one output vector per binding reuses its storage instead of
+    // reallocating: the backing pointer must be unchanged after preprocessing.
+    {
+        const auto fixture = make_nv12(16, 16, 16, 16, 0, 256, 128, 128,
+            [](std::uint32_t, std::uint32_t) { return std::uint8_t{128}; });
+        const auto frame = make_frame(fixture, 16, 16, 16, 16, 0, 256);
+        const auto plan = make_plan(16, 16, 8, 8, image_placement::centre, channel_order::rgb);
+        const auto target = make_target(8, 8, tensor_element_type::float32);
+        std::vector<tensor_blob> outputs(1);
+        outputs[0].spec_ = target;
+        outputs[0].bytes_.assign(8U * 8U * 3U * 4U, 0U);
+        const auto* storage_before = outputs[0].bytes_.data();
+        check(processor.vqec_vision_ai_ports_imgpr_preprocess(
+                  frame, plan, target, outputs).code_ == status_code::ok);
+        check(outputs.size() == 1 && outputs[0].bytes_.data() == storage_before);
+        check(float_at(outputs[0], 0) == 130.0F);
+        ::close(fixture.fd_);
+    }
+
     // Horizontal gradient: luma increases left to right and is sampled monotonically.
     {
         const auto fixture = make_nv12(16, 16, 16, 16, 0, 256, 128, 128,

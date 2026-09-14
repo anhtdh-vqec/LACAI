@@ -134,11 +134,21 @@ status reference_image_processor::vqec_vision_ai_ports_imgpr_preprocess(
     tensor_blob candidate;
     candidate.spec_ = _target;
     const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(_target);
-    try {
-        candidate.bytes_.assign(static_cast<std::size_t>(bytes), 0U);
-    } catch (const std::bad_alloc&) {
-        ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-        return {status_code::resource_exhausted, "reference processor allocation failed"};
+    // Reuse caller-provided storage when it already matches the target, so a steady-state
+    // pipeline that keeps one output vector per binding does not allocate per frame.
+    const bool can_reuse = _outputs.size() == 1 &&
+        _outputs[0].spec_.dtype_ == _target.dtype_ &&
+        _outputs[0].spec_.dimensions_ == _target.dimensions_ &&
+        _outputs[0].bytes_.size() == static_cast<std::size_t>(bytes);
+    if (can_reuse) {
+        candidate.bytes_ = std::move(_outputs[0].bytes_);
+    } else {
+        try {
+            candidate.bytes_.assign(static_cast<std::size_t>(bytes), 0U);
+        } catch (const std::bad_alloc&) {
+            ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+            return {status_code::resource_exhausted, "reference processor allocation failed"};
+        }
     }
     for (std::uint32_t oy = 0; oy < out_h; ++oy) {
         for (std::uint32_t ox = 0; ox < out_w; ++ox) {
@@ -186,9 +196,8 @@ status reference_image_processor::vqec_vision_ai_ports_imgpr_preprocess(
         }
     }
     ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-    std::vector<tensor_blob> result;
-    result.push_back(std::move(candidate));
-    _outputs = std::move(result);
+    _outputs.clear();
+    _outputs.push_back(std::move(candidate));
     return {};
 }
 
