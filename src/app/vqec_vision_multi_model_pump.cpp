@@ -82,6 +82,9 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
 
 void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
     is_stopping_ = true;
+    for (auto& retained : retained_frames_) {
+        retained = {};
+    }
 }
 
 status multi_model_pump::vqec_vision_ai_appl_mmump_poll_result(
@@ -103,6 +106,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_poll_result(
             _report.result_ticket_ = ticket;
             _report.result_model_slot_ = slot;
             _report.has_result_ = true;
+            _report.frame_ = retained_frames_[slot];
+            _report.has_frame_ = retained_frames_[slot].owner_ != nullptr;
             result_cursor_ = static_cast<std::uint16_t>((slot + 1U) % model_count_);
             return {};
         }
@@ -274,6 +279,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             _report.submitted_tickets_[slot] = ticket;
             _report.submitted_model_mask_ = static_cast<std::uint16_t>(
                 _report.submitted_model_mask_ | bit);
+            retained_frames_[slot] = frame;
         }
         if (submitted.code_ == status_code::pending &&
             ticket.token_.job_id_ == 0) {

@@ -87,6 +87,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_mmses_take_drain_result(tensor_result& _result);
     [[nodiscard]] const status&
     vqec_vision_ai_appl_mmses_get_last_error() const noexcept;
+    // Frame owner retained for the most recent result so an AI-owned output stage can render
+    // the same pixels; released on the next result or stop.
+    [[nodiscard]] const raw_frame& vqec_vision_ai_appl_mmses_get_result_frame()
+        const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         source_session_progress& _progress) override;
@@ -106,6 +110,7 @@ private:
     raw_source_port& source_;
     multi_model_session_config config_;
     multi_model_pump pump_;
+    raw_frame last_result_frame_;
     multi_model_session_state state_{multi_model_session_state::idle};
     status last_error_;
     std::uint64_t last_now_ns_{0};

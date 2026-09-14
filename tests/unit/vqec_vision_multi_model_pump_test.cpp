@@ -279,7 +279,10 @@ int main() {
     second.vqec_vision_ai_unit_mmpst_complete_result();
     check(pump.vqec_vision_ai_appl_mmump_pump_step(102, result, report).code_ ==
           status_code::ok);
-    check(report.has_result_ && report.result_model_slot_ == 1 && weak_owner.expired());
+    // The frame owner is retained for the reported result so an AI-owned output stage can
+    // render the same pixels; it is released when the pump stops or a new frame replaces it.
+    check(report.has_result_ && report.result_model_slot_ == 1 && !weak_owner.expired());
+    check(report.has_frame_ && report.frame_.owner_ != nullptr);
 
     first.vqec_vision_ai_unit_mmpst_force_busy();
     second.vqec_vision_ai_unit_mmpst_force_busy();
@@ -287,6 +290,8 @@ int main() {
     check(pump.vqec_vision_ai_appl_mmump_pump_step(103, result, report).code_ ==
           status_code::pending);
     check(source.receive_calls_ == 1);
+    pump.vqec_vision_ai_appl_mmump_begin_stop();
+    check(weak_owner.expired());
 
     fake_raw_source partial_source;
     fake_inference_graph busy_graph;

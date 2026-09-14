@@ -36,6 +36,11 @@ struct multi_model_pump_report {
     std::uint16_t result_model_slot_{UINT16_MAX};
     std::uint16_t error_model_slot_{UINT16_MAX};
     bool has_result_{false};
+    // Frame owner retained for the reported result so an AI-owned output stage can render
+    // the same pixels. Valid until the next submission for that slot or stop; it keeps the
+    // source frame owner alive only for the job that produced the result.
+    bool has_frame_{false};
+    raw_frame frame_;
 };
 
 // One serialized source executor. Bindings are borrowed and immutable after configure.
@@ -107,6 +112,9 @@ private:
     std::uint64_t last_now_ns_{0};
     std::uint16_t model_count_{0};
     std::uint16_t result_cursor_{0};
+    // One retained frame per model slot, released when a new submission replaces it or the
+    // pump stops. This is what keeps the owner alive from submission to result take.
+    std::array<raw_frame, deployment_limits::g_max_models_per_source> retained_frames_{};
     bool is_configured_{false};
     bool is_stopping_{false};
     bool is_failed_{false};

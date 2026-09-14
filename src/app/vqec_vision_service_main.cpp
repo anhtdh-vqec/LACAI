@@ -684,6 +684,19 @@ int main(int _argc, char** _argv) {
                             dispatched.message_.c_str());
                     }
                 }
+                if (use_production_platform) {
+                    auto* taken_session =
+                        bundle->vqec_vision_ai_appl_rcfac_get_session(taken.source_index_);
+                    if (taken_session != nullptr) {
+                        const raw_frame& result_frame =
+                            taken_session->vqec_vision_ai_appl_mmses_get_result_frame();
+                        if (result_frame.owner_) {
+                            (void)production.vqec_vision_ai_appl_pdplt_render(
+                                taken.source_index_, result_frame,
+                                tracked[taken.model_slot_]);
+                        }
+                    }
+                }
                 std::printf("routed source=%u model=%u tracked=%zu delivered=%u\n",
                     static_cast<unsigned>(taken.source_index_),
                     static_cast<unsigned>(taken.model_slot_),

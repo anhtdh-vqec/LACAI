@@ -328,6 +328,9 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
                 report.submitted_model_mask_, config_.graph_count_);
         if (report.has_result_) {
             _progress.ticket_ = report.result_ticket_;
+            if (report.has_frame_) {
+                last_result_frame_ = report.frame_;
+            }
         } else if (_progress.model_slot_ != g_invalid_model_slot) {
             _progress.ticket_ = report.submitted_tickets_[_progress.model_slot_];
         }
@@ -448,6 +451,11 @@ multi_model_session::vqec_vision_ai_appl_srcsn_get_health() const noexcept {
     health.is_recovery_required_ = snapshot.is_recovery_required_;
     health.first_error_code_ = snapshot.first_error_code_;
     return health;
+}
+
+const raw_frame& multi_model_session::vqec_vision_ai_appl_mmses_get_result_frame()
+    const noexcept {
+    return last_result_frame_;
 }
 
 }  // namespace vqec::vision::ai
