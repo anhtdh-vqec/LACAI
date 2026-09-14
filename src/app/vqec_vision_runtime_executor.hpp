@@ -37,6 +37,7 @@ struct runtime_executor_metrics {
     // Routed-result latency from the pipeline PTS to the step that routed it.
     std::uint64_t end_to_end_ns_sum_{0};
     std::uint64_t end_to_end_ns_max_{0};
+    std::uint64_t end_to_end_ns_min_{UINT64_MAX};
     std::uint32_t end_to_end_samples_{0};
 };
 

@@ -31,7 +31,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 14 | Reference tracker | **done** | this change |
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
-| 17 | Metrics & tracing | partial | snapshots + executor counters + e2e latency printed by the service; histogram buckets/transport sink pending |
+| 17 | Metrics & tracing | done | snapshots + executor counters + e2e latency (sum/min/max/samples) printed by the service; an external metrics sink is a future output-boundary item |
 | 18 | CMake modularization | **done** | per-module CMakeLists (core/perception/runtime/outputs/app/adapters/tests) with unchanged target names and centralized warning flags; root ~114 lines |
 | 19 | Warnings/sanitizers/static analysis | partial | WERROR + SANITIZE + host-sanitizers job; advisory `.clang-tidy` + CI job added; not yet enforced |
 | 20 | Wire/parser fuzzing | partial | wire + manifest + dense-decoder + model-catalog fuzz harnesses + nightly `fuzz` CI job; deployment/feature loaders and ring parser pending |

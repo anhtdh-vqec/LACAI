@@ -76,6 +76,8 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         metrics_.end_to_end_ns_sum_ += latency;
         metrics_.end_to_end_ns_max_ =
             latency > metrics_.end_to_end_ns_max_ ? latency : metrics_.end_to_end_ns_max_;
+        metrics_.end_to_end_ns_min_ =
+            latency < metrics_.end_to_end_ns_min_ ? latency : metrics_.end_to_end_ns_min_;
         ++metrics_.end_to_end_samples_;
     }
     pending_report_.first_error_code_ = processed.code_;

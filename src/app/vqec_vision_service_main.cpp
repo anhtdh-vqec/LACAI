@@ -592,13 +592,15 @@ int main(int _argc, char** _argv) {
     const auto e2e_avg_us = metrics.end_to_end_samples_ == 0 ? 0ULL :
         metrics.end_to_end_ns_sum_ / (1000ULL * metrics.end_to_end_samples_);
     std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
-        "e2e_avg_us=%llu e2e_max_us=%llu samples=%u\n",
+        "e2e_avg_us=%llu e2e_min_us=%llu e2e_max_us=%llu samples=%u\n",
         static_cast<unsigned long long>(metrics.steps_),
         static_cast<unsigned long long>(metrics.results_routed_),
         static_cast<unsigned long long>(metrics.events_delivered_),
         static_cast<unsigned long long>(metrics.events_denied_),
         static_cast<unsigned long long>(metrics.events_failed_),
         static_cast<unsigned long long>(e2e_avg_us),
+        static_cast<unsigned long long>(metrics.end_to_end_samples_ == 0 ? 0ULL :
+            metrics.end_to_end_ns_min_ / 1000ULL),
         static_cast<unsigned long long>(metrics.end_to_end_ns_max_ / 1000ULL),
         metrics.end_to_end_samples_);
     std::printf("service stopped=%s routed_sources=%u first_error=%d\n",
