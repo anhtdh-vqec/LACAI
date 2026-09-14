@@ -22,7 +22,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 13 | Real CPU decoder | todo | needs model metadata/decoder implementation |
 | 14 | Reference tracker | **done** | this change |
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
-| 16 | Output fake pipeline | todo | encoded/overlay helpers exist |
+| 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
 | 18 | CMake modularization | todo | root CMake still monolithic |
 | 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR`; no sanitizer job |

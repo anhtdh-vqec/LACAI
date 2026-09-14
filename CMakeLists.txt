@@ -248,7 +248,9 @@ if(UNIX)
         src/adapters/reference/vqec_vision_reference_sink.cpp
         src/adapters/reference/vqec_vision_reference_processor.cpp
         src/adapters/reference/vqec_vision_reference_tracker.cpp
-        src/adapters/reference/vqec_vision_reference_feature.cpp)
+        src/adapters/reference/vqec_vision_reference_feature.cpp
+        src/adapters/reference/vqec_vision_reference_encoder.cpp
+        src/adapters/reference/vqec_vision_reference_ring_sink.cpp)
     target_include_directories(vqec_vision_ai_reference PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
     target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
@@ -913,6 +915,14 @@ if(BUILD_TESTING)
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME preprocess_conformance
             COMMAND vqec_vision_ai_preprocess_conformance_test)
+        add_executable(vqec_vision_ai_reference_output_test
+            tests/unit/vqec_vision_reference_output_test.cpp)
+        target_link_libraries(vqec_vision_ai_reference_output_test
+            PRIVATE vqec_vision_ai_reference)
+        set_target_properties(vqec_vision_ai_reference_output_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME reference_output_pipeline
+            COMMAND vqec_vision_ai_reference_output_test)
         add_executable(vqec_vision_ai_runtime_executor_test
             tests/contract/vqec_vision_runtime_executor_test.cpp)
         target_link_libraries(vqec_vision_ai_runtime_executor_test PRIVATE
