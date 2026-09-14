@@ -825,6 +825,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dense_decoder_detection
         COMMAND vqec_vision_ai_dense_decoder_test)
+    add_executable(vqec_vision_ai_device_free_harness_test
+        tests/unit/vqec_vision_device_free_harness_test.cpp)
+    target_link_libraries(vqec_vision_ai_device_free_harness_test
+        PRIVATE vqec_vision_ai_core vqec_vision_ai_inference_worker Threads::Threads)
+    set_target_properties(vqec_vision_ai_device_free_harness_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME device_free_harness_stress
+        COMMAND vqec_vision_ai_device_free_harness_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

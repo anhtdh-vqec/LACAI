@@ -32,10 +32,10 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 23 | Explicit epoch semantics | partial | worker stale-epoch flag; broader audit pending |
 | 24 | State machine invariants as tests | **done** | worker submitted==outcomes, pool capacity==free+live tested over cycles |
 | 25 | C++ naming cleanup | deferred | AGENTS mandates current scheme; needs lead/ADR |
-| 26 | Allocation instrumentation | todo | pool provides counters; test allocator pending |
+| 26 | Allocation instrumentation | **done** | global new counter asserts zero steady-state pool allocation this change |
 | 27 | Small object/metadata optimization | todo | only after profiling |
-| 28 | Fake latency/failure injection | partial | gate executor in worker test |
-| 29 | Device-free microbenchmarks | todo | — |
+| 28 | Fake latency/failure injection | **done** | latency/failure executor stress test this change |
+| 29 | Device-free microbenchmarks | partial | pool throughput printed this change; more benches pending |
 | 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
 
 ## Next

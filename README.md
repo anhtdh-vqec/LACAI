@@ -2,7 +2,7 @@
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Target QCS6490](https://img.shields.io/badge/target-QCS6490%20%2F%20Qualcomm%20Linux%201.8-blue)
-![Tests](https://img.shields.io/badge/logic%20tests-82%20passing%20(QEMU)-green)
+![Tests](https://img.shields.io/badge/logic%20tests-83%20passing%20(QEMU)-green)
 ![Status](https://img.shields.io/badge/status-base--ready-yellow)
 
 Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
@@ -25,8 +25,8 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Output / preview / encoded | Helpers delivered | Chưa ghép thành pipeline chạy thật; thiếu renderer + hardware encoder |
 | Service `vqec_ai_vision_applications` | Harness chạy được | Chạy device-free dưới QEMU; production mode fail-closed |
 
-**Bằng chứng logic:** cấu hình default (mọi option OFF) **63/63** test và cấu hình mở rộng
-(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **82/82** test
+**Bằng chứng logic:** cấu hình default (mọi option OFF) **64/64** test và cấu hình mở rộng
+(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **83/83** test
 chạy 100% dưới eSDK QEMU. Cấu hình mở rộng trước đó cũng pass natively trên QCS6490.
 Đây là logic/wiring evidence, **không** phải board/BSP, model-accuracy, performance hay
 zero-copy acceptance. Chi tiết: [esdk_emulation](docs/testing/esdk_emulation.md),

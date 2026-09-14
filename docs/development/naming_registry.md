@@ -249,6 +249,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/perception/detection/vqec_vision_tensor_reader.cpp | tnrd | vqec_vision_ai_detec_tnrd_ |
 | src/perception/detection/vqec_vision_dense_decoder.cpp | dnsdc | vqec_vision_ai_detec_dnsdc_ |
 | tests/unit/vqec_vision_dense_decoder_test.cpp | ddtst | vqec_vision_ai_unit_ddtst_ |
+| tests/unit/vqec_vision_device_free_harness_test.cpp | dfhst | vqec_vision_ai_unit_dfhst_ |
 | src/perception/tracking/vqec_vision_tracking_stage.cpp | trkst | vqec_vision_ai_track_trkst_ |
 | src/perception/tracking/vqec_vision_tracker_registry.cpp | trreg | vqec_vision_ai_track_trreg_ |
 | src/perception/attributes/vqec_vision_attribute_reader.cpp | atrdr | vqec_vision_ai_attr_atrdr_ |
