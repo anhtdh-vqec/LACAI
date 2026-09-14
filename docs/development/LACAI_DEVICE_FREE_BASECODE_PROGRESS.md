@@ -33,8 +33,8 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
 | 18 | CMake modularization | todo | root CMake still monolithic |
-| 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR` default; `VQEC_VISION_AI_SANITIZE` (ASan+UBSan) builds host-only; this container is unstable spawning ASan processes, so no clean gate claimed |
-| 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness builds with host Clang 14 and runs crash-free; CI nightly pending |
+| 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR` + `VQEC_VISION_AI_SANITIZE` host build; `host-sanitizers` CI job added; clang-tidy still pending |
+| 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness + nightly `fuzz` CI job; manifest/result parsers pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |
 | 23 | Explicit epoch semantics | **done** | worker/secondary stale-epoch flags; pump drops parked inputs on epoch change |
@@ -43,7 +43,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 26 | Allocation instrumentation | **done** | global new counter asserts zero steady-state pool allocation this change |
 | 27 | Small object/metadata optimization | todo | only after profiling |
 | 28 | Fake latency/failure injection | **done** | latency/failure executor stress test this change |
-| 29 | Device-free microbenchmarks | partial | pool throughput printed this change; more benches pending |
+| 29 | Device-free microbenchmarks | **done** | pool, worker and dense-decoder throughput printed by the harness/tests |
 | 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
 
 ## Next

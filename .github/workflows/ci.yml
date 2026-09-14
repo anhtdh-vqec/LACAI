@@ -3,6 +3,10 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    # Nightly fuzz; a short budget catches gross regressions without a long runner.
+    - cron: "17 3 * * *"
 
 jobs:
   structure:
@@ -11,6 +15,39 @@ jobs:
       - uses: actions/checkout@v4
       - name: Structural source layout check
         run: bash tools/vqec_vision_check_source_layout.sh
+
+  # Host sanitizer build (neutral configuration): ASan+UBSan over the portable modules.
+  # This is host evidence, not the eSDK target build.
+  host-sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (Clang, ASan+UBSan)
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-asan -DCMAKE_CXX_COMPILER=clang++ \
+            -DVQEC_VISION_AI_SANITIZE=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build-asan -j"$(nproc)"
+      - name: Test
+        run: ctest --test-dir build-asan --output-on-failure
+
+  # Nightly libFuzzer harnesses (host Clang). Not run on every push.
+  fuzz:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (libFuzzer)
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-fuzz -DCMAKE_CXX_COMPILER=clang++ \
+            -DVQEC_VISION_AI_BUILD_FUZZERS=ON -DBUILD_TESTING=OFF
+      - name: Build
+        run: cmake --build build-fuzz -j"$(nproc)"
+      - name: Fuzz legacy wire decoder
+        run: ./build-fuzz/vqec_vision_ai_legacy_wire_fuzz -max_total_time=60 -max_len=512
 
   # Target validation requires the approved eSDK and is never faked with a host
   # compiler. Set the ESDK_ROOT repository variable on a self-hosted linux runner to

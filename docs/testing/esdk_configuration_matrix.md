@@ -38,6 +38,12 @@ behavioural evidence comes from the board-only `vqec_vision_ai_qnn_engine_smoke`
 
 `VQEC_VISION_AI_WERROR=ON` (default) treats project warnings as errors.
 
+## CI jobs
+
+The workflow adds a host `host-sanitizers` job (Clang ASan+UBSan over the neutral
+configuration) and a scheduled `fuzz` job (libFuzzer over the wire decoder). Both are host
+host evidence and are separate from the eSDK target jobs, which stay gated on `ESDK_ROOT`.
+
 ## Rules
 
 - A missing private SDK, sysroot or runner is recorded as not-run with the exact blocker;

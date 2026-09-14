@@ -1,6 +1,7 @@
 // Device-free tests for the dense anchor-free detector decoder: manifest validation,
 // thresholding, per-class NMS, letterbox inverse mapping, clipping and the detection bound.
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -178,6 +179,27 @@ int main() {
         check(decoder.vqec_vision_ai_cntr_mddec_decode(
                   result, preview_frame_key{1, 0, 1, 1, 1000}, observations).code_ ==
               status_code::resource_exhausted);
+    }
+
+    // Coarse decode throughput (regression eyes only).
+    {
+        dense_decoder decoder(make_config(64, 64, 64, 64, 2, 2));
+        std::vector<float> boxes{16, 16, 16, 16, 18, 18, 16, 16, 48, 48, 16, 16, 12, 12, 8, 8};
+        std::vector<float> scores{0.9F, 0.1F, 0.8F, 0.1F, 0.05F, 0.95F, 0.2F, 0.2F};
+        tensor_result result;
+        result.tensors_.push_back(make_blob("boxes", {1, 2, 2, 4}, boxes));
+        result.tensors_.push_back(make_blob("scores", {1, 2, 2, 2}, scores));
+        constexpr unsigned iterations = 5000;
+        const auto started = std::chrono::steady_clock::now();
+        observation_batch observations;
+        for (unsigned index = 0; index < iterations; ++index) {
+            check(decoder.vqec_vision_ai_cntr_mddec_decode(
+                      result, preview_frame_key{1, 0, 1, 1, 1000}, observations).code_ ==
+                  status_code::ok);
+        }
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        std::cout << "dense decoder decodes=" << iterations << " elapsed_ms=" << elapsed << '\n';
     }
 
     std::cout << "dense decoder failures: " << failures << '\n';

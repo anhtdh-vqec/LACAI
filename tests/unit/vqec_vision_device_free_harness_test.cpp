@@ -207,6 +207,51 @@ int main() {
                   << " elapsed_ms=" << bench_elapsed << '\n';
     }
 
+    // Worker throughput: submit+poll a bounded batch through two workers.
+    {
+        latency_executor executor(0, 0, 0);
+        inference_worker worker;
+        inference_worker_config config;
+        config.worker_count_ = 2;
+        config.queue_capacity_ = 64;
+        check(worker.vqec_vision_ai_sched_inwrk_start(config, executor).code_ ==
+              status_code::ok);
+        constexpr std::uint64_t total_jobs = 5000;
+        std::uint64_t submitted = 0;
+        std::uint64_t delivered = 0;
+        std::uint64_t next_job = 1;
+        const auto worker_start = std::chrono::steady_clock::now();
+        // Bounded: submit while capacity allows, then drain completions. A guard prevents
+        // an unbounded loop if a completion is dropped under backpressure.
+        for (std::uint64_t guard = 0; guard < 50 * total_jobs && submitted < total_jobs;
+             ++guard) {
+            if (worker.vqec_vision_ai_sched_inwrk_submit(
+                    make_item(next_job, 1), model_dispatch_policy::drop_if_busy).code_ ==
+                status_code::ok) {
+                ++submitted;
+                ++next_job;
+            }
+            inference_work_result result;
+            while (worker.vqec_vision_ai_sched_inwrk_poll(result).code_ == status_code::ok) {
+                ++delivered;
+            }
+        }
+        // Wait for in-flight jobs, then drain the rest.
+        for (std::uint64_t guard = 0; guard < 100000 && delivered < submitted; ++guard) {
+            inference_work_result result;
+            while (worker.vqec_vision_ai_sched_inwrk_poll(result).code_ == status_code::ok) {
+                ++delivered;
+            }
+            std::this_thread::yield();
+        }
+        const auto worker_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - worker_start).count();
+        check(worker.vqec_vision_ai_sched_inwrk_drain().code_ == status_code::ok);
+        check(submitted == total_jobs && delivered > 0);
+        std::cout << "worker jobs=" << submitted << " delivered=" << delivered
+                  << " elapsed_ms=" << worker_elapsed << '\n';
+    }
+
     std::cout << "device-free harness failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }
