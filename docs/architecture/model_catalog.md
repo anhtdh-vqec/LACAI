@@ -80,3 +80,14 @@ inferred from a model name or a matching total tensor byte count.
 Dynamic shape, stateful sequence and artifact update need an explicit envelope, pool
 profile, generation/drain and source-epoch/reset policy before they can be enabled; the
 descriptors exist but no conformance fixture or board evidence does.
+
+
+## Optional authoritative preprocess (catalog v2)
+
+A catalog model entry may carry an optional `preprocess` object (the package
+`preprocess.json` shape). When present and structurally valid, it is the authoritative
+preprocessing contract: `compose_inference_plan` copies it into `inference_plan.preprocess_`
+and the legacy `input.mean`/`input.sigma` profile is ignored. This is what allows a
+quantized (non-float32) input, such as the YOLOv8n-person uint16 graph, to use an explicit
+`offset_scale` normalization instead of the identity-only legacy profile. The object is
+validated by `vqec_vision_ai_core_ppspc_validate`; an invalid spec fails catalog load.

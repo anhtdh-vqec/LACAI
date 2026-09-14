@@ -10,6 +10,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
@@ -52,6 +53,9 @@ struct model_catalog_entry {
     std::uint32_t tensor_width_{0};
     std::uint32_t tensor_height_{0};
     tensor_element_type input_type_{tensor_element_type::uint8};
+    // Authoritative package preprocessing contract; when valid it overrides the
+    // legacy mean/sigma profile and permits non-float32 quantized inputs.
+    preprocess_spec preprocess_;
     channel_order channel_order_{channel_order::rgb};
     image_placement placement_{image_placement::unspecified};
     std::array<double, 3> mean_{0.0, 0.0, 0.0};

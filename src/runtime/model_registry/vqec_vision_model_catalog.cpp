@@ -115,13 +115,83 @@ image_placement vqec_vision_ai_mreg_mdcat_read_placement(
     throw invalid_catalog_document{};
 }
 
+
+preprocess_spec vqec_vision_ai_mreg_mdcat_read_preprocess(const catalog_json& _value) {
+    if (!_value.is_object()) {
+        throw invalid_catalog_document{};
+    }
+    preprocess_spec spec;
+    const auto source = _value.value("source_format", std::string{"nv12"});
+    spec.source_format_ = source == "nv12" ? source_pixel_format::nv12 :
+        (source == "rgb888" ? source_pixel_format::rgb888 :
+            (source == "bgr888" ? source_pixel_format::bgr888 :
+                (source == "rgba8888" ? source_pixel_format::rgba8888 :
+                    source_pixel_format::unknown)));
+    const auto matrix = _value.value("color_matrix", std::string{});
+    spec.matrix_ = matrix == "bt601" ? color_matrix::bt601 :
+        (matrix == "bt709" ? color_matrix::bt709 :
+            (matrix == "bt2020" ? color_matrix::bt2020 : color_matrix::unspecified));
+    const auto range = _value.value("color_range", std::string{});
+    spec.range_ = range == "limited" ? color_range::limited :
+        (range == "full" ? color_range::full : color_range::unspecified);
+    const auto resize = _value.value("resize", std::string{"letterbox"});
+    spec.resize_ = resize == "stretch" ? resize_mode::stretch :
+        (resize == "crop" ? resize_mode::crop : resize_mode::letterbox);
+    const auto interpolation = _value.value("interpolation", std::string{"bilinear"});
+    spec.interpolation_ = interpolation == "nearest" ? interpolation_mode::nearest :
+        (interpolation == "bilinear" ? interpolation_mode::bilinear : interpolation_mode::area);
+    spec.placement_ = image_placement::centre;
+    if (_value.contains("pad_value")) {
+        const auto pad = _value["pad_value"].get<std::vector<float>>();
+        for (std::size_t i = 0; i < 3U && i < pad.size(); ++i) {
+            spec.pad_value_[i] = pad[i];
+        }
+    }
+    spec.channels_ = _value.value("channel_order", std::string{"rgb"}) == "bgr" ?
+        channel_order::bgr : channel_order::rgb;
+    if (_value.contains("normalization")) {
+        const auto& normalization = _value["normalization"];
+        const auto formula = normalization.value("formula", std::string{"offset_scale"});
+        spec.normalization_ = formula == "mean_std" ? normalization_formula::mean_std :
+            (formula == "none" ? normalization_formula::none :
+                normalization_formula::offset_scale);
+        spec.offset_ = {0.0F, 0.0F, 0.0F};
+        spec.scale_ = {1.0F, 1.0F, 1.0F};
+        if (normalization.contains("offset")) {
+            const auto offset = normalization["offset"].get<std::vector<float>>();
+            for (std::size_t i = 0; i < 3U && i < offset.size(); ++i) {
+                spec.offset_[i] = offset[i];
+            }
+        }
+        if (normalization.contains("scale")) {
+            const auto scale = normalization["scale"].get<std::vector<float>>();
+            for (std::size_t i = 0; i < 3U && i < scale.size(); ++i) {
+                spec.scale_[i] = scale[i];
+            }
+        }
+    }
+    const auto coordinates = _value.value("coordinates", std::string{"tensor_pixels_xywh"});
+    spec.coordinates_ = coordinates == "tensor_pixels_xyxy" ?
+        coordinate_convention::tensor_pixels_xyxy :
+        (coordinates == "normalized_xywh" ? coordinate_convention::normalized_xywh :
+            (coordinates == "normalized_xyxy" ? coordinate_convention::normalized_xyxy :
+                coordinate_convention::tensor_pixels_xywh));
+    return spec;
+}
+
 model_catalog_entry vqec_vision_ai_mreg_mdcat_read_model(
     const catalog_json& _value) {
-    vqec_vision_ai_mreg_mdcat_require_keys(
-        _value, {"model_id", "model_version", "target_id", "artifact_ref",
-                 "artifact_sha256", "output_manifest_ref", "decoder_contract",
-                 "preprocess_contract", "graph_name", "input", "inference_cadence",
-                 "source_constraints", "resources"});
+    if (!_value.is_object() || _value.size() < 13U || _value.size() > 14U) {
+        throw invalid_catalog_document{};
+    }
+    for (const char* key : {"model_id", "model_version", "target_id", "artifact_ref",
+             "artifact_sha256", "output_manifest_ref", "decoder_contract",
+             "preprocess_contract", "graph_name", "input", "inference_cadence",
+             "source_constraints", "resources"}) {
+        if (!_value.contains(key)) {
+            throw invalid_catalog_document{};
+        }
+    }
     model_catalog_entry model;
     model.model_id_ = vqec_vision_ai_mreg_mdcat_read_text(_value.at("model_id"));
     model.model_version_ =
@@ -137,6 +207,9 @@ model_catalog_entry vqec_vision_ai_mreg_mdcat_read_model(
     model.preprocess_contract_ =
         vqec_vision_ai_mreg_mdcat_read_text(_value.at("preprocess_contract"));
     model.graph_name_ = vqec_vision_ai_mreg_mdcat_read_text(_value.at("graph_name"));
+    if (_value.contains("preprocess")) {
+        model.preprocess_ = vqec_vision_ai_mreg_mdcat_read_preprocess(_value.at("preprocess"));
+    }
 
     const auto& input = _value.at("input");
     vqec_vision_ai_mreg_mdcat_require_keys(

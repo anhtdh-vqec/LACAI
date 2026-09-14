@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
 
@@ -93,7 +94,9 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
             return {status_code::invalid_argument, "invalid model normalization"};
         }
     }
-    if (_model.input_type_ != tensor_element_type::float32 &&
+    const bool has_preprocess =
+        vqec_vision_ai_core_ppspc_validate(_model.preprocess_).code_ == status_code::ok;
+    if (!has_preprocess && _model.input_type_ != tensor_element_type::float32 &&
         (_model.mean_ != std::array<double, 3>{0.0, 0.0, 0.0} ||
          _model.sigma_ != std::array<double, 3>{1.0, 1.0, 1.0})) {
         return {status_code::unsupported, "custom normalization requires a FLOAT32 input"};
@@ -345,6 +348,7 @@ status vqec_vision_ai_core_mdcat_compose_inference_plan(
     candidate.placement_ = _model.placement_;
     candidate.mean_ = _model.mean_;
     candidate.sigma_ = _model.sigma_;
+    candidate.preprocess_ = _model.preprocess_;
     candidate.model_path_ = _paths.model_path_;
     candidate.backend_path_ = _paths.backend_path_;
     candidate.system_path_ = _paths.system_path_;
