@@ -71,6 +71,7 @@ struct inference_worker_snapshot {
     std::uint64_t failed_total_{0};
     std::uint64_t rejected_total_{0};
     std::uint64_t superseded_total_{0};
+    std::uint64_t cancelled_total_{0};
     std::uint64_t dropped_total_{0};
     std::uint64_t stale_total_{0};
     bool is_started_{false};
@@ -130,6 +131,7 @@ private:
     std::uint64_t failed_total_{0};
     std::uint64_t rejected_total_{0};
     std::uint64_t superseded_total_{0};
+    std::uint64_t cancelled_total_{0};
     std::uint64_t dropped_total_{0};
     std::uint64_t stale_total_{0};
     bool is_started_{false};

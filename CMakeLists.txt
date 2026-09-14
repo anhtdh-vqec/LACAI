@@ -808,6 +808,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME secondary_inference_scheduling
         COMMAND vqec_vision_ai_secondary_inference_test)
+    add_executable(vqec_vision_ai_lifecycle_invariants_test
+        tests/unit/vqec_vision_lifecycle_invariants_test.cpp)
+    target_link_libraries(vqec_vision_ai_lifecycle_invariants_test
+        PRIVATE vqec_vision_ai_core vqec_vision_ai_inference_worker Threads::Threads)
+    set_target_properties(vqec_vision_ai_lifecycle_invariants_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME lifecycle_invariants_and_leak
+        COMMAND vqec_vision_ai_lifecycle_invariants_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

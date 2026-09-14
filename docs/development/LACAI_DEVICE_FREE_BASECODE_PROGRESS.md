@@ -27,10 +27,10 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 18 | CMake modularization | todo | root CMake still monolithic |
 | 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR`; no sanitizer job |
 | 20 | Wire/parser fuzzing | todo | — |
-| 21 | FD/resource leak tests | todo | planned with worker/pool |
+| 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |
 | 23 | Explicit epoch semantics | partial | worker stale-epoch flag; broader audit pending |
-| 24 | State machine invariants as tests | todo | — |
+| 24 | State machine invariants as tests | **done** | worker submitted==outcomes, pool capacity==free+live tested over cycles |
 | 25 | C++ naming cleanup | deferred | AGENTS mandates current scheme; needs lead/ADR |
 | 26 | Allocation instrumentation | todo | pool provides counters; test allocator pending |
 | 27 | Small object/metadata optimization | todo | only after profiling |

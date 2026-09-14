@@ -105,6 +105,7 @@ void inference_worker::vqec_vision_ai_sched_inwrk_cancel_pending_locked() noexce
         result.cancelled_ = true;
         result.result_ = {status_code::pending, "cancelled before execution"};
         vqec_vision_ai_sched_inwrk_push_completion_locked(std::move(result));
+        ++cancelled_total_;
     }
 }
 
@@ -233,6 +234,7 @@ inference_worker_snapshot inference_worker::vqec_vision_ai_sched_inwrk_get_snaps
     snapshot.failed_total_ = failed_total_;
     snapshot.rejected_total_ = rejected_total_;
     snapshot.superseded_total_ = superseded_total_;
+    snapshot.cancelled_total_ = cancelled_total_;
     snapshot.dropped_total_ = dropped_total_;
     snapshot.stale_total_ = stale_total_;
     snapshot.is_started_ = is_started_;
