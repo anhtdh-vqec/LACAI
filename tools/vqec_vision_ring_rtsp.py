@@ -25,8 +25,10 @@ Examples:
 """
 
 import argparse
+import array
 import mmap
 import os
+import socket
 import struct
 import sys
 import time
@@ -173,6 +175,133 @@ class RtspPublisher:
         self.pipeline.set_state(Gst.State.NULL)
 
 
+
+FRAME_WIRE = struct.Struct("<QIIII4I4iQQQQQQ")
+RETURN_WIRE = struct.Struct("<Q")
+
+
+class RingWriter:
+    """Creates a ring with the released FW layout and writes H.264 AUs."""
+
+    def __init__(self, ring_id):
+        self.path = shm_path(ring_id)
+        try:
+            os.unlink(self.path)
+        except FileNotFoundError:
+            pass
+        self.fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        total = HEADER_SIZE + SLOT_COUNT * (SLOT_HEADER_SIZE + PAYLOAD_SIZE)
+        os.ftruncate(self.fd, total)
+        self.mapping = mmap.mmap(self.fd, total, mmap.MAP_SHARED,
+                                 mmap.PROT_READ | mmap.PROT_WRITE)
+        struct.pack_into("<I", self.mapping, H_MAGIC, 0x4C414341)
+        struct.pack_into("<I", self.mapping, H_VERSION, RING_VERSION)
+        struct.pack_into("<I", self.mapping, H_HEADER_SIZE, HEADER_SIZE)
+        struct.pack_into("<I", self.mapping, H_SLOT_HEADER_SIZE, SLOT_HEADER_SIZE)
+        struct.pack_into("<I", self.mapping, H_SLOT_COUNT, SLOT_COUNT)
+        struct.pack_into("<I", self.mapping, H_PAYLOAD_SIZE, PAYLOAD_SIZE)
+        struct.pack_into("<Q", self.mapping, H_WRITE_SEQUENCE, 0)
+        self.mapping[H_RING_ID:H_RING_ID + len(ring_id)] = ring_id.encode()
+        self.sequence = 0
+
+    def push(self, payload, width, height, keyframe):
+        if not payload or len(payload) > PAYLOAD_SIZE:
+            return
+        index = self.sequence % SLOT_COUNT
+        base = HEADER_SIZE + index * (SLOT_HEADER_SIZE + PAYLOAD_SIZE)
+        struct.pack_into("<I", self.mapping, base + S_SEQLOCK, 1)
+        struct.pack_into("<I", self.mapping, base + S_DATA_SIZE, len(payload))
+        struct.pack_into("<I", self.mapping, base + S_WIDTH, width)
+        struct.pack_into("<I", self.mapping, base + S_HEIGHT, height)
+        struct.pack_into("<I", self.mapping, base + S_STRIDE, width)
+        struct.pack_into("<I", self.mapping, base + S_IS_KEYFRAME, 1 if keyframe else 0)
+        struct.pack_into("<I", self.mapping, base + S_H264_SPS_SIZE, 0)
+        struct.pack_into("<I", self.mapping, base + S_H264_PPS_SIZE, 0)
+        struct.pack_into("<Q", self.mapping, base + S_FRAME_ID, self.sequence + 1)
+        struct.pack_into("<Q", self.mapping, base + S_SEQUENCE, self.sequence)
+        self.mapping[base + S_CODEC:base + S_CODEC + 4] = b"H264"
+        self.mapping[base + SLOT_HEADER_SIZE:base + SLOT_HEADER_SIZE + len(payload)] = payload
+        struct.pack_into("<I", self.mapping, base + S_SEQLOCK, 0)
+        self.sequence += 1
+        struct.pack_into("<Q", self.mapping, H_WRITE_SEQUENCE, self.sequence)
+
+    def close(self):
+        self.mapping.close()
+        os.close(self.fd)
+
+
+def run_bridge(args):
+    """Read raw NV12 from the FW wire socket, encode H.264, write the FW ring.
+
+    This is the stand-in for LACAI's encoded output path so the ring reader and
+    RTSP service can be tested without the product encoder wiring.
+    """
+    Gst.init(None)
+    writer = RingWriter(args.ring_id)
+    pipeline = Gst.parse_launch(
+        f"appsrc name=src is-live=true format=time "
+        f"! video/x-raw,format=NV12,width={args.width},height={args.height},"
+        f"framerate={args.fps}/1 ! queue ! videoconvert ! video/x-raw,format=NV12 "
+        "! v4l2h264enc ! h264parse config-interval=1 "
+        "! appsink name=enc max-buffers=2 drop=true sync=false")
+    appsrc = pipeline.get_by_name("src")
+    appsink = pipeline.get_by_name("enc")
+    appsrc.set_property("caps", Gst.Caps.from_string(
+        f"video/x-raw,format=NV12,width={args.width},height={args.height},"
+        f"framerate={args.fps}/1"))
+    pipeline.set_state(Gst.State.PLAYING)
+
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    client.connect(args.socket)
+    client.settimeout(2.0)
+    frames = 0
+    try:
+        while True:
+            data, anc, _flags, _addr = client.recvmsg(
+                FRAME_WIRE.size, socket.CMSG_SPACE(16))
+            fds = array.array("i")
+            for level, kind, cdata in anc:
+                if level == socket.SOL_SOCKET and kind == socket.SCM_RIGHTS:
+                    fds.frombytes(cdata[:len(cdata) - (len(cdata) % 4)])
+            header = FRAME_WIRE.unpack(data)
+            buf_id = header[0]
+            frame_size = args.width * args.height * 3 // 2
+            payload = b""
+            if fds:
+                os.lseek(fds[0], 0, 0)
+                payload = os.read(fds[0], frame_size)
+                os.close(fds[0])
+            client.send(RETURN_WIRE.pack(buf_id))
+            if len(payload) != frame_size:
+                continue
+            buf = Gst.Buffer.new_allocate(None, len(payload), None)
+            buf.fill(0, payload)
+            buf.pts = frames * 33333333
+            buf.duration = 33333333
+            appsrc.emit("push-buffer", buf)
+            sample = appsink.emit("try-pull-sample", Gst.SECOND)
+            if sample is None:
+                continue
+            enc = sample.get_buffer()
+            ok, info = enc.map(Gst.MapFlags.READ)
+            if not ok:
+                continue
+            au = bytes(info.data)
+            enc.unmap(info)
+            keyframe = not (enc.get_flags() & Gst.BufferFlags.DELTA_UNIT)
+            writer.push(au, args.width, args.height, keyframe)
+            frames += 1
+            if frames % 60 == 0:
+                print(f"bridged={frames}", flush=True)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pipeline.set_state(Gst.State.NULL)
+        writer.close()
+        client.close()
+    return 0
+
+
 def run_read(args):
     Gst.init(None)
     reader = RingReader(shm_path(args.ring_id))
@@ -299,6 +428,14 @@ def main():
     simulate.add_argument("--height", type=int, default=720)
     simulate.add_argument("--fps", type=int, default=30)
     simulate.set_defaults(func=run_simulate)
+
+    bridge_parser = sub.add_parser("bridge")
+    bridge_parser.add_argument("--ring-id", default="encoded_ai_detect0_cam0_ch0")
+    bridge_parser.add_argument("--socket", default="/run/camera_ai/0_third_ai.sock")
+    bridge_parser.add_argument("--width", type=int, default=1280)
+    bridge_parser.add_argument("--height", type=int, default=720)
+    bridge_parser.add_argument("--fps", type=int, default=30)
+    bridge_parser.set_defaults(func=run_bridge)
 
     args = parser.parse_args()
     return args.func(args)
