@@ -129,6 +129,9 @@ struct qtiv_renderer::implementation {
     fw_ring_writer ring_;
     std::vector<std::uint8_t> frame_buffer_;
     std::uint64_t written_{0};
+    // Monotonic push counter for PTS; it must advance on every push even when the encoder
+    // has not produced an access unit yet, otherwise a reused PTS stalls v4l2h264enc.
+    std::uint64_t submitted_{0};
     bool is_open_{false};
 };
 
@@ -225,8 +228,9 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
             "color", G_TYPE_UINT, impl.config_.box_color_argb_, nullptr);
         gst_video_region_of_interest_meta_add_param(roi, structure);
     }
-    GST_BUFFER_PTS(buffer) = impl.written_ * 1000000000ULL / impl.config_.fps_;
+    GST_BUFFER_PTS(buffer) = impl.submitted_ * 1000000000ULL / impl.config_.fps_;
     GST_BUFFER_DURATION(buffer) = 1000000000ULL / impl.config_.fps_;
+    ++impl.submitted_;
     gst_app_src_push_buffer(GST_APP_SRC(impl.appsrc_), buffer);
     GstSample* sample = gst_app_sink_try_pull_sample(GST_APP_SINK(impl.appsink_), GST_SECOND);
     if (sample == nullptr) {
