@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "model_id": "yolov8n_person",
+  "source_format": "nv12",
+  "color_matrix": "bt709",
+  "color_range": "limited",
+  "resize": "letterbox",
+  "interpolation": "bilinear",
+  "placement": "centre",
+  "pad_value": [114.0, 114.0, 114.0],
+  "channel_order": "rgb",
+  "normalization": {
+    "formula": "offset_scale",
+    "offset": [0.0, 0.0, 0.0],
+    "scale": [0.00392156862745098, 0.00392156862745098, 0.00392156862745098]
+  },
+  "coordinates": "tensor_pixels_xywh",
+  "notes": {
+    "color_matrix": "BT.709 limited is the harness declaration and matches an HD FW NV12 source; confirm against golden before MI-03 closes. A BT.601 source must not use BT.709 coefficients.",
+    "pad_value": "Ultralytics default gray 114; confirm with the model team.",
+    "interpolation": "Ultralytics default bilinear letterbox; confirm.",
+    "coordinates": "format/space of boxes_out is unconfirmed until MI-04 (xywh vs xyxy, tensor px vs normalized)."
+  }
+}

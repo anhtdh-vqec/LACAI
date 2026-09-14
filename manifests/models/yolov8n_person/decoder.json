@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "model_id": "yolov8n_person",
+  "decoder_contract": "yolo.v8.detect",
+  "class_count": 1,
+  "labels_ref": "labels.txt",
+  "confidence_threshold": 0.25,
+  "iou_threshold": 0.45,
+  "strides": [8, 16, 32],
+  "anchors": 8400,
+  "box_tensor": "boxes_out",
+  "score_tensor": "conf_out",
+  "nms": "external",
+  "box_format": "unconfirmed",
+  "box_space": "unconfirmed",
+  "notes": "boxes_out is channel-first [1,4,8400] in the 640 letterbox space. Confirm xywh vs xyxy and dequantize with scale 0.01038312166929245 before any reuse of dense_decoder. conf_out is already a sigmoid probability (scale 1.52587890625e-05)."
+}

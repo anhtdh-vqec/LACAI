@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "model_id": "yolov8n_person",
+  "model_version": "1.0",
+  "target_id": "qcs6490",
+  "graph_name": "yolov8n_person_w8a16",
+  "artifact_ref": "yolov8n_person_w8a16.so",
+  "artifact_sha256": "99ee47cdf02f024bafefe066234d9b7e9e04e87e38ef8f3afd0eb77495370956",
+  "artifact_bytes": 3666216,
+  "io_manifest_ref": "io_manifest.json",
+  "preprocess_ref": "preprocess.json",
+  "decoder_contract": "yolo.v8.detect",
+  "decoder_ref": "decoder.json",
+  "labels_ref": "labels.txt",
+  "source": {
+    "model_name": "yolov8n_person_w8a16",
+    "quantization": "W8A16",
+    "generator": "qnn-model-lib-generator",
+    "notes": "Model binary stays outside Git; the digest above is metadata only and is not signature verification."
+  }
+}
