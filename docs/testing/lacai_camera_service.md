@@ -1,47 +1,48 @@
-# Board camera fixtures for LACAI integration tests
+# FW mock services for LACAI board tests
 
-These board-side test helpers let LACAI run against a local camera without the product FW
-Camera Service, and let a viewer watch the feed. They are test aids: not product camera
-service, zero-copy, accuracy or hardware-acceptance evidence.
+These two board-side services replace the product FW for integration tests only. LACAI
+itself is the production binary `vqec_ai_vision_applications`; the mocks never implement
+AI, overlay, encode or ring production. They are test satellites, not product code.
 
-## 1. Mock FW camera service (`vqec_vision_fw_camera_sim.py`)
+## 1. Mock FW camera (`tools/vqec_vision_fw_camera_sim.py`)
 
-Reproduces the two FW responsibilities LACAI depends on, sourcing pixels from the real
-Qualcomm camera through `qtiqmmfsrc`:
+Reproduces the two FW camera responsibilities LACAI depends on, sourcing pixels from the
+real Qualcomm camera through `qtiqmmfsrc`:
 
 - **Control:** owns the system-bus name `com.vnpt.camera.Camera` and implements
   `com.vnpt.camera.Camera1` `StartStream`/`StopStream`/`GetStatus` with `(a{sv})` string
-  dictionaries, so LACAI's `dbus_rpc`/`camera_control` acquire a third-stream lease as
-  against real FW.
+  dictionaries, so LACAI's `dbus_rpc`/`camera_control`/`source_lifecycle` acquire the
+  third-stream lease exactly as against real FW.
 - **Media:** serves the released raw-frame wire on an AF_UNIX `SOCK_SEQPACKET` socket named
   `<socket_dir>/<channel>_third_<consumer>.sock` (`0_third_ai.sock`). Each message is the
   packed 104-byte native-endian `FrameHeader` plus one FD via `SCM_RIGHTS`; the consumer
   returns the 8-byte `ReturnHeader` ACK before the frame is released.
 
-The header layout and socket naming match the FW
-[`shared/raw_frame_transport`](../../../../FW_CAMERA/vqec_camera_service/shared/raw_frame_transport)
-wire and LACAI's [`vqec_vision_legacy_wire.hpp`](../../src/adapters/camera/vqec_vision_legacy_wire.hpp).
+The header layout and socket naming match
+[`raw_source_port`](../architecture/raw_source_port.md),
+[`camera_legacy_adapter`](../architecture/camera_legacy_adapter.md) and the FW
+`shared/raw_frame_transport` wire. The FD is a memfd holding a copy of each NV12 frame, not
+a vendor dma-buf: the wire, socket naming, lease and ACK semantics match FW, the memory
+backing does not.
 
-The FD this mock sends is a memfd holding a copy of each NV12 frame, not a vendor dma-buf.
-The wire, socket naming, lease and ACK semantics match FW; the memory backing does not.
+## 2. Mock FW RTSP (`tools/vqec_vision_ring_rtsp.py read`)
 
-Board evidence (2026-09-14, QCS6490 RB3 Gen2):
-`StartStream` returned `{code=0, stream_handle, codec=RAW, width=1280, height=720, fps=30}`;
-a `SOCK_SEQPACKET` client received consecutive frames with `format=23` (NV12), `n_planes=2`,
-a live FD and varying pixels, and ACKs were accepted.
+Reads the released FW shared-memory encoded ring that the AI side produces
+(`/dev/shm/camera_ai_<ring_id>`, version 5 layout) and publishes it as RTSP. This replaces
+the FW RTSP service without the FW application sources. The reader never touches the
+producer mutex/consumer registry: it polls `write_sequence` and copies slots under the
+per-slot seqlock, so it is a lock-free observer. It publishes
+`rtsp://<host>:<port><mount>` (default `8554`, `/live/ai/detect0`) through `qtirtspbin`.
 
-## 2. Raw camera RTSP view (`run_camera_rtsp.sh`, `lacai-camera.service`)
+By design the AI binary owns overlay, H.264 encode and ring production (see
+[`fw_ring_sink`](../architecture/fw_ring_sink.md),
+[`encoded_output`](../architecture/encoded_output.md),
+[`encoder_preparation`](../architecture/encoder_preparation.md)); FW owns RTSP. The mock
+RTSP service is therefore the whole output-side FW replacement.
 
-`qtiqmmfsrc -> v4l2h264enc -> h264parse -> qtirtspbin` publishes the raw camera feed at
-`rtsp://<host>:8900/live`. Use it to watch the source independently of LACAI.
+## Notes
 
-Only one process may hold the camera. Stop a pipeline with `SIGINT`, not `SIGKILL`; a
-hard-killed `qtiqmmfsrc` can wedge the camera server.
-
-## 3. Planned output view
-
-LACAI owns preview overlay/encode/ring production; FW owns RTSP. The output view service
-will read LACAI's contract output and publish RTSP using Qualcomm plugins that do not run
-on the CPU (`qtivoverlay`, `qtimlvconverter`), not the removed in-process AI tool.
-
-Deploy with `tools/vqec_vision_board_deploy.sh <ssh-host>`.
+- Only one process may hold the camera; stop a pipeline with `SIGINT`.
+- `qtiqmmfsrc` needs the QMMF camera server; a hard-killed pipeline can wedge it.
+- These are logic/wiring aids. They are not accuracy, hardware, zero-copy or acceptance
+  evidence, and they do not modify the repository.

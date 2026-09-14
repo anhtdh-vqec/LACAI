@@ -116,34 +116,6 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_reference AND
     set_target_properties(vqec_vision_ai_model_runner PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
-# Board runner that consumes live RAW frames through LACAI's camera adapter (FW wire).
-if(TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_qnn_engine AND
-   TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_detection)
-    add_executable(vqec_vision_ai_camera_runner
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_camera_runner.cpp)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(camera_runner_gstreamer REQUIRED IMPORTED_TARGET
-        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
-    target_link_libraries(vqec_vision_ai_camera_runner PRIVATE
-        vqec_vision_ai_camera vqec_vision_ai_qnn_engine vqec_vision_ai_reference
-        vqec_vision_ai_detection nlohmann_json::nlohmann_json
-        PkgConfig::camera_runner_gstreamer)
-    if(TARGET vqec_vision_ai_camera_dbus)
-        target_link_libraries(vqec_vision_ai_camera_runner PRIVATE vqec_vision_ai_camera_dbus)
-        target_compile_definitions(vqec_vision_ai_camera_runner PRIVATE VQEC_VISION_CAMRUN_CONTROL)
-    endif()
-    set_target_properties(vqec_vision_ai_camera_runner PROPERTIES CXX_EXTENSIONS OFF)
-
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(ring_writer_gstreamer REQUIRED IMPORTED_TARGET
-        gstreamer-1.0 gstreamer-app-1.0)
-    add_executable(vqec_vision_ai_ring_writer
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_ring_writer.cpp)
-    target_link_libraries(vqec_vision_ai_ring_writer PRIVATE
-        vqec_vision_ai_camera PkgConfig::ring_writer_gstreamer)
-    set_target_properties(vqec_vision_ai_ring_writer PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
 # Required external service executable. Built only when the JSON loaders and the
 # device-free reference backend are available; otherwise there is no runnable harness.
 if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
