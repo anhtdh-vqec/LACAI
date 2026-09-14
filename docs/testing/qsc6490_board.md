@@ -56,7 +56,7 @@ Those require a pinned model/backend/system bundle and a controlled FW test sour
 Board reachable and used as the native target. Artifacts were built only with the approved
 eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
 
-- Native test binaries: **79/79 passed** (all `vqec_vision_ai_*test*` executables),
+- Native test binaries: **81/81 passed** (all `vqec_vision_ai_*test*` executables),
   covering camera/GStreamer/Qualcomm fixtures and the neutral runtime, worker, pool,
   decoder, tracker, feature, encoder/ring and secondary-scheduler units.
 - `VQEC_VISION_AI_REQUIRE_QUALCOMM_PLUGINS=1 vqec_vision_ai_plugin_graph_test`: exit 0
@@ -82,6 +82,11 @@ eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
   50 iterations after load; excludes preprocess and does not include graph prepare):
   SCRFD-500M-KPS min 3.77 / avg 5.20 / max 6.62 ms; YOLOv8n-person min 10.83 / avg 12.12 /
   max 13.27 ms. Recorded as a seed, not an acceptance threshold.
+
+A later 2026-09-14 re-run after the QoS mailbox, source-session worker, metrics and CMake
+changes re-passed **81/81** native test binaries. The service now also prints a metrics line
+(`metrics steps=170 routed=42 delivered=42 denied=0 failed=0` for the two-source smoke), and
+the owned engine still executes SCRFD (avg ~3.2 ms) and YOLOv8n (avg ~10.5 ms) on HTP.
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
 Newly written executables on the board's `/opt` overlay occasionally need a `sync` (or a

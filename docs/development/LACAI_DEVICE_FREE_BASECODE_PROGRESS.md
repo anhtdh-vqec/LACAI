@@ -8,7 +8,7 @@ means the device-free unit is delivered but not yet wired onto the production pa
 
 Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last update.
 
-Board (2026-09-14, QCS6490): the target came online. 79/79 test binaries pass natively; the
+Board (2026-09-14, QCS6490): the target came online. 81/81 test binaries pass natively; the
 service harness and `--mode production --platform fake` route two sources and `--platform
 qualcomm` fails closed; the QNN DSP V68 unit test passes; and the owned QNN engine executes
 SCRFD/YOLOv8n on HTP with output byte-identical to `qnn-net-run` (latency seed SCRFD ~5.2 ms,

@@ -14,7 +14,7 @@ Neutral 53/53 and expanded 71/71 pass under eSDK QEMU. Board qualification, asyn
 execution and pooled output allocation remain open; see
 [model_agnostic_optimization_plan](../planning/model_agnostic_optimization_plan.md) section 8.
 
-2026-09-14 board update: the QCS6490 target came online. Native board runs: 79/79 test
+2026-09-14 board update: the QCS6490 target came online. Native board runs: 81/81 test
 binaries pass; the service harness and `--mode production --platform fake` both route two
 sources (exit 0) and `--platform qualcomm` fails closed (exit 3); QNN DSP unit test passes
 on Hexagon V68. The LACAI-owned QNN engine now composes, finalizes and executes
