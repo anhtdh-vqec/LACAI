@@ -23,7 +23,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 6 | Tensor pool | **module** | this change; output/input wiring pending |
 | 7 | Production composition root + fake platform | **done** | `--mode production --platform fake` runs E2E; qualcomm/unset fails closed; fake owners in `vqec_vision_fake_platform` |
 | 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; per-source backoff/retry-budget controller added (this change); reconnect wiring pending |
-| 9 | Model/package admission hardening | partial | capability/metadata/model-class gates (`b20ae11`, `52fe276`, `595ed08`) |
+| 9 | Model/package admission hardening | **done** | catalog/manifest/capability/policy/model-class validators + negative tests; multi-input rejected at activation before frames |
 | 10 | Scheduler QoS semantics | **done** | policy + one-slot mailbox for latest_wins/replace_pending; must_process_once/event_triggered rejected |
 | 11 | Secondary/ROI inference contract | **done** | neutral contract + bounded scheduler + fake backend + correlation tests this change |
 | 12 | Preprocess conformance suite | **done** | conformance suite this change (solid/gradient/stride/offset/aspect/order/norm/quant/clip/reject) |
@@ -32,7 +32,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | supervisor/worker/pool snapshots + executor counters printed by the service; histograms/transport pending |
-| 18 | CMake modularization | partial | reference + scheduler/worker moved to module CMakeLists; root still owns the rest |
+| 18 | CMake modularization | partial | core + reference + scheduler/worker moved to module CMakeLists; root still owns app/adapters/perception/runtime/outputs/tests |
 | 19 | Warnings/sanitizers/static analysis | partial | WERROR + SANITIZE + host-sanitizers job; advisory `.clang-tidy` + CI job added; not yet enforced |
 | 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness + nightly `fuzz` CI job; manifest/result parsers pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
@@ -41,7 +41,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 24 | State machine invariants as tests | **done** | worker submitted==outcomes, pool capacity==free+live tested over cycles |
 | 25 | C++ naming cleanup | deferred | AGENTS mandates current scheme; needs lead/ADR |
 | 26 | Allocation instrumentation | **done** | global new counter asserts zero steady-state pool allocation this change |
-| 27 | Small object/metadata optimization | todo | only after profiling |
+| 27 | Small object/metadata optimization | deferred | plan conditions this on host profiling; staged harness prints exist, no measured hot spot yet |
 | 28 | Fake latency/failure injection | **done** | latency/failure executor stress test this change |
 | 29 | Device-free microbenchmarks | **done** | pool, worker and dense-decoder throughput printed by the harness/tests |
 | 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
