@@ -19,6 +19,9 @@ evidence. Update this table with any change that moves a row.
 | Frame release dispatcher (bounded retry) | yes | yes | no |
 | Hardware DMA completion semantics | no | no | no |
 | Bounded non-blocking inference worker | yes | yes | no (not yet wired to the pump) |
+| Per-source session worker (isolated executor) | yes | yes | no (not yet wired to the supervisor) |
+| Pump QoS mailbox (latest_wins/replace_pending) | yes | yes | no (pump not board-run with a real model) |
+| Executor metrics line | yes | yes | n/a |
 | Tensor pool (bounded, double-release detection) | yes | yes | no (not yet wired) |
 | Reference CPU preprocess (preprocess oracle) | yes | yes (conformance suite) | n/a (CPU) |
 | Qualcomm image processor / FastCV path | no | no | no |
