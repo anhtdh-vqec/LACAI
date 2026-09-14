@@ -234,6 +234,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tools/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
 | tools/vqec_vision_camera_runner.cpp | camrun | vqec_vision_ai_tools_camrun_ |
 | tools/vqec_vision_ring_rtsp.py | rrtsp | vqec_vision_ai_tools_rrtsp_ |
+| tools/vqec_vision_ring_writer.cpp | rgwr | vqec_vision_ai_tools_rgwr_ |
 | tests/unit/vqec_vision_tensor_contract_test.cpp | tctst | vqec_vision_ai_unit_tctst_ |
 | src/app/vqec_vision_camera_graph_pump.cpp | cgpmp | vqec_vision_ai_appl_cgpmp_ |
 | src/app/vqec_vision_multi_model_pump.cpp | mmump | vqec_vision_ai_appl_mmump_ |

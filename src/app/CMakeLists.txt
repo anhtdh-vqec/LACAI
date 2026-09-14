@@ -129,6 +129,15 @@ if(TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_qnn_engine AND
         target_compile_definitions(vqec_vision_ai_camera_runner PRIVATE VQEC_VISION_CAMRUN_CONTROL)
     endif()
     set_target_properties(vqec_vision_ai_camera_runner PROPERTIES CXX_EXTENSIONS OFF)
+
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(ring_writer_gstreamer REQUIRED IMPORTED_TARGET
+        gstreamer-1.0 gstreamer-app-1.0)
+    add_executable(vqec_vision_ai_ring_writer
+        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_ring_writer.cpp)
+    target_link_libraries(vqec_vision_ai_ring_writer PRIVATE
+        vqec_vision_ai_camera PkgConfig::ring_writer_gstreamer)
+    set_target_properties(vqec_vision_ai_ring_writer PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Required external service executable. Built only when the JSON loaders and the
