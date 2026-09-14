@@ -74,6 +74,18 @@ if(VQEC_VISION_AI_BUILD_FUZZERS)
     target_link_options(vqec_vision_ai_legacy_wire_fuzz
         PRIVATE -fsanitize=fuzzer,address,undefined)
     set_target_properties(vqec_vision_ai_legacy_wire_fuzz PROPERTIES CXX_EXTENSIONS OFF)
+
+    if(TARGET vqec_vision_ai_model_manifest)
+        add_executable(vqec_vision_ai_manifest_fuzz
+            tests/fuzz/vqec_vision_manifest_fuzz.cpp)
+        target_link_libraries(vqec_vision_ai_manifest_fuzz
+            PRIVATE vqec_vision_ai_model_manifest)
+        target_compile_options(vqec_vision_ai_manifest_fuzz
+            PRIVATE -g -O1 -fsanitize=fuzzer,address,undefined)
+        target_link_options(vqec_vision_ai_manifest_fuzz
+            PRIVATE -fsanitize=fuzzer,address,undefined)
+        set_target_properties(vqec_vision_ai_manifest_fuzz PROPERTIES CXX_EXTENSIONS OFF)
+    endif()
 endif()
 
 add_library(vqec_vision_ai_camera_control STATIC src/adapters/camera/vqec_vision_camera_control.cpp)
