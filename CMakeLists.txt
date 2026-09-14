@@ -54,11 +54,7 @@ add_subdirectory(src/perception)
 
 add_subdirectory(src/runtime)
 
-add_library(vqec_vision_ai_camera_wire STATIC src/adapters/camera/vqec_vision_legacy_wire.cpp)
-target_link_libraries(vqec_vision_ai_camera_wire PUBLIC vqec_vision_ai_core)
-target_include_directories(vqec_vision_ai_camera_wire PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/camera>)
-set_target_properties(vqec_vision_ai_camera_wire PROPERTIES CXX_EXTENSIONS OFF)
+add_subdirectory(src/adapters/camera)
 
 if(VQEC_VISION_AI_BUILD_FUZZERS)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -88,92 +84,7 @@ if(VQEC_VISION_AI_BUILD_FUZZERS)
     endif()
 endif()
 
-add_library(vqec_vision_ai_camera_control STATIC src/adapters/camera/vqec_vision_camera_control.cpp)
-target_link_libraries(vqec_vision_ai_camera_control PUBLIC vqec_vision_ai_core)
-target_include_directories(vqec_vision_ai_camera_control PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/camera>)
-set_target_properties(vqec_vision_ai_camera_control PROPERTIES CXX_EXTENSIONS OFF)
-
-if(VQEC_VISION_AI_ENABLE_CAMERA_DBUS)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(camera_gio REQUIRED IMPORTED_TARGET gio-2.0)
-    add_library(vqec_vision_ai_camera_dbus STATIC src/adapters/camera/vqec_vision_dbus_rpc.cpp)
-    target_link_libraries(vqec_vision_ai_camera_dbus
-        PUBLIC vqec_vision_ai_camera_control PRIVATE PkgConfig::camera_gio)
-    set_target_properties(vqec_vision_ai_camera_dbus PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_CAMERA)
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        message(FATAL_ERROR "Camera FD receiver requires Linux")
-    endif()
-    add_library(vqec_vision_ai_camera STATIC
-        src/adapters/camera/vqec_vision_frame_source.cpp
-        src/adapters/camera/vqec_vision_source_lifecycle.cpp
-        src/adapters/camera/vqec_vision_raw_source_resolver.cpp)
-    target_link_libraries(vqec_vision_ai_camera
-        PUBLIC vqec_vision_ai_camera_wire vqec_vision_ai_camera_control)
-    target_compile_definitions(vqec_vision_ai_camera PRIVATE _GNU_SOURCE)
-    set_target_properties(vqec_vision_ai_camera PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE OR VQEC_VISION_AI_ENABLE_QUALCOMM)
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        message(FATAL_ERROR "GStreamer DMA-BUF bridge requires Linux")
-    endif()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(frame_gstreamer REQUIRED IMPORTED_TARGET
-        gstreamer-1.0 gstreamer-video-1.0 gstreamer-allocators-1.0 gstreamer-app-1.0)
-    add_library(vqec_vision_ai_gst_frame_bridge STATIC
-        src/adapters/qualcomm/vqec_vision_dmabuf_bridge.cpp src/adapters/qualcomm/vqec_vision_tensor_output.cpp
-        src/adapters/qualcomm/vqec_vision_frame_submission.cpp)
-    target_include_directories(vqec_vision_ai_gst_frame_bridge PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
-    target_link_libraries(vqec_vision_ai_gst_frame_bridge
-        PUBLIC vqec_vision_ai_core PkgConfig::frame_gstreamer)
-    set_target_properties(vqec_vision_ai_gst_frame_bridge PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_QUALCOMM)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0)
-    add_library(vqec_vision_ai_qualcomm STATIC
-        src/adapters/qualcomm/vqec_vision_plugin_graph.cpp
-        src/adapters/qualcomm/vqec_vision_inference_graph.cpp)
-    target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
-    target_include_directories(vqec_vision_ai_qualcomm PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
-    target_link_libraries(vqec_vision_ai_qualcomm
-        PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)
-    set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
-    if(NOT EXISTS "${VQEC_VISION_AI_QAIRT_ROOT}/include/QNN/QnnInterface.h")
-        message(FATAL_ERROR
-            "QNN headers not found under VQEC_VISION_AI_QAIRT_ROOT="
-            "${VQEC_VISION_AI_QAIRT_ROOT}")
-    endif()
-    add_library(vqec_vision_ai_qnn_engine STATIC
-        src/adapters/qualcomm/vqec_vision_sdk_loader.cpp
-        src/adapters/qualcomm/vqec_vision_qnn_engine.cpp
-        src/adapters/qualcomm/vqec_vision_qnn_inference_graph.cpp
-        src/adapters/qualcomm/vqec_vision_backend_factory.cpp)
-    target_include_directories(vqec_vision_ai_qnn_engine PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/qualcomm>)
-    target_include_directories(vqec_vision_ai_qnn_engine PRIVATE
-        "${VQEC_VISION_AI_QAIRT_ROOT}/include/QNN")
-    target_link_libraries(vqec_vision_ai_qnn_engine
-        PUBLIC vqec_vision_ai_core PRIVATE ${CMAKE_DL_LIBS})
-    set_target_properties(vqec_vision_ai_qnn_engine PROPERTIES CXX_EXTENSIONS OFF)
-
-    # Board-only smoke; not registered as a test and never run by the host/QEMU matrix.
-    add_executable(vqec_vision_ai_qnn_engine_smoke
-        tools/vqec_vision_qnn_engine_smoke.cpp)
-    target_link_libraries(vqec_vision_ai_qnn_engine_smoke
-        PRIVATE vqec_vision_ai_qnn_engine)
-    set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
-endif()
+add_subdirectory(src/adapters/qualcomm)
 
 if(UNIX)
     add_subdirectory(src/adapters/reference)
@@ -225,20 +136,7 @@ target_link_libraries(vqec_vision_ai_multi_model_session
 set_target_properties(vqec_vision_ai_multi_model_session PROPERTIES CXX_EXTENSIONS OFF)
 
 include(CTest)
-if(VQEC_VISION_AI_ENABLE_FW_RING)
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        message(FATAL_ERROR "Released FW ring SDK requires Linux")
-    endif()
-    if(NOT TARGET ${VQEC_VISION_AI_FW_RING_TARGET})
-        message(FATAL_ERROR "Provide the pinned FW SDK target before add_subdirectory(ai_applications)")
-    endif()
-    add_library(vqec_vision_ai_fw_ring STATIC src/adapters/fw_output/vqec_vision_ring_sink.cpp)
-    target_include_directories(vqec_vision_ai_fw_ring PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/fw_output>)
-    target_link_libraries(vqec_vision_ai_fw_ring PUBLIC vqec_vision_ai_core
-        PRIVATE ${VQEC_VISION_AI_FW_RING_TARGET})
-    set_target_properties(vqec_vision_ai_fw_ring PROPERTIES CXX_EXTENSIONS OFF)
-endif()
+add_subdirectory(src/adapters/fw_output)
 add_subdirectory(src/outputs)
 add_library(vqec_vision_ai_encoder_preparation STATIC src/app/vqec_vision_encoder_preparation.cpp)
 target_include_directories(vqec_vision_ai_encoder_preparation PUBLIC

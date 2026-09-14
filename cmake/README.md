@@ -20,11 +20,13 @@ Toolchain files, SDK discovery and target-scoped build helpers.
 | `src/perception/CMakeLists.txt` | detection, tracking, attributes |
 | `src/runtime/CMakeLists.txt` | feature runtime, loaders, model registry, admission |
 | `src/outputs/CMakeLists.txt` | encoded dispatch, feature-event dispatch, overlay preparation |
+| `src/adapters/camera/CMakeLists.txt` | camera wire/control/dbus/camera |
+| `src/adapters/qualcomm/CMakeLists.txt` | gst frame bridge, qualcomm, qnn engine + smoke |
+| `src/adapters/fw_output/CMakeLists.txt` | FW ring sink |
 | `src/adapters/reference/CMakeLists.txt` | `vqec_vision_ai_reference` |
 | `src/runtime/scheduler/CMakeLists.txt` | `vqec_vision_ai_scheduler`, `vqec_vision_ai_inference_worker` |
 
-Remaining modules (app, adapters under camera/qualcomm/fw_output, outputs, features, tests)
-still live in the root file and will move the same way.
+Remaining modules (app, features, tests) still live in the root file and will move the same way.
 
 ## See also
 
