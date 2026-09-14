@@ -26,7 +26,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
 | 18 | CMake modularization | todo | root CMake still monolithic |
 | 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR`; no sanitizer job |
-| 20 | Wire/parser fuzzing | todo | — |
+| 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness builds with host Clang 14 and runs crash-free; CI nightly pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |
 | 23 | Explicit epoch semantics | partial | worker stale-epoch flag; broader audit pending |

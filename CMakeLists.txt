@@ -18,6 +18,7 @@ option(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG "Enable bounded JSON feature catalo
 option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata checker" OFF)
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
 option(VQEC_VISION_AI_WERROR "Treat project warnings as errors" ON)
+option(VQEC_VISION_AI_BUILD_FUZZERS "Build libFuzzer harnesses (host Clang, not eSDK)" OFF)
 
 if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK AND NOT VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
     message(FATAL_ERROR "Manifest checker requires VQEC_VISION_AI_ENABLE_MODEL_MANIFEST")
@@ -162,6 +163,22 @@ target_link_libraries(vqec_vision_ai_camera_wire PUBLIC vqec_vision_ai_core)
 target_include_directories(vqec_vision_ai_camera_wire PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/camera>)
 set_target_properties(vqec_vision_ai_camera_wire PROPERTIES CXX_EXTENSIONS OFF)
+
+if(VQEC_VISION_AI_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR
+            "VQEC_VISION_AI_BUILD_FUZZERS requires a host Clang toolchain with libFuzzer")
+    endif()
+    add_executable(vqec_vision_ai_legacy_wire_fuzz
+        tests/fuzz/vqec_vision_legacy_wire_fuzz.cpp)
+    target_link_libraries(vqec_vision_ai_legacy_wire_fuzz
+        PRIVATE vqec_vision_ai_camera_wire)
+    target_compile_options(vqec_vision_ai_legacy_wire_fuzz
+        PRIVATE -g -O1 -fsanitize=fuzzer,address,undefined)
+    target_link_options(vqec_vision_ai_legacy_wire_fuzz
+        PRIVATE -fsanitize=fuzzer,address,undefined)
+    set_target_properties(vqec_vision_ai_legacy_wire_fuzz PROPERTIES CXX_EXTENSIONS OFF)
+endif()
 
 add_library(vqec_vision_ai_camera_control STATIC src/adapters/camera/vqec_vision_camera_control.cpp)
 target_link_libraries(vqec_vision_ai_camera_control PUBLIC vqec_vision_ai_core)

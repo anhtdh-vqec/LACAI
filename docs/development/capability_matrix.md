@@ -31,6 +31,7 @@ evidence. Update this table with any change that moves a row.
 | FW ring integration | wrapper source | no | no |
 | Recovery backoff controller | yes | yes | no (reconnect loop not wired) |
 | Metrics/tracing channel | partial counters | worker/pool/supervisor snapshots | no |
+| Wire decoder fuzzing | yes | host Clang libFuzzer, crash-free | no |
 
 ## Rules
 
