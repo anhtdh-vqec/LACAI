@@ -75,18 +75,15 @@ status reference_tracker::vqec_vision_ai_ports_trker_update_tracks(
     if (_detections.observations_.size() > config_.max_tracks_) {
         return {status_code::resource_exhausted, "tracker detection count exceeds track bound"};
     }
+    std::array<bool, reference_tracker_limits::g_max_tracks> matched{};
+    observation_batch candidate = _detections;
     if (_is_source_gap) {
+        // A gap ages every live track once. Detections still associate below so no
+        // output observation is left untracked, which the tracking stage rejects.
         for (std::size_t index = 0; index < track_count_; ++index) {
             ++tracks_[index].lost_frames_;
         }
-        vqec_vision_ai_refer_rftrk_compact();
-        observation_batch candidate = _detections;
-        _tracked = std::move(candidate);
-        return {};
     }
-
-    std::array<bool, reference_tracker_limits::g_max_tracks> matched{};
-    observation_batch candidate = _detections;
     for (std::size_t index = 0; index < candidate.observations_.size(); ++index) {
         auto& item = candidate.observations_[index];
         float best_iou = config_.iou_threshold_;
@@ -122,7 +119,7 @@ status reference_tracker::vqec_vision_ai_ports_trker_update_tracks(
         item.track_id_ = created.track_id_;
     }
     for (std::size_t track = 0; track < track_count_; ++track) {
-        if (!matched[track]) {
+        if (!matched[track] && !_is_source_gap) {
             ++tracks_[track].lost_frames_;
         }
     }

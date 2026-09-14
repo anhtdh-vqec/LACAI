@@ -33,8 +33,8 @@ vqec_vision_ai_refer_rfeat_find_track(std::uint64_t _track_id) noexcept {
 }
 
 void reference_zone_feature::vqec_vision_ai_refer_rfeat_make_event(
-    const observation& _item, std::uint64_t _now_ns, feature_event_kind _kind,
-    const std::string& _value, feature_event& _event) {
+    const observation& _item, feature_event_kind _kind, const std::string& _value,
+    feature_event& _event) {
     _event.frame_ = _item.frame_;
     _event.source_id_ = config_.source_id_;
     _event.feature_id_ = config_.feature_id_;
@@ -43,7 +43,9 @@ void reference_zone_feature::vqec_vision_ai_refer_rfeat_make_event(
     _event.event_schema_id_ = params_.event_schema_id_;
     _event.event_schema_version_ = params_.event_schema_version_;
     _event.kind_ = _kind;
-    _event.occurred_at_ns_ = _now_ns;
+    // Event time lives in the source frame's PTS domain; the monotonic step clock is
+    // only used for dwell/cooldown arithmetic and must not leak into the event.
+    _event.occurred_at_ns_ = _item.frame_.source_pts_ns_;
     _event.config_revision_ = config_.config_revision_;
     _event.track_ids_.push_back(_item.track_id_);
     feature_event_field field;
@@ -121,7 +123,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
             event.event_schema_id_ = params_.event_schema_id_;
             event.event_schema_version_ = params_.event_schema_version_;
             event.kind_ = feature_event_kind::snapshot;
-            event.occurred_at_ns_ = _now_monotonic_ns;
+            event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
             event.config_revision_ = config_.config_revision_;
             feature_event_field field;
             field.schema_id_ = params_.event_schema_id_;
@@ -163,8 +165,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                 if (cooldown_ok) {
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
-                        item, _now_monotonic_ns, feature_event_kind::episode_opened,
-                        "inside", event);
+                        item, feature_event_kind::episode_opened, "inside", event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }
@@ -174,16 +175,14 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                 if (cooldown_ok) {
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
-                        item, _now_monotonic_ns, feature_event_kind::episode_closed,
-                        "outside", event);
+                        item, feature_event_kind::episode_closed, "outside", event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }
             } else if (inside && params_.dwell_ns_ != 0 && !state->dwell_emitted_ &&
                        _now_monotonic_ns - state->entered_ns_ >= params_.dwell_ns_) {
                 feature_event event;
-                vqec_vision_ai_refer_rfeat_make_event(
-                    item, _now_monotonic_ns, feature_event_kind::episode_updated,
+                vqec_vision_ai_refer_rfeat_make_event(item, feature_event_kind::episode_updated,
                     std::to_string(_now_monotonic_ns - state->entered_ns_), event);
                 state->dwell_emitted_ = true;
                 state->last_event_ns_ = _now_monotonic_ns;
@@ -202,8 +201,8 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                 if (cooldown_ok) {
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
-                        item, _now_monotonic_ns, feature_event_kind::snapshot,
-                        side ? "positive" : "negative", event);
+                        item, feature_event_kind::snapshot, side ? "positive" : "negative",
+                        event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }

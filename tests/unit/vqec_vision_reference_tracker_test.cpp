@@ -113,6 +113,22 @@ int main() {
         check(tracked.observations_[0].track_id_ == 2);
     }
 
+    // A gap with detections still associates: no output observation may stay untracked,
+    // because the tracking stage rejects a zero track id.
+    {
+        reference_tracker tracker(config);
+        check(tracker.vqec_vision_ai_ports_trker_reset_epoch(1).code_ == status_code::ok);
+        observation_batch tracked;
+        check(tracker.vqec_vision_ai_ports_trker_update_tracks(
+                  make_batch({make_observation(0, 0, 10, 10)}),
+                  0, false, tracked).code_ == status_code::ok);
+        check(tracked.observations_[0].track_id_ == 1);
+        check(tracker.vqec_vision_ai_ports_trker_update_tracks(
+                  make_batch({make_observation(1, 1, 10, 10)}),
+                  1, true, tracked).code_ == status_code::ok);
+        check(tracked.observations_.size() == 1 && tracked.observations_[0].track_id_ == 1);
+    }
+
     // Track capacity is bounded and fails closed instead of silently truncating.
     {
         reference_tracker_config tight = config;

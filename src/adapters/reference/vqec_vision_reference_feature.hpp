@@ -67,8 +67,8 @@ private:
     [[nodiscard]] bool vqec_vision_ai_refer_rfeat_inside(
         const observation& _item) const noexcept;
     void vqec_vision_ai_refer_rfeat_make_event(
-        const observation& _item, std::uint64_t _now_ns, feature_event_kind _kind,
-        const std::string& _value, feature_event& _event);
+        const observation& _item, feature_event_kind _kind, const std::string& _value,
+        feature_event& _event);
     [[nodiscard]] track_state* vqec_vision_ai_refer_rfeat_find_track(
         std::uint64_t _track_id) noexcept;
 

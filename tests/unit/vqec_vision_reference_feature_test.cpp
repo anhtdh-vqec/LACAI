@@ -28,6 +28,7 @@ observation make_observation(std::uint64_t _track, float _cx, float _cy,
     observation item;
     item.frame_.source_epoch_ = 1;
     item.frame_.frame_id_ = 1;
+    item.frame_.source_pts_ns_ = 1234;
     item.track_id_ = _track;
     item.class_id_ = _class_id;
     item.box_ = {_cx - 5.0F, _cy - 5.0F, 10.0F, 10.0F, 0xffffffffU, _class_id};
@@ -39,6 +40,7 @@ observation make_observation(std::uint64_t _track, float _cx, float _cy,
 observation_batch make_batch(const std::vector<observation>& _items) {
     observation_batch batch;
     batch.frame_.source_epoch_ = 1;
+    batch.frame_.source_pts_ns_ = 1234;
     batch.geometry_ = {640, 480};
     batch.observations_ = _items;
     return batch;
@@ -88,6 +90,8 @@ int main() {
               events.events_[0].kind_ == feature_event_kind::episode_opened &&
               events.events_[0].track_ids_.size() == 1 &&
               events.events_[0].track_ids_[0] == 1);
+        // Event time is the frame's source PTS, never the monotonic step clock.
+        check(events.events_[0].occurred_at_ns_ == 1234);
 
         // Exit inside the cooldown window is suppressed.
         check(feature.vqec_vision_ai_ports_ftpro_process_observations(
