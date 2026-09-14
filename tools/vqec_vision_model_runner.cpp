@@ -44,6 +44,7 @@ struct runner_options {
     std::string system_library;
     std::string input_nv12;
     std::string output_json;
+    std::string dump_dir;
     std::uint32_t source_width{0};
     std::uint32_t source_height{0};
 };
@@ -68,6 +69,8 @@ bool vqec_vision_ai_tools_mdlrun_parse(int _argc, char** _argv, runner_options& 
             _options.input_nv12 = value;
         } else if (option == "--output") {
             _options.output_json = value;
+        } else if (option == "--dump-dir") {
+            _options.dump_dir = value;
         } else if (option == "--source-width") {
             _options.source_width = static_cast<std::uint32_t>(std::strtoul(value.c_str(), nullptr, 10));
         } else if (option == "--source-height") {
@@ -294,6 +297,11 @@ int main(int _argc, char** _argv) {
         }
         std::printf("preprocess PASS tensors=%zu bytes=%zu\n", input_blobs.size(),
             input_blobs.empty() ? 0U : input_blobs[0].bytes_.size());
+        if (!options.dump_dir.empty() && !input_blobs.empty()) {
+            std::ofstream out(options.dump_dir + "/input_tensor.raw", std::ios::binary | std::ios::trunc);
+            out.write(reinterpret_cast<const char*>(input_blobs[0].bytes_.data()),
+                static_cast<std::streamsize>(input_blobs[0].bytes_.size()));
+        }
 
         std::vector<tensor_blob> output_blobs;
         const auto executed = engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
@@ -302,6 +310,14 @@ int main(int _argc, char** _argv) {
             return 1;
         }
         std::printf("qnn PASS outputs=%zu\n", output_blobs.size());
+        if (!options.dump_dir.empty()) {
+            for (const auto& blob : output_blobs) {
+                std::ofstream out(options.dump_dir + "/" + blob.spec_.name_ + ".raw",
+                    std::ios::binary | std::ios::trunc);
+                out.write(reinterpret_cast<const char*>(blob.bytes_.data()),
+                    static_cast<std::streamsize>(blob.bytes_.size()));
+            }
+        }
 
         yolov8_decoder_config decoder_config;
         decoder_config.source_width_ = options.source_width;

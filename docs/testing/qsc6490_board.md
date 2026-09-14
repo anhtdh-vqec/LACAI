@@ -100,6 +100,14 @@ Newly written executables on the board's `/opt` overlay occasionally need a `syn
 copy to `/tmp`) before exec; the native test binaries and service binary run there
 directly.
 
+Model integration (2026-09-14, M0-M4): the `vqec_vision_model_runner` tool ran the real
+YOLOv8n-person package end to end on the board (reference preprocess 2457600-byte input
+tensor, owned QNN execute, `yolov8_decoder`, 0 detections on a plain gray NV12 fixture as
+expected). Raw-output parity through the real preprocess path: `qnn-net-run` fed with the
+runner's dumped input tensor produced `boxes_out` and `conf_out` **byte-identical** to the
+runner's engine outputs (2/2). M2 preprocess golden and M4 decoded golden still need the
+model team's reference tensor/detections.
+
 Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
 camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the
 board qualification backlog.
