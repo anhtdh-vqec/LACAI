@@ -34,6 +34,7 @@
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_fake_platform.hpp"
 #include "vqec_vision_production_platform.hpp"
+#include "vqec_vision_reference_processor.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
@@ -284,6 +285,7 @@ int main(int _argc, char** _argv) {
     fake_platform platform;
     reference_platform reference;
     production_platform production;
+    reference_image_processor image_processor;
     model_decoder_registry decoders;
     tracker_registry trackers;
     feature_processor_registry feature_registry;
@@ -455,6 +457,7 @@ int main(int _argc, char** _argv) {
                     return 1;
                 }
                 model_activation.graph_ = graph;
+                model_activation.processor_ = &image_processor;
                 model_activation.outputs_ = *outputs;
                 model_activation.paths_ =
                     production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);

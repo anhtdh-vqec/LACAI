@@ -76,6 +76,7 @@ def parse_args():
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--ack-timeout-s", type=float, default=15.0)
     parser.add_argument("--max-frames", type=int, default=0,
                         help="stop after N frames (0 = unlimited)")
     return parser.parse_args()
@@ -184,7 +185,7 @@ class RawFrameProducer:
         width = self.args.width
         height = self.args.height
         alloc = width * height * 3 // 2
-        client.settimeout(2.0)
+        client.settimeout(self.args.ack_timeout_s)
         while self.running:
             got = self.camera.next_fd(Gst.SECOND)
             if got is None:
