@@ -36,7 +36,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 27 | Small object/metadata optimization | todo | only after profiling |
 | 28 | Fake latency/failure injection | partial | gate executor in worker test |
 | 29 | Device-free microbenchmarks | todo | — |
-| 30 | Documentation capability matrix | partial | `esdk_configuration_matrix.md`, execution-policy inventory |
+| 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
 
 ## Next
 
