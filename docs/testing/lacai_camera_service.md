@@ -21,9 +21,10 @@ real Qualcomm camera through `qtiqmmfsrc`:
 The header layout and socket naming match
 [`raw_source_port`](../architecture/raw_source_port.md),
 [`camera_legacy_adapter`](../architecture/camera_legacy_adapter.md) and the FW
-`shared/raw_frame_transport` wire. The FD is a memfd holding a copy of each NV12 frame, not
-a vendor dma-buf: the wire, socket naming, lease and ACK semantics match FW, the memory
-backing does not.
+`shared/raw_frame_transport` wire. The FD is a distinct per-frame memfd holding a
+stride-aware packed copy of each NV12 frame, not a vendor dma-buf. The sender closes its
+descriptor after `SCM_RIGHTS` transfer, so a later capture cannot overwrite an in-flight
+frame. The wire, socket naming, lease and ACK semantics match FW; memory backing does not.
 
 ## 2. Mock FW RTSP (`tools/vqec_vision_ring_rtsp.py read`)
 
@@ -32,7 +33,16 @@ Reads the released FW shared-memory encoded ring that the AI side produces
 the FW RTSP service without the FW application sources. The reader never touches the
 producer mutex/consumer registry: it polls `write_sequence` and copies slots under the
 per-slot seqlock, so it is a lock-free observer. It publishes
-`rtsp://<host>:<port><mount>` (default `8554`, `/live/ai/detect0`) through `qtirtspbin`.
+`rtsp://<host>:<port><mount>` through `GstRtspServer` and
+`rtph264pay name=pay0`. `--fps` is required. When a client connects, the reader scans the
+retained ring window for an IDR containing SPS/PPS, allowing late join when the configured
+GOP fits inside that window.
+
+```bash
+python3 tools/vqec_vision_ring_rtsp.py read \
+  --ring-id encoded_ai_detect0_cam0_ch0 \
+  --port 8554 --mount /live/ai/detect0 --fps 30
+```
 
 By design the AI binary owns overlay, H.264 encode and ring production (see
 [`fw_ring_sink`](../architecture/fw_ring_sink.md),
@@ -44,5 +54,6 @@ RTSP service is therefore the whole output-side FW replacement.
 
 - Only one process may hold the camera; stop a pipeline with `SIGINT`.
 - `qtiqmmfsrc` needs the QMMF camera server; a hard-killed pipeline can wedge it.
-- These are logic/wiring aids. They are not accuracy, hardware, zero-copy or acceptance
-  evidence, and they do not modify the repository.
+- The camera mock and renderer each perform an explicit CPU copy before QTI hardware
+  overlay/encode. These are wiring aids, not zero-copy, model-accuracy or released-FW
+  acceptance evidence.

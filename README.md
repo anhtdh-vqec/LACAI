@@ -2,7 +2,7 @@
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Target QCS6490](https://img.shields.io/badge/target-QCS6490%20%2F%20Qualcomm%20Linux%201.8-blue)
-![Tests](https://img.shields.io/badge/logic%20tests-90%20passing%20(QEMU)-green)
+![Tests](https://img.shields.io/badge/logic%20tests-91%20passing%20(QEMU)-green)
 ![Status](https://img.shields.io/badge/status-base--ready-yellow)
 
 Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
@@ -21,17 +21,17 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Multi-source / multi-model pump | Source-delivered | 1..16 session, cadence, shared-owner fan-out; device-free tested |
 | Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; lifecycle + installed-plugin check pass native trên QCS6490 |
 | QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/YOLOv8n trên HTP V68; output byte-identical với `qnn-net-run`; async/shared/update chưa |
-| Perception / feature pipeline | Source-delivered | Reference dense decoder, IoU tracker, ROI feature, secondary scheduler; model/usecase thật chưa |
-| Output / preview / encoded | Helpers + fake | Fake encoder + bounded ring + conformance; renderer/hardware encoder thật chưa |
-| Service `vqec_ai_vision_applications` | Chạy được | Device-free dưới QEMU và native trên board (harness + production fake); thiếu platform owner thật |
+| Perception / feature pipeline | Source-delivered + person smoke | YOLOv8 decoder, IoU tracker, feature pipeline; person detections đã chạy từ camera thật qua QNN HTP |
+| Output / preview / encoded | Qualcomm board smoke | QTI DMA surface + `qtivoverlay` + `v4l2h264enc` + FW ring; released-FW acceptance chưa |
+| Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
 **Bằng chứng logic:** cấu hình default (mọi option OFF) **71/71** test và cấu hình mở rộng
-(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **90/90** test
+(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **91/91** test
 chạy 100% dưới eSDK QEMU.
-**Bằng chứng board (2026-09-14, QCS6490):** 82/82 test binary pass native; service harness và
-`--mode production --platform fake` route 2 source (exit 0), `--platform qualcomm` fail-closed;
+**Bằng chứng board (2026-09-14, QCS6490):** 82/82 test binary pass native;
 `qnn-platform-validator` DSP unit test pass (Hexagon V68); owned QNN engine execute SCRFD/YOLOv8n
-trên HTP với parity byte-identical. Chi tiết: [qsc6490_board](docs/testing/qsc6490_board.md),
+trên HTP với parity byte-identical. Qualcomm production person flow trên `.48` cho ảnh đúng màu,
+bbox nhìn thấy được và RTSP late join qua compatibility FW services. Chi tiết: [qsc6490_board](docs/testing/qsc6490_board.md),
 [qnn board runbook](docs/testing/qnn_board_validation.md),
 [capability matrix](docs/development/capability_matrix.md).
 

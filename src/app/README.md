@@ -3,8 +3,8 @@
 Application composition: binds admitted sessions, modules and owner factories to the neutral
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
-- **Status:** source-delivered — service harness runs device-free under QEMU; production owners and threads missing
-- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `enprp`, `rcfac`)
+- **Status:** source-delivered — reference/fake paths run under QEMU; Qualcomm person flow is board-smoked through compatibility FW services
+- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `enprp`, `rcfac`, `pdplt`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
 - **Used by:** `vqec_ai_vision_applications` executable
 
@@ -31,15 +31,17 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `vqec_vision_application_composition.cpp` | Bind admitted sessions and drive the supervisor with a one-result slot |
 | `vqec_vision_runtime_composition_factory.cpp` | Build the admission snapshot and compose catalog-bound sessions/perception groups |
 | `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
-| `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; `--mode harness` runs, `--mode production` fails closed |
+| `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; runs harness and reference/fake/Qualcomm production selections |
+| `vqec_vision_production_platform.cpp` | Composes FW RAW source, owned QNN graph, model decoder/tracker and optional Qualcomm encoded output |
 | `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
 
 ## Limits and next work
 
 - Decoder implementations are borrowed; tracker ownership is per binding.
 - Multi-model features still need an explicit bounded temporal join.
-- Authenticated FW registry RPC, trusted artifact resolution and production platform owners remain missing.
-- No thread, per-frame RPC or hardware completion is added here; production backend tests are open.
+- Authenticated FW registry RPC and complete authorization-scope output binding remain open.
+- The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
+  interoperability, hardware-completion evidence and long-run performance remain open.
 
 ## See also
 

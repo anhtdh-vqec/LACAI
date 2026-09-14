@@ -277,6 +277,12 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             (_deployment.sources_.front().profile_.fps_denominator_ != 0 ?
                 _deployment.sources_.front().profile_.fps_denominator_ : 1U);
         renderer_config.bitrate_bps_ = impl.config_.output_bitrate_bps_;
+        renderer_config.keyframe_interval_frames_ =
+            impl.config_.output_keyframe_interval_frames_;
+        renderer_config.box_color_rgba_ = impl.config_.output_box_color_rgba_;
+        renderer_config.output_surface_count_ = impl.config_.output_surface_count_;
+        renderer_config.colorimetry_ = impl.config_.output_colorimetry_;
+        renderer_config.interlace_mode_ = impl.config_.output_interlace_mode_;
         const auto rendered = impl.renderer_->vqec_vision_ai_qcom_qtvr_init(renderer_config);
         if (rendered.code_ != status_code::ok) {
             return rendered;

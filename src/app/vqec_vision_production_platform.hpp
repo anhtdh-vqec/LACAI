@@ -47,6 +47,11 @@ struct production_platform_config {
     // AI-owned encoded output. Empty disables rendering.
     std::string output_ring_id_;
     std::uint32_t output_bitrate_bps_{0};
+    std::uint32_t output_keyframe_interval_frames_{0};
+    std::uint32_t output_box_color_rgba_{0};
+    std::uint32_t output_surface_count_{0};
+    std::string output_colorimetry_;
+    std::string output_interlace_mode_;
 };
 
 class production_platform final {

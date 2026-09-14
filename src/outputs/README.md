@@ -4,7 +4,7 @@ Portable output path: overlay metadata preparation, encoded-AU routing and featu
 delivery. AI owns preview overlay/encode/ring production through private adapters; FW owns
 RTSP/UI, recording and persistent evidence/search.
 
-- **Status:** source-delivered helpers — end-to-end output pipeline not implemented
+- **Status:** helpers plus Qualcomm production renderer are source-delivered and board-smoked
 - **Naming registry:** `outpt` (`encdp`, `ftdsp`, `ovrpr`)
 - **Depends on:** `src/core/` output policy and neutral `encoded_sink`/event-sink contracts
 - **Used by:** runtime executor and, later, a threaded service event loop
@@ -27,9 +27,10 @@ RTSP/UI, recording and persistent evidence/search.
 ## Limits and next work
 
 - No internal queue, retry or FW transport; delivery status is separate from event completion.
-- Trusted renderer must supply complete scopes bound to pixels; that integration is missing.
-- The optional FW ring sink is not runtime-wired into a service event loop.
-- No real output delivery is available yet.
+- Full authorization-scope wiring through `prepared_overlay` remains open.
+- The Qualcomm service path writes H.264 to the released FW ring. A `.48` board smoke
+  showed correct NV12 color, visible person boxes and late-join RTSP decoding through the
+  FW compatibility harness; released FW RTSP/UI acceptance remains open.
 
 ## See also
 

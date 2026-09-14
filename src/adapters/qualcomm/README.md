@@ -1,10 +1,10 @@
 # qualcomm
 
 Private Qualcomm adapter for QCS6490 / Qualcomm Linux 1.8. Contains the released plugin
-graph backend and the optional LACAI-owned QNN engine, both behind neutral ports.
+graph backend, the optional LACAI-owned QNN engine and the private preview renderer.
 
 - **Status:** board-verified (sync) — plugin lifecycle fixtures pass on QCS6490; owned QNN engine composes/finalizes/executes SCRFD+YOLOv8n on HTP with byte-identical parity to `qnn-net-run`; async/shared/update still unqualified
-- **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`)
+- **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`, `qtvr`)
 - **Depends on:** neutral `inference_graph_port`, core plan/contract validation
 - **Used by:** application composition through `inference_graph_port` only
 
@@ -15,6 +15,8 @@ graph backend and the optional LACAI-owned QNN engine, both behind neutral ports
 - Extract ordered typed tensors (`INT8..FLOAT32`, quantized-blob ownership) from results.
 - Provide an owned QNN engine: dlopen, backend/device, capability probe, context + model-lib
   compose, typed tensor metadata, synchronous execute and a graph-port binding.
+- Allocate QTI DMA output surfaces, copy NV12 by plane stride, render ROI metadata with
+  `qtivoverlay`, encode H.264 and publish access units to the released FW ring.
 
 ## Contents
 
@@ -29,14 +31,19 @@ graph backend and the optional LACAI-owned QNN engine, both behind neutral ports
 | `vqec_vision_qnn_engine.cpp` | Owned QNN backend/device/context/model-lib compose + sync execute + probe |
 | `vqec_vision_qnn_inference_graph.cpp` | `inference_graph_port` binding with tensor submission |
 | `vqec_vision_backend_factory.cpp` | Builds the owned engine+graph bundle from resolved paths; fails closed |
+| `vqec_vision_qtiv_renderer.cpp` | QTI DMA pool, NV12 plane copy, ROI overlay, H.264 encoder and FW ring writer |
 
 ## Limits and next work
 
-- No runnable service, concrete decoder/tracker, preview renderer/encoder or integrated FW ring runtime here.
+- The production service wires this renderer for `--platform qualcomm`; output pool,
+  bitrate, GOP, color and caps metadata are required runtime configuration.
 - Plugin reports FLOAT32 outputs; native multi-dtype/multi-graph QNN and a batch/temporal/ROI scheduler are missing.
 - Owned QNN engine currently executes synchronously with copies; async, shared/registered
   memory and LoRA have contracts but are not wired into execute.
-- Golden preprocessing, SDK interoperability, performance and BSP recovery remain unverified.
+- The current camera harness supplies memfd, so the renderer performs one CPU plane copy
+  into its writable QTI DMA surface. Direct released-FW DMA import still needs ownership
+  design and measurement; the shared source frame is never modified in place.
+- Golden preprocessing, long-run performance and BSP recovery remain unverified.
   Successful graph assembly is not inference qualification.
 
 ## See also

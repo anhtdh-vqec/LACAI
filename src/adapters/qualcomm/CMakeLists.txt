@@ -62,7 +62,8 @@ endif()
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(qtiv_renderer_gst REQUIRED IMPORTED_TARGET
-        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
+        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0
+        gstreamer-qcom-oss-allocators-1.0 gstreamer-qcom-oss-video-1.0)
     add_library(vqec_vision_ai_qtiv_renderer STATIC vqec_vision_qtiv_renderer.cpp)
     target_include_directories(vqec_vision_ai_qtiv_renderer PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)

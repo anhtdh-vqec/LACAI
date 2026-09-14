@@ -1,4 +1,4 @@
-# Implementation status — 2026-09-10
+# Implementation status — 2026-09-14
 
 Current source inventory, checked against `src/`, public headers, test sources and
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
@@ -14,13 +14,13 @@ Neutral 53/53 and expanded 71/71 pass under eSDK QEMU. Board qualification, asyn
 execution and pooled output allocation remain open; see
 [model_agnostic_optimization_plan](../planning/model_agnostic_optimization_plan.md) section 8.
 
-2026-09-14 board update: the QCS6490 target came online. Native board runs: 81/81 test
-binaries pass; the service harness and `--mode production --platform fake` both route two
-sources (exit 0) and `--platform qualcomm` fails closed (exit 3); QNN DSP unit test passes
-on Hexagon V68. The LACAI-owned QNN engine now composes, finalizes and executes
-SCRFD-500M-KPS and YOLOv8n-person on HTP. Board evidence and limits are in
-[QCS6490 target](../testing/qsc6490_board.md). Accuracy, async/shared memory, DMA
-completion, encoder/ring and performance remain unqualified.
+2026-09-14 board update: the QCS6490 target came online. The historical native suite ran
+81/81 test binaries, and QNN DSP validation passed on Hexagon V68. The LACAI-owned QNN
+engine composes, finalizes and executes SCRFD-500M-KPS and YOLOv8n-person on HTP. The
+Qualcomm production owner now also runs the live person path through compatibility FW
+camera/RTSP services on `.48`; visual inspection confirmed correct color and visible boxes.
+Board evidence and limits are in [QCS6490 target](../testing/qsc6490_board.md). Accuracy,
+async/shared memory, released-FW DMA completion, zero-copy and performance remain unqualified.
 
 ## Evidence level
 
@@ -52,7 +52,9 @@ it does not construct them. Arrays support 1..16 sources and 1..16 models per so
 software ceilings. Actual admission must account for lower backend limits, including
 one outstanding job per Qualcomm graph and four slots per graph-retention domain.
 
-AI owns private preview pixels, overlay, H264 encoding and FW ring production. FW owns
+AI owns private preview pixels, overlay, H264 encoding and FW ring production. The current
+Qualcomm path uses an AI-owned QTI DMA pool, `qtivoverlay`, `v4l2h264enc` and the released
+ring layout. FW owns
 RTSP/UI/recording and persistent evidence/search. Released preview routing remains limited
 to detect0/detect1; multi-source inference does not imply 16 independent preview outputs.
 
@@ -83,7 +85,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp` | Neutral NV12 image-processor port plus a device-free CPU baseline (letterbox, BT.601 limited RGB, normalize, quantize into the target dtype/quantization) | Accelerator/FastCV production processor, colorimetry from source binding and pipeline wiring |
-| `src/adapters/qualcomm/` | Private plugin graph with caller-supplied runtime factory probing, FD/GstMemory bridge, ordered typed tensor extraction (INT8..FLOAT32) with quantized-blob ownership, submission primitive and neutral graph adapter; standard-GStreamer lifecycle/ownership fixtures pass on QCS6490 | Live board model/caps/sync validation, native output dtype and multi-graph QNN support (plugin reports FLOAT32 outputs) and concrete BSP recovery |
+| `src/adapters/qualcomm/` | Private plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; person output was viewed on `.48` through compatibility FW services | Released-FW camera/ring/RTSP acceptance, direct output DMA import, native plugin output dtype, multi-graph QNN and BSP recovery |
 | `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute and an `inference_graph_port` binding with tensor submission; a factory builds the owned engine+graph bundle from resolved paths and fails closed on an unsupported policy; compiles against vendored QAIRT with the eSDK compiler | Async/shared-memory/LoRA execution wiring, production composition/service selection and board qualification |
 | `src/app/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
@@ -93,7 +95,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/app/vqec_vision_runtime_composition_factory.cpp` | Builds the validated admission snapshot, composes catalog-bound plans/cadence/output metadata, enforces application-wide graph/cycle uniqueness, constructs source sessions/perception groups and returns a validated application composition without acquiring hardware | Authenticated artifact/path/evidence resolution, platform owner factories, measured admission and service executor activation |
 | `src/app/vqec_vision_runtime_executor.cpp` | Drives the composition round robin, rebuilds the pump report from source session progress, routes each tensor result through the per-source perception/feature pipeline, and retains one take-once output slot | Concrete package factories, output dispatch and a threaded service loop |
 | `src/adapters/reference/vqec_vision_reference_source.cpp`, `vqec_vision_reference_graph.cpp` | Device-free synthetic NV12 source and zero-tensor graph implementing the neutral ports and the complete graph lifecycle | Any board, model, accuracy, zero-copy or DMA-completion claim |
-| `src/app/vqec_vision_service_main.cpp` | Required executable `vqec_ai_vision_applications`: loads deployment/model/feature catalogs, builds reference platform owners and the runtime bundle, then runs and drains the executor loop | Real platform owners, package factories, process supervision and IPK packaging |
+| `src/app/vqec_vision_service_main.cpp` | Required executable `vqec_ai_vision_applications`: loads catalogs, selects reference or Qualcomm production owners, runs QNN inference and optionally writes configured overlay/H.264 output to the FW ring | Full authorization-scope renderer binding, process supervision and IPK packaging |
 | `src/app/vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Bounded stable-slot feature fan-out with per-feature isolation; activation-time mapping routes each tracked model result only to its direct feature consumers | Multi-model temporal joins, effective-state manager and concrete feature rules |
 | `src/app/vqec_vision_multi_source_supervisor.cpp` | Binds 1..16 borrowed sessions; round-robin progress, per-source fault isolation, snapshots and latched global stop | Service executors, automatic restart/backoff, epoch replacement and BSP recovery execution |
 | `src/core/vqec_vision_preview_surface.cpp`, `vqec_vision_preview_pool.cpp` | Writable-to-sealed CPU NV12 ownership and preallocated 1..4-surface pool; final-reader reuse | Real pixel copy/overlay renderer and hardware allocation/import |

@@ -9,8 +9,10 @@ model-name branch. Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot
 required to write code. Historical direct-SDK blueprint below is not current implementation
 status. On 2026-09-14 the owned engine was board-verified: SCRFD and YOLOv8n compose,
 finalize and execute on HTP V68 with output byte-identical to `qnn-net-run`, and the
-service harness plus `--mode production --platform fake` run natively. Live FW camera,
-preview/encoder and preview output are still missing. See implementation_status.md,
+service harness plus `--mode production --platform fake` run natively. On 2026-09-14 the
+private QTI DMA-pool/`qtivoverlay`/`v4l2h264enc` renderer also produced a color-correct
+person stream with visible boxes through the compatibility FW services on the `.48`
+board. This is integration-smoke evidence, not released-FW acceptance. See implementation_status.md,
 qsc6490_board.md and fw_release_compatibility.md.
 Preview renderer/encoder must be separate from the inference graph and preserve the
 released H264/ring contract; selecting Codec2 requires board evidence, not just factory availability.

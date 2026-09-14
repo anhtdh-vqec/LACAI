@@ -111,3 +111,29 @@ model team's reference tensor/detections.
 Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
 camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the
 board qualification backlog.
+
+## 2026-09-14 live person-flow repair on `.48`
+
+The additional target `192.168.138.48` was reached through the recorded BatchMode SSH
+alias. The service was rebuilt with the approved eSDK and run against the real QMMF camera
+through the compatibility FW camera service, owned QNN HTP engine and staged
+YOLOv8n-person package.
+
+```text
+qtiqmmfsrc -> RAW lease -> preprocess -> QNN HTP -> decode/tracking
+  -> QTI DMA pool -> qtivoverlay -> v4l2h264enc -> released ring
+  -> compatibility FW RTSP -> ffmpeg client
+```
+
+The 1280x720 run returned 2-4 tracked person observations per routed result. A client
+joined after startup and decoded a frame with three green person boxes. Visual inspection
+confirmed the former green top band was gone. The repaired defects were: copying NV12 by
+declared plane offset/stride; using a GPU-aligned QTI DMA surface required by
+`qtivoverlay`; using Qualcomm's `0xRRGGBBAA` color order with nonzero alpha; and emitting
+periodic IDR frames with SPS/PPS for bounded-ring late join.
+
+Board values were supplied explicitly: BT.709, progressive, 4,000,000 bit/s, GOP interval
+8, four output surfaces and opaque green `0x00FF00FF`. These are test values, not product
+defaults. Because the compatibility camera uses memfd, the test includes CPU copies and
+does not prove released-FW DMA-BUF interop, zero-copy, model accuracy, performance,
+recording/UI behavior or long-run stability.

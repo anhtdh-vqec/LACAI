@@ -20,15 +20,13 @@ Subcommands:
   simulate  self-test: encode videotestsrc into the ring (stand-in producer)
 
 Examples:
-  vqec_vision_ring_rtsp.py read --ring-id encoded_ai_detect0_cam0_ch0 --port 8554
-  vqec_vision_ring_rtsp.py simulate --ring-id encoded_ai_detect0_cam0_ch0
+  vqec_vision_ring_rtsp.py read --ring-id encoded_ai_detect0_cam0_ch0 \
+      --port 8554 --mount /detect0 --fps 30
 """
 
 import argparse
-import array
 import mmap
 import os
-import socket
 import struct
 import sys
 import time
@@ -36,7 +34,8 @@ import time
 import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import GLib, Gst  # noqa: E402
+gi.require_version("GstRtspServer", "1.0")
+from gi.repository import GLib, Gst, GstRtspServer  # noqa: E402
 
 RING_VERSION = 5
 SLOT_COUNT = 16
@@ -71,6 +70,22 @@ S_CODEC = 176
 S_H264_SPS = 208
 S_H264_PPS = 720
 SPS_PPS_MAX = 512
+H264_SPS_NAL_TYPE = 7
+H264_PPS_NAL_TYPE = 8
+RTP_H264_PAYLOAD_TYPE = 96
+NANOSECONDS_PER_SECOND = 1_000_000_000
+
+
+def has_h264_parameter_sets(payload):
+    nal_types = set()
+    for index in range(max(0, len(payload) - 3)):
+        if (index + 4 < len(payload) and
+                payload[index:index + 4] == b"\x00\x00\x00\x01"):
+            nal_types.add(payload[index + 4] & 0x1F)
+        elif (index + 3 < len(payload) and
+              payload[index:index + 3] == b"\x00\x00\x01"):
+            nal_types.add(payload[index + 3] & 0x1F)
+    return H264_SPS_NAL_TYPE in nal_types and H264_PPS_NAL_TYPE in nal_types
 
 
 def shm_path(ring_id):
@@ -140,6 +155,8 @@ class RingReader:
         if data_size == 0 or data_size > self.payload_size():
             return None
         sequence_value = self.u64(base + S_SEQUENCE)
+        if sequence_value != sequence:
+            return None
         keyframe = self.u32(base + S_IS_KEYFRAME) != 0
         codec = self.mapping[base + S_CODEC:base + S_CODEC + 4].split(b"\0", 1)[0]
         payload = bytes(self.mapping[base + self.slot_header_size():
@@ -152,31 +169,57 @@ class RingReader:
 
 
 class RtspPublisher:
-    def __init__(self, port, mount):
-        self.pipeline = Gst.parse_launch(
-            f"appsrc name=src is-live=true format=time "
-            f"! h264parse config-interval=1 "
-            f"! qtirtspbin address=0.0.0.0 port={port} mpoint={mount}")
-        self.appsrc = self.pipeline.get_by_name("src")
-        caps = Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au")
-        self.appsrc.set_property("caps", caps)
-        self.pipeline.set_state(Gst.State.PLAYING)
+    def __init__(self, port, mount, fps):
+        self.appsrc = None
+        self.generation = 0
+        self.duration_ns = NANOSECONDS_PER_SECOND // fps
+        self.server = GstRtspServer.RTSPServer.new()
+        self.server.set_address("0.0.0.0")
+        self.server.set_service(str(port))
+        self.factory = GstRtspServer.RTSPMediaFactory.new()
+        self.factory.set_shared(True)
+        self.factory.set_launch(
+            "( appsrc name=src is-live=true format=time "
+            "caps=video/x-h264,stream-format=byte-stream,alignment=au "
+            "! h264parse config-interval=-1 "
+            f"! rtph264pay name=pay0 pt={RTP_H264_PAYLOAD_TYPE} )")
+        self.factory.connect("media-configure", self._media_configure)
+        self.server.get_mount_points().add_factory(mount, self.factory)
+        if self.server.attach(None) == 0:
+            raise RuntimeError("failed to attach the RTSP server")
+
+    def _media_configure(self, _factory, media):
+        element = media.get_element()
+        self.appsrc = element.get_by_name("src")
+        self.generation += 1
+        media.connect("unprepared", self._media_unprepared)
+
+    def _media_unprepared(self, _media):
+        self.appsrc = None
+        self.generation += 1
+
+    def ready(self):
+        return self.appsrc is not None
 
     def push(self, payload, pts_ns):
+        if self.appsrc is None:
+            return
         buf = Gst.Buffer.new_allocate(None, len(payload), None)
         buf.fill(0, payload)
         buf.pts = pts_ns
-        buf.duration = 33333333
+        buf.duration = self.duration_ns
         self.appsrc.emit("push-buffer", buf)
 
     def stop(self):
-        self.appsrc.emit("end-of-stream")
-        self.pipeline.set_state(Gst.State.NULL)
+        if self.appsrc is not None:
+            self.appsrc.emit("end-of-stream")
 
 
 
 def run_read(args):
+    if args.fps <= 0:
+        print("--fps must be greater than zero", file=sys.stderr)
+        return 2
     Gst.init(None)
     reader = RingReader(shm_path(args.ring_id))
     if not reader.open():
@@ -184,21 +227,30 @@ def run_read(args):
         return 1
     print(f"ring open: header={reader.header_size()} slot_hdr={reader.slot_header_size()} "
           f"slots={reader.slot_count()} payload={reader.payload_size()}", flush=True)
-    publisher = RtspPublisher(args.port, args.mount)
-    state = {"next": reader.write_sequence(), "started": False, "pushed": 0}
+    publisher = RtspPublisher(args.port, args.mount, args.fps)
+    state = {"next": 0, "started": False, "pushed": 0, "generation": -1}
 
     def poll():
+        if not publisher.ready():
+            return True
+        if state["generation"] != publisher.generation:
+            current = reader.write_sequence()
+            state["next"] = max(0, current - reader.slot_count())
+            state["started"] = False
+            state["generation"] = publisher.generation
         current = reader.write_sequence()
         while state["next"] < current:
             slot = reader.read_slot(state["next"])
             state["next"] += 1
             if slot is None:
                 continue
+            if slot["codec"] != b"H264":
+                continue
             if not state["started"]:
-                if not slot["keyframe"]:
+                if not slot["keyframe"] or not has_h264_parameter_sets(slot["payload"]):
                     continue
                 state["started"] = True
-            publisher.push(slot["payload"], slot["sequence"] * 33333333)
+            publisher.push(slot["payload"], slot["sequence"] * publisher.duration_ns)
             state["pushed"] += 1
             if state["pushed"] % 60 == 0:
                 print(f"pushed={state['pushed']}", flush=True)
@@ -220,9 +272,10 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     read = sub.add_parser("read")
-    read.add_argument("--ring-id", default="encoded_ai_detect0_cam0_ch0")
-    read.add_argument("--port", default="8554")
-    read.add_argument("--mount", default="/live/ai/detect0")
+    read.add_argument("--ring-id", required=True)
+    read.add_argument("--port", required=True)
+    read.add_argument("--mount", required=True)
+    read.add_argument("--fps", type=int, required=True)
     read.set_defaults(func=run_read)
 
 

@@ -17,14 +17,21 @@ namespace vqec::vision::ai {
 // GstVideoRegionOfInterestMeta with an "ObjectDetection" param), encodes H.264 with
 // v4l2h264enc and writes each access unit into the released FW shared-memory ring that the
 // FW RTSP service reads. It is a private adapter: no GStreamer or vendor type crosses this
-// boundary, and it never draws on the CPU.
+// boundary. Pixel repacking currently uses the CPU, while box drawing remains on qtivoverlay.
 struct qtiv_renderer_config {
-    std::string ring_id_{"encoded_ai_detect0_cam0_ch0"};
+    std::string ring_id_;
     std::uint32_t width_{0};
     std::uint32_t height_{0};
-    std::uint32_t fps_{30};
+    std::uint32_t fps_{0};
     std::uint32_t bitrate_bps_{0};
-    std::uint32_t box_color_argb_{0xFF00FF00U};
+    std::uint32_t keyframe_interval_frames_{0};
+    std::uint32_t output_surface_count_{0};
+    // qtivoverlay uses 0xRRGGBBAA; alpha is the least-significant byte.
+    std::uint32_t box_color_rgba_{0};
+    // Required deployment values. The adapter passes them to GStreamer caps and never
+    // guesses camera colorimetry or scan mode.
+    std::string colorimetry_;
+    std::string interlace_mode_;
 };
 
 class qtiv_renderer final {

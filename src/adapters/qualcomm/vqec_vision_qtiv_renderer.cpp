@@ -1,7 +1,7 @@
 #include "vqec_vision_qtiv_renderer.hpp"
 
 #include <cstring>
-#include <vector>
+#include <limits>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -9,14 +9,170 @@
 
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
+#include <gst/allocators/gstqtiallocator.h>
 #include <gst/gst.h>
+#include <gst/video/gstimagepool.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
+#include <gst/video/video-utils.h>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {
+
+constexpr std::size_t g_nv12_plane_count = 2U;
+constexpr std::size_t g_nv12_chroma_row_divisor = 2U;
+constexpr std::uint32_t g_rgba_alpha_mask = 0xFFU;
+
+GstBufferPool* vqec_vision_ai_qcom_qtvr_create_output_pool(
+    GstCaps* _caps, guint _surface_count) {
+    GstVideoInfo info{};
+    GstVideoAlignment alignment{};
+    if (_caps == nullptr || !gst_video_info_from_caps(&info, _caps) ||
+        !gst_video_retrieve_gpu_alignment(&info, &alignment)) {
+        return nullptr;
+    }
+    GstBufferPool* pool = gst_image_buffer_pool_new();
+    GstAllocator* allocator = gst_qti_allocator_new(GST_FD_MEMORY_FLAG_KEEP_MAPPED);
+    if (pool == nullptr || allocator == nullptr) {
+        if (pool != nullptr) {
+            gst_object_unref(pool);
+        }
+        if (allocator != nullptr) {
+            gst_object_unref(allocator);
+        }
+        return nullptr;
+    }
+    GstStructure* config = gst_buffer_pool_get_config(pool);
+    gst_buffer_pool_config_set_allocator(config, allocator, nullptr);
+    gst_object_unref(allocator);
+    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_META);
+    gst_buffer_pool_config_add_option(config, GST_IMAGE_BUFFER_POOL_OPTION_KEEP_MAPPED);
+    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT);
+    gst_buffer_pool_config_set_video_alignment(config, &alignment);
+    gst_video_info_align(&info, &alignment);
+    gst_buffer_pool_config_set_params(
+        config, _caps, info.size, _surface_count, _surface_count);
+    if (!gst_buffer_pool_set_config(pool, config) || !gst_buffer_pool_set_active(pool, TRUE)) {
+        gst_object_unref(pool);
+        return nullptr;
+    }
+    return pool;
+}
+
+GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(
+    const raw_frame& _frame, GstBufferPool* _pool) {
+    const auto& descriptor = _frame.descriptor_;
+    if (_frame.native_handle_ < 0 ||
+        _frame.native_handle_ > std::numeric_limits<int>::max() ||
+        descriptor.width_ == 0 || descriptor.height_ == 0 ||
+        descriptor.width_ % g_nv12_chroma_row_divisor != 0 ||
+        descriptor.height_ % g_nv12_chroma_row_divisor != 0 ||
+        descriptor.allocation_size_bytes_ == 0 || descriptor.view_size_bytes_ == 0 ||
+        descriptor.memory_offset_bytes_ > descriptor.allocation_size_bytes_ ||
+        descriptor.view_size_bytes_ >
+            descriptor.allocation_size_bytes_ - descriptor.memory_offset_bytes_) {
+        return nullptr;
+    }
+    const std::size_t width = descriptor.width_;
+    const std::size_t height = descriptor.height_;
+    const std::size_t chroma_rows = height / g_nv12_chroma_row_divisor;
+    for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
+        const std::size_t rows = plane == 0 ? height : chroma_rows;
+        if (descriptor.strides_[plane] < static_cast<std::int32_t>(width) ||
+            descriptor.offsets_[plane] > descriptor.view_size_bytes_ ||
+            rows > (descriptor.view_size_bytes_ - descriptor.offsets_[plane]) /
+                static_cast<std::size_t>(descriptor.strides_[plane])) {
+            return nullptr;
+        }
+    }
+    void* mapped = ::mmap(nullptr, static_cast<std::size_t>(descriptor.allocation_size_bytes_),
+        PROT_READ, MAP_SHARED, static_cast<int>(_frame.native_handle_), 0);
+    if (mapped == MAP_FAILED) {
+        return nullptr;
+    }
+    GstBuffer* buffer = nullptr;
+    if (_pool == nullptr ||
+        gst_buffer_pool_acquire_buffer(_pool, &buffer, nullptr) != GST_FLOW_OK) {
+        ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+        return nullptr;
+    }
+    GstMapInfo map{};
+    const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+    if (copied) {
+        const auto* base = static_cast<const std::uint8_t*>(mapped) +
+            descriptor.memory_offset_bytes_;
+        const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
+        if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
+            gst_buffer_unmap(buffer, &map);
+            ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+            gst_buffer_unref(buffer);
+            return nullptr;
+        }
+        for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
+            const std::size_t rows = plane == 0 ? height : chroma_rows;
+            const auto* source = base + descriptor.offsets_[plane];
+            const std::size_t source_stride =
+                static_cast<std::size_t>(descriptor.strides_[plane]);
+            const std::size_t destination_offset = output_meta->offset[plane];
+            const std::size_t destination_stride =
+                static_cast<std::size_t>(output_meta->stride[plane]);
+            if (destination_stride < width || destination_offset > map.size ||
+                rows > (map.size - destination_offset) / destination_stride) {
+                gst_buffer_unmap(buffer, &map);
+                ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+                gst_buffer_unref(buffer);
+                return nullptr;
+            }
+            for (std::size_t row = 0; row < rows; ++row) {
+                std::memcpy(map.data + destination_offset + row * destination_stride,
+                    source + row * source_stride, width);
+            }
+        }
+        gst_buffer_unmap(buffer, &map);
+    }
+    ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+    if (!copied) {
+        if (buffer != nullptr) {
+            gst_buffer_unref(buffer);
+        }
+        return nullptr;
+    }
+    return buffer;
+}
+
+status vqec_vision_ai_qcom_qtvr_read_pipeline_error(GstElement* _pipeline) {
+    GstBus* bus = gst_element_get_bus(_pipeline);
+    if (bus == nullptr) {
+        return {status_code::invalid_state, "qtiv renderer pipeline has no bus"};
+    }
+    GstMessage* message = gst_bus_pop_filtered(bus,
+        static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+    gst_object_unref(bus);
+    if (message == nullptr) {
+        return {};
+    }
+    status result{status_code::io_error, "qtiv renderer pipeline stopped"};
+    if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR) {
+        GError* error = nullptr;
+        gchar* debug = nullptr;
+        gst_message_parse_error(message, &error, &debug);
+        if (error != nullptr && error->message != nullptr) {
+            result.message_ = error->message;
+        }
+        if (debug != nullptr) {
+            result.message_ += ": ";
+            result.message_ += debug;
+        }
+        if (error != nullptr) {
+            g_error_free(error);
+        }
+        g_free(debug);
+    }
+    gst_message_unref(message);
+    return result;
+}
 
 namespace ring_layout {
 inline constexpr std::uint32_t g_version = 5;
@@ -94,7 +250,10 @@ public:
         const std::size_t base = ring_layout::g_header_size +
             index * (ring_layout::g_slot_header_size + ring_layout::g_payload_size);
         auto* slot = static_cast<std::uint8_t*>(mapping_);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, static_cast<std::uint32_t>(1));
+        const std::uint32_t write_started =
+            static_cast<std::uint32_t>((sequence_ * 2U) + 1U);
+        const std::uint32_t write_finished = write_started + 1U;
+        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, write_started);
         vqec_vision_ai_qcom_qtvr_store(slot, base + 8, static_cast<std::uint32_t>(_size));
         vqec_vision_ai_qcom_qtvr_store(slot, base + 20, _width);
         vqec_vision_ai_qcom_qtvr_store(slot, base + 24, _height);
@@ -105,7 +264,7 @@ public:
         vqec_vision_ai_qcom_qtvr_store(slot, base + 104, sequence_);
         std::memcpy(slot + base + 176, "H264", 4);
         std::memcpy(slot + base + ring_layout::g_slot_header_size, _data, _size);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, static_cast<std::uint32_t>(0));
+        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, write_finished);
         ++sequence_;
         vqec_vision_ai_qcom_qtvr_store(slot, ring_layout::g_h_write_sequence, sequence_);
         return true;
@@ -126,8 +285,8 @@ struct qtiv_renderer::implementation {
     GstElement* pipeline_{nullptr};
     GstElement* appsrc_{nullptr};
     GstElement* appsink_{nullptr};
+    GstBufferPool* output_pool_{nullptr};
     fw_ring_writer ring_;
-    std::vector<std::uint8_t> frame_buffer_;
     std::uint64_t written_{0};
     // Monotonic push counter for PTS; it must advance on every push even when the encoder
     // has not produced an access unit yet, otherwise a reused PTS stalls v4l2h264enc.
@@ -148,7 +307,11 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         return {status_code::invalid_state, "qtiv renderer is already initialized"};
     }
     if (_config.width_ == 0 || _config.height_ == 0 || _config.fps_ == 0 ||
-        _config.ring_id_.empty()) {
+        _config.bitrate_bps_ == 0 || _config.keyframe_interval_frames_ == 0 ||
+        _config.output_surface_count_ == 0 ||
+        (_config.box_color_rgba_ & g_rgba_alpha_mask) == 0 ||
+        _config.ring_id_.empty() || _config.colorimetry_.empty() ||
+        _config.interlace_mode_.empty()) {
         return {status_code::invalid_argument, "invalid qtiv renderer configuration"};
     }
     impl.config_ = _config;
@@ -156,14 +319,17 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         return {status_code::io_error, "cannot open the FW encoded ring"};
     }
     gst_init(nullptr, nullptr);
-    const std::string bitrate = std::to_string(
-        _config.bitrate_bps_ != 0 ? _config.bitrate_bps_ : 2000000U);
+    const std::string bitrate = std::to_string(_config.bitrate_bps_);
+    const std::string keyframe_interval =
+        std::to_string(_config.keyframe_interval_frames_);
     const std::string description =
         "appsrc name=src is-live=true format=time"
-        " ! queue ! qtivoverlay"
-        " ! videoconvert ! video/x-raw,format=NV12"
-        " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate + "\""
-        " ! h264parse config-interval=1"
+        " ! queue ! capsfilter name=surfacecaps ! qtivoverlay"
+        " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate +
+        ",video_gop_size=" + keyframe_interval + "\""
+        // Repeat SPS/PPS on every IDR so a late RTSP reader can start from any retained
+        // keyframe in the bounded ring.
+        " ! h264parse config-interval=-1"
         " ! appsink name=enc max-buffers=2 drop=true sync=false";
     GError* error = nullptr;
     impl.pipeline_ = gst_parse_launch(description.c_str(), &error);
@@ -175,17 +341,37 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
     }
     impl.appsrc_ = gst_bin_get_by_name(GST_BIN(impl.pipeline_), "src");
     impl.appsink_ = gst_bin_get_by_name(GST_BIN(impl.pipeline_), "enc");
-    if (impl.appsrc_ == nullptr || impl.appsink_ == nullptr) {
-        return {status_code::unsupported, "qtivoverlay pipeline is missing appsrc/appsink"};
+    GstElement* surface_caps = gst_bin_get_by_name(GST_BIN(impl.pipeline_), "surfacecaps");
+    if (impl.appsrc_ == nullptr || impl.appsink_ == nullptr || surface_caps == nullptr) {
+        if (surface_caps != nullptr) {
+            gst_object_unref(surface_caps);
+        }
+        return {status_code::unsupported,
+            "qtivoverlay pipeline is missing appsrc, surface caps, or appsink"};
     }
     GstCaps* caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12",
         "width", G_TYPE_INT, static_cast<int>(_config.width_), "height", G_TYPE_INT,
         static_cast<int>(_config.height_), "framerate", GST_TYPE_FRACTION,
-        static_cast<int>(_config.fps_), 1, nullptr);
+        static_cast<int>(_config.fps_), 1, "colorimetry", G_TYPE_STRING,
+        _config.colorimetry_.c_str(), "interlace-mode", G_TYPE_STRING,
+        _config.interlace_mode_.c_str(), nullptr);
     g_object_set(G_OBJECT(impl.appsrc_), "caps", caps, nullptr);
+    // Fix the renderer surface contract to the complete negotiated camera profile.
+    g_object_set(G_OBJECT(surface_caps), "caps", caps, nullptr);
+    impl.output_pool_ = vqec_vision_ai_qcom_qtvr_create_output_pool(
+        caps, _config.output_surface_count_);
+    gst_object_unref(surface_caps);
     gst_caps_unref(caps);
-    gst_element_set_state(impl.pipeline_, GST_STATE_PLAYING);
+    if (impl.output_pool_ == nullptr) {
+        return {status_code::resource_exhausted,
+            "cannot create the Qualcomm DMA render pool"};
+    }
     impl.is_open_ = true;
+    if (gst_element_set_state(impl.pipeline_, GST_STATE_PLAYING) ==
+        GST_STATE_CHANGE_FAILURE) {
+        vqec_vision_ai_qcom_qtvr_close();
+        return {status_code::io_error, "cannot start the qtivoverlay encode pipeline"};
+    }
     return {};
 }
 
@@ -195,26 +381,11 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         return {status_code::invalid_state, "qtiv renderer is not initialized"};
     }
     auto& impl = *implementation_;
-    const std::size_t size = static_cast<std::size_t>(_frame.descriptor_.view_size_bytes_);
-    if (size == 0 || _frame.native_handle_ < 0) {
-        return {status_code::invalid_argument, "qtiv renderer needs a mapped NV12 frame"};
+    GstBuffer* buffer = vqec_vision_ai_qcom_qtvr_copy_nv12(_frame, impl.output_pool_);
+    if (buffer == nullptr) {
+        return {status_code::io_error,
+            "cannot copy the NV12 frame into the Qualcomm render surface"};
     }
-    impl.frame_buffer_.resize(size);
-    const int fd = static_cast<int>(_frame.native_handle_);
-    if (::lseek(fd, 0, SEEK_SET) < 0 ||
-        ::read(fd, impl.frame_buffer_.data(), size) != static_cast<ssize_t>(size)) {
-        return {status_code::io_error, "cannot read the NV12 frame for rendering"};
-    }
-    GstBuffer* buffer = gst_buffer_new_allocate(nullptr, size, nullptr);
-    GstMapInfo map {};
-    if (buffer == nullptr || !gst_buffer_map(buffer, &map, GST_MAP_WRITE)) {
-        if (buffer != nullptr) {
-            gst_buffer_unref(buffer);
-        }
-        return {status_code::resource_exhausted, "cannot map the render buffer"};
-    }
-    std::memcpy(map.data, impl.frame_buffer_.data(), size);
-    gst_buffer_unmap(buffer, &map);
     for (const auto& item : _observations.observations_) {
         GstVideoRegionOfInterestMeta* roi = gst_buffer_add_video_region_of_interest_meta(
             buffer, item.class_id_.c_str(),
@@ -225,15 +396,22 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         }
         GstStructure* structure = gst_structure_new("ObjectDetection",
             "confidence", G_TYPE_DOUBLE, static_cast<gdouble>(item.confidence_),
-            "color", G_TYPE_UINT, impl.config_.box_color_argb_, nullptr);
+            "color", G_TYPE_UINT, impl.config_.box_color_rgba_, nullptr);
         gst_video_region_of_interest_meta_add_param(roi, structure);
     }
-    GST_BUFFER_PTS(buffer) = impl.submitted_ * 1000000000ULL / impl.config_.fps_;
-    GST_BUFFER_DURATION(buffer) = 1000000000ULL / impl.config_.fps_;
+    GST_BUFFER_PTS(buffer) = impl.submitted_ * GST_SECOND / impl.config_.fps_;
+    GST_BUFFER_DURATION(buffer) = GST_SECOND / impl.config_.fps_;
     ++impl.submitted_;
-    gst_app_src_push_buffer(GST_APP_SRC(impl.appsrc_), buffer);
+    const GstFlowReturn pushed = gst_app_src_push_buffer(GST_APP_SRC(impl.appsrc_), buffer);
+    if (pushed != GST_FLOW_OK) {
+        return {status_code::io_error, "qtiv renderer appsrc rejected the frame"};
+    }
     GstSample* sample = gst_app_sink_try_pull_sample(GST_APP_SINK(impl.appsink_), GST_SECOND);
     if (sample == nullptr) {
+        const auto pipeline = vqec_vision_ai_qcom_qtvr_read_pipeline_error(impl.pipeline_);
+        if (pipeline.code_ != status_code::ok) {
+            return pipeline;
+        }
         return {status_code::pending, "encoder produced no access unit"};
     }
     GstBuffer* encoded = gst_sample_get_buffer(sample);
@@ -278,6 +456,11 @@ void qtiv_renderer::vqec_vision_ai_qcom_qtvr_close() noexcept {
     if (impl.pipeline_ != nullptr) {
         gst_object_unref(impl.pipeline_);
         impl.pipeline_ = nullptr;
+    }
+    if (impl.output_pool_ != nullptr) {
+        gst_buffer_pool_set_active(impl.output_pool_, FALSE);
+        gst_object_unref(impl.output_pool_);
+        impl.output_pool_ = nullptr;
     }
     impl.ring_.close();
     impl.is_open_ = false;

@@ -34,8 +34,9 @@ import threading
 import gi
 
 gi.require_version("Gst", "1.0")
+gi.require_version("GstVideo", "1.0")
 gi.require_version("Gio", "2.0")
-from gi.repository import Gio, GLib, Gst  # noqa: E402
+from gi.repository import Gio, GLib, Gst, GstVideo  # noqa: E402
 
 FRAME_HEADER = struct.Struct("<QIIII4I4iQQQQQQ")
 RETURN_HEADER = struct.Struct("<Q")
@@ -88,7 +89,6 @@ class CameraPipeline:
         self.args = args
         self.pipeline = None
         self.appsink = None
-        self.memfd = -1
 
     def start(self):
         desc = (
@@ -99,7 +99,6 @@ class CameraPipeline:
         )
         self.pipeline = Gst.parse_launch(desc)
         self.appsink = self.pipeline.get_by_name("cap")
-        self.memfd = os.memfd_create("fwsim_frame", 0)
         state = self.pipeline.set_state(Gst.State.PLAYING)
         if state == Gst.StateChangeReturn.FAILURE:
             raise RuntimeError("camera pipeline failed to start")
@@ -108,10 +107,6 @@ class CameraPipeline:
         if self.pipeline is not None:
             self.pipeline.set_state(Gst.State.NULL)
             self.pipeline = None
-        if self.memfd >= 0:
-            os.close(self.memfd)
-            self.memfd = -1
-
     def next_fd(self, timeout_ns):
         sample = self.appsink.emit("try-pull-sample", timeout_ns)
         if sample is None:
@@ -120,14 +115,29 @@ class CameraPipeline:
         ok, info = buf.map(Gst.MapFlags.READ)
         if not ok:
             return None
-        data = bytes(info.data)
-        buf.unmap(info)
         frame_size = self.args.width * self.args.height * 3 // 2
-        if len(data) < frame_size:
+        meta = GstVideo.buffer_get_video_meta(buf)
+        if meta is None or meta.n_planes != 2:
+            buf.unmap(info)
             return None
-        os.ftruncate(self.memfd, frame_size)
-        os.pwrite(self.memfd, data[:frame_size], 0)
-        return self.memfd, frame_size
+        packed = bytearray(frame_size)
+        destination = 0
+        for plane, rows in ((0, self.args.height), (1, self.args.height // 2)):
+            offset = meta.offset[plane]
+            stride = meta.stride[plane]
+            if stride < self.args.width or offset + rows * stride > len(info.data):
+                buf.unmap(info)
+                return None
+            for row in range(rows):
+                start = offset + row * stride
+                packed[destination:destination + self.args.width] = \
+                    info.data[start:start + self.args.width]
+                destination += self.args.width
+        buf.unmap(info)
+        frame_fd = os.memfd_create("fwsim_frame", 0)
+        os.ftruncate(frame_fd, frame_size)
+        os.pwrite(frame_fd, packed, 0)
+        return frame_fd, frame_size
 
 
 class RawFrameProducer:
@@ -195,20 +205,26 @@ class RawFrameProducer:
 
         def ack_reader():
             client.settimeout(0.5)
-            while not stop["value"]:
-                try:
-                    ack = client.recv(RETURN_HEADER.size)
-                except socket.timeout:
-                    continue
-                except OSError:
-                    break
-                if len(ack) != RETURN_HEADER.size:
-                    break
-                with lock:
-                    in_flight["count"] -= 1
+            try:
+                while not stop["value"]:
+                    try:
+                        ack = client.recv(RETURN_HEADER.size)
+                    except socket.timeout:
+                        continue
+                    except OSError:
+                        break
+                    if len(ack) != RETURN_HEADER.size:
+                        break
+                    with lock:
+                        in_flight["count"] = max(0, in_flight["count"] - 1)
+            finally:
+                # Wake the producer loop when the consumer disappears. Otherwise a full
+                # in-flight window can keep this connection alive forever and prevent the
+                # listening socket from accepting the next LACAI process.
+                stop["value"] = True
 
         threading.Thread(target=ack_reader, daemon=True).start()
-        while self.running:
+        while self.running and not stop["value"]:
             got = self.camera.next_fd(Gst.SECOND)
             if got is None:
                 continue
@@ -225,7 +241,13 @@ class RawFrameProducer:
                 size, 0, alloc,                        # size, mem_offset, mem_maxsize
                 self.buf_id * 1000000000 // self.args.fps, 0, 1000000000 // self.args.fps)
             fd_array = array.array("i", [fd])
-            client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
+            try:
+                client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
+            finally:
+                # SCM_RIGHTS gives the receiver an independent descriptor reference.
+                # Close this frame's producer descriptor immediately; never overwrite a
+                # file that an in-flight consumer still owns.
+                os.close(fd)
             self.frames_sent += 1
             if self.args.max_frames and self.frames_sent >= self.args.max_frames:
                 self.running = False

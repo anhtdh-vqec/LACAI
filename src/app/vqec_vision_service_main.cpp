@@ -166,6 +166,11 @@ struct parsed_arguments {
     std::uint32_t nv12_format_value{23};
     std::string output_ring_id;
     std::uint32_t output_bitrate_bps{0};
+    std::uint32_t output_keyframe_interval_frames{0};
+    std::uint32_t output_box_color_rgba{0};
+    std::uint32_t output_surface_count{0};
+    std::string output_colorimetry;
+    std::string output_interlace_mode;
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -212,6 +217,19 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
         } else if (option == "--output-bitrate" && has_value) {
             _args.output_bitrate_bps = static_cast<std::uint32_t>(
                 std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--output-keyframe-interval" && has_value) {
+            _args.output_keyframe_interval_frames = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--output-box-color-rgba" && has_value) {
+            _args.output_box_color_rgba = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 0));
+        } else if (option == "--output-surface-count" && has_value) {
+            _args.output_surface_count = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--output-colorimetry" && has_value) {
+            _args.output_colorimetry = _argv[++index];
+        } else if (option == "--output-interlace-mode" && has_value) {
+            _args.output_interlace_mode = _argv[++index];
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -248,7 +266,13 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>] "
-            "[--mode harness|production] [--platform fake]\n");
+            "[--mode harness|production] [--platform fake|reference|qualcomm] "
+            "[--output-ring-id <id> --output-bitrate <bps> "
+            "--output-keyframe-interval <frames> "
+            "--output-box-color-rgba <0xRRGGBBAA> "
+            "--output-surface-count <count> "
+            "--output-colorimetry <gst-colorimetry> "
+            "--output-interlace-mode <gst-interlace-mode>]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -310,6 +334,12 @@ int main(int _argc, char** _argv) {
         production_config.nv12_format_value_ = args.nv12_format_value;
         production_config.output_ring_id_ = args.output_ring_id;
         production_config.output_bitrate_bps_ = args.output_bitrate_bps;
+        production_config.output_keyframe_interval_frames_ =
+            args.output_keyframe_interval_frames;
+        production_config.output_box_color_rgba_ = args.output_box_color_rgba;
+        production_config.output_surface_count_ = args.output_surface_count;
+        production_config.output_colorimetry_ = args.output_colorimetry;
+        production_config.output_interlace_mode_ = args.output_interlace_mode;
         const auto configured = production.vqec_vision_ai_appl_pdplt_configure(production_config);
         if (configured.code_ != status_code::ok) {
             std::fprintf(stderr, "production platform configure failed (%d): %s\n",
@@ -695,7 +725,8 @@ int main(int _argc, char** _argv) {
                             const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
                                 taken.source_index_, result_frame,
                                 tracked[taken.model_slot_]);
-                            if (rendered.code_ != status_code::ok) {
+                            if (rendered.code_ != status_code::ok &&
+                                rendered.code_ != status_code::pending) {
                                 std::fprintf(stderr, "render failed (%d): %s\n",
                                     static_cast<int>(rendered.code_),
                                     rendered.message_.c_str());
