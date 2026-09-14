@@ -20,6 +20,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         return {status_code::invalid_argument, "executor requires monotonic steady time"};
     }
     last_now_ns_ = _steady_now_ns;
+    ++metrics_.steps_;
     if (has_pending_) {
         return {status_code::pending, "consume the routed result before progress"};
     }
@@ -72,6 +73,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
     pending_report_.first_error_code_ = processed.code_;
     has_pending_ = true;
+    ++metrics_.results_routed_;
     _report = pending_report_;
     return {};
 }
@@ -163,6 +165,9 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
             }
         }
     }
+    metrics_.events_delivered_ += _report.delivered_;
+    metrics_.events_denied_ += _report.denied_;
+    metrics_.events_failed_ += _report.failed_;
     return _report.first_error_code_ == status_code::ok ?
         status{} :
         status{_report.first_error_code_, "feature event delivery rejected an output"};
@@ -171,6 +176,11 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
 application_composition_snapshot
 runtime_executor::vqec_vision_ai_appl_rtexe_get_snapshot() const noexcept {
     return composition_.vqec_vision_ai_cntr_acomp_get_snapshot();
+}
+
+runtime_executor_metrics
+runtime_executor::vqec_vision_ai_appl_rtexe_get_metrics() const noexcept {
+    return metrics_;
 }
 
 bool runtime_executor::vqec_vision_ai_appl_rtexe_has_pending() const noexcept {

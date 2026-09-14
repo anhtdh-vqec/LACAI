@@ -96,6 +96,13 @@ model/feature/tracker contracts. `temporal_join` features remain a documented
 activation-time gap: the harness wires only `single_model` features and rejects nothing,
 it simply does not join across models yet.
 
+## Metrics
+
+`vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
+events delivered/denied/failed). The service prints one `metrics ...` line at stop. This is
+a seed telemetry surface, not a histogram/export pipeline; per-stage latency histograms and
+a metrics sink/transport are still open.
+
 ## Limits
 
 - No authenticated catalog/artifact resolution, signature or TOCTOU protection; loaders

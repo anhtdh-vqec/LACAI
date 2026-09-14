@@ -31,7 +31,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 14 | Reference tracker | **done** | this change |
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
-| 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
+| 17 | Metrics & tracing | partial | supervisor/worker/pool snapshots + executor counters printed by the service; histograms/transport pending |
 | 18 | CMake modularization | partial | reference + scheduler/worker moved to module CMakeLists; root still owns the rest |
 | 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR` + `VQEC_VISION_AI_SANITIZE` host build; `host-sanitizers` CI job added; clang-tidy still pending |
 | 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness + nightly `fuzz` CI job; manifest/result parsers pending |

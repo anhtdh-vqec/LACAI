@@ -25,6 +25,17 @@ struct runtime_executor_report {
     bool has_feature_fanout_{false};
 };
 
+// Device-free telemetry surface for the executor. Counters are cumulative for the life of
+// the executor; gauges live in the composition snapshot. This is a seed for a metrics sink,
+// not a performance claim.
+struct runtime_executor_metrics {
+    std::uint64_t steps_{0};
+    std::uint64_t results_routed_{0};
+    std::uint64_t events_delivered_{0};
+    std::uint64_t events_denied_{0};
+    std::uint64_t events_failed_{0};
+};
+
 struct feature_dispatch_report {
     std::uint32_t attempted_{0};
     std::uint32_t delivered_{0};
@@ -73,6 +84,8 @@ public:
         std::uint64_t _steady_now_ns, feature_dispatch_report& _report);
     [[nodiscard]] application_composition_snapshot
     vqec_vision_ai_appl_rtexe_get_snapshot() const noexcept;
+    [[nodiscard]] runtime_executor_metrics
+    vqec_vision_ai_appl_rtexe_get_metrics() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_rtexe_has_pending() const noexcept;
 
 private:
@@ -88,6 +101,7 @@ private:
     feature_event_sink_port* delivery_sink_{nullptr};
     std::uint16_t source_count_{0};
     std::uint64_t last_now_ns_{0};
+    runtime_executor_metrics metrics_;
     bool has_pending_{false};
 };
 
