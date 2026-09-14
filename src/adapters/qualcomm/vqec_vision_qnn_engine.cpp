@@ -288,6 +288,13 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         vqec_vision_ai_qcom_qneng_close();
         return {status_code::unsupported, "composed graph tensor metadata is missing"};
     }
+    // Generated model libraries compose a graph but do not finalize it; execute fails with
+    // "graph was not finalized" until graphFinalize runs. Board-discovered on QCS6490.
+    if (impl.qnn_->graphFinalize == nullptr ||
+        impl.qnn_->graphFinalize(graph->graph, nullptr, nullptr) != QNN_SUCCESS) {
+        vqec_vision_ai_qcom_qneng_close();
+        return {status_code::unsupported, "QNN graph finalization failed"};
+    }
     // Resolve and validate tensor identity once, off the execute hot path. An unsupported
     // dtype or a zero-byte shape is rejected here, before any submit, not per frame.
     impl.input_specs_.clear();

@@ -264,6 +264,13 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
     target_link_libraries(vqec_vision_ai_qnn_engine
         PUBLIC vqec_vision_ai_core PRIVATE ${CMAKE_DL_LIBS})
     set_target_properties(vqec_vision_ai_qnn_engine PROPERTIES CXX_EXTENSIONS OFF)
+
+    # Board-only smoke; not registered as a test and never run by the host/QEMU matrix.
+    add_executable(vqec_vision_ai_qnn_engine_smoke
+        tools/vqec_vision_qnn_engine_smoke.cpp)
+    target_link_libraries(vqec_vision_ai_qnn_engine_smoke
+        PRIVATE vqec_vision_ai_qnn_engine)
+    set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 if(UNIX)
