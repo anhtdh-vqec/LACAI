@@ -57,3 +57,16 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
         PRIVATE vqec_vision_ai_qnn_engine)
     set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
+
+# AI-owned encoded output adapter: qtivoverlay (hardware) + v4l2h264enc -> FW ring.
+if(VQEC_VISION_AI_ENABLE_QUALCOMM)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(qtiv_renderer_gst REQUIRED IMPORTED_TARGET
+        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
+    add_library(vqec_vision_ai_qtiv_renderer STATIC vqec_vision_qtiv_renderer.cpp)
+    target_include_directories(vqec_vision_ai_qtiv_renderer PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+    target_link_libraries(vqec_vision_ai_qtiv_renderer
+        PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::qtiv_renderer_gst)
+    set_target_properties(vqec_vision_ai_qtiv_renderer PROPERTIES CXX_EXTENSIONS OFF)
+endif()
