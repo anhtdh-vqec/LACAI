@@ -251,6 +251,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     impl.tracker_factory_ = std::make_unique<platform_tracker_factory>(
         reference_tracker_config{});
     reference_feature_params feature_params;
+    feature_params.zone_ = {0.0F, 0.0F,
+        static_cast<float>(_deployment.sources_.front().profile_.width_),
+        static_cast<float>(_deployment.sources_.front().profile_.height_), 0U, {}};
     feature_params.event_schema_id_ = impl.config_.event_schema_id_;
     feature_params.event_schema_version_ = impl.config_.event_schema_version_;
     impl.feature_factory_ = platform_feature_factory{feature_params};
