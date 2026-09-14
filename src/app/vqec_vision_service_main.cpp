@@ -33,6 +33,7 @@
 #include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_fake_platform.hpp"
+#include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
@@ -155,6 +156,12 @@ struct parsed_arguments {
     // platform implicitly for development only.
     std::string platform{"none"};
     bool production_mode{false};
+    // Production platform owner inputs (Qualcomm).
+    std::string model_package;
+    std::string model_library;
+    std::string camera_socket_dir{"/run/camera_ai"};
+    std::uint32_t camera_producer_uid{0};
+    std::uint32_t nv12_format_value{23};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -184,6 +191,18 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             }
         } else if (option == "--platform" && has_value) {
             _args.platform = _argv[++index];
+        } else if (option == "--model-package" && has_value) {
+            _args.model_package = _argv[++index];
+        } else if (option == "--model-library" && has_value) {
+            _args.model_library = _argv[++index];
+        } else if (option == "--camera-socket-dir" && has_value) {
+            _args.camera_socket_dir = _argv[++index];
+        } else if (option == "--camera-producer-uid" && has_value) {
+            _args.camera_producer_uid = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--nv12-format" && has_value) {
+            _args.nv12_format_value = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -247,7 +266,9 @@ int main(int _argc, char** _argv) {
     // `fake` proves wiring only; `reference` wires the real reference tracker and zone
     // feature. Both are selected by name and never fall back implicitly.
     const bool use_reference_platform = args.platform == "reference";
-    const bool platform_named = args.platform == "fake" || args.platform == "reference";
+    const bool use_production_platform = args.platform == "qualcomm";
+    const bool platform_named = args.platform == "fake" || args.platform == "reference" ||
+        args.platform == "qualcomm";
     if (args.production_mode && !platform_named) {
         std::fprintf(stderr,
             "production mode: --platform %s is not wired; use --platform fake or "
@@ -262,12 +283,45 @@ int main(int _argc, char** _argv) {
     const auto source_height = deployment.sources_.front().profile_.height_;
     fake_platform platform;
     reference_platform reference;
+    production_platform production;
     model_decoder_registry decoders;
     tracker_registry trackers;
     feature_processor_registry feature_registry;
     std::string tracker_contract;
     std::string attribute_schema_id;
-    if (use_reference_platform) {
+    if (use_production_platform) {
+        production_platform_config production_config;
+        production_config.package_dir_ = args.model_package;
+        production_config.model_library_ = args.model_library;
+        production_config.backend_library_ = service_harness::g_backend_library;
+        production_config.system_library_ = service_harness::g_system_library;
+        production_config.socket_dir_ = args.camera_socket_dir;
+        production_config.producer_uid_ = args.camera_producer_uid;
+        production_config.nv12_format_value_ = args.nv12_format_value;
+        const auto configured = production.vqec_vision_ai_appl_pdplt_configure(production_config);
+        if (configured.code_ != status_code::ok) {
+            std::fprintf(stderr, "production platform configure failed (%d): %s\n",
+                static_cast<int>(configured.code_), configured.message_.c_str());
+            return 1;
+        }
+        const auto prepared = production.vqec_vision_ai_appl_pdplt_prepare(deployment, catalog);
+        if (prepared.code_ != status_code::ok) {
+            std::fprintf(stderr, "production platform prepare failed (%d): %s\n",
+                static_cast<int>(prepared.code_), prepared.message_.c_str());
+            return 1;
+        }
+        if (production.vqec_vision_ai_appl_pdplt_register_decoders(catalog, decoders).code_ !=
+                status_code::ok ||
+            production.vqec_vision_ai_appl_pdplt_register_tracker(trackers).code_ !=
+                status_code::ok ||
+            production.vqec_vision_ai_appl_pdplt_register_features(features, feature_registry)
+                    .code_ != status_code::ok) {
+            std::fprintf(stderr, "production platform registration failed\n");
+            return 1;
+        }
+        tracker_contract = production.vqec_vision_ai_appl_pdplt_get_tracker_contract();
+        attribute_schema_id = production.vqec_vision_ai_appl_pdplt_get_attribute_schema_id();
+    } else if (use_reference_platform) {
         const auto configured = reference.vqec_vision_ai_appl_rplat_configure(
             {source_width, source_height});
         if (configured.code_ != status_code::ok) {
@@ -342,15 +396,30 @@ int main(int _argc, char** _argv) {
     output_gate output_policy_gate;
     reference_event_sink event_sink;
 
-    // Platform owners: reference backend for every deployment source/model slot.
-    std::vector<std::unique_ptr<reference_raw_source>> sources;
-    std::vector<std::unique_ptr<reference_inference_graph>> graphs;
+    // Platform owners: production adapters or the device-free reference backend.
+    std::vector<std::unique_ptr<reference_raw_source>> reference_sources;
+    std::vector<std::unique_ptr<reference_inference_graph>> reference_graphs;
+    std::vector<raw_source_port*> sources;
+    std::vector<inference_graph_port*> graphs;
     sources.reserve(deployment.sources_.size());
     graphs.reserve(deployment.sources_.size() * deployment_limits::g_max_models_per_source);
-    for (const auto& source : deployment.sources_) {
-        sources.push_back(std::make_unique<reference_raw_source>(
-            reference_source_config{source.profile_.width_, source.profile_.height_,
-                source.profile_.fps_numerator_, source.profile_.fps_denominator_}));
+    if (use_production_platform) {
+        for (std::uint16_t slot = 0; slot < deployment.sources_.size(); ++slot) {
+            raw_source_port* source = production.vqec_vision_ai_appl_pdplt_source(slot);
+            if (source == nullptr) {
+                std::fprintf(stderr, "production platform has no source for slot %u\n",
+                    static_cast<unsigned>(slot));
+                return 1;
+            }
+            sources.push_back(source);
+        }
+    } else {
+        for (const auto& source : deployment.sources_) {
+            reference_sources.push_back(std::make_unique<reference_raw_source>(
+                reference_source_config{source.profile_.width_, source.profile_.height_,
+                    source.profile_.fps_numerator_, source.profile_.fps_denominator_}));
+            sources.push_back(reference_sources.back().get());
+        }
     }
 
     runtime_composition_activation activation;
@@ -362,7 +431,7 @@ int main(int _argc, char** _argv) {
         const auto& source = deployment.sources_[source_slot];
         auto& source_activation = activation.sources_[source_slot];
         source_activation.source_id_ = source.source_id_;
-        source_activation.source_ = sources[source_slot].get();
+        source_activation.source_ = sources[source_slot];
         source_activation.model_count_ = static_cast<std::uint16_t>(source.model_ids_.size());
         for (std::uint16_t model_slot = 0; model_slot < source_activation.model_count_;
              ++model_slot) {
@@ -373,19 +442,35 @@ int main(int _argc, char** _argv) {
                     source.model_ids_[model_slot].c_str());
                 return 1;
             }
-            graphs.push_back(std::make_unique<reference_inference_graph>());
             auto& model_activation = source_activation.models_[model_slot];
             model_activation.model_id_ = model->model_id_;
-            model_activation.graph_ = graphs.back().get();
-            model_activation.paths_.model_id_ = model->model_id_;
-            model_activation.paths_.target_id_ = model->target_id_;
-            model_activation.paths_.artifact_ref_ = model->artifact_ref_;
-            model_activation.paths_.model_path_ =
-                vqec_vision_ai_appl_svcmn_dev_model_path(model->model_id_);
-            model_activation.paths_.backend_path_ = service_harness::g_backend_library;
-            model_activation.paths_.system_path_ = service_harness::g_system_library;
+            if (use_production_platform) {
+                inference_graph_port* graph =
+                    production.vqec_vision_ai_appl_pdplt_graph(source_slot, model_slot);
+                const model_outputs* outputs =
+                    production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
+                if (graph == nullptr || outputs == nullptr) {
+                    std::fprintf(stderr, "production platform has no graph for model %s\n",
+                        model->model_id_.c_str());
+                    return 1;
+                }
+                model_activation.graph_ = graph;
+                model_activation.outputs_ = *outputs;
+                model_activation.paths_ =
+                    production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);
+            } else {
+                reference_graphs.push_back(std::make_unique<reference_inference_graph>());
+                model_activation.graph_ = reference_graphs.back().get();
+                model_activation.paths_.model_id_ = model->model_id_;
+                model_activation.paths_.target_id_ = model->target_id_;
+                model_activation.paths_.artifact_ref_ = model->artifact_ref_;
+                model_activation.paths_.model_path_ =
+                    vqec_vision_ai_appl_svcmn_dev_model_path(model->model_id_);
+                model_activation.paths_.backend_path_ = service_harness::g_backend_library;
+                model_activation.paths_.system_path_ = service_harness::g_system_library;
+                model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
+            }
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
-            model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
             model_activation.tracker_contract_ = tracker_contract;
             model_activation.binding_.width_ = source.profile_.width_;
             model_activation.binding_.height_ = source.profile_.height_;

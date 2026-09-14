@@ -116,6 +116,25 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_reference AND
     set_target_properties(vqec_vision_ai_model_runner PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+# Production platform owner for the Qualcomm target: concrete RAW source, QNN graph,
+# decoder, tracker and feature owners behind neutral ports.
+if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_camera AND
+   TARGET vqec_vision_ai_camera_dbus AND TARGET vqec_vision_ai_reference AND
+   TARGET vqec_vision_ai_detection)
+    add_library(vqec_vision_ai_production_platform STATIC
+        vqec_vision_production_platform.cpp)
+    target_include_directories(vqec_vision_ai_production_platform PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/tracking>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/detection>)
+    target_link_libraries(vqec_vision_ai_production_platform PUBLIC
+        vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
+        vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
+        vqec_vision_ai_feature_runtime nlohmann_json::nlohmann_json)
+    set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # Required external service executable. Built only when the JSON loaders and the
 # device-free reference backend are available; otherwise there is no runnable harness.
 if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
@@ -126,6 +145,7 @@ if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config A
         vqec_vision_reference_platform.cpp
         vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
+        vqec_vision_ai_production_platform
         vqec_vision_ai_runtime_composition_factory
         vqec_vision_ai_reference
         vqec_vision_ai_feature_fanout
