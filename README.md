@@ -122,7 +122,7 @@ Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
 8. [Feature catalog](docs/architecture/feature_catalog.md) và [model catalog](docs/architecture/model_catalog.md)
 9. [Multi-source configuration](docs/architecture/multi_source_configuration.md)
 10. [Implementation status](docs/development/implementation_status.md), [capability matrix](docs/development/capability_matrix.md), [review checklist](docs/development/review_checklist.md)
-11. [Delivery plan](docs/planning/delivery_plan.md)
+11. [Delivery plan](docs/planning/delivery_plan.md), [Model integration M0–M4](docs/planning/model_integration_plan.md)
 
 ## Phạm vi
 

@@ -47,6 +47,10 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 29 | Device-free microbenchmarks | **done** | pool, worker and dense-decoder throughput printed by the harness/tests |
 | 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
 
+## Next track
+
+Model integration M0–M4 is now the follow-on track: [model integration plan](../planning/model_integration_plan.md). It freezes the architecture and adds a model package (artifact + IO manifest + preprocess spec + decoder + golden tests). The first model is YOLOv8n-person.
+
 ## Residuals (not part of the device-free DoD, or blocked)
 
 - §6 backend output pooling: the engine allocates result blobs per call; pooling needs a
