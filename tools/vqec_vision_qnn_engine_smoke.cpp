@@ -6,8 +6,11 @@
 // performance, async/shared-memory or BSP-recovery qualification. It does not create a
 // test registration and is built only when the QNN engine target exists.
 
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -56,6 +59,9 @@ int main(int _argc, char** _argv) {
     std::string backend_library;
     std::string system_library;
     std::string model_library;
+    std::string input_file;
+    std::string output_dir;
+    int iterations = 1;
     for (int index = 1; index < _argc; ++index) {
         const std::string option = _argv[index];
         const bool has_value = index + 1 < _argc;
@@ -65,6 +71,12 @@ int main(int _argc, char** _argv) {
             system_library = _argv[++index];
         } else if (option == "--model" && has_value) {
             model_library = _argv[++index];
+        } else if (option == "--input-file" && has_value) {
+            input_file = _argv[++index];
+        } else if (option == "--output-dir" && has_value) {
+            output_dir = _argv[++index];
+        } else if (option == "--iterations" && has_value) {
+            iterations = std::atoi(_argv[++index]);
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return 2;
@@ -125,17 +137,66 @@ int main(int _argc, char** _argv) {
             vqec_vision_ai_core_tnctr_shape_bytes(spec)), 0U);
         input_blobs.push_back(std::move(blob));
     }
-    std::vector<tensor_blob> output_blobs;
-    const auto executed = engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
-    if (executed.code_ != status_code::ok) {
-        std::fprintf(stderr, "engine execute failed (%d): %s\n",
-            static_cast<int>(executed.code_), executed.message_.c_str());
-        return 1;
+    // A single-input model may take a raw file so the same input can be compared against
+    // qnn-net-run output byte for byte.
+    if (!input_file.empty()) {
+        if (input_blobs.size() != 1) {
+            std::fprintf(stderr, "--input-file requires a single-input model\n");
+            return 2;
+        }
+        std::ifstream stream(input_file, std::ios::binary);
+        if (!stream.is_open()) {
+            std::fprintf(stderr, "cannot open input file: %s\n", input_file.c_str());
+            return 1;
+        }
+        stream.read(reinterpret_cast<char*>(input_blobs[0].bytes_.data()),
+            static_cast<std::streamsize>(input_blobs[0].bytes_.size()));
+        if (stream.gcount() != static_cast<std::streamsize>(input_blobs[0].bytes_.size())) {
+            std::fprintf(stderr, "input file size does not match the model input\n");
+            return 1;
+        }
     }
+    if (iterations < 1) {
+        iterations = 1;
+    }
+    std::vector<tensor_blob> output_blobs;
+    std::uint64_t best_us = UINT64_MAX;
+    std::uint64_t worst_us = 0;
+    std::uint64_t total_us = 0;
+    for (int iteration = 0; iteration < iterations; ++iteration) {
+        const auto started = std::chrono::steady_clock::now();
+        output_blobs.clear();
+        const auto executed = engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
+        if (executed.code_ != status_code::ok) {
+            std::fprintf(stderr, "engine execute failed (%d): %s\n",
+                static_cast<int>(executed.code_), executed.message_.c_str());
+            return 1;
+        }
+        const auto elapsed_us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - started).count());
+        best_us = elapsed_us < best_us ? elapsed_us : best_us;
+        worst_us = elapsed_us > worst_us ? elapsed_us : worst_us;
+        total_us += elapsed_us;
+    }
+    std::printf("latency_us iterations=%d min=%llu avg=%llu max=%llu\n", iterations,
+        static_cast<unsigned long long>(best_us),
+        static_cast<unsigned long long>(total_us / static_cast<std::uint64_t>(iterations)),
+        static_cast<unsigned long long>(worst_us));
     std::printf("execute ok outputs=%zu\n", output_blobs.size());
     for (const auto& blob : output_blobs) {
         std::printf("output_bytes name=%s bytes=%zu\n", blob.spec_.name_.c_str(),
             blob.bytes_.size());
+        if (!output_dir.empty()) {
+            const std::string path = output_dir + "/" + blob.spec_.name_ + ".raw";
+            std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+            if (!stream.is_open()) {
+                std::fprintf(stderr, "cannot write output: %s\n", path.c_str());
+                return 1;
+            }
+            stream.write(reinterpret_cast<const char*>(blob.bytes_.data()),
+                static_cast<std::streamsize>(blob.bytes_.size()));
+        }
     }
     engine.vqec_vision_ai_qcom_qneng_close();
     return 0;
