@@ -121,9 +121,13 @@ if(TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_qnn_engine AND
    TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_detection)
     add_executable(vqec_vision_ai_camera_runner
         ${CMAKE_SOURCE_DIR}/tools/vqec_vision_camera_runner.cpp)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(camera_runner_gstreamer REQUIRED IMPORTED_TARGET
+        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
     target_link_libraries(vqec_vision_ai_camera_runner PRIVATE
         vqec_vision_ai_camera vqec_vision_ai_qnn_engine vqec_vision_ai_reference
-        vqec_vision_ai_detection nlohmann_json::nlohmann_json)
+        vqec_vision_ai_detection nlohmann_json::nlohmann_json
+        PkgConfig::camera_runner_gstreamer)
     if(TARGET vqec_vision_ai_camera_dbus)
         target_link_libraries(vqec_vision_ai_camera_runner PRIVATE vqec_vision_ai_camera_dbus)
         target_compile_definitions(vqec_vision_ai_camera_runner PRIVATE VQEC_VISION_CAMRUN_CONTROL)

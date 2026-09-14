@@ -14,11 +14,22 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <vector>
+
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
+
+#include <gst/app/gstappsink.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/gst.h>
+#include <gst/video/video.h>
 
 #include "vqec_vision_dbus_rpc.hpp"
 #include "vqec_vision_frame_source.hpp"
@@ -48,6 +59,7 @@ struct camera_runner_options {
     std::uint64_t max_allocation{0};
     std::uint64_t iterations{0};
     bool use_control{false};
+    std::string ring_id;
 };
 
 bool vqec_vision_ai_tools_camrun_parse(
@@ -89,6 +101,8 @@ bool vqec_vision_ai_tools_camrun_parse(
             _options.iterations = std::strtoull(value.c_str(), nullptr, 10);
         } else if (option == "--use-control") {
             _options.use_control = value != "0";
+        } else if (option == "--ring-id") {
+            _options.ring_id = value;
         } else {
             return false;
         }
@@ -170,6 +184,90 @@ preprocess_spec vqec_vision_ai_tools_camrun_preprocess(const json& _root) {
     spec.coordinates_ = coordinate_convention::tensor_pixels_xywh;
     return spec;
 }
+
+
+namespace ring_layout {
+inline constexpr std::uint32_t g_version = 5;
+inline constexpr std::uint32_t g_slot_count = 16;
+inline constexpr std::uint32_t g_payload_size = 1U << 20;
+inline constexpr std::size_t g_header_size = 4096;
+inline constexpr std::size_t g_slot_header_size = 1232;
+inline constexpr std::size_t g_h_write_sequence = 32;
+inline constexpr std::size_t g_h_ring_id = 64;
+}  // namespace ring_layout
+
+class ring_writer {
+public:
+    ~ring_writer() { close(); }
+    bool open(const std::string& _ring_id) {
+        path_ = "/dev/shm/camera_ai_" + _ring_id;
+        ::unlink(path_.c_str());
+        fd_ = ::open(path_.c_str(), O_RDWR | O_CREAT, 0600);
+        if (fd_ < 0) return false;
+        total_ = ring_layout::g_header_size +
+            static_cast<std::size_t>(ring_layout::g_slot_count) *
+                (ring_layout::g_slot_header_size + ring_layout::g_payload_size);
+        if (::ftruncate(fd_, static_cast<off_t>(total_)) != 0) return false;
+        mapping_ = ::mmap(nullptr, total_, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
+        if (mapping_ == MAP_FAILED) { mapping_ = nullptr; return false; }
+        auto* base = static_cast<std::uint8_t*>(mapping_);
+        put32(base, 0, 0x4C414341U);
+        put32(base, 4, ring_layout::g_version);
+        put32(base, 8, static_cast<std::uint32_t>(ring_layout::g_header_size));
+        put32(base, 12, static_cast<std::uint32_t>(ring_layout::g_slot_header_size));
+        put32(base, 16, ring_layout::g_slot_count);
+        put32(base, 20, ring_layout::g_payload_size);
+        put64(base, ring_layout::g_h_write_sequence, 0);
+        std::memcpy(base + ring_layout::g_h_ring_id, _ring_id.data(),
+            _ring_id.size() < 63 ? _ring_id.size() : 63);
+        return true;
+    }
+    void close() {
+        if (mapping_ != nullptr) { ::munmap(mapping_, total_); mapping_ = nullptr; }
+        if (fd_ >= 0) { ::close(fd_); fd_ = -1; }
+    }
+    void push(const std::uint8_t* _data, std::size_t _size, std::uint32_t _w,
+        std::uint32_t _h, bool _key) {
+        if (mapping_ == nullptr || _size == 0 || _size > ring_layout::g_payload_size) return;
+        const std::size_t index = sequence_ % ring_layout::g_slot_count;
+        const std::size_t base = ring_layout::g_header_size +
+            index * (ring_layout::g_slot_header_size + ring_layout::g_payload_size);
+        auto* slot = static_cast<std::uint8_t*>(mapping_);
+        put32(slot, base + 0, 1);
+        put32(slot, base + 8, static_cast<std::uint32_t>(_size));
+        put32(slot, base + 20, _w);
+        put32(slot, base + 24, _h);
+        put32(slot, base + 28, _w);
+        put32(slot, base + 40, _key ? 1U : 0U);
+        put64(slot, base + 56, sequence_ + 1);
+        put64(slot, base + 104, sequence_);
+        std::memcpy(slot + base + 176, "H264", 4);
+        std::memcpy(slot + base + ring_layout::g_slot_header_size, _data, _size);
+        put32(slot, base + 0, 0);
+        ++sequence_;
+        put64(slot, ring_layout::g_h_write_sequence, sequence_);
+    }
+private:
+    static void put32(std::uint8_t* _b, std::size_t _o, std::uint32_t _v) {
+        std::memcpy(_b + _o, &_v, sizeof(_v));
+    }
+    static void put64(std::uint8_t* _b, std::size_t _o, std::uint64_t _v) {
+        std::memcpy(_b + _o, &_v, sizeof(_v));
+    }
+    std::string path_;
+    int fd_{-1};
+    void* mapping_{nullptr};
+    std::size_t total_{0};
+    std::uint64_t sequence_{0};
+};
+
+struct encode_output {
+    GstElement* pipeline{nullptr};
+    GstElement* appsrc{nullptr};
+    GstElement* appsink{nullptr};
+    ring_writer writer;
+    bool active{false};
+};
 
 }  // namespace
 
@@ -262,6 +360,33 @@ int main(int _argc, char** _argv) {
         }
         yolov8_decoder decoder(decoder_config);
         reference_image_processor processor;
+        encode_output encoder;
+        if (!options.ring_id.empty()) {
+            gst_init(&_argc, &_argv);
+            std::string desc =
+                "appsrc name=src is-live=true format=time ! queue ! videoconvert"
+                " ! video/x-raw,format=NV12 ! qtioverlay overlay-bbox=true ! v4l2h264enc"
+                " ! h264parse config-interval=1"
+                " ! appsink name=enc max-buffers=2 drop=true sync=false";
+            GError* gst_error = nullptr;
+            encoder.pipeline = gst_parse_launch(desc.c_str(), &gst_error);
+            if (encoder.pipeline == nullptr || gst_error != nullptr) {
+                std::fprintf(stderr, "encode pipeline error\n");
+                return 1;
+            }
+            encoder.appsrc = gst_bin_get_by_name(GST_BIN(encoder.pipeline), "src");
+            encoder.appsink = gst_bin_get_by_name(GST_BIN(encoder.pipeline), "enc");
+            GstCaps* caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING,
+                "NV12", "width", G_TYPE_INT, static_cast<int>(options.max_width), "height",
+                G_TYPE_INT, static_cast<int>(options.max_height), "framerate",
+                GST_TYPE_FRACTION, 30, 1, nullptr);
+            g_object_set(G_OBJECT(encoder.appsrc), "caps", caps, nullptr);
+            gst_caps_unref(caps);
+            gst_element_set_state(encoder.pipeline, GST_STATE_PLAYING);
+            encoder.writer.open(options.ring_id);
+            encoder.active = true;
+            std::printf("encoded ring output: %s\n", options.ring_id.c_str());
+        }
 
         json detections_json = json::array();
         std::uint64_t frames = 0;
@@ -297,6 +422,46 @@ int main(int _argc, char** _argv) {
                     detection["width"] = item.box_.width_;
                     detection["height"] = item.box_.height_;
                     detections_json.push_back(std::move(detection));
+                }
+            }
+            if (encoder.active) {
+                const int fd = static_cast<int>(_raw.native_handle_);
+                const std::size_t size =
+                    static_cast<std::size_t>(_raw.descriptor_.view_size_bytes_);
+                std::vector<std::uint8_t> bytes(size);
+                if (::lseek(fd, 0, SEEK_SET) >= 0 &&
+                    ::read(fd, bytes.data(), size) == static_cast<ssize_t>(size)) {
+                    GstBuffer* buffer = gst_buffer_new_allocate(nullptr, size, nullptr);
+                    GstMapInfo map {};
+                    if (gst_buffer_map(buffer, &map, GST_MAP_WRITE)) {
+                        std::memcpy(map.data, bytes.data(), size);
+                        gst_buffer_unmap(buffer, &map);
+                        for (const auto& item : observations.observations_) {
+                            gst_buffer_add_video_region_of_interest_meta(buffer, "person",
+                                static_cast<guint>(item.box_.x_), static_cast<guint>(item.box_.y_),
+                                static_cast<guint>(item.box_.width_),
+                                static_cast<guint>(item.box_.height_));
+                        }
+                        GST_BUFFER_PTS(buffer) = frames * 1000000000ULL / 30U;
+                        GST_BUFFER_DURATION(buffer) = 1000000000ULL / 30U;
+                        gst_app_src_push_buffer(GST_APP_SRC(encoder.appsrc), buffer);
+                    } else {
+                        gst_buffer_unref(buffer);
+                    }
+                    GstSample* sample =
+                        gst_app_sink_try_pull_sample(GST_APP_SINK(encoder.appsink), GST_SECOND);
+                    if (sample != nullptr) {
+                        GstBuffer* encoded = gst_sample_get_buffer(sample);
+                        GstMapInfo omap {};
+                        if (encoded != nullptr && gst_buffer_map(encoded, &omap, GST_MAP_READ)) {
+                            const bool key =
+                                (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
+                            encoder.writer.push(static_cast<const std::uint8_t*>(omap.data),
+                                omap.size, _raw.descriptor_.width_, _raw.descriptor_.height_, key);
+                            gst_buffer_unmap(encoded, &omap);
+                        }
+                        gst_sample_unref(sample);
+                    }
                 }
             }
             total_detections += observations.observations_.size();
