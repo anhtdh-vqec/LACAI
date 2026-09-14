@@ -33,7 +33,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | supervisor/worker/pool snapshots + executor counters printed by the service; histograms/transport pending |
 | 18 | CMake modularization | partial | reference + scheduler/worker moved to module CMakeLists; root still owns the rest |
-| 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR` + `VQEC_VISION_AI_SANITIZE` host build; `host-sanitizers` CI job added; clang-tidy still pending |
+| 19 | Warnings/sanitizers/static analysis | partial | WERROR + SANITIZE + host-sanitizers job; advisory `.clang-tidy` + CI job added; not yet enforced |
 | 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness + nightly `fuzz` CI job; manifest/result parsers pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |

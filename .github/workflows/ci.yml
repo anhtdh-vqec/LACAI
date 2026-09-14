@@ -32,6 +32,26 @@ jobs:
       - name: Test
         run: ctest --test-dir build-asan --output-on-failure
 
+  # Advisory clang-tidy over the neutral source tree. Non-fatal: findings are surfaced but
+  # do not block while the tree is cleaned; promote per-module once the baseline is clean.
+  clang-tidy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy
+      - name: Configure with compile commands
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-tidy -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TESTING=OFF
+      - name: Run clang-tidy on core and app
+        run: |
+          set -euo pipefail
+          clang-tidy -p build-tidy \
+            $(find src/core src/app src/runtime -name '*.cpp' | sort) || true
+
   # Nightly libFuzzer harnesses (host Clang). Not run on every push.
   fuzz:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

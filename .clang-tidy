@@ -1,0 +1,27 @@
+# Advisory clang-tidy configuration. The CI job runs it non-fatally so findings are visible
+# without blocking on the large existing code base; checks can be promoted per module as the
+# tree is cleaned. Focus on correctness and lifetime, not style churn.
+Checks: >
+  -bugprone-use-after-move,
+  -bugprone-dangling-handle,
+  -bugprone-unchecked-optional-access,
+  -bugprone-infinite-loop,
+  -bugprone-argument-comment,
+  -bugprone-signed-char-misuse,
+  -clang-analyzer-core.*,
+  -clang-analyzer-cplusplus.*,
+  -clang-analyzer-deadcode.*,
+  -clang-analyzer-security.*,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-slicing,
+  -cppcoreguidelines-owning-memory,
+  -modernize-use-nullptr,
+  -modernize-use-override,
+  -performance-move-const-arg,
+  -performance-unnecessary-copy-initialization,
+  -performance-for-range-copy,
+  -readability-non-const-parameter,
+  -readability-redundant-smartptr-get,
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/(src|include)/.*'
+FormatStyle: none
