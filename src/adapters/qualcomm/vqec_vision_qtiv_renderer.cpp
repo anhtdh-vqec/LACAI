@@ -158,6 +158,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
     const std::string description =
         "appsrc name=src is-live=true format=time"
         " ! queue ! qtivoverlay"
+        " ! videoconvert ! video/x-raw,format=NV12"
         " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate + "\""
         " ! h264parse config-interval=1"
         " ! appsink name=enc max-buffers=2 drop=true sync=false";

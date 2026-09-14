@@ -77,6 +77,7 @@ def parse_args():
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--ack-timeout-s", type=float, default=15.0)
+    parser.add_argument("--max-in-flight", type=int, default=3)
     parser.add_argument("--max-frames", type=int, default=0,
                         help="stop after N frames (0 = unlimited)")
     return parser.parse_args()
@@ -185,11 +186,36 @@ class RawFrameProducer:
         width = self.args.width
         height = self.args.height
         alloc = width * height * 3 // 2
-        client.settimeout(self.args.ack_timeout_s)
+        # FW does not serialize send/ACK: up to the receiver's live-lease budget may be in
+        # flight. A synchronous mock deadlocks because the consumer holds the previous frame
+        # until its next submission. ACKs are drained on a separate thread.
+        in_flight = {"count": 0}
+        lock = threading.Lock()
+        stop = {"value": False}
+
+        def ack_reader():
+            client.settimeout(0.5)
+            while not stop["value"]:
+                try:
+                    ack = client.recv(RETURN_HEADER.size)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    break
+                if len(ack) != RETURN_HEADER.size:
+                    break
+                with lock:
+                    in_flight["count"] -= 1
+
+        threading.Thread(target=ack_reader, daemon=True).start()
         while self.running:
             got = self.camera.next_fd(Gst.SECOND)
             if got is None:
                 continue
+            with lock:
+                if in_flight["count"] >= self.args.max_in_flight:
+                    continue
+                in_flight["count"] += 1
             fd, size = got
             self.buf_id += 1
             header = FRAME_HEADER.pack(
@@ -200,9 +226,6 @@ class RawFrameProducer:
                 self.buf_id * 1000000000 // self.args.fps, 0, 1000000000 // self.args.fps)
             fd_array = array.array("i", [fd])
             client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
-            ack = client.recv(RETURN_HEADER.size)
-            if len(ack) != RETURN_HEADER.size:
-                raise ConnectionResetError("missing return ACK")
             self.frames_sent += 1
             if self.args.max_frames and self.frames_sent >= self.args.max_frames:
                 self.running = False

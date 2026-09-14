@@ -13,6 +13,7 @@
 
 #include <array>
 #include <chrono>
+#include <thread>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -691,9 +692,14 @@ int main(int _argc, char** _argv) {
                         const raw_frame& result_frame =
                             taken_session->vqec_vision_ai_appl_mmses_get_result_frame();
                         if (result_frame.owner_) {
-                            (void)production.vqec_vision_ai_appl_pdplt_render(
+                            const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
                                 taken.source_index_, result_frame,
                                 tracked[taken.model_slot_]);
+                            if (rendered.code_ != status_code::ok) {
+                                std::fprintf(stderr, "render failed (%d): %s\n",
+                                    static_cast<int>(rendered.code_),
+                                    rendered.message_.c_str());
+                            }
                         }
                     }
                 }
@@ -712,6 +718,9 @@ int main(int _argc, char** _argv) {
             break;
         }
         ++steps;
+        // Pace the supervisor loop to wall time so camera frames, model cadence and the
+        // AI-owned output stage progress at the source rate instead of spinning.
+        std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
     }
 
     std::printf("stopping after %llu steps\n", static_cast<unsigned long long>(steps));
@@ -726,6 +735,7 @@ int main(int _argc, char** _argv) {
         }
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
+        std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
         runtime_executor_report drain_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
         if (drain_report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
