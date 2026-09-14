@@ -20,6 +20,13 @@ CMake is modular with `-Wall -Wextra -Wpedantic -Werror`, ASan/UBSan option and 
 Not a reason to touch the scheduler/runtime per model: a new model must be
 `artifact + manifest + preprocess spec + decoder + golden tests`.
 
+## Progress
+
+| Step | Status | Note |
+|---|---|---|
+| MI-00 | **done** | `preprocess_spec`, `model_io_manifest`, `tensor_layout` on `tensor_spec` + validators + tests. Catalog/resolver/processor wiring still to do in MI-01/MI-02. |
+| MI-01..MI-11 | todo | see commit order |
+
 ## 2. Gate 0 — three contract fixes before the first model
 
 These are the only architecture changes before model integration.

@@ -381,6 +381,18 @@
         PRIVATE vqec_vision_ai_scheduler)
     set_target_properties(vqec_vision_ai_secondary_inference_test
         PROPERTIES CXX_EXTENSIONS OFF)
+    add_executable(vqec_vision_ai_preprocess_spec_test
+        unit/vqec_vision_preprocess_spec_test.cpp)
+    target_link_libraries(vqec_vision_ai_preprocess_spec_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_preprocess_spec_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME preprocess_spec_validation COMMAND vqec_vision_ai_preprocess_spec_test)
+
+    add_executable(vqec_vision_ai_model_io_manifest_test
+        unit/vqec_vision_model_io_manifest_test.cpp)
+    target_link_libraries(vqec_vision_ai_model_io_manifest_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_model_io_manifest_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME model_io_manifest_matching COMMAND vqec_vision_ai_model_io_manifest_test)
+
     add_test(NAME secondary_inference_scheduling
         COMMAND vqec_vision_ai_secondary_inference_test)
     add_executable(vqec_vision_ai_lifecycle_invariants_test

@@ -32,13 +32,19 @@ struct tensor_quantization {
     std::int32_t zero_point_{0};
 };
 
-// Logical packed tensor identity: name, row-major shape, element type and quantization.
-// Shapes are logical dimensions, not strides; the extractor rejects padding reinterprets.
+// Physical layout of the reported dimensions. `unknown` means the producer did not declare
+// it; an activation check that requires a specific layout must reject `unknown`.
+enum class tensor_layout { unknown, nhwc, nchw, flat };
+
+// Logical packed tensor identity: name, row-major shape, element type, layout and
+// quantization. Shapes are logical dimensions, not strides; the extractor rejects padding
+// reinterprets.
 struct tensor_spec {
     std::string name_;
     std::vector<std::uint32_t> dimensions_;
     tensor_element_type dtype_{tensor_element_type::float32};
     tensor_quantization quantization_;
+    tensor_layout layout_{tensor_layout::unknown};
 };
 
 // Owned packed little-endian element bytes in row-major order. Consumers must interpret

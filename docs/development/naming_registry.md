@@ -204,6 +204,10 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_inference_execution.cpp | inexe | vqec_vision_ai_core_inexe_ |
 | src/core/vqec_vision_tensor_pool.cpp | tnpl | vqec_vision_ai_core_tnpl_ |
 | src/core/vqec_vision_secondary_inference.cpp | secin | vqec_vision_ai_core_secin_ |
+| src/core/vqec_vision_preprocess_spec.cpp | ppspc | vqec_vision_ai_core_ppspc_ |
+| src/core/vqec_vision_model_io_manifest.cpp | ioman | vqec_vision_ai_core_ioman_ |
+| tests/unit/vqec_vision_preprocess_spec_test.cpp | ppst | vqec_vision_ai_unit_ppst_ |
+| tests/unit/vqec_vision_model_io_manifest_test.cpp | iomtst | vqec_vision_ai_unit_iomtst_ |
 | src/runtime/scheduler/vqec_vision_secondary_inference_scheduler.cpp | secsd | vqec_vision_ai_sched_secsd_ |
 | tests/unit/vqec_vision_secondary_inference_test.cpp | sitst | vqec_vision_ai_unit_sitst_ |
 | tests/unit/vqec_vision_lifecycle_invariants_test.cpp | litst | vqec_vision_ai_unit_litst_ |
