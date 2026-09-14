@@ -72,4 +72,11 @@ if(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
     set_target_properties(vqec_vision_ai_feature_catalog_config PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+add_library(vqec_vision_ai_admission STATIC
+    admission/vqec_vision_activation_snapshot.cpp)
+target_include_directories(vqec_vision_ai_admission PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/admission>)
+target_link_libraries(vqec_vision_ai_admission PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_admission PROPERTIES CXX_EXTENSIONS OFF)
+
 add_subdirectory(scheduler)

@@ -18,7 +18,8 @@ Toolchain files, SDK discovery and target-scoped build helpers.
 |---|---|
 | `src/core/CMakeLists.txt` | `vqec_vision_ai_core` |
 | `src/perception/CMakeLists.txt` | detection, tracking, attributes |
-| `src/runtime/CMakeLists.txt` | feature runtime, loaders, model registry |
+| `src/runtime/CMakeLists.txt` | feature runtime, loaders, model registry, admission |
+| `src/outputs/CMakeLists.txt` | encoded dispatch, feature-event dispatch, overlay preparation |
 | `src/adapters/reference/CMakeLists.txt` | `vqec_vision_ai_reference` |
 | `src/runtime/scheduler/CMakeLists.txt` | `vqec_vision_ai_scheduler`, `vqec_vision_ai_inference_worker` |
 

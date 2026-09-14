@@ -227,29 +227,7 @@ if(VQEC_VISION_AI_ENABLE_FW_RING)
         PRIVATE ${VQEC_VISION_AI_FW_RING_TARGET})
     set_target_properties(vqec_vision_ai_fw_ring PROPERTIES CXX_EXTENSIONS OFF)
 endif()
-add_library(vqec_vision_ai_encoded_dispatch STATIC src/outputs/vqec_vision_encoded_dispatch.cpp)
-target_include_directories(vqec_vision_ai_encoded_dispatch PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
-target_link_libraries(vqec_vision_ai_encoded_dispatch PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_encoded_dispatch PROPERTIES CXX_EXTENSIONS OFF)
-add_library(vqec_vision_ai_feature_event_dispatch STATIC
-    src/outputs/vqec_vision_feature_event_dispatch.cpp)
-target_include_directories(vqec_vision_ai_feature_event_dispatch PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
-target_link_libraries(vqec_vision_ai_feature_event_dispatch PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_feature_event_dispatch PROPERTIES CXX_EXTENSIONS OFF)
-add_library(vqec_vision_ai_overlay_preparation STATIC
-    src/outputs/vqec_vision_overlay_preparation.cpp)
-target_include_directories(vqec_vision_ai_overlay_preparation PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/outputs>)
-target_link_libraries(vqec_vision_ai_overlay_preparation PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_overlay_preparation PROPERTIES CXX_EXTENSIONS OFF)
-add_library(vqec_vision_ai_admission STATIC
-    src/runtime/admission/vqec_vision_activation_snapshot.cpp)
-target_include_directories(vqec_vision_ai_admission PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/admission>)
-target_link_libraries(vqec_vision_ai_admission PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_admission PROPERTIES CXX_EXTENSIONS OFF)
+add_subdirectory(src/outputs)
 add_library(vqec_vision_ai_encoder_preparation STATIC src/app/vqec_vision_encoder_preparation.cpp)
 target_include_directories(vqec_vision_ai_encoder_preparation PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
