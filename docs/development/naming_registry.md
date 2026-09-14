@@ -257,7 +257,9 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/perception/detection/vqec_vision_model_decoder_registry.cpp | mdreg | vqec_vision_ai_detec_mdreg_ |
 | src/perception/detection/vqec_vision_tensor_reader.cpp | tnrd | vqec_vision_ai_detec_tnrd_ |
 | src/perception/detection/vqec_vision_dense_decoder.cpp | dnsdc | vqec_vision_ai_detec_dnsdc_ |
+| src/perception/detection/vqec_vision_yolov8_decoder.cpp | y8dec | vqec_vision_ai_detec_y8dec_ |
 | tests/unit/vqec_vision_dense_decoder_test.cpp | ddtst | vqec_vision_ai_unit_ddtst_ |
+| tests/unit/vqec_vision_yolov8_decoder_test.cpp | y8tst | vqec_vision_ai_unit_y8tst_ |
 | tests/unit/vqec_vision_device_free_harness_test.cpp | dfhst | vqec_vision_ai_unit_dfhst_ |
 | tests/fuzz/vqec_vision_legacy_wire_fuzz.cpp | lwfz | vqec_vision_ai_unit_lwfz_ (LLVMFuzzerTestOneInput is a fixed framework entrypoint) |
 | tests/fuzz/vqec_vision_manifest_fuzz.cpp | mnfz | vqec_vision_ai_unit_mnfz_ (LLVMFuzzerTestOneInput is a fixed framework entrypoint) |

@@ -4,7 +4,8 @@ add_library(vqec_vision_ai_detection STATIC
     detection/vqec_vision_model_decode_stage.cpp
     detection/vqec_vision_model_decoder_registry.cpp
     detection/vqec_vision_tensor_reader.cpp
-    detection/vqec_vision_dense_decoder.cpp)
+    detection/vqec_vision_dense_decoder.cpp
+    detection/vqec_vision_yolov8_decoder.cpp)
 target_include_directories(vqec_vision_ai_detection PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/detection>)
 target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)

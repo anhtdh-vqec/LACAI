@@ -24,9 +24,14 @@ and the owned QNN engine are byte-identical for the same native input):
 - output `conf_out` `[1,1,8400]`, `uint16`, scale `1.52587890625e-05`, zero_point `0`;
 - `8400 = 80² + 40² + 20²` (strides 8/16/32), one class, DFL present, no NMS in graph.
 
-## Open questions before MI-03/MI-04 close
+## Confirmed by the model team
 
-- `boxes_out` format and space (`xywh` vs `xyxy`, tensor pixels vs normalized).
+- `boxes_out` is `xywh` (`centre_x,centre_y,width,height`), channel-first `[1,4,8400]`, in
+  the 640×640 letterbox tensor space. The decoder applies inverse letterbox to the source.
+- `conf_out` is a sigmoid probability.
+
+## Open questions before MI-03 closes
+
 - Preprocess color matrix (`bt709` assumed), range, pad value (114 assumed), interpolation
   and RGB vs BGR must be confirmed against a golden reference.
 - Runtime/compiler version: models observed built with QAIRT 2.35 and 2.43; pin the runtime

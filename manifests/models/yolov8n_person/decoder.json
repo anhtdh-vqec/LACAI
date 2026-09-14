@@ -7,11 +7,20 @@
   "confidence_threshold": 0.25,
   "iou_threshold": 0.45,
   "strides": [8, 16, 32],
+  "grids": [
+    { "stride": 8, "width": 80, "height": 80 },
+    { "stride": 16, "width": 40, "height": 40 },
+    { "stride": 32, "width": 20, "height": 20 }
+  ],
   "anchors": 8400,
   "box_tensor": "boxes_out",
   "score_tensor": "conf_out",
+  "box_layout": "channel_first",
+  "box_format": "xywh",
+  "box_space": "tensor_pixels",
+  "box_input_size": [640, 640],
+  "box_order": "centre_x,centre_y,width,height",
+  "score_semantics": "sigmoid_probability",
   "nms": "external",
-  "box_format": "unconfirmed",
-  "box_space": "unconfirmed",
-  "notes": "boxes_out is channel-first [1,4,8400] in the 640 letterbox space. Confirm xywh vs xyxy and dequantize with scale 0.01038312166929245 before any reuse of dense_decoder. conf_out is already a sigmoid probability (scale 1.52587890625e-05)."
+  "notes": "boxes_out [1,4,8400] is channel-first: four planes of 8400 anchors, not interleaved per anchor. Values are xywh in the 640x640 letterbox tensor space (model team confirmed). Dequantize boxes with scale 0.01038312166929245 / zero_point 0 and conf with scale 1.52587890625e-05 / zero_point 0. Apply inverse letterbox to map to the source frame, then clip and NMS."
 }
