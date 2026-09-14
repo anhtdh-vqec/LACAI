@@ -19,7 +19,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 10 | Scheduler QoS semantics | partial | explicit policy, unsupported rejected `d469495`; queue semantics pending |
 | 11 | Secondary/ROI inference contract | **done** | neutral contract + bounded scheduler + fake backend + correlation tests this change |
 | 12 | Preprocess conformance suite | **done** | conformance suite this change (solid/gradient/stride/offset/aspect/order/norm/quant/clip/reject) |
-| 13 | Real CPU decoder | todo | needs model metadata/decoder implementation |
+| 13 | Real CPU decoder | **done** | configurable dense anchor-free decoder + NMS + letterbox inverse this change |
 | 14 | Reference tracker | **done** | this change |
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |

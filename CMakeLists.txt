@@ -64,7 +64,8 @@ set_target_properties(vqec_vision_ai_core PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_detection STATIC
     src/perception/detection/vqec_vision_model_decode_stage.cpp
     src/perception/detection/vqec_vision_model_decoder_registry.cpp
-    src/perception/detection/vqec_vision_tensor_reader.cpp)
+    src/perception/detection/vqec_vision_tensor_reader.cpp
+    src/perception/detection/vqec_vision_dense_decoder.cpp)
 target_include_directories(vqec_vision_ai_detection PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>)
 target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
@@ -816,6 +817,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME lifecycle_invariants_and_leak
         COMMAND vqec_vision_ai_lifecycle_invariants_test)
+    add_executable(vqec_vision_ai_dense_decoder_test
+        tests/unit/vqec_vision_dense_decoder_test.cpp)
+    target_link_libraries(vqec_vision_ai_dense_decoder_test
+        PRIVATE vqec_vision_ai_detection)
+    set_target_properties(vqec_vision_ai_dense_decoder_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dense_decoder_detection
+        COMMAND vqec_vision_ai_dense_decoder_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)
