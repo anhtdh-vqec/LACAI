@@ -32,7 +32,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 15 | Feature/event engine tests | **done** | reference ROI/dwell/line/count processors this change |
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | supervisor/worker/pool snapshots + executor counters printed by the service; histograms/transport pending |
-| 18 | CMake modularization | partial | core + reference + scheduler/worker moved to module CMakeLists; root still owns app/adapters/perception/runtime/outputs/tests |
+| 18 | CMake modularization | partial | moved core, perception, runtime (incl. loaders/admission/scheduler), outputs and reference to module CMakeLists; root (~930 lines) still owns app, camera/qualcomm/fw_output adapters and tests |
 | 19 | Warnings/sanitizers/static analysis | partial | WERROR + SANITIZE + host-sanitizers job; advisory `.clang-tidy` + CI job added; not yet enforced |
 | 20 | Wire/parser fuzzing | partial | wire + output-manifest fuzz harnesses + nightly `fuzz` CI job; result decoder pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
