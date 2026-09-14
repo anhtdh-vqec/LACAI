@@ -274,19 +274,7 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
 endif()
 
 if(UNIX)
-    add_library(vqec_vision_ai_reference STATIC
-        src/adapters/reference/vqec_vision_reference_source.cpp
-        src/adapters/reference/vqec_vision_reference_graph.cpp
-        src/adapters/reference/vqec_vision_reference_sink.cpp
-        src/adapters/reference/vqec_vision_reference_processor.cpp
-        src/adapters/reference/vqec_vision_reference_tracker.cpp
-        src/adapters/reference/vqec_vision_reference_feature.cpp
-        src/adapters/reference/vqec_vision_reference_encoder.cpp
-        src/adapters/reference/vqec_vision_reference_ring_sink.cpp)
-    target_include_directories(vqec_vision_ai_reference PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/reference>)
-    target_link_libraries(vqec_vision_ai_reference PUBLIC vqec_vision_ai_core)
-    set_target_properties(vqec_vision_ai_reference PROPERTIES CXX_EXTENSIONS OFF)
+    add_subdirectory(src/adapters/reference)
 endif()
 
 add_library(vqec_vision_ai_camera_graph_pump STATIC
@@ -303,21 +291,7 @@ target_include_directories(vqec_vision_ai_source_supervisor PUBLIC
 target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
 
-add_library(vqec_vision_ai_scheduler STATIC
-    src/runtime/scheduler/vqec_vision_model_cadence.cpp
-    src/runtime/scheduler/vqec_vision_secondary_inference_scheduler.cpp)
-target_include_directories(vqec_vision_ai_scheduler PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/scheduler>)
-target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_scheduler PROPERTIES CXX_EXTENSIONS OFF)
-
-add_library(vqec_vision_ai_inference_worker STATIC
-    src/runtime/scheduler/vqec_vision_inference_worker.cpp)
-target_include_directories(vqec_vision_ai_inference_worker PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/scheduler>)
-target_link_libraries(vqec_vision_ai_inference_worker
-    PUBLIC vqec_vision_ai_core vqec_vision_ai_scheduler Threads::Threads)
-set_target_properties(vqec_vision_ai_inference_worker PROPERTIES CXX_EXTENSIONS OFF)
+add_subdirectory(src/runtime/scheduler)
 
 add_library(vqec_vision_ai_source_session_worker STATIC
     src/app/vqec_vision_source_session_worker.cpp)
