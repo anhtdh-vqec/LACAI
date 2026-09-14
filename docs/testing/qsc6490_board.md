@@ -83,10 +83,17 @@ eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
   SCRFD-500M-KPS min 3.77 / avg 5.20 / max 6.62 ms; YOLOv8n-person min 10.83 / avg 12.12 /
   max 13.27 ms. Recorded as a seed, not an acceptance threshold.
 
-A later 2026-09-14 re-run after the QoS mailbox, source-session worker, metrics and CMake
-changes re-passed **81/81** native test binaries. The service now also prints a metrics line
-(`metrics steps=170 routed=42 delivered=42 denied=0 failed=0` for the two-source smoke), and
-the owned engine still executes SCRFD (avg ~3.2 ms) and YOLOv8n (avg ~10.5 ms) on HTP.
+A later 2026-09-14 re-run after the QoS mailbox, source-session worker, supervisor async
+mode, metrics, allocation reuse and CMake split re-passed **82/82** native test binaries.
+Since the CMake split, executables are emitted under the module build directory
+(`build-esdk-full/tests/`, `build-esdk-full/src/app/`, `build-esdk-full/src/adapters/...`),
+not the build root; the board set was rebuilt from those paths. The service prints a metrics
+line including routed-result latency
+(`metrics steps=170 routed=42 delivered=42 denied=0 failed=0 e2e_avg_us=... samples=42`);
+the reference fixture's pipeline PTS is not a steady-clock domain, so that latency value is
+only meaningful when the backend maps pipeline PTS from the step clock (the owned QNN path
+does). The owned engine still executes SCRFD and YOLOv8n on HTP (latency varies with board
+load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
 Newly written executables on the board's `/opt` overlay occasionally need a `sync` (or a
