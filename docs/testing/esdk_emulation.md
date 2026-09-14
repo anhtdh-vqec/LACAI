@@ -45,7 +45,7 @@ logic/wiring evidence only.
 
 2026-09-13 update: the device-free basecode plan added two tested modules — the bounded
 inference worker (`bee8c8e`) and the tensor pool (`50099b2`) — plus the camera release
-dispatcher. The default configuration now registers 58 tests and the expanded one 77, all
+dispatcher. The default configuration now registers 59 tests and the expanded one 78, all
 passing under SDK QEMU. These are still logic/wiring evidence, not device acceptance.
 
 An expanded configuration with Camera, GIO D-Bus, the GStreamer frame bridge and the

@@ -905,6 +905,14 @@ if(BUILD_TESTING)
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME reference_feature_events
             COMMAND vqec_vision_ai_reference_feature_test)
+        add_executable(vqec_vision_ai_preprocess_conformance_test
+            tests/unit/vqec_vision_preprocess_conformance_test.cpp)
+        target_link_libraries(vqec_vision_ai_preprocess_conformance_test
+            PRIVATE vqec_vision_ai_reference)
+        set_target_properties(vqec_vision_ai_preprocess_conformance_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME preprocess_conformance
+            COMMAND vqec_vision_ai_preprocess_conformance_test)
         add_executable(vqec_vision_ai_runtime_executor_test
             tests/contract/vqec_vision_runtime_executor_test.cpp)
         target_link_libraries(vqec_vision_ai_runtime_executor_test PRIVATE

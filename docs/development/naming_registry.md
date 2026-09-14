@@ -325,6 +325,7 @@ modify the repository.
 | tests/unit/vqec_vision_reference_processor_test.cpp | rptst | vqec_vision_ai_unit_rptst_ |
 | tests/unit/vqec_vision_reference_tracker_test.cpp | rttst | vqec_vision_ai_unit_rttst_ |
 | tests/unit/vqec_vision_reference_feature_test.cpp | rftst | vqec_vision_ai_unit_rftst_ |
+| tests/unit/vqec_vision_preprocess_conformance_test.cpp | pctst | vqec_vision_ai_unit_pctst_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
 | include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
 | include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
