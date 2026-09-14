@@ -8,6 +8,7 @@
 
 #include "vqec_vision_dbus_rpc.hpp"
 #include "vqec_vision_qnn_engine.hpp"
+#include "vqec_vision_qtiv_renderer.hpp"
 #include "vqec_vision_qnn_inference_graph.hpp"
 #include "vqec_vision_raw_source_resolver.hpp"
 #include "vqec_vision_reference_feature.hpp"
@@ -128,6 +129,7 @@ struct production_platform::implementation {
     std::vector<std::unique_ptr<source_lifecycle>> sources_;
     platform_feature_factory feature_factory_{reference_feature_params{}};
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
+    std::unique_ptr<qtiv_renderer> renderer_;
 };
 
 production_platform::production_platform()
@@ -265,6 +267,21 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     feature_params.event_schema_id_ = impl.config_.event_schema_id_;
     feature_params.event_schema_version_ = impl.config_.event_schema_version_;
     impl.feature_factory_ = platform_feature_factory{feature_params};
+    if (!impl.config_.output_ring_id_.empty()) {
+        impl.renderer_ = std::make_unique<qtiv_renderer>();
+        qtiv_renderer_config renderer_config;
+        renderer_config.ring_id_ = impl.config_.output_ring_id_;
+        renderer_config.width_ = _deployment.sources_.front().profile_.width_;
+        renderer_config.height_ = _deployment.sources_.front().profile_.height_;
+        renderer_config.fps_ = _deployment.sources_.front().profile_.fps_numerator_ /
+            (_deployment.sources_.front().profile_.fps_denominator_ != 0 ?
+                _deployment.sources_.front().profile_.fps_denominator_ : 1U);
+        renderer_config.bitrate_bps_ = impl.config_.output_bitrate_bps_;
+        const auto rendered = impl.renderer_->vqec_vision_ai_qcom_qtvr_init(renderer_config);
+        if (rendered.code_ != status_code::ok) {
+            return rendered;
+        }
+    }
     impl.is_prepared_ = true;
     return {};
 }
@@ -359,6 +376,19 @@ const model_outputs* production_platform::vqec_vision_ai_appl_pdplt_outputs(
         }
     }
     return nullptr;
+}
+
+status production_platform::vqec_vision_ai_appl_pdplt_render(
+    std::uint16_t _source_slot, const raw_frame& _frame,
+    const observation_batch& _observations) {
+    (void)_source_slot;
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "production platform is not prepared"};
+    }
+    if (implementation_->renderer_ == nullptr) {
+        return {};
+    }
+    return implementation_->renderer_->vqec_vision_ai_qcom_qtvr_render(_frame, _observations);
 }
 
 resolved_model_paths production_platform::vqec_vision_ai_appl_pdplt_paths(

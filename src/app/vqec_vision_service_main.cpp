@@ -163,6 +163,8 @@ struct parsed_arguments {
     std::string camera_socket_dir{"/run/camera_ai"};
     std::uint32_t camera_producer_uid{0};
     std::uint32_t nv12_format_value{23};
+    std::string output_ring_id;
+    std::uint32_t output_bitrate_bps{0};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -203,6 +205,11 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
                 std::strtoul(_argv[++index], nullptr, 10));
         } else if (option == "--nv12-format" && has_value) {
             _args.nv12_format_value = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--output-ring-id" && has_value) {
+            _args.output_ring_id = _argv[++index];
+        } else if (option == "--output-bitrate" && has_value) {
+            _args.output_bitrate_bps = static_cast<std::uint32_t>(
                 std::strtoul(_argv[++index], nullptr, 10));
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
@@ -300,6 +307,8 @@ int main(int _argc, char** _argv) {
         production_config.socket_dir_ = args.camera_socket_dir;
         production_config.producer_uid_ = args.camera_producer_uid;
         production_config.nv12_format_value_ = args.nv12_format_value;
+        production_config.output_ring_id_ = args.output_ring_id;
+        production_config.output_bitrate_bps_ = args.output_bitrate_bps;
         const auto configured = production.vqec_vision_ai_appl_pdplt_configure(production_config);
         if (configured.code_ != status_code::ok) {
             std::fprintf(stderr, "production platform configure failed (%d): %s\n",
@@ -673,6 +682,19 @@ int main(int _argc, char** _argv) {
                     if (dispatched.code_ != status_code::ok) {
                         std::fprintf(stderr, "event delivery rejected: %s\n",
                             dispatched.message_.c_str());
+                    }
+                }
+                if (use_production_platform) {
+                    auto* taken_session =
+                        bundle->vqec_vision_ai_appl_rcfac_get_session(taken.source_index_);
+                    if (taken_session != nullptr) {
+                        const raw_frame& last_frame =
+                            taken_session->vqec_vision_ai_appl_mmses_get_last_frame();
+                        if (last_frame.owner_) {
+                            (void)production.vqec_vision_ai_appl_pdplt_render(
+                                taken.source_index_, last_frame,
+                                tracked[taken.model_slot_]);
+                        }
                     }
                 }
                 std::printf("routed source=%u model=%u tracked=%zu delivered=%u\n",

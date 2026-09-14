@@ -55,6 +55,11 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     return {};
 }
 
+const raw_frame& multi_model_pump::vqec_vision_ai_appl_mmump_get_last_frame()
+    const noexcept {
+    return last_frame_;
+}
+
 status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
     if (!is_configured_) {
         return {status_code::invalid_state, "multi-model pump is not configured"};
@@ -183,6 +188,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
     }
     last_source_epoch_ = frame.descriptor_.session_epoch_;
+    last_frame_ = frame;
 
     model_cadence_selection selection;
     const auto selected = cadence_.vqec_vision_ai_sched_mdcad_select(

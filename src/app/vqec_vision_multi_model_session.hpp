@@ -85,6 +85,10 @@ public:
     // Moves out the result retained by a drain_and_deliver stop, then clears the slot.
     // Returns pending when the policy discarded it or no result was ever ready.
     [[nodiscard]] status vqec_vision_ai_appl_mmses_take_drain_result(tensor_result& _result);
+    // Borrowed last-received source frame for an AI-owned output stage; valid until the next
+    // session step.
+    [[nodiscard]] const raw_frame& vqec_vision_ai_appl_mmses_get_last_frame()
+        const noexcept;
     [[nodiscard]] const status&
     vqec_vision_ai_appl_mmses_get_last_error() const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(

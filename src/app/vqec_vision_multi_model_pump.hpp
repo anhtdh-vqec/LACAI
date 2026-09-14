@@ -57,6 +57,11 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_mmump_pump_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         multi_model_pump_report& _report);
+    // Frame most recently received from the source, retained until the next receive so an
+    // AI-owned output stage can render the same pixels the model saw. Approximate when more
+    // than one job is in flight; a borrowed view, valid until the next pump step.
+    [[nodiscard]] const raw_frame& vqec_vision_ai_appl_mmump_get_last_frame()
+        const noexcept;
     void vqec_vision_ai_appl_mmump_begin_stop() noexcept;
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_appl_mmump_get_model_count() const noexcept;
@@ -105,6 +110,7 @@ private:
     // can never be submitted into a new epoch.
     std::uint64_t last_source_epoch_{0};
     std::uint64_t last_now_ns_{0};
+    raw_frame last_frame_;
     std::uint16_t model_count_{0};
     std::uint16_t result_cursor_{0};
     bool is_configured_{false};

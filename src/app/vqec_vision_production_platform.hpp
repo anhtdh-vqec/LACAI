@@ -44,6 +44,9 @@ struct production_platform_config {
     std::string event_schema_id_{"reference.zone"};
     std::string event_schema_version_{"1"};
     std::string consumer_id_prefix_{"lacai_ai"};
+    // AI-owned encoded output. Empty disables rendering.
+    std::string output_ring_id_;
+    std::uint32_t output_bitrate_bps_{0};
 };
 
 class production_platform final {
@@ -78,6 +81,12 @@ public:
         const std::string& _model_id) const noexcept;
     [[nodiscard]] resolved_model_paths vqec_vision_ai_appl_pdplt_paths(
         const std::string& _model_id) const noexcept;
+    // Renders one source frame with the tracked observations and writes the encoded AU to
+    // the FW ring. No-op with ok when output is disabled. Borrowed frame; call on the
+    // serialized runtime owner.
+    [[nodiscard]] status vqec_vision_ai_appl_pdplt_render(
+        std::uint16_t _source_slot, const raw_frame& _frame,
+        const observation_batch& _observations);
 
 private:
     struct implementation;

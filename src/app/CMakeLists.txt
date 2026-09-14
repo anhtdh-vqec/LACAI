@@ -132,6 +132,10 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_camera AND
         vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
         vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
         vqec_vision_ai_feature_runtime nlohmann_json::nlohmann_json)
+    if(TARGET vqec_vision_ai_qtiv_renderer)
+        target_link_libraries(vqec_vision_ai_production_platform PUBLIC
+            vqec_vision_ai_qtiv_renderer)
+    endif()
     set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
