@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <string>
 
+#include <vqec/vision/ai/contracts/vqec_vision_image_enums.hpp>
+#include <vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp>
 #include <vqec/vision/ai/contracts/vqec_vision_status.hpp>
 #include <vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp>
 
@@ -22,11 +24,10 @@ inline constexpr std::uint32_t g_max_output_queue_buffers = 16;
 inline constexpr std::size_t g_max_path_bytes = 4096;
 }  // namespace inference_limits
 
-enum class channel_order { rgb, bgr };
-enum class image_placement { unspecified, top_left, centre, stretch };
-
 // This describes a single-image plan, not the general multi-input model contract.
-// Coefficients are explicit plugin coefficients; no implicit mean/std conversion.
+// `preprocess_` is the authoritative preprocess contract when valid; the legacy
+// `channel_order_`/`placement_`/`mean_`/`sigma_` fields remain for compatibility and are
+// used only when `preprocess_` is not set.
 struct inference_plan {
     // Required from the validated per-source deployment profile; no implicit 4K/FPS.
     std::uint32_t source_width_{0};
@@ -40,6 +41,7 @@ struct inference_plan {
     image_placement placement_{image_placement::unspecified};
     std::array<double, 3> mean_{0.0, 0.0, 0.0};
     std::array<double, 3> sigma_{1.0, 1.0, 1.0};
+    preprocess_spec preprocess_;
     std::string model_path_;
     std::string backend_path_;
     std::string system_path_;

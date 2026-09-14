@@ -26,7 +26,9 @@ Not a reason to touch the scheduler/runtime per model: a new model must be
 |---|---|---|
 | MI-00 | **done** | `preprocess_spec`, `model_io_manifest`, `tensor_layout` on `tensor_spec` + validators + tests. Catalog/resolver/processor wiring still to do in MI-01/MI-02. |
 | MI-01 | **done** | `resolved_model_package` + pure resolver (`vqec_vision_ai_core_mpkg_resolve`): catalog identity, graph agreement, single-input base, preprocess validity, trusted-path identity. Trusted path/digest resolution reuses the existing `mreg` artifact resolver at MI-02/MI-07. |
-| MI-02..MI-11 | todo | see commit order |
+| MI-02 | **done** | YOLOv8n-person kit metadata under `manifests/models/yolov8n_person/` (identity + SHA-256, IO manifest, preprocess spec, decoder contract, labels, golden placeholder). Loaders land with MI-05. |
+| MI-03 | partial | reference processor now honors `preprocess_spec` (color matrix/range, pad, interpolation, normalization formula, channel order) with spec-driven tests; golden comparison against the reference pipeline pending model-team data. |
+| MI-04..MI-11 | todo | see commit order |
 
 ## 2. Gate 0 — three contract fixes before the first model
 

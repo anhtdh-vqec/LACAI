@@ -29,6 +29,84 @@ float vqec_vision_ai_refer_rfprc_quantize(float _real, const tensor_spec& _targe
         static_cast<float>(_target.quantization_.zero_point_);
 }
 
+// Rec.601/709/2020 YCbCr -> RGB coefficients for full-range luma/chroma (range scaling is
+// applied by the caller). R = Y + c1*Cr; G = Y - c3*Cr - c4*Cb; B = Y + c2*Cb.
+struct yuv_coefficients {
+    float c1_{0.0F};
+    float c2_{0.0F};
+    float c3_{0.0F};
+    float c4_{0.0F};
+};
+
+yuv_coefficients vqec_vision_ai_refer_rfprc_coefficients(color_matrix _matrix) noexcept {
+    float kr = 0.299F;
+    float kb = 0.114F;
+    if (_matrix == color_matrix::bt709) {
+        kr = 0.2126F;
+        kb = 0.0722F;
+    } else if (_matrix == color_matrix::bt2020) {
+        kr = 0.2627F;
+        kb = 0.0593F;
+    }
+    const float kg = 1.0F - kr - kb;
+    yuv_coefficients coefficients;
+    coefficients.c1_ = 2.0F * (1.0F - kr);
+    coefficients.c2_ = 2.0F * (1.0F - kb);
+    coefficients.c3_ = 2.0F * kr * (1.0F - kr) / kg;
+    coefficients.c4_ = 2.0F * kb * (1.0F - kb) / kg;
+    return coefficients;
+}
+
+// Bilinear or nearest (floor) sample of one plane. Neighbour taps are clamped to the plane.
+float vqec_vision_ai_refer_rfprc_sample(const std::uint8_t* _plane, int _stride, int _width,
+    int _height, float _x, float _y, bool _bilinear) noexcept {
+    if (_width <= 0 || _height <= 0) {
+        return 0.0F;
+    }
+    const float clamped_x = std::clamp(_x, 0.0F, static_cast<float>(_width - 1));
+    const float clamped_y = std::clamp(_y, 0.0F, static_cast<float>(_height - 1));
+    const int x0 = static_cast<int>(clamped_x);
+    const int y0 = static_cast<int>(clamped_y);
+    if (!_bilinear) {
+        return static_cast<float>(_plane[y0 * _stride + x0]);
+    }
+    const int x1 = x0 + 1 < _width ? x0 + 1 : x0;
+    const int y1 = y0 + 1 < _height ? y0 + 1 : y0;
+    const float fx = clamped_x - static_cast<float>(x0);
+    const float fy = clamped_y - static_cast<float>(y0);
+    const float top = static_cast<float>(_plane[y0 * _stride + x0]) * (1.0F - fx) +
+        static_cast<float>(_plane[y0 * _stride + x1]) * fx;
+    const float bottom = static_cast<float>(_plane[y1 * _stride + x0]) * (1.0F - fx) +
+        static_cast<float>(_plane[y1 * _stride + x1]) * fx;
+    return top * (1.0F - fy) + bottom * fy;
+}
+
+// Sample one interleaved chroma component (0 = U, 1 = V) in chroma-sample coordinates; the
+// byte offset is x*2 because NV12 stores U and V interleaved.
+float vqec_vision_ai_refer_rfprc_sample_chroma(const std::uint8_t* _plane, int _stride,
+    int _width, int _height, float _x, float _y, bool _bilinear, int _component) noexcept {
+    if (_width <= 0 || _height <= 0) {
+        return 0.0F;
+    }
+    const float clamped_x = std::clamp(_x, 0.0F, static_cast<float>(_width - 1));
+    const float clamped_y = std::clamp(_y, 0.0F, static_cast<float>(_height - 1));
+    const int x0 = static_cast<int>(clamped_x);
+    const int y0 = static_cast<int>(clamped_y);
+    const auto at = [&](int _x_index, int _y_index) {
+        return static_cast<float>(_plane[_y_index * _stride + _x_index * 2 + _component]);
+    };
+    if (!_bilinear) {
+        return at(x0, y0);
+    }
+    const int x1 = x0 + 1 < _width ? x0 + 1 : x0;
+    const int y1 = y0 + 1 < _height ? y0 + 1 : y0;
+    const float fx = clamped_x - static_cast<float>(x0);
+    const float fy = clamped_y - static_cast<float>(y0);
+    const float top = at(x0, y0) * (1.0F - fx) + at(x1, y0) * fx;
+    const float bottom = at(x0, y1) * (1.0F - fx) + at(x1, y1) * fx;
+    return top * (1.0F - fy) + bottom * fy;
+}
+
 void vqec_vision_ai_refer_rfprc_store(
     std::uint8_t* _destination, tensor_element_type _dtype, float _value) {
     switch (_dtype) {
@@ -117,19 +195,42 @@ status reference_image_processor::vqec_vision_ai_ports_imgpr_preprocess(
         ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
         return {status_code::invalid_argument, "target tensor geometry is invalid"};
     }
+    // Authoritative preprocess contract when present; legacy plan fields otherwise.
+    const bool has_spec =
+        vqec_vision_ai_core_ppspc_validate(_plan.preprocess_).code_ == status_code::ok;
+    if (has_spec && _plan.preprocess_.resize_ == resize_mode::crop) {
+        ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+        return {status_code::unsupported, "crop resize mode is not implemented"};
+    }
+    if (has_spec && _plan.preprocess_.interpolation_ == interpolation_mode::area) {
+        ::munmap(base, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
+        return {status_code::unsupported, "area interpolation is not implemented"};
+    }
+    const image_placement placement = has_spec ? _plan.preprocess_.placement_ : _plan.placement_;
+    const channel_order channels = has_spec ? _plan.preprocess_.channels_ : _plan.channel_order_;
+    const bool bilinear =
+        has_spec && _plan.preprocess_.interpolation_ == interpolation_mode::bilinear;
+    const yuv_coefficients coefficients = has_spec ?
+        vqec_vision_ai_refer_rfprc_coefficients(_plan.preprocess_.matrix_) :
+        vqec_vision_ai_refer_rfprc_coefficients(color_matrix::bt601);
+    const bool limited = has_spec ? _plan.preprocess_.range_ == color_range::limited : true;
+    const float luma_gain = limited ? 255.0F / 219.0F : 1.0F;
+    const float chroma_gain = limited ? 255.0F / 224.0F : 1.0F;
+    const float luma_offset = limited ? 16.0F : 0.0F;
+    const bool is_rgb = channels == channel_order::rgb;
+
     const float scale = std::min(
         static_cast<float>(out_w) / static_cast<float>(source_width),
         static_cast<float>(out_h) / static_cast<float>(source_height));
     std::uint32_t pad_left = 0;
     std::uint32_t pad_top = 0;
-    if (_plan.placement_ == image_placement::centre) {
+    if (placement == image_placement::centre) {
         pad_left = static_cast<std::uint32_t>(
             (out_w - static_cast<std::uint32_t>(source_width * scale)) / 2);
         pad_top = static_cast<std::uint32_t>(
             (out_h - static_cast<std::uint32_t>(source_height * scale)) / 2);
     }
-    const bool is_stretch = _plan.placement_ == image_placement::stretch;
-    const bool is_rgb = _plan.channel_order_ == channel_order::rgb;
+    const bool is_stretch = placement == image_placement::stretch;
 
     tensor_blob candidate;
     candidate.spec_ = _target;
@@ -152,9 +253,6 @@ status reference_image_processor::vqec_vision_ai_ports_imgpr_preprocess(
     }
     for (std::uint32_t oy = 0; oy < out_h; ++oy) {
         for (std::uint32_t ox = 0; ox < out_w; ++ox) {
-            float red = 0.0F;
-            float green = 0.0F;
-            float blue = 0.0F;
             float source_x = -1.0F;
             float source_y = 0.0F;
             if (is_stretch) {
@@ -166,28 +264,56 @@ status reference_image_processor::vqec_vision_ai_ports_imgpr_preprocess(
                 source_x = (static_cast<float>(ox - pad_left) + 0.5F) / scale;
                 source_y = (static_cast<float>(oy - pad_top) + 0.5F) / scale;
             }
-            if (source_x >= 0.0F && source_x < static_cast<float>(source_width) &&
-                source_y >= 0.0F && source_y < static_cast<float>(source_height)) {
-                const auto sx = static_cast<std::int32_t>(source_x);
-                const auto sy = static_cast<std::int32_t>(source_y);
-                const auto luminance =
-                    static_cast<float>(y_plane[sy * y_stride + sx]);
-                const auto chroma_index = (sy / 2) * uv_stride + (sx / 2) * 2;
-                const auto u = static_cast<float>(uv_plane[chroma_index]) - 128.0F;
-                const auto v = static_cast<float>(uv_plane[chroma_index + 1]) - 128.0F;
-                const auto luma = 1.164F * (luminance - 16.0F);
-                red = luma + 1.596F * v;
-                green = luma - 0.391F * u - 0.813F * v;
-                blue = luma + 2.018F * u;
+            const bool inside = source_x >= 0.0F && source_x < static_cast<float>(source_width) &&
+                source_y >= 0.0F && source_y < static_cast<float>(source_height);
+            float output[3] = {0.0F, 0.0F, 0.0F};
+            if (inside) {
+                const float luminance = vqec_vision_ai_refer_rfprc_sample(
+                    y_plane, y_stride, static_cast<int>(source_width),
+                    static_cast<int>(source_height), source_x, source_y, bilinear);
+                const float u = vqec_vision_ai_refer_rfprc_sample_chroma(uv_plane, uv_stride,
+                    static_cast<int>(source_width / 2), static_cast<int>(source_height / 2),
+                    source_x / 2.0F, source_y / 2.0F, false, 0);
+                const float v = vqec_vision_ai_refer_rfprc_sample_chroma(uv_plane, uv_stride,
+                    static_cast<int>(source_width / 2), static_cast<int>(source_height / 2),
+                    source_x / 2.0F, source_y / 2.0F, false, 1);
+                const float luma = (luminance - luma_offset) * luma_gain;
+                const float cr = (v - 128.0F) * chroma_gain;
+                const float cb = (u - 128.0F) * chroma_gain;
+                const float red = luma + coefficients.c1_ * cr;
+                const float green = luma - coefficients.c3_ * cr - coefficients.c4_ * cb;
+                const float blue = luma + coefficients.c2_ * cb;
+                output[0] = is_rgb ? red : blue;
+                output[1] = green;
+                output[2] = is_rgb ? blue : red;
+            } else if (has_spec) {
+                output[0] = _plan.preprocess_.pad_value_[0];
+                output[1] = _plan.preprocess_.pad_value_[1];
+                output[2] = _plan.preprocess_.pad_value_[2];
             }
-            const float channel[3] = {is_rgb ? red : blue, green, is_rgb ? blue : red};
             const std::size_t pixel_base =
                 (static_cast<std::size_t>(oy) * out_w + ox) * 3 * element_bytes;
             for (std::size_t channel_index = 0; channel_index < 3; ++channel_index) {
-                const float normalized =
-                    (vqec_vision_ai_refer_rfprc_clamp_byte(channel[channel_index]) -
-                        static_cast<float>(_plan.mean_[channel_index])) *
-                    static_cast<float>(_plan.sigma_[channel_index]);
+                const float clamped = vqec_vision_ai_refer_rfprc_clamp_byte(output[channel_index]);
+                float normalized = 0.0F;
+                if (has_spec) {
+                    switch (_plan.preprocess_.normalization_) {
+                        case normalization_formula::mean_std:
+                            normalized = (clamped - _plan.preprocess_.offset_[channel_index]) /
+                                _plan.preprocess_.scale_[channel_index];
+                            break;
+                        case normalization_formula::none:
+                            normalized = clamped;
+                            break;
+                        default:
+                            normalized = (clamped - _plan.preprocess_.offset_[channel_index]) *
+                                _plan.preprocess_.scale_[channel_index];
+                            break;
+                    }
+                } else {
+                    normalized = (clamped - static_cast<float>(_plan.mean_[channel_index])) *
+                        static_cast<float>(_plan.sigma_[channel_index]);
+                }
                 const float stored = vqec_vision_ai_refer_rfprc_quantize(normalized, _target);
                 vqec_vision_ai_refer_rfprc_store(
                     candidate.bytes_.data() + pixel_base + channel_index * element_bytes,

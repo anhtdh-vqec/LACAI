@@ -7,6 +7,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -352,6 +353,73 @@ int main() {
                   make_frame(fixture, 16, 16, 16, 16, 0, 256), plan, bad_rank).code_ ==
               status_code::unsupported);
         ::close(fixture.fd_);
+    }
+
+    // Spec-driven colorimetry, pad and normalization (Gate 0). Color matrix must be data: a
+    // BT.601 source converted with BT.709 coefficients (or vice versa) changes the result.
+    {
+        preprocess_spec spec;
+        spec.source_format_ = source_pixel_format::nv12;
+        spec.matrix_ = color_matrix::bt601;
+        spec.range_ = color_range::limited;
+        spec.resize_ = resize_mode::letterbox;
+        spec.interpolation_ = interpolation_mode::nearest;
+        spec.placement_ = image_placement::centre;
+        spec.pad_value_ = {0.0F, 0.0F, 0.0F};
+        spec.channels_ = channel_order::rgb;
+        spec.normalization_ = normalization_formula::offset_scale;
+        spec.offset_ = {0.0F, 0.0F, 0.0F};
+        spec.scale_ = {1.0F / 255.0F, 1.0F / 255.0F, 1.0F / 255.0F};
+        spec.coordinates_ = coordinate_convention::tensor_pixels_xywh;
+
+        const auto chroma_fixture = make_nv12(8, 8, 8, 8, 0, 64, 90, 200,
+            [](std::uint32_t _x, std::uint32_t _y) {
+                return (_x == 2 && _y == 2) ? std::uint8_t{200} : std::uint8_t{16};
+            });
+        const auto chroma_frame = make_frame(chroma_fixture, 8, 8, 8, 8, 0, 64);
+        const auto pixel_base = static_cast<std::size_t>((2U * 8U + 2U) * 3U);
+        auto plan601 = make_plan(8, 8, 8, 8, image_placement::centre, channel_order::rgb);
+        plan601.preprocess_ = spec;
+        auto plan709 = plan601;
+        plan709.preprocess_.matrix_ = color_matrix::bt709;
+        tensor_blob b601;
+        tensor_blob b709;
+        check(preprocess_ok(processor, chroma_frame, plan601,
+            make_target(8, 8, tensor_element_type::float32), b601));
+        check(preprocess_ok(processor, chroma_frame, plan709,
+            make_target(8, 8, tensor_element_type::float32), b709));
+        // Compare the blue channel: red saturates under both matrices for this pixel.
+        check(float_at(b601, pixel_base + 2U) != float_at(b709, pixel_base + 2U));
+
+        // Pad value is data (normalization none => stored value equals the pad value).
+        auto pad_spec = spec;
+        pad_spec.resize_ = resize_mode::letterbox;
+        pad_spec.normalization_ = normalization_formula::none;
+        pad_spec.pad_value_ = {114.0F, 114.0F, 114.0F};
+        const auto wide_fixture = make_nv12(16, 8, 16, 16, 0, 128, 128, 128,
+            [](std::uint32_t, std::uint32_t) { return std::uint8_t{235}; });
+        const auto wide_frame = make_frame(wide_fixture, 16, 8, 16, 16, 0, 128);
+        auto pad_plan = make_plan(16, 8, 8, 8, image_placement::centre, channel_order::rgb);
+        pad_plan.preprocess_ = pad_spec;
+        tensor_blob padded;
+        check(preprocess_ok(processor, wide_frame, pad_plan,
+            make_target(8, 8, tensor_element_type::float32), padded));
+        check(float_at(padded, 0) == 114.0F);
+
+        // offset_scale formula on a neutral gray pixel: (130 - 0) * (1/255).
+        const auto gray_fixture = make_nv12(8, 8, 8, 8, 0, 64, 128, 128,
+            [](std::uint32_t, std::uint32_t) { return std::uint8_t{128}; });
+        const auto gray_frame = make_frame(gray_fixture, 8, 8, 8, 8, 0, 64);
+        auto gray_plan = make_plan(8, 8, 8, 8, image_placement::centre, channel_order::rgb);
+        gray_plan.preprocess_ = spec;
+        tensor_blob normalized;
+        check(preprocess_ok(processor, gray_frame, gray_plan,
+            make_target(8, 8, tensor_element_type::float32), normalized));
+        check(std::abs(float_at(normalized, 0) - (130.0F / 255.0F)) < 0.001F);
+
+        ::close(chroma_fixture.fd_);
+        ::close(wide_fixture.fd_);
+        ::close(gray_fixture.fd_);
     }
 
     std::cout << "preprocess conformance failures: " << failures << '\n';

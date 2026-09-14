@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_image_enums.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
