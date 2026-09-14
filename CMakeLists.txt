@@ -50,101 +50,9 @@ endif()
 find_package(Threads REQUIRED)
 add_subdirectory(src/core)
 
-add_library(vqec_vision_ai_detection STATIC
-    src/perception/detection/vqec_vision_model_decode_stage.cpp
-    src/perception/detection/vqec_vision_model_decoder_registry.cpp
-    src/perception/detection/vqec_vision_tensor_reader.cpp
-    src/perception/detection/vqec_vision_dense_decoder.cpp)
-target_include_directories(vqec_vision_ai_detection PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/detection>)
-target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_detection PROPERTIES CXX_EXTENSIONS OFF)
+add_subdirectory(src/perception)
 
-add_library(vqec_vision_ai_tracking STATIC
-    src/perception/tracking/vqec_vision_tracking_stage.cpp
-    src/perception/tracking/vqec_vision_tracker_registry.cpp)
-target_include_directories(vqec_vision_ai_tracking PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/tracking>)
-target_link_libraries(vqec_vision_ai_tracking PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_tracking PROPERTIES CXX_EXTENSIONS OFF)
-
-add_library(vqec_vision_ai_attributes STATIC
-    src/perception/attributes/vqec_vision_attribute_reader.cpp)
-target_include_directories(vqec_vision_ai_attributes PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/perception/attributes>)
-target_link_libraries(vqec_vision_ai_attributes PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_attributes PROPERTIES CXX_EXTENSIONS OFF)
-
-add_library(vqec_vision_ai_feature_runtime STATIC
-    src/runtime/feature_manager/vqec_vision_feature_stage.cpp
-    src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp
-    src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp)
-target_include_directories(vqec_vision_ai_feature_runtime PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
-target_link_libraries(vqec_vision_ai_feature_runtime PUBLIC vqec_vision_ai_core)
-set_target_properties(vqec_vision_ai_feature_runtime PROPERTIES CXX_EXTENSIONS OFF)
-
-if(VQEC_VISION_AI_ENABLE_MODEL_CATALOG)
-    add_library(vqec_vision_ai_model_catalog_config STATIC
-        src/runtime/model_registry/vqec_vision_model_catalog.cpp)
-    target_include_directories(vqec_vision_ai_model_catalog_config PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/model_registry>)
-    target_link_libraries(vqec_vision_ai_model_catalog_config
-        PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
-    set_target_properties(vqec_vision_ai_model_catalog_config PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST)
-    find_package(OpenSSL 3.0 REQUIRED COMPONENTS Crypto)
-    set(_vqec_vision_ai_digest_sources
-        src/runtime/model_registry/vqec_vision_artifact_digest.cpp)
-    if(UNIX)
-        # The trusted resolver enforces containment with POSIX fd/stat/realpath semantics.
-        list(APPEND _vqec_vision_ai_digest_sources
-            src/runtime/model_registry/vqec_vision_artifact_resolver.cpp)
-    endif()
-    add_library(vqec_vision_ai_artifact_digest STATIC ${_vqec_vision_ai_digest_sources})
-    target_include_directories(vqec_vision_ai_artifact_digest PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/model_registry>)
-    target_link_libraries(vqec_vision_ai_artifact_digest
-        PUBLIC vqec_vision_ai_core PRIVATE OpenSSL::Crypto)
-    set_target_properties(vqec_vision_ai_artifact_digest PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
-    add_library(vqec_vision_ai_model_manifest STATIC
-        src/runtime/model_registry/vqec_vision_output_manifest.cpp)
-    target_include_directories(vqec_vision_ai_model_manifest PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/model_registry>)
-    target_link_libraries(vqec_vision_ai_model_manifest
-        PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
-    set_target_properties(vqec_vision_ai_model_manifest PROPERTIES CXX_EXTENSIONS OFF)
-    if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK)
-        add_executable(vqec_vision_ai_manifest_check tools/vqec_vision_manifest_check.cpp)
-        target_link_libraries(vqec_vision_ai_manifest_check PRIVATE vqec_vision_ai_model_manifest)
-        set_target_properties(vqec_vision_ai_manifest_check PROPERTIES CXX_EXTENSIONS OFF)
-    endif()
-endif()
-
-if(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG)
-    add_library(vqec_vision_ai_deployment_config STATIC
-        src/runtime/lifecycle/vqec_vision_deployment_config.cpp)
-    target_include_directories(vqec_vision_ai_deployment_config PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/lifecycle>)
-    target_link_libraries(vqec_vision_ai_deployment_config
-        PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
-    set_target_properties(vqec_vision_ai_deployment_config PROPERTIES CXX_EXTENSIONS OFF)
-endif()
-
-if(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
-    add_library(vqec_vision_ai_feature_catalog_config STATIC
-        src/runtime/feature_manager/vqec_vision_feature_catalog.cpp)
-    target_include_directories(vqec_vision_ai_feature_catalog_config PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/feature_manager>)
-    target_link_libraries(vqec_vision_ai_feature_catalog_config
-        PUBLIC vqec_vision_ai_feature_runtime PRIVATE nlohmann_json::nlohmann_json)
-    set_target_properties(vqec_vision_ai_feature_catalog_config PROPERTIES CXX_EXTENSIONS OFF)
-endif()
+add_subdirectory(src/runtime)
 
 add_library(vqec_vision_ai_camera_wire STATIC src/adapters/camera/vqec_vision_legacy_wire.cpp)
 target_link_libraries(vqec_vision_ai_camera_wire PUBLIC vqec_vision_ai_core)
@@ -272,8 +180,6 @@ target_include_directories(vqec_vision_ai_source_supervisor PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
 target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
-
-add_subdirectory(src/runtime/scheduler)
 
 add_library(vqec_vision_ai_source_session_worker STATIC
     src/app/vqec_vision_source_session_worker.cpp)

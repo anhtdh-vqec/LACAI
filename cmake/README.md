@@ -17,11 +17,13 @@ Toolchain files, SDK discovery and target-scoped build helpers.
 | File | Targets |
 |---|---|
 | `src/core/CMakeLists.txt` | `vqec_vision_ai_core` |
+| `src/perception/CMakeLists.txt` | detection, tracking, attributes |
+| `src/runtime/CMakeLists.txt` | feature runtime, loaders, model registry |
 | `src/adapters/reference/CMakeLists.txt` | `vqec_vision_ai_reference` |
 | `src/runtime/scheduler/CMakeLists.txt` | `vqec_vision_ai_scheduler`, `vqec_vision_ai_inference_worker` |
 
-Remaining modules (app, other adapters, perception, features, outputs, runtime, tests) still
-live in the root file and will move the same way.
+Remaining modules (app, adapters under camera/qualcomm/fw_output, outputs, features, tests)
+still live in the root file and will move the same way.
 
 ## See also
 
