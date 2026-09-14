@@ -2,7 +2,7 @@
 
 Toolchain files, SDK discovery and target-scoped build helpers.
 
-- **Status:** top-level `CMakeLists.txt` still owns most targets; module CMake files are being added incrementally
+- **Status:** split by module — the root is an option/summary file (~114 lines) that add_subdirectory-s each module
 - **Rule:** no global include/link directory settings
 
 ## Responsibility
@@ -20,13 +20,16 @@ Toolchain files, SDK discovery and target-scoped build helpers.
 | `src/perception/CMakeLists.txt` | detection, tracking, attributes |
 | `src/runtime/CMakeLists.txt` | feature runtime, loaders, model registry, admission |
 | `src/outputs/CMakeLists.txt` | encoded dispatch, feature-event dispatch, overlay preparation |
+| `src/app/CMakeLists.txt` | orchestration targets and the service executable |
+| `tests/CMakeLists.txt` | all unit/contract/board test targets |
 | `src/adapters/camera/CMakeLists.txt` | camera wire/control/dbus/camera |
 | `src/adapters/qualcomm/CMakeLists.txt` | gst frame bridge, qualcomm, qnn engine + smoke |
 | `src/adapters/fw_output/CMakeLists.txt` | FW ring sink |
 | `src/adapters/reference/CMakeLists.txt` | `vqec_vision_ai_reference` |
 | `src/runtime/scheduler/CMakeLists.txt` | `vqec_vision_ai_scheduler`, `vqec_vision_ai_inference_worker` |
 
-Remaining modules (app, features, tests) still live in the root file and will move the same way.
+Warning flags (-Wall -Wextra -Wpedantic, -Werror under VQEC_VISION_AI_WERROR) are set once at
+the root before the subdirectories so every module target inherits them.
 
 ## See also
 
