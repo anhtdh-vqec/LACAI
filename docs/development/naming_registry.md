@@ -255,6 +255,7 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_device_free_harness_test.cpp | dfhst | vqec_vision_ai_unit_dfhst_ |
 | tests/fuzz/vqec_vision_legacy_wire_fuzz.cpp | lwfz | vqec_vision_ai_unit_lwfz_ (LLVMFuzzerTestOneInput is a fixed framework entrypoint) |
 | tests/fuzz/vqec_vision_manifest_fuzz.cpp | mnfz | vqec_vision_ai_unit_mnfz_ (LLVMFuzzerTestOneInput is a fixed framework entrypoint) |
+| tests/fuzz/vqec_vision_dense_decoder_fuzz.cpp | ddfz | vqec_vision_ai_unit_ddfz_ (LLVMFuzzerTestOneInput is a fixed framework entrypoint) |
 | src/perception/tracking/vqec_vision_tracking_stage.cpp | trkst | vqec_vision_ai_track_trkst_ |
 | src/perception/tracking/vqec_vision_tracker_registry.cpp | trreg | vqec_vision_ai_track_trreg_ |
 | src/perception/attributes/vqec_vision_attribute_reader.cpp | atrdr | vqec_vision_ai_attr_atrdr_ |

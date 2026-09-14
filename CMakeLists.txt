@@ -82,6 +82,16 @@ if(VQEC_VISION_AI_BUILD_FUZZERS)
         PRIVATE -fsanitize=fuzzer,address,undefined)
     set_target_properties(vqec_vision_ai_legacy_wire_fuzz PROPERTIES CXX_EXTENSIONS OFF)
 
+    add_executable(vqec_vision_ai_dense_decoder_fuzz
+        tests/fuzz/vqec_vision_dense_decoder_fuzz.cpp)
+    target_link_libraries(vqec_vision_ai_dense_decoder_fuzz
+        PRIVATE vqec_vision_ai_detection)
+    target_compile_options(vqec_vision_ai_dense_decoder_fuzz
+        PRIVATE -g -O1 -fsanitize=fuzzer,address,undefined)
+    target_link_options(vqec_vision_ai_dense_decoder_fuzz
+        PRIVATE -fsanitize=fuzzer,address,undefined)
+    set_target_properties(vqec_vision_ai_dense_decoder_fuzz PROPERTIES CXX_EXTENSIONS OFF)
+
     if(TARGET vqec_vision_ai_model_manifest)
         add_executable(vqec_vision_ai_manifest_fuzz
             tests/fuzz/vqec_vision_manifest_fuzz.cpp)
