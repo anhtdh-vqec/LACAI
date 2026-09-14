@@ -96,6 +96,11 @@ private:
     std::array<bool, deployment_limits::g_max_models_per_source> has_target_spec_{};
     std::array<pending_tensor_submission, deployment_limits::g_max_models_per_source>
         pending_{};
+    // Persistent per-binding preprocessing output. It is reused across frames because the
+    // pump only preprocesses/submits a binding when its graph is not outstanding, so the
+    // previous input is complete per the graph's own completion semantics.
+    std::array<std::vector<tensor_blob>, deployment_limits::g_max_models_per_source>
+        preprocess_buffers_{};
     // Last received source epoch; a change discards parked inputs so an old-epoch result
     // can never be submitted into a new epoch.
     std::uint64_t last_source_epoch_{0};

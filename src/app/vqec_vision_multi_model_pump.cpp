@@ -3,6 +3,8 @@
 #include <limits>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+
 namespace vqec::vision::ai {
 
 multi_model_pump::multi_model_pump(raw_source_port& _source) : source_(_source) {}
@@ -250,7 +252,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         submission_ticket ticket;
         status submitted;
         if (bindings_[slot].processor_ != nullptr) {
-            std::vector<tensor_blob> blobs;
+            auto& blobs = preprocess_buffers_[slot];
             const auto preprocessed = vqec_vision_ai_appl_mmump_preprocess(
                 slot, frame, blobs);
             if (preprocessed.code_ != status_code::ok) {
@@ -312,8 +314,17 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_ensure_target(std::uint16_t _
         return {status_code::unsupported,
             "tensor preprocessing requires exactly one model input"};
     }
+    const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(inputs[0]);
+    if (bytes == 0) {
+        return {status_code::unsupported, "model input tensor has no bytes"};
+    }
     target_specs_[_slot] = inputs[0];
     has_target_spec_[_slot] = true;
+    auto& buffer = preprocess_buffers_[_slot];
+    buffer.clear();
+    buffer.push_back(tensor_blob{});
+    buffer[0].spec_ = target_specs_[_slot];
+    buffer[0].bytes_.assign(static_cast<std::size_t>(bytes), 0U);
     return {};
 }
 

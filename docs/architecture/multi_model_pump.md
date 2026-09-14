@@ -31,6 +31,9 @@ coherence, hardware completion or end-to-end zero-copy on a board.
 - if every graph has an outstanding job, the pump does not receive a frame;
 - a due but busy graph skips the current frame and is recorded in `busy_model_mask`; it
   never creates a stale-frame backlog or burst retry;
+- each tensor binding owns one persistent preprocessing output buffer, reused across frames
+  because the pump only preprocesses/submits when that graph is not outstanding; it never
+  reuses an input a graph may still read;
 - a graph whose dispatch policy is `latest_wins`/`replace_pending` parks the newest due
   preprocessed input in a one-slot mailbox (`pending_model_mask`) and submits it when the
   graph frees, so a slow model keeps the newest frame instead of dropping it;
