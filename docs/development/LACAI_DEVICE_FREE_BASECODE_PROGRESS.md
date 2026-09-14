@@ -8,7 +8,8 @@ means the device-free unit is delivered but not yet wired onto the production pa
 
 Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last update.
 
-Board (2026-09-14, QCS6490): the target came online. 81/81 test binaries pass natively; the
+Board (2026-09-14, QCS6490): the target came online. 82/82 test binaries pass natively (latest
+run); the
 service harness and `--mode production --platform fake` route two sources and `--platform
 qualcomm` fails closed; the QNN DSP V68 unit test passes; and the owned QNN engine executes
 SCRFD/YOLOv8n on HTP with output byte-identical to `qnn-net-run` (latency seed SCRFD ~5.2 ms,
@@ -46,12 +47,18 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 29 | Device-free microbenchmarks | **done** | pool, worker and dense-decoder throughput printed by the harness/tests |
 | 30 | Documentation capability matrix | **done** | `capability_matrix.md` added this change |
 
-## Next
+## Residuals (not part of the device-free DoD, or blocked)
 
-1. Production composition root with a fake platform owner and a no-fallback E2E test:
-   `--mode production --platform fake` runs, `--platform qualcomm` fails closed.
-2. Wire the bounded inference worker into the pump/session and the tensor pool into
-   preprocess/output so the running path is non-blocking and steady-state allocation-free.
-3. Wire the recovery controller into a source reconnect loop; add leak and invariant tests.
-4. One real decoder, secondary/ROI contract, fake output pipeline.
-5. Preprocess conformance suite, CMake split, sanitizers, fuzzing, benchmarks.
+- §6 backend output pooling: the engine allocates result blobs per call; pooling needs a
+  tensor-lease (result owner returns slots) so a buffer is never reused while a consumer
+  holds it. Input-path reuse is done.
+- §8 reconnect loop: the backoff controller is tested; wiring it into `source_lifecycle`
+  automatic reconnect is a follow-up.
+- §16 renderer: overlay preparation is metadata-only; a pixel renderer is a private adapter.
+- §19/§20 enforcement and coverage: sanitizer, clang-tidy and the four fuzzers are wired as
+  CI jobs but this environment cannot run them cleanly/for real; the deployment and feature
+  loader parsers and the ring parser are not fuzzed yet.
+- §25 naming: excluded by owner decision (AGENTS mandates the current scheme).
+- §27 small-object: plan-conditioned on host profiling; no measured hot spot yet.
+- §40 board-only: model accuracy, async/shared-memory/update qualification, live FW camera,
+  DMA completion, hardware encoder/ring, multi-camera and thermal remain hardware work.

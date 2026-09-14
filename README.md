@@ -28,7 +28,7 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 **Bằng chứng logic:** cấu hình default (mọi option OFF) **67/67** test và cấu hình mở rộng
 (Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **86/86** test
 chạy 100% dưới eSDK QEMU.
-**Bằng chứng board (2026-09-14, QCS6490):** 81/81 test binary pass native; service harness và
+**Bằng chứng board (2026-09-14, QCS6490):** 82/82 test binary pass native; service harness và
 `--mode production --platform fake` route 2 source (exit 0), `--platform qualcomm` fail-closed;
 `qnn-platform-validator` DSP unit test pass (Hexagon V68); owned QNN engine execute SCRFD/YOLOv8n
 trên HTP với parity byte-identical. Chi tiết: [qsc6490_board](docs/testing/qsc6490_board.md),
