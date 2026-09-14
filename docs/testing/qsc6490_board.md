@@ -78,6 +78,15 @@ eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
   to `qnn-net-run --use_native_input_files --use_native_output_files` — SCRFD 9/9 and
   YOLOv8n 2/2 tensors match. This is engine-versus-runtime parity, not model accuracy
   against a labelled reference.
+- First board latency baseline (owned engine, synchronous `graphExecute`, client buffers,
+  50 iterations after load; excludes preprocess and does not include graph prepare):
+  SCRFD-500M-KPS min 3.77 / avg 5.20 / max 6.62 ms; YOLOv8n-person min 10.83 / avg 12.12 /
+  max 13.27 ms. Recorded as a seed, not an acceptance threshold.
+
+Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
+Newly written executables on the board's `/opt` overlay occasionally need a `sync` (or a
+copy to `/tmp`) before exec; the native test binaries and service binary run there
+directly.
 
 Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
 camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the
