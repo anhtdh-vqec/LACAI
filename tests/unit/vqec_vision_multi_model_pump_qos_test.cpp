@@ -25,7 +25,7 @@ public:
         raw_frame& _frame, int) override {
         frame_descriptor descriptor;
         descriptor.buffer_id_ = ++buffer_id_;
-        descriptor.session_epoch_ = 1;
+        descriptor.session_epoch_ = epoch_;
         descriptor.width_ = 640;
         descriptor.height_ = 480;
         descriptor.pts_ns_ = buffer_id_ * 40000000ULL;
@@ -52,8 +52,11 @@ public:
         return 0;
     }
 
+    void set_epoch(std::uint64_t _epoch) noexcept { epoch_ = _epoch; }
+
     raw_source_state state_{raw_source_state::idle};
     std::uint64_t buffer_id_{0};
+    std::uint64_t epoch_{1};
 };
 
 class controllable_graph final : public inference_graph_port {
@@ -236,6 +239,46 @@ int main() {
     (void)pump.vqec_vision_ai_appl_mmump_pump_step(7, result, report);
     assert(busy_graph.last_submitted_frame_id_ == 6);
     assert(busy_graph.submission_count_ == 2 && busy_processor.calls_ == 2);
+
+    // Section 23: a parked input must not cross a source epoch boundary.
+    {
+        controllable_source epoch_source;
+        controllable_graph epoch_busy(true);
+        controllable_graph epoch_free(false);
+        counting_processor epoch_busy_processor;
+        counting_processor epoch_free_processor;
+        assert(epoch_source.vqec_vision_ai_ports_rawsr_start(1000).code_ == status_code::ok);
+        std::array<multi_model_graph_binding, deployment_limits::g_max_models_per_source>
+            epoch_bindings{};
+        epoch_bindings[0].graph_ = &epoch_busy;
+        epoch_bindings[0].cycle_id_ = 7;
+        epoch_bindings[0].job_timeout_ns_ = 1000000000;
+        epoch_bindings[0].processor_ = &epoch_busy_processor;
+        epoch_bindings[0].plan_ = &plan;
+        epoch_bindings[1].graph_ = &epoch_free;
+        epoch_bindings[1].cycle_id_ = 8;
+        epoch_bindings[1].job_timeout_ns_ = 1000000000;
+        epoch_bindings[1].processor_ = &epoch_free_processor;
+        epoch_bindings[1].plan_ = &plan;
+        multi_model_pump epoch_pump(epoch_source);
+        assert(epoch_pump.vqec_vision_ai_appl_mmump_configure(
+                   cadence, epoch_bindings, 2).code_ == status_code::ok);
+        assert(epoch_pump.vqec_vision_ai_appl_mmump_resolve_targets().code_ ==
+               status_code::ok);
+        multi_model_pump_report epoch_report;
+        (void)epoch_pump.vqec_vision_ai_appl_mmump_pump_step(1, result, epoch_report);
+        for (std::uint64_t now = 2; now <= 5; ++now) {
+            (void)epoch_pump.vqec_vision_ai_appl_mmump_pump_step(now, result, epoch_report);
+        }
+        (void)epoch_pump.vqec_vision_ai_appl_mmump_pump_step(6, result, epoch_report);
+        assert((epoch_report.pending_model_mask_ & 1U) != 0);
+        // Source restarts on a new epoch before the parked input is flushed.
+        epoch_source.set_epoch(2);
+        epoch_busy.release();
+        (void)epoch_pump.vqec_vision_ai_appl_mmump_pump_step(7, result, epoch_report);
+        assert(epoch_busy.submission_count_ == 1 &&  // only frame 1, parked frame 6 dropped
+               epoch_busy.last_submitted_frame_id_ == 1);
+    }
 
     return 0;
 }

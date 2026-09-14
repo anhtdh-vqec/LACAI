@@ -96,6 +96,9 @@ private:
     std::array<bool, deployment_limits::g_max_models_per_source> has_target_spec_{};
     std::array<pending_tensor_submission, deployment_limits::g_max_models_per_source>
         pending_{};
+    // Last received source epoch; a change discards parked inputs so an old-epoch result
+    // can never be submitted into a new epoch.
+    std::uint64_t last_source_epoch_{0};
     std::uint64_t last_now_ns_{0};
     std::uint16_t model_count_{0};
     std::uint16_t result_cursor_{0};

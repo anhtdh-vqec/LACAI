@@ -172,6 +172,15 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         is_failed_ = true;
         return {status_code::protocol_error, "RAW frame has no valid identity or owner"};
     }
+    if (last_source_epoch_ != 0 &&
+        frame.descriptor_.session_epoch_ != last_source_epoch_) {
+        // Source epoch changed: never submit parked old-epoch inputs into the new epoch.
+        for (auto& parked : pending_) {
+            parked.has_ = false;
+            parked.blobs_.clear();
+        }
+    }
+    last_source_epoch_ = frame.descriptor_.session_epoch_;
 
     model_cadence_selection selection;
     const auto selected = cadence_.vqec_vision_ai_sched_mdcad_select(
