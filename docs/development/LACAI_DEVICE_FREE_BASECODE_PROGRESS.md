@@ -13,7 +13,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 3/§4 | Camera release dispatcher | **done** | `e84f1c1` |
 | 5 | Bounded inference worker | **module** | `bee8c8e`; pump wiring pending |
 | 6 | Tensor pool | **module** | this change; output/input wiring pending |
-| 7 | Production composition root + fake platform | partial | `--mode production` fails closed; no fake production owner yet |
+| 7 | Production composition root + fake platform | **done** | `--mode production --platform fake` runs E2E; qualcomm/unset fails closed; fake owners in `vqec_vision_fake_platform` |
 | 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; per-source backoff/retry-budget controller added (this change); reconnect wiring pending |
 | 9 | Model/package admission hardening | partial | capability/metadata/model-class gates (`b20ae11`, `52fe276`, `595ed08`) |
 | 10 | Scheduler QoS semantics | partial | explicit policy, unsupported rejected `d469495`; queue semantics pending |

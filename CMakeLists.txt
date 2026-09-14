@@ -415,7 +415,9 @@ set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS 
 # device-free reference backend are available; otherwise there is no runnable harness.
 if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
    TARGET vqec_vision_ai_model_catalog_config AND TARGET vqec_vision_ai_feature_catalog_config)
-    add_executable(vqec_ai_vision_applications src/app/vqec_vision_service_main.cpp)
+    add_executable(vqec_ai_vision_applications
+        src/app/vqec_vision_service_main.cpp
+        src/app/vqec_vision_fake_platform.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_runtime_composition_factory
         vqec_vision_ai_reference
@@ -945,6 +947,14 @@ if(BUILD_TESTING)
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_catalog.json
             --steps 5)
         set_tests_properties(service_production_fail_closed PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
+        # Production mode runs end to end through the explicitly selected fake platform.
+        add_test(NAME service_production_fake_smoke COMMAND vqec_ai_vision_applications
+            --mode production --platform fake
+            --deployment ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_deployment.json
+            --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_catalog.json
+            --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/service_smoke_features.json
+            --steps 160 --require-sources 2)
+        set_tests_properties(service_production_fake_smoke PROPERTIES TIMEOUT 20)
     endif()
 endif()
 

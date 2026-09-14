@@ -1,13 +1,15 @@
 // LACAI service composition root. This is the required externally named executable
 // `vqec_ai_vision_applications`. It loads validated deployment/model/feature metadata,
-// constructs the neutral runtime bundle with the device-free reference backend and a
-// built-in development fixture package set, then runs the serialized executor loop.
+// selects a platform owner and constructs the neutral runtime bundle, then runs the
+// serialized executor loop.
 //
-// The fixture decoder/tracker/feature produce no real detections and prove nothing about
-// model accuracy, Qualcomm support or hardware completion. A usecase integrator replaces
-// them by registering real package factories before bundle construction, or by swapping
-// the reference platform owners for the Camera/Qualcomm adapters. See
-// docs/architecture/runtime_executor.md.
+// `--mode harness` (default) runs the device-free fake platform for development.
+// `--mode production --platform fake` runs the same explicit fake platform through the
+// production composition path; `--platform qualcomm` (or unset) fails closed because no
+// Qualcomm platform owner is wired yet. The fake decoder/tracker/feature produce no real
+// detections and prove nothing about model accuracy, Qualcomm support or hardware
+// completion. A usecase integrator registers real package factories and platform owners
+// before bundle construction. See docs/architecture/runtime_executor.md.
 
 #include <array>
 #include <chrono>
@@ -30,6 +32,7 @@
 #include "vqec_vision_reference_graph.hpp"
 #include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
+#include "vqec_vision_fake_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
 using namespace vqec::vision::ai;
@@ -50,10 +53,6 @@ inline constexpr char g_system_library[] = "/usr/lib/libQnnSystem.so";
 inline constexpr std::uint64_t g_output_bytes = 16;
 inline constexpr char g_box_tensor_name[] = "boxes";
 inline constexpr std::uint32_t g_box_elements = 4;
-inline constexpr char g_attribute_schema_id[] = "fixture.attribute";
-inline constexpr char g_attribute_schema_version[] = "1";
-inline constexpr char g_event_schema_id[] = "fixture.event";
-inline constexpr char g_event_schema_version[] = "1";
 }  // namespace service_harness
 
 namespace {
@@ -73,160 +72,7 @@ std::uint64_t vqec_vision_ai_appl_svcmn_monotonic_ns() noexcept {
 }
 
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
-constexpr char g_reference_tracker_contract[] = "reference.tracker.v1";
 constexpr std::uint64_t g_step_interval_ns = 1000000;
-
-// --- development fixture package set (not a model or a qualified usecase) ---------------
-
-class fixture_decoder final : public model_decoder_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_cntr_mddec_validate(
-        const model_outputs& _outputs) const override {
-        return _outputs.outputs_.empty() ?
-            status{status_code::unsupported, "fixture decoder requires an output"} : status{};
-    }
-    [[nodiscard]] status vqec_vision_ai_cntr_mddec_decode(
-        const tensor_result& _result, const preview_frame_key& _expected_frame,
-        observation_batch& _observations) override {
-        (void)_result;
-        observation_batch candidate;
-        candidate.frame_ = _expected_frame;
-        candidate.geometry_ = {width_, height_};
-        observation item;
-        item.frame_ = _expected_frame;
-        item.class_id_ = "person";
-        item.box_ = {0.0F, 0.0F, 10.0F, 10.0F, 0xffffffffU, "person"};
-        item.confidence_ = 0.5F;
-        item.quality_ = observation_quality::low;
-        candidate.observations_.push_back(std::move(item));
-        _observations = std::move(candidate);
-        return {};
-    }
-
-    // The development harness assumes one uniform source geometry per deployment.
-    std::uint32_t width_{640};
-    std::uint32_t height_{480};
-};
-
-class fixture_tracker final : public tracker_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_ports_trker_validate_activation() const override {
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_trker_update_tracks(
-        const observation_batch& _detections, std::uint64_t _now_monotonic_ns,
-        bool _is_source_gap, observation_batch& _tracked) override {
-        (void)_now_monotonic_ns;
-        (void)_is_source_gap;
-        observation_batch candidate = _detections;
-        for (auto& item : candidate.observations_) {
-            item.track_id_ = ++assigned_;
-        }
-        _tracked = std::move(candidate);
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_trker_reset_epoch(
-        std::uint64_t _source_epoch) override {
-        (void)_source_epoch;
-        assigned_ = 0;
-        return {};
-    }
-
-    std::uint64_t assigned_{0};
-};
-
-class fixture_tracker_factory final : public tracker_factory_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_track_trfac_validate_activation(
-        const std::string& _source_id, const std::string& _model_id) const override {
-        (void)_model_id;
-        return !_source_id.empty() ? status{} :
-            status{status_code::unsupported, "fixture tracker requires a source"};
-    }
-    [[nodiscard]] status vqec_vision_ai_track_trfac_create_tracker(
-        const std::string& _source_id, const std::string& _model_id,
-        std::unique_ptr<tracker_port>& _tracker) override {
-        (void)_source_id;
-        (void)_model_id;
-        _tracker = std::make_unique<fixture_tracker>();
-        return {};
-    }
-};
-
-class fixture_feature final : public feature_processor_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_ports_ftpro_validate_activation(
-        const feature_processor_config& _config) const override {
-        config_ = _config;
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_ftpro_reset_epoch(
-        std::uint64_t _source_epoch) override {
-        (void)_source_epoch;
-        next_event_id_ = 0;
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_ftpro_process_observations(
-        const observation_batch& _tracked, std::uint64_t _now_monotonic_ns,
-        bool _is_source_gap, feature_event_batch& _events) override {
-        (void)_now_monotonic_ns;
-        (void)_is_source_gap;
-        feature_event_batch candidate;
-        candidate.frame_ = _tracked.frame_;
-        candidate.geometry_ = _tracked.geometry_;
-        for (const auto& item : _tracked.observations_) {
-            if (item.track_id_ == 0) {
-                continue;
-            }
-            feature_event event;
-            event.frame_ = _tracked.frame_;
-            event.source_id_ = config_.source_id_;
-            event.feature_id_ = config_.feature_id_;
-            event.event_id_ = "fixture_" + std::to_string(++next_event_id_);
-            event.event_schema_id_ = service_harness::g_event_schema_id;
-            event.event_schema_version_ = service_harness::g_event_schema_version;
-            event.kind_ = feature_event_kind::snapshot;
-            event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
-            event.config_revision_ = config_.config_revision_;
-            event.track_ids_.push_back(item.track_id_);
-            feature_event_field field;
-            field.schema_id_ = service_harness::g_attribute_schema_id;
-            field.schema_version_ = service_harness::g_attribute_schema_version;
-            field.value_ = "present";
-            field.confidence_ = 0.5F;
-            field.quality_ = observation_quality::low;
-            event.fields_.push_back(std::move(field));
-            candidate.events_.push_back(std::move(event));
-        }
-        _events = std::move(candidate);
-        return {};
-    }
-
-    mutable feature_processor_config config_;
-    std::uint64_t next_event_id_{0};
-};
-
-class fixture_feature_factory final : public feature_processor_factory_port {
-public:
-    [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
-        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
-        const feature_configuration& _configuration) const override {
-        (void)_feature;
-        (void)_processor_config;
-        (void)_configuration;
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_ftfac_create_processor(
-        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
-        const feature_configuration& _configuration,
-        std::unique_ptr<feature_processor_port>& _processor) override {
-        (void)_feature;
-        (void)_processor_config;
-        (void)_configuration;
-        _processor = std::make_unique<fixture_feature>();
-        return {};
-    }
-};
 
 // --- loading helpers --------------------------------------------------------------------
 
@@ -304,8 +150,9 @@ struct parsed_arguments {
     std::string feature_catalog_path;
     std::uint64_t max_steps{0};
     std::uint32_t require_sources{0};
-    // Harness mode uses reference owners and development fixture packages. Production
-    // mode refuses that fallback and requires registered platform owners/packages.
+    // Production requires an explicit wired platform. Harness selects the device-free fake
+    // platform implicitly for development only.
+    std::string platform{"none"};
     bool production_mode{false};
 };
 
@@ -334,6 +181,8 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
                 std::fprintf(stderr, "unknown mode: %s\n", mode.c_str());
                 return false;
             }
+        } else if (option == "--platform" && has_value) {
+            _args.platform = _argv[++index];
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -370,7 +219,7 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>] "
-            "[--mode harness|production]\n");
+            "[--mode harness|production] [--platform fake]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -392,45 +241,52 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr, "deployment source count exceeds runtime support\n");
         return 1;
     }
-    if (args.production_mode) {
-        // No Camera/Qualcomm platform owner or real package factory registration is wired
-        // yet. Refusing to substitute reference owners or fixture packages for real model
-        // contracts is the fail-closed behavior required before production integration.
+    // Platform selection. Production requires an explicit platform; an unset or unwired
+    // platform fails closed instead of substituting the development harness. The fake
+    // platform owners produce no real detections and are selected only by name.
+    const bool use_fake_platform = args.platform == "fake";
+    if (args.production_mode && !use_fake_platform) {
         std::fprintf(stderr,
-            "production mode: no platform owner or package registration is wired; "
-            "refusing fixture fallback\n");
+            "production mode: --platform %s is not wired; use --platform fake for the "
+            "device-free fake platform. Refusing fixture fallback\n",
+            args.platform.c_str());
         return 3;
     }
 
-    // Fixture packages: registered for every catalog contract so the harness can run.
-    fixture_decoder decoder;
-    decoder.width_ = deployment.sources_.front().profile_.width_;
-    decoder.height_ = deployment.sources_.front().profile_.height_;
-    model_decoder_registry decoders;
-    for (const auto& model : catalog.models_) {
-        if (decoders.vqec_vision_ai_detec_mdreg_register_decoder(
-                model.decoder_contract_, decoder).code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register fixture decoder: %s\n",
-                model.decoder_contract_.c_str());
-            return 1;
-        }
-    }
-    fixture_tracker_factory tracker_factory;
-    tracker_registry trackers;
-    if (trackers.vqec_vision_ai_track_trreg_register_factory(
-            g_reference_tracker_contract, tracker_factory).code_ != status_code::ok) {
-        std::fprintf(stderr, "cannot register fixture tracker\n");
+    // Fake platform owners: registered for every catalog contract so the composition has a
+    // concrete decoder/tracker/feature set. Selected explicitly, never implicitly.
+    fake_platform platform;
+    const auto platform_configured = platform.vqec_vision_ai_appl_fkplt_configure(
+        {deployment.sources_.front().profile_.width_,
+            deployment.sources_.front().profile_.height_});
+    if (platform_configured.code_ != status_code::ok) {
+        std::fprintf(stderr, "fake platform configure failed (%d): %s\n",
+            static_cast<int>(platform_configured.code_), platform_configured.message_.c_str());
         return 1;
     }
-    fixture_feature_factory feature_factory;
+    model_decoder_registry decoders;
+    const auto decoders_registered =
+        platform.vqec_vision_ai_appl_fkplt_register_decoders(catalog, decoders);
+    if (decoders_registered.code_ != status_code::ok) {
+        std::fprintf(stderr, "cannot register fake platform decoders (%d): %s\n",
+            static_cast<int>(decoders_registered.code_), decoders_registered.message_.c_str());
+        return 1;
+    }
+    tracker_registry trackers;
+    const auto tracker_registered =
+        platform.vqec_vision_ai_appl_fkplt_register_tracker(trackers);
+    if (tracker_registered.code_ != status_code::ok) {
+        std::fprintf(stderr, "cannot register fake platform tracker (%d): %s\n",
+            static_cast<int>(tracker_registered.code_), tracker_registered.message_.c_str());
+        return 1;
+    }
     feature_processor_registry feature_registry;
-    for (const auto& feature : features.features_) {
-        if (feature_registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
-                feature.processor_contract_, feature_factory).code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register fixture feature: %s\n",
-                feature.processor_contract_.c_str());
-            return 1;
-        }
+    const auto features_registered =
+        platform.vqec_vision_ai_appl_fkplt_register_features(features, feature_registry);
+    if (features_registered.code_ != status_code::ok) {
+        std::fprintf(stderr, "cannot register fake platform features (%d): %s\n",
+            static_cast<int>(features_registered.code_), features_registered.message_.c_str());
+        return 1;
     }
 
     // Output boundary for the harness: a permissive-but-explicit policy plus a
@@ -482,7 +338,8 @@ int main(int _argc, char** _argv) {
             model_activation.paths_.system_path_ = service_harness::g_system_library;
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
             model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
-            model_activation.tracker_contract_ = g_reference_tracker_contract;
+            model_activation.tracker_contract_ =
+                platform.vqec_vision_ai_appl_fkplt_get_tracker_contract();
             model_activation.binding_.width_ = source.profile_.width_;
             model_activation.binding_.height_ = source.profile_.height_;
             model_activation.binding_.fps_numerator_ = source.profile_.fps_numerator_;
@@ -568,7 +425,8 @@ int main(int _argc, char** _argv) {
                 output_scope_rule rule;
                 rule.source_id_ = requests[index].source_id_;
                 rule.feature_id_ = requests[index].feature_id_;
-                rule.attributes_.push_back(service_harness::g_attribute_schema_id);
+                rule.attributes_.push_back(
+                    platform.vqec_vision_ai_appl_fkplt_get_config().attribute_schema_id_);
                 policy.rules_.push_back(std::move(rule));
             }
             const auto applied =
