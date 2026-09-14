@@ -319,6 +319,14 @@ target_link_libraries(vqec_vision_ai_inference_worker
     PUBLIC vqec_vision_ai_core vqec_vision_ai_scheduler Threads::Threads)
 set_target_properties(vqec_vision_ai_inference_worker PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_source_session_worker STATIC
+    src/app/vqec_vision_source_session_worker.cpp)
+target_include_directories(vqec_vision_ai_source_session_worker PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/app>)
+target_link_libraries(vqec_vision_ai_source_session_worker
+    PUBLIC vqec_vision_ai_core Threads::Threads)
+set_target_properties(vqec_vision_ai_source_session_worker PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_recovery_controller STATIC
     src/runtime/lifecycle/vqec_vision_recovery_controller.cpp)
 target_include_directories(vqec_vision_ai_recovery_controller PUBLIC
@@ -871,6 +879,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME multi_model_pump_qos_mailbox
         COMMAND vqec_vision_ai_multi_model_pump_qos_test)
+    add_executable(vqec_vision_ai_source_session_worker_test
+        tests/unit/vqec_vision_source_session_worker_test.cpp)
+    target_link_libraries(vqec_vision_ai_source_session_worker_test
+        PRIVATE vqec_vision_ai_source_session_worker Threads::Threads)
+    set_target_properties(vqec_vision_ai_source_session_worker_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME source_session_worker_isolation
+        COMMAND vqec_vision_ai_source_session_worker_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

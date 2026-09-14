@@ -2,7 +2,7 @@
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Target QCS6490](https://img.shields.io/badge/target-QCS6490%20%2F%20Qualcomm%20Linux%201.8-blue)
-![Tests](https://img.shields.io/badge/logic%20tests-84%20passing%20(QEMU)-green)
+![Tests](https://img.shields.io/badge/logic%20tests-85%20passing%20(QEMU)-green)
 ![Status](https://img.shields.io/badge/status-base--ready-yellow)
 
 Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
@@ -25,8 +25,8 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Output / preview / encoded | Helpers + fake | Fake encoder + bounded ring + conformance; renderer/hardware encoder thật chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Device-free dưới QEMU và native trên board (harness + production fake); thiếu platform owner thật |
 
-**Bằng chứng logic:** cấu hình default (mọi option OFF) **65/65** test và cấu hình mở rộng
-(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **84/84** test
+**Bằng chứng logic:** cấu hình default (mọi option OFF) **66/66** test và cấu hình mở rộng
+(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **85/85** test
 chạy 100% dưới eSDK QEMU.
 **Bằng chứng board (2026-09-14, QCS6490):** 79/79 test binary pass native; service harness và
 `--mode production --platform fake` route 2 source (exit 0), `--platform qualcomm` fail-closed;
