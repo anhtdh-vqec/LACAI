@@ -31,6 +31,9 @@ coherence, hardware completion or end-to-end zero-copy on a board.
 - if every graph has an outstanding job, the pump does not receive a frame;
 - a due but busy graph skips the current frame and is recorded in `busy_model_mask`; it
   never creates a stale-frame backlog or burst retry;
+- a graph whose dispatch policy is `latest_wins`/`replace_pending` parks the newest due
+  preprocessed input in a one-slot mailbox (`pending_model_mask`) and submits it when the
+  graph frees, so a slow model keeps the newest frame instead of dropping it;
 - cadence advances once a frame is received, including skipped/busy selections;
 - every newly due graph is armed before the first submit, so shared retention-capacity
   rejection cannot occur after an earlier graph has already accepted that frame;

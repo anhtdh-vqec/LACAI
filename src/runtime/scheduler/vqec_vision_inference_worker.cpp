@@ -128,7 +128,8 @@ status inference_worker::vqec_vision_ai_sched_inwrk_submit(
         _qos == model_dispatch_policy::event_triggered) {
         return {status_code::unsupported, "dispatch policy needs a durable queue"};
     }
-    if (_qos == model_dispatch_policy::latest_wins) {
+    if (_qos == model_dispatch_policy::latest_wins ||
+        _qos == model_dispatch_policy::replace_pending) {
         for (auto it = pending_.begin(); it != pending_.end(); ++it) {
             if (it->source_slot_ == _item.source_slot_ &&
                 it->model_slot_ == _item.model_slot_) {

@@ -16,6 +16,7 @@ namespace vqec::vision::ai {
 enum class model_dispatch_policy {
     drop_if_busy,
     latest_wins,
+    replace_pending,
     must_process_once,
     event_triggered
 };

@@ -863,6 +863,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME device_free_harness_stress
         COMMAND vqec_vision_ai_device_free_harness_test)
+    add_executable(vqec_vision_ai_multi_model_pump_qos_test
+        tests/unit/vqec_vision_multi_model_pump_qos_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_model_pump_qos_test
+        PRIVATE vqec_vision_ai_multi_model_pump)
+    set_target_properties(vqec_vision_ai_multi_model_pump_qos_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_model_pump_qos_mailbox
+        COMMAND vqec_vision_ai_multi_model_pump_qos_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)

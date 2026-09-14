@@ -24,7 +24,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 7 | Production composition root + fake platform | **done** | `--mode production --platform fake` runs E2E; qualcomm/unset fails closed; fake owners in `vqec_vision_fake_platform` |
 | 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; per-source backoff/retry-budget controller added (this change); reconnect wiring pending |
 | 9 | Model/package admission hardening | partial | capability/metadata/model-class gates (`b20ae11`, `52fe276`, `595ed08`) |
-| 10 | Scheduler QoS semantics | partial | explicit policy, unsupported rejected `d469495`; queue semantics pending |
+| 10 | Scheduler QoS semantics | **done** | policy + one-slot mailbox for latest_wins/replace_pending; must_process_once/event_triggered rejected |
 | 11 | Secondary/ROI inference contract | **done** | neutral contract + bounded scheduler + fake backend + correlation tests this change |
 | 12 | Preprocess conformance suite | **done** | conformance suite this change (solid/gradient/stride/offset/aspect/order/norm/quant/clip/reject) |
 | 13 | Real CPU decoder | **done** | configurable dense anchor-free decoder + NMS + letterbox inverse this change |

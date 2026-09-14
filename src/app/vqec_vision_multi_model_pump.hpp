@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 #include "vqec_vision_model_cadence.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
@@ -29,6 +30,9 @@ struct multi_model_pump_report {
     std::uint16_t due_model_mask_{0};
     std::uint16_t submitted_model_mask_{0};
     std::uint16_t busy_model_mask_{0};
+    // Slots whose due preprocessed input was parked in the one-slot mailbox because the
+    // graph was still busy (latest_wins / replace_pending).
+    std::uint16_t pending_model_mask_{0};
     std::uint16_t result_model_slot_{UINT16_MAX};
     std::uint16_t error_model_slot_{UINT16_MAX};
     bool has_result_{false};
@@ -59,9 +63,30 @@ public:
     [[nodiscard]] bool vqec_vision_ai_appl_mmump_has_failed() const noexcept;
 
 private:
+    // A one-slot mailbox for a graph that is still busy. The newest due frame's
+    // preprocessed tensors are retained and submitted when the graph frees up. Bounded by
+    // construction: one entry per model slot.
+    struct pending_tensor_submission {
+        std::vector<tensor_blob> blobs_;
+        std::uint64_t source_epoch_{0};
+        std::uint64_t source_frame_id_{0};
+        std::uint64_t source_pts_ns_{0};
+        bool has_{false};
+    };
+
     [[nodiscard]] status vqec_vision_ai_appl_mmump_poll_result(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         multi_model_pump_report& _report);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_ensure_target(std::uint16_t _slot);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_preprocess(
+        std::uint16_t _slot, const raw_frame& _frame, std::vector<tensor_blob>& _blobs);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_store_pending(
+        std::uint16_t _slot, const raw_frame& _frame);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_flush_pending(
+        std::uint64_t _steady_now_ns, multi_model_pump_report& _report);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_get_policy(
+        std::uint16_t _slot, model_dispatch_policy& _policy) const noexcept;
+
     raw_source_port& source_;
     model_cadence_scheduler cadence_;
     std::array<multi_model_graph_binding, deployment_limits::g_max_models_per_source>
@@ -69,6 +94,8 @@ private:
     std::array<bool, deployment_limits::g_max_models_per_source> is_armed_{};
     std::array<tensor_spec, deployment_limits::g_max_models_per_source> target_specs_{};
     std::array<bool, deployment_limits::g_max_models_per_source> has_target_spec_{};
+    std::array<pending_tensor_submission, deployment_limits::g_max_models_per_source>
+        pending_{};
     std::uint64_t last_now_ns_{0};
     std::uint16_t model_count_{0};
     std::uint16_t result_cursor_{0};

@@ -82,11 +82,15 @@ status model_cadence_scheduler::vqec_vision_ai_sched_mdcad_configure(
             return {status_code::invalid_argument,
                     "model cadence is invalid or exceeds source rate"};
         }
-        // Only drop_if_busy is implemented. A model that needs a bounded per-model queue
-        // (latest_wins, must_process_once, event_triggered) is rejected before activation.
-        if (_config.dispatch_policies_[slot] != model_dispatch_policy::drop_if_busy) {
+        // drop_if_busy, latest_wins and replace_pending are served by the pump's one-slot
+        // mailbox (newest wins). must_process_once/event_triggered need a durable queue and
+        // are rejected before activation.
+        const auto policy = _config.dispatch_policies_[slot];
+        if (policy != model_dispatch_policy::drop_if_busy &&
+            policy != model_dispatch_policy::latest_wins &&
+            policy != model_dispatch_policy::replace_pending) {
             return {status_code::unsupported,
-                    "requested model dispatch policy needs a bounded per-model queue"};
+                    "requested model dispatch policy needs a durable per-model queue"};
         }
     }
     increments_ = increments;

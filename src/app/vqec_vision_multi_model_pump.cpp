@@ -192,10 +192,29 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
         auto& graph = *bindings_[slot].graph_;
         if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
-            // drop_if_busy semantics: cadence activation rejects any other dispatch policy
-            // until a bounded per-model queue exists (review section 10).
-            _report.busy_model_mask_ = static_cast<std::uint16_t>(
-                _report.busy_model_mask_ | bit);
+            // drop_if_busy: skip. latest_wins/replace_pending: park the newest due input in
+            // the one-slot mailbox and submit it once the graph frees up.
+            model_dispatch_policy policy{model_dispatch_policy::drop_if_busy};
+            bool parked = false;
+            if (bindings_[slot].processor_ != nullptr &&
+                vqec_vision_ai_appl_mmump_get_policy(slot, policy).code_ == status_code::ok &&
+                (policy == model_dispatch_policy::latest_wins ||
+                    policy == model_dispatch_policy::replace_pending)) {
+                const auto stored = vqec_vision_ai_appl_mmump_store_pending(slot, frame);
+                if (stored.code_ != status_code::ok) {
+                    _report.error_model_slot_ = slot;
+                    is_failed_ = true;
+                    return stored;
+                }
+                parked = true;
+            }
+            if (parked) {
+                _report.pending_model_mask_ = static_cast<std::uint16_t>(
+                    _report.pending_model_mask_ | bit);
+            } else {
+                _report.busy_model_mask_ = static_cast<std::uint16_t>(
+                    _report.busy_model_mask_ | bit);
+            }
             continue;
         }
         if (!is_armed_[slot]) {
@@ -214,36 +233,25 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         const auto bit = static_cast<std::uint16_t>(1U << slot);
         if ((selection.due_model_mask_ & bit) == 0 ||
-            (_report.busy_model_mask_ & bit) != 0) {
+            (_report.busy_model_mask_ & bit) != 0 ||
+            (_report.pending_model_mask_ & bit) != 0) {
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
         submission_ticket ticket;
         status submitted;
         if (bindings_[slot].processor_ != nullptr) {
-            if (!has_target_spec_[slot]) {
-                std::vector<tensor_spec> inputs;
-                const auto specs = graph.vqec_vision_ai_ports_infgr_get_input_specs(inputs);
-                if (specs.code_ != status_code::ok || inputs.size() != 1) {
-                    _report.error_model_slot_ = slot;
-                    is_failed_ = true;
-                    return specs.code_ == status_code::ok ?
-                        status{status_code::unsupported,
-                            "tensor preprocessing requires exactly one model input"} :
-                        specs;
-                }
-                target_specs_[slot] = inputs[0];
-                has_target_spec_[slot] = true;
-            }
             std::vector<tensor_blob> blobs;
-            const auto preprocessed =
-                bindings_[slot].processor_->vqec_vision_ai_ports_imgpr_preprocess(
-                    frame, *bindings_[slot].plan_, target_specs_[slot], blobs);
+            const auto preprocessed = vqec_vision_ai_appl_mmump_preprocess(
+                slot, frame, blobs);
             if (preprocessed.code_ != status_code::ok) {
                 _report.error_model_slot_ = slot;
                 is_failed_ = true;
                 return preprocessed;
             }
+            // A fresh submission supersedes any parked input for this slot.
+            pending_[slot].has_ = false;
+            pending_[slot].blobs_.clear();
             submitted = graph.vqec_vision_ai_ports_infgr_submit_tensors(
                 frame.descriptor_.session_epoch_, frame.descriptor_.buffer_id_,
                 frame.descriptor_.pts_ns_, blobs, _steady_now_ns, ticket);
@@ -268,10 +276,103 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             return submitted;
         }
     }
+    const auto flushed = vqec_vision_ai_appl_mmump_flush_pending(_steady_now_ns, _report);
+    if (flushed.code_ != status_code::ok) {
+        return flushed;
+    }
     if (_report.submitted_model_mask_ != 0) {
         return {};
     }
+    if (_report.pending_model_mask_ != 0) {
+        return {status_code::pending, "due input parked until the graph frees up"};
+    }
     return {status_code::pending, "RAW frame skipped because no due graph accepted it"};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_ensure_target(std::uint16_t _slot) {
+    if (has_target_spec_[_slot]) {
+        return {};
+    }
+    std::vector<tensor_spec> inputs;
+    const auto specs =
+        bindings_[_slot].graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
+    if (specs.code_ != status_code::ok) {
+        return specs;
+    }
+    if (inputs.size() != 1) {
+        return {status_code::unsupported,
+            "tensor preprocessing requires exactly one model input"};
+    }
+    target_specs_[_slot] = inputs[0];
+    has_target_spec_[_slot] = true;
+    return {};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_preprocess(
+    std::uint16_t _slot, const raw_frame& _frame, std::vector<tensor_blob>& _blobs) {
+    if (bindings_[_slot].processor_ == nullptr || bindings_[_slot].plan_ == nullptr) {
+        return {status_code::invalid_state, "binding has no preprocessing stage"};
+    }
+    const auto target = vqec_vision_ai_appl_mmump_ensure_target(_slot);
+    if (target.code_ != status_code::ok) {
+        return target;
+    }
+    return bindings_[_slot].processor_->vqec_vision_ai_ports_imgpr_preprocess(
+        _frame, *bindings_[_slot].plan_, target_specs_[_slot], _blobs);
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_get_policy(
+    std::uint16_t _slot, model_dispatch_policy& _policy) const noexcept {
+    return cadence_.vqec_vision_ai_sched_mdcad_get_dispatch_policy(_slot, _policy);
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_store_pending(
+    std::uint16_t _slot, const raw_frame& _frame) {
+    std::vector<tensor_blob> blobs;
+    const auto preprocessed = vqec_vision_ai_appl_mmump_preprocess(_slot, _frame, blobs);
+    if (preprocessed.code_ != status_code::ok) {
+        return preprocessed;
+    }
+    auto& pending = pending_[_slot];
+    pending.blobs_ = std::move(blobs);
+    pending.source_epoch_ = _frame.descriptor_.session_epoch_;
+    pending.source_frame_id_ = _frame.descriptor_.buffer_id_;
+    pending.source_pts_ns_ = _frame.descriptor_.pts_ns_;
+    pending.has_ = true;
+    return {};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_flush_pending(
+    std::uint64_t _steady_now_ns, multi_model_pump_report& _report) {
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        auto& pending = pending_[slot];
+        if (!pending.has_) {
+            continue;
+        }
+        auto& graph = *bindings_[slot].graph_;
+        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
+            !is_armed_[slot]) {
+            continue;
+        }
+        submission_ticket ticket;
+        const auto submitted = graph.vqec_vision_ai_ports_infgr_submit_tensors(
+            pending.source_epoch_, pending.source_frame_id_, pending.source_pts_ns_,
+            pending.blobs_, _steady_now_ns, ticket);
+        if (submitted.code_ == status_code::ok) {
+            pending.has_ = false;
+            pending.blobs_.clear();
+            if (ticket.token_.job_id_ != 0) {
+                _report.submitted_tickets_[slot] = ticket;
+                _report.submitted_model_mask_ = static_cast<std::uint16_t>(
+                    _report.submitted_model_mask_ | (1U << slot));
+            }
+        } else if (submitted.code_ != status_code::pending) {
+            _report.error_model_slot_ = slot;
+            is_failed_ = true;
+            return submitted;
+        }
+    }
+    return {};
 }
 
 std::uint16_t multi_model_pump::vqec_vision_ai_appl_mmump_get_model_count()
