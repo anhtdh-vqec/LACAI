@@ -20,7 +20,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "vqec_vision_dbus_rpc.hpp"
 #include "vqec_vision_frame_source.hpp"
+#include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_qnn_engine.hpp"
 #include "vqec_vision_reference_processor.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
@@ -45,6 +47,7 @@ struct camera_runner_options {
     std::uint32_t max_height{0};
     std::uint64_t max_allocation{0};
     std::uint64_t iterations{0};
+    bool use_control{false};
 };
 
 bool vqec_vision_ai_tools_camrun_parse(
@@ -84,6 +87,8 @@ bool vqec_vision_ai_tools_camrun_parse(
             _options.max_allocation = std::strtoull(value.c_str(), nullptr, 10);
         } else if (option == "--iterations") {
             _options.iterations = std::strtoull(value.c_str(), nullptr, 10);
+        } else if (option == "--use-control") {
+            _options.use_control = value != "0";
         } else {
             return false;
         }
@@ -258,57 +263,30 @@ int main(int _argc, char** _argv) {
         yolov8_decoder decoder(decoder_config);
         reference_image_processor processor;
 
-        camera_source_config source_config;
-        source_config.socket_path_ = options.socket_path;
-        source_config.producer_uid_ = options.producer_uid;
-        source_config.limits_.nv12_format_value_ = options.nv12_format;
-        source_config.limits_.max_width_ = options.max_width;
-        source_config.limits_.max_height_ = options.max_height;
-        source_config.limits_.max_allocation_bytes_ = options.max_allocation;
-        frame_source source;
-        const auto connected = source.vqec_vision_ai_camer_frsrc_connect(source_config);
-        if (connected.code_ != status_code::ok) {
-            std::fprintf(stderr, "camera connect failed: %s\n", connected.message_.c_str());
-            return 1;
-        }
-        std::printf("camera connected to %s\n", options.socket_path.c_str());
-
         json detections_json = json::array();
         std::uint64_t frames = 0;
         std::uint64_t total_detections = 0;
-        while (options.iterations == 0 || frames < options.iterations) {
-            std::shared_ptr<const received_frame> frame;
-            const auto received = source.vqec_vision_ai_camer_frsrc_receive(frame, 3000);
-            if (received.code_ != status_code::ok || frame == nullptr) {
-                std::fprintf(stderr, "camera receive failed: %s\n", received.message_.c_str());
-                break;
-            }
-            raw_frame raw;
-            raw.descriptor_ = frame->vqec_vision_ai_camer_frsrc_get_descriptor();
-            raw.native_handle_ = frame->vqec_vision_ai_camer_frsrc_get_fd();
-            raw.owner_ = frame;
-            plan.source_width_ = raw.descriptor_.width_;
-            plan.source_height_ = raw.descriptor_.height_;
-
+        const auto process_frame = [&](raw_frame& _raw) -> bool {
+            plan.source_width_ = _raw.descriptor_.width_;
+            plan.source_height_ = _raw.descriptor_.height_;
             std::vector<tensor_blob> input_blobs;
-            const auto preprocessed = processor.vqec_vision_ai_ports_imgpr_preprocess(
-                raw, plan, actual_inputs[0], input_blobs);
-            if (preprocessed.code_ != status_code::ok) {
-                std::fprintf(stderr, "preprocess failed: %s\n", preprocessed.message_.c_str());
-                break;
+            if (processor.vqec_vision_ai_ports_imgpr_preprocess(
+                    _raw, plan, actual_inputs[0], input_blobs).code_ != status_code::ok) {
+                std::fprintf(stderr, "preprocess failed\n");
+                return false;
             }
             std::vector<tensor_blob> output_blobs;
-            const auto executed = engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
-            if (executed.code_ != status_code::ok) {
-                std::fprintf(stderr, "QNN execute failed: %s\n", executed.message_.c_str());
-                break;
+            if (engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs).code_ !=
+                status_code::ok) {
+                std::fprintf(stderr, "QNN execute failed\n");
+                return false;
             }
             tensor_result decoded_result;
             decoded_result.tensors_ = output_blobs;
-            decoded_result.pipeline_pts_ns_ = raw.descriptor_.pts_ns_;
+            decoded_result.pipeline_pts_ns_ = _raw.descriptor_.pts_ns_;
             observation_batch observations;
             (void)decoder.vqec_vision_ai_cntr_mddec_decode(decoded_result,
-                preview_frame_key{1, 0, 1, frames + 1, raw.descriptor_.pts_ns_}, observations);
+                preview_frame_key{1, 0, 1, frames + 1, _raw.descriptor_.pts_ns_}, observations);
             if (frames == 0) {
                 for (const auto& item : observations.observations_) {
                     json detection;
@@ -329,8 +307,79 @@ int main(int _argc, char** _argv) {
                     static_cast<unsigned long long>(total_detections));
                 std::fflush(stdout);
             }
+            return true;
+        };
+        if (options.use_control) {
+            auto rpc = std::make_shared<dbus_rpc>();
+            const auto opened = rpc->vqec_vision_ai_camer_dbrpc_open(false);
+            if (opened.code_ != status_code::ok) {
+                std::fprintf(stderr, "camera D-Bus open failed: %s\n", opened.message_.c_str());
+                return 1;
+            }
+            camera_lifecycle_config lifecycle_config;
+            lifecycle_config.acquire_.camera_id_ = 0;
+            lifecycle_config.acquire_.channel_id_ = 0;
+            lifecycle_config.acquire_.consumer_id_ = "ai";
+            lifecycle_config.acquire_.request_id_ = "camrun-start-1";
+            lifecycle_config.media_.socket_path_ = options.socket_path;
+            lifecycle_config.media_.producer_uid_ = options.producer_uid;
+            lifecycle_config.media_.limits_.nv12_format_value_ = options.nv12_format;
+            lifecycle_config.media_.limits_.max_width_ = options.max_width;
+            lifecycle_config.media_.limits_.max_height_ = options.max_height;
+            lifecycle_config.media_.limits_.max_allocation_bytes_ = options.max_allocation;
+            lifecycle_config.stop_request_id_ = "camrun-stop-1";
+            lifecycle_config.max_fps_ = 30;
+            source_lifecycle lifecycle(rpc, lifecycle_config);
+            const auto started = lifecycle.vqec_vision_ai_camer_srclc_start(3000);
+            if (started.code_ != status_code::ok) {
+                std::fprintf(stderr, "camera lease start failed: %s\n", started.message_.c_str());
+                return 1;
+            }
+            std::printf("camera lease acquired via D-Bus\n");
+            while (options.iterations == 0 || frames < options.iterations) {
+                raw_frame raw;
+                if (lifecycle.vqec_vision_ai_ports_rawsr_receive(raw, 3000).code_ !=
+                    status_code::ok) {
+                    std::fprintf(stderr, "camera receive failed\n");
+                    break;
+                }
+                if (!process_frame(raw)) {
+                    break;
+                }
+            }
+            (void)lifecycle.vqec_vision_ai_camer_srclc_stop(3000);
+        } else {
+            camera_source_config source_config;
+            source_config.socket_path_ = options.socket_path;
+            source_config.producer_uid_ = options.producer_uid;
+            source_config.limits_.nv12_format_value_ = options.nv12_format;
+            source_config.limits_.max_width_ = options.max_width;
+            source_config.limits_.max_height_ = options.max_height;
+            source_config.limits_.max_allocation_bytes_ = options.max_allocation;
+            frame_source source;
+            const auto connected = source.vqec_vision_ai_camer_frsrc_connect(source_config);
+            if (connected.code_ != status_code::ok) {
+                std::fprintf(stderr, "camera connect failed: %s\n", connected.message_.c_str());
+                return 1;
+            }
+            std::printf("camera connected to %s\n", options.socket_path.c_str());
+            while (options.iterations == 0 || frames < options.iterations) {
+                std::shared_ptr<const received_frame> frame;
+                const auto received = source.vqec_vision_ai_camer_frsrc_receive(frame, 3000);
+                if (received.code_ != status_code::ok || frame == nullptr) {
+                    std::fprintf(stderr, "camera receive failed: %s\n", received.message_.c_str());
+                    break;
+                }
+                raw_frame raw;
+                raw.descriptor_ = frame->vqec_vision_ai_camer_frsrc_get_descriptor();
+                raw.native_handle_ = frame->vqec_vision_ai_camer_frsrc_get_fd();
+                raw.owner_ = frame;
+                if (!process_frame(raw)) {
+                    break;
+                }
+            }
+            source.vqec_vision_ai_camer_frsrc_disconnect();
         }
-        source.vqec_vision_ai_camer_frsrc_disconnect();
 
         json report;
         report["model_id"] = io_manifest.value("model_id", std::string{});

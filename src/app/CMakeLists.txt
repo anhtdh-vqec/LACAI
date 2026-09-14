@@ -124,6 +124,10 @@ if(TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_qnn_engine AND
     target_link_libraries(vqec_vision_ai_camera_runner PRIVATE
         vqec_vision_ai_camera vqec_vision_ai_qnn_engine vqec_vision_ai_reference
         vqec_vision_ai_detection nlohmann_json::nlohmann_json)
+    if(TARGET vqec_vision_ai_camera_dbus)
+        target_link_libraries(vqec_vision_ai_camera_runner PRIVATE vqec_vision_ai_camera_dbus)
+        target_compile_definitions(vqec_vision_ai_camera_runner PRIVATE VQEC_VISION_CAMRUN_CONTROL)
+    endif()
     set_target_properties(vqec_vision_ai_camera_runner PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
