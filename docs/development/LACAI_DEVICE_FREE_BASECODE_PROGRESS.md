@@ -25,7 +25,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 16 | Output fake pipeline | **done** | fake encoder + bounded ring sink this change |
 | 17 | Metrics & tracing | partial | counters in supervisor/worker/pool; no unified sink |
 | 18 | CMake modularization | todo | root CMake still monolithic |
-| 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR`; no sanitizer job |
+| 19 | Warnings/sanitizers/static analysis | partial | `VQEC_VISION_AI_WERROR` default; `VQEC_VISION_AI_SANITIZE` (ASan+UBSan) builds host-only; this container is unstable spawning ASan processes, so no clean gate claimed |
 | 20 | Wire/parser fuzzing | partial | legacy wire fuzz harness builds with host Clang 14 and runs crash-free; CI nightly pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | partial | steps take injected monotonic time; recovery controller is sleep-free; service main still reads the clock directly |

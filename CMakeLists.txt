@@ -19,6 +19,12 @@ option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata check
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
 option(VQEC_VISION_AI_WERROR "Treat project warnings as errors" ON)
 option(VQEC_VISION_AI_BUILD_FUZZERS "Build libFuzzer harnesses (host Clang, not eSDK)" OFF)
+option(VQEC_VISION_AI_SANITIZE "Build with ASan+UBSan (host toolchain, not eSDK)" OFF)
+
+if(VQEC_VISION_AI_SANITIZE)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK AND NOT VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
     message(FATAL_ERROR "Manifest checker requires VQEC_VISION_AI_ENABLE_MODEL_MANIFEST")
