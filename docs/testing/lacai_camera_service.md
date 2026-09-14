@@ -1,63 +1,47 @@
-# Board camera service (QMMF) for independent tests
+# Board camera fixtures for LACAI integration tests
 
-This is a board-side test input path that replaces the FW Camera Service for standalone
-runs: it captures NV12 from `qtiqmmfsrc`, optionally runs the person model, and publishes
-an H.264 RTSP view. It lets each test run without the real Camera Service and without the
-FW control lease.
+These board-side test helpers let LACAI run against a local camera without the product FW
+Camera Service, and let a viewer watch the feed. They are test aids: not product camera
+service, zero-copy, accuracy or hardware-acceptance evidence.
 
-Status: source-delivered and board-verified on QCS6490 RB3 Gen2 (Qualcomm Linux 1.8) at
-`/opt/anhtdh`. It is a test/observation path, not a product camera service and not a
-zero-copy, performance, accuracy or feature-acceptance claim.
+## 1. Mock FW camera service (`vqec_vision_fw_camera_sim.py`)
 
-## Components
+Reproduces the two FW responsibilities LACAI depends on, sourcing pixels from the real
+Qualcomm camera through `qtiqmmfsrc`:
 
-- `vqec_vision_ai_camera_service` (`tools/vqec_vision_camera_service.cpp`) — board tool.
-  Pipelines:
-  - capture: `qtiqmmfsrc ! video/x-raw,NV12,WxH@F ! videoconvert ! appsink`
-  - output: `appsrc ! queue ! videoconvert ! NV12 ! v4l2h264enc ! h264parse ! qtirtspbin`
-  For every captured frame it runs `reference_image_processor -> owned QNN engine ->
-  yolov8_decoder`, draws the decoded boxes onto the NV12 planes and pushes the annotated
-  frame to the RTSP pipeline. It uses a per-frame memfd so the CPU preprocessor can map the
-  frame; this is a copy, not a zero-copy path.
-- `tools/vqec_vision_board_deploy.sh` — installs the binary, model kit and two systemd
-  units on the target.
+- **Control:** owns the system-bus name `com.vnpt.camera.Camera` and implements
+  `com.vnpt.camera.Camera1` `StartStream`/`StopStream`/`GetStatus` with `(a{sv})` string
+  dictionaries, so LACAI's `dbus_rpc`/`camera_control` acquire a third-stream lease as
+  against real FW.
+- **Media:** serves the released raw-frame wire on an AF_UNIX `SOCK_SEQPACKET` socket named
+  `<socket_dir>/<channel>_third_<consumer>.sock` (`0_third_ai.sock`). Each message is the
+  packed 104-byte native-endian `FrameHeader` plus one FD via `SCM_RIGHTS`; the consumer
+  returns the 8-byte `ReturnHeader` ACK before the frame is released.
 
-Two services exist and only one may own the camera at a time:
+The header layout and socket naming match the FW
+[`shared/raw_frame_transport`](../../../../FW_CAMERA/vqec_camera_service/shared/raw_frame_transport)
+wire and LACAI's [`vqec_vision_legacy_wire.hpp`](../../src/adapters/camera/vqec_vision_legacy_wire.hpp).
 
-| Unit | Pipeline | Purpose |
-|---|---|---|
-| `lacai-camera.service` | `qtiqmmfsrc -> v4l2h264enc -> qtirtspbin` | raw camera view |
-| `lacai-ai.service` | capture + person model + overlay + RTSP | AI output view |
+The FD this mock sends is a memfd holding a copy of each NV12 frame, not a vendor dma-buf.
+The wire, socket naming, lease and ACK semantics match FW; the memory backing does not.
 
-## RTSP
+Board evidence (2026-09-14, QCS6490 RB3 Gen2):
+`StartStream` returned `{code=0, stream_handle, codec=RAW, width=1280, height=720, fps=30}`;
+a `SOCK_SEQPACKET` client received consecutive frames with `format=23` (NV12), `n_planes=2`,
+a live FD and varying pixels, and ACKs were accepted.
 
-Both units serve `rtsp://<board-ip>:8900/live` (TCP or UDP). Example client:
+## 2. Raw camera RTSP view (`run_camera_rtsp.sh`, `lacai-camera.service`)
 
-```sh
-gst-launch-1.0 -e rtspsrc location=rtsp://<board-ip>:8900/live protocols=tcp latency=500 \
-  ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink
-```
+`qtiqmmfsrc -> v4l2h264enc -> h264parse -> qtirtspbin` publishes the raw camera feed at
+`rtsp://<host>:8900/live`. Use it to watch the source independently of LACAI.
 
-## Run
+Only one process may hold the camera. Stop a pipeline with `SIGINT`, not `SIGKILL`; a
+hard-killed `qtiqmmfsrc` can wedge the camera server.
 
-```sh
-source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake --build build-esdk-full --target vqec_vision_ai_camera_service -j4
-VQEC_VISION_MODEL_SOURCE=<path>/libyolov8n_person_w8a16.so \
-  tools/vqec_vision_board_deploy.sh <ssh-host> /opt/anhtdh/models/libyolov8n_person_w8a16.so
-ssh <ssh-host> systemctl start lacai-ai.service
-```
+## 3. Planned output view
 
-`qtiqmmfsrc` needs the QMMF camera server. If a pipeline is killed with `SIGKILL` the
-camera server can wedge and later runs produce no frames; restart `cam-server.service` or
-reboot, and stop pipelines with `SIGINT` (the units and `gst-launch -e` already do).
+LACAI owns preview overlay/encode/ring production; FW owns RTSP. The output view service
+will read LACAI's contract output and publish RTSP using Qualcomm plugins that do not run
+on the CPU (`qtivoverlay`, `qtimlvconverter`), not the removed in-process AI tool.
 
-## Board evidence (2026-09-14)
-
-- `qtiqmmfsrc camera=0` produced NV12 1280x720 at ~27 fps to a file (300 MB / 8 s).
-- `lacai-camera.service` served H.264 RTSP; a `gst-launch` client received ~3 Mbps.
-- `lacai-ai.service` processed ~30 fps with ~3 detections/frame and published the annotated
-  stream. A captured frame shows green person boxes over the live scene.
-
-Not qualified: hardware DMA completion, zero-copy import, encoder latency/bitrate under
-load, model accuracy, and any FW Camera Service or recording behaviour.
+Deploy with `tools/vqec_vision_board_deploy.sh <ssh-host>`.

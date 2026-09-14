@@ -1,79 +1,26 @@
 #!/bin/sh
-# Deploy the LACAI board camera services to a QCS6490 target.
+# Deploy the LACAI board test helpers to a QCS6490 target:
+#   - the QMMF raw camera RTSP view (lacai-camera.service)
+#   - the mock FW camera service (vqec_vision_fw_camera_sim.py)
 #
-# It installs the built camera service binary, the YOLOv8n-person model package and, when
-# given, the model library, then writes and starts two systemd units:
+# The mock publishes raw NV12 frames to the FW wire socket so LACAI's own camera
+# adapter can consume them, and owns the Camera1 D-Bus control name.
 #
-#   lacai-camera.service  pure QMMF -> H.264 RTSP view of the raw camera
-#   lacai-ai.service      QMMF -> LACAI person model -> overlay -> H.264 RTSP
-#
-# Only the AI unit requires the model library. The script never stores credentials; use an
-# SSH key or the environment credential helper for the target.
-#
-# Usage:
-#   vqec_vision_board_deploy.sh <ssh-host> [model-library-on-target]
+# Usage: vqec_vision_board_deploy.sh <ssh-host>
 # Environment overrides:
-#   VQEC_VISION_CAMERA_SERVICE_BIN  built vqec_vision_ai_camera_service (default build-esdk-full)
-#   VQEC_VISION_MODEL_KIT           model package directory (default yolov8n_person manifest)
-#   VQEC_VISION_MODEL_SOURCE        host path to upload as the target model library
-#   VQEC_VISION_TARGET_ROOT         install root on the target (default /opt/anhtdh)
+#   VQEC_VISION_TARGET_ROOT  install root on the target (default /opt/anhtdh)
 set -eu
 
-HOST="${1:?usage: vqec_vision_board_deploy.sh <ssh-host> [model-library-on-target]}"
+HOST="${1:?usage: vqec_vision_board_deploy.sh <ssh-host>}"
 TARGET_ROOT="${VQEC_VISION_TARGET_ROOT:-/opt/anhtdh}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
-BIN="${VQEC_VISION_CAMERA_SERVICE_BIN:-$REPO/build-esdk-full/src/app/vqec_vision_ai_camera_service}"
-KIT="${VQEC_VISION_MODEL_KIT:-$REPO/manifests/models/yolov8n_person}"
-MODEL_LIBRARY="${2:-$TARGET_ROOT/models/libyolov8n_person_w8a16.so}"
 SSH="ssh -o BatchMode=yes $HOST"
 SCP="scp -q"
 
-if [ ! -x "$BIN" ]; then
-    echo "camera service binary not found: $BIN" >&2
-    exit 1
-fi
-if [ ! -d "$KIT" ]; then
-    echo "model kit not found: $KIT" >&2
-    exit 1
-fi
+$SSH "mkdir -p '$TARGET_ROOT/bin' '$TARGET_ROOT/camera_service' /run/camera_ai"
+$SCP "$HERE/vqec_vision_fw_camera_sim.py" "$HOST:$TARGET_ROOT/bin/vqec_vision_fw_camera_sim.py"
 
-$SSH "mkdir -p '$TARGET_ROOT/bin' '$TARGET_ROOT/modelkit' '$TARGET_ROOT/models' '$TARGET_ROOT/out' '$TARGET_ROOT/inputs'"
-$SCP "$BIN" "$HOST:$TARGET_ROOT/bin/vqec_vision_ai_camera_service"
-$SCP "$KIT"/model_metadata.json "$KIT"/io_manifest.json "$KIT"/preprocess.json \
-    "$KIT"/decoder.json "$KIT"/labels.txt "$HOST:$TARGET_ROOT/modelkit/"
-if [ -n "${VQEC_VISION_MODEL_SOURCE:-}" ]; then
-    $SCP "$VQEC_VISION_MODEL_SOURCE" "$HOST:$MODEL_LIBRARY"
-fi
-
-cat > /tmp/lacai-camera.service <<'EOF'
-[Unit]
-Description=LACAI QMMF camera RTSP service
-After=network.target
-[Service]
-Type=simple
-ExecStart=/opt/anhtdh/camera_service/run_camera_rtsp.sh 0 1280 720 30 8900 /live
-Restart=on-failure
-RestartSec=2
-[Install]
-WantedBy=multi-user.target
-EOF
-
-cat > /tmp/lacai-ai.service <<EOF
-[Unit]
-Description=LACAI AI camera service (QMMF + QNN + RTSP overlay)
-After=network.target
-[Service]
-Type=simple
-Environment=ADSP_LIBRARY_PATH=/usr/lib/rfsa/adsp;/lib/rfsa/adsp;/dsp
-ExecStart=$TARGET_ROOT/bin/vqec_vision_ai_camera_service --package $TARGET_ROOT/modelkit --model $MODEL_LIBRARY --backend /usr/lib/libQnnHtp.so --system /usr/lib/libQnnSystem.so --width 1280 --height 720 --fps 30 --rtsp-port 8900 --rtsp-mount /live
-Restart=on-failure
-RestartSec=2
-[Install]
-WantedBy=multi-user.target
-EOF
-
-$SSH 'cat > /opt/anhtdh/camera_service/run_camera_rtsp.sh' <<'EOF'
+$SSH "cat > $TARGET_ROOT/camera_service/run_camera_rtsp.sh" <<'EOF'
 #!/bin/sh
 set -e
 CAMERA_ID="${1:-0}"
@@ -89,10 +36,21 @@ exec gst-launch-1.0 -e \
   ! h264parse config-interval=1 \
   ! qtirtspbin address=0.0.0.0 port="${PORT}" mpoint="${MOUNT}"
 EOF
-$SCP /tmp/lacai-camera.service "$HOST:/etc/systemd/system/lacai-camera.service"
-$SCP /tmp/lacai-ai.service "$HOST:/etc/systemd/system/lacai-ai.service"
-$SSH "chmod +x '$TARGET_ROOT/camera_service/run_camera_rtsp.sh'; systemctl daemon-reload; systemctl enable lacai-camera.service lacai-ai.service >/dev/null 2>&1 || true"
-echo "deployed. Start one service at a time (only one owns the camera):"
-echo "  $SSH systemctl start lacai-ai.service      # AI + overlay RTSP"
-echo "  $SSH systemctl start lacai-camera.service  # raw camera RTSP"
-echo "RTSP: rtsp://<host>:8900/live"
+$SCP "$HERE/lacai-camera.service" "$HOST:/etc/systemd/system/lacai-camera.service" 2>/dev/null || \
+$SSH "cat > /etc/systemd/system/lacai-camera.service" <<'EOF'
+[Unit]
+Description=LACAI QMMF raw camera RTSP view
+After=network.target
+[Service]
+Type=simple
+ExecStart=/opt/anhtdh/camera_service/run_camera_rtsp.sh 0 1280 720 30 8900 /live
+Restart=on-failure
+RestartSec=2
+[Install]
+WantedBy=multi-user.target
+EOF
+$SSH "chmod +x '$TARGET_ROOT/camera_service/run_camera_rtsp.sh'; systemctl daemon-reload; systemctl enable lacai-camera.service >/dev/null 2>&1 || true"
+echo "deployed."
+echo "  raw camera view : $SSH systemctl start lacai-camera.service   -> rtsp://<host>:8900/live"
+echo "  mock FW service : $SSH python3 $TARGET_ROOT/bin/vqec_vision_fw_camera_sim.py"
+echo "Only one owner may hold the camera at a time."
