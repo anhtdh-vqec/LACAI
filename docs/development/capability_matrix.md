@@ -10,7 +10,7 @@ evidence. Update this table with any change that moves a row.
 | Static single-image model (via catalog + manifest validation) | yes | yes | no |
 | Multi-input / dynamic-shape / stateful model | no (rejected at activation) | yes (rejection) | no |
 | Capability/policy admission (fail-closed) | yes | yes | no |
-| Synchronous QNN client-buffer execution | yes | compiled only (no SDK runner in CI) | no |
+| Synchronous QNN client-buffer execution | yes | compiled + unit fixtures | **yes** (SCRFD/YOLOv8n compose+execute on HTP 2026-09-14) |
 | Async QNN execution | no | no | no |
 | Shared/registered memory (QnnMem) | contract only | no | no |
 | Artifact/LoRA update | contract only | no | no |
@@ -20,7 +20,7 @@ evidence. Update this table with any change that moves a row.
 | Hardware DMA completion semantics | no | no | no |
 | Bounded non-blocking inference worker | yes | yes | no (not yet wired to the pump) |
 | Tensor pool (bounded, double-release detection) | yes | yes | no (not yet wired) |
-| Reference CPU preprocess (preprocess oracle) | yes | yes (conformance suite) | no |
+| Reference CPU preprocess (preprocess oracle) | yes | yes (conformance suite) | n/a (CPU) |
 | Qualcomm image processor / FastCV path | no | no | no |
 | Reference IoU tracker | yes | yes | no |
 | Reference ROI/dwell/line/count feature processor | yes | yes | no |

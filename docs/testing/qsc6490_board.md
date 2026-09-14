@@ -50,3 +50,31 @@ This is target ABI and logic smoke evidence. The run did not acquire a live FW C
 Service stream, load a model through `qtimlqnn`, prove HTP/FastCV execution, validate
 device completion for a real DMA-BUF, measure performance or qualify BSP recovery.
 Those require a pinned model/backend/system bundle and a controlled FW test source.
+
+## 2026-09-14 board run (device online)
+
+Board reachable and used as the native target. Artifacts were built only with the approved
+eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
+
+- Native test binaries: **79/79 passed** (all `vqec_vision_ai_*test*` executables),
+  covering camera/GStreamer/Qualcomm fixtures and the neutral runtime, worker, pool,
+  decoder, tracker, feature, encoder/ring and secondary-scheduler units.
+- `VQEC_VISION_AI_REQUIRE_QUALCOMM_PLUGINS=1 vqec_vision_ai_plugin_graph_test`: exit 0
+  (installed `qtimlvconverter`/`qtimlqnn` properties inspected, NULL-state graph config).
+- Service executable:
+  - `--mode harness ... --steps 160 --require-sources 2` → exit 0, `routed_sources=2`;
+  - `--mode production --platform fake ...` → exit 0, `routed_sources=2`;
+  - `--mode production --platform qualcomm` → exit 3 (fail-closed, no fallback).
+- QNN runtime: `qnn-platform-validator --backend dsp --testBackend` → DSP unit test
+  **Passed**, `Core Version = Hexagon Architecture V68`. Image QAIRT is 2.43.0.
+- Model smoke `qnn-net-run` against `/usr/lib/libQnnHtp.so`: SCRFD-500M-KPS wrote
+  `score_8/16/32`, `bbox_8/16/32`, `kps_8/16/32`; YOLOv8n-person wrote `boxes_out`,
+  `conf_out`.
+- LACAI-owned QNN engine `vqec_vision_ai_qnn_engine_smoke`: SCRFD (9 outputs) and
+  YOLOv8n-person (2 outputs) **execute on HTP** (exit 0). This exposed and fixed a real
+  defect: the generated model library composes but does not finalize the graph, so
+  `prepare` must call `graphFinalize` before `graphExecute`.
+
+Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
+camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the
+board qualification backlog.

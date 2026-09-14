@@ -14,6 +14,14 @@ Neutral 53/53 and expanded 71/71 pass under eSDK QEMU. Board qualification, asyn
 execution and pooled output allocation remain open; see
 [model_agnostic_optimization_plan](../planning/model_agnostic_optimization_plan.md) section 8.
 
+2026-09-14 board update: the QCS6490 target came online. Native board runs: 79/79 test
+binaries pass; the service harness and `--mode production --platform fake` both route two
+sources (exit 0) and `--platform qualcomm` fails closed (exit 3); QNN DSP unit test passes
+on Hexagon V68. The LACAI-owned QNN engine now composes, finalizes and executes
+SCRFD-500M-KPS and YOLOv8n-person on HTP. Board evidence and limits are in
+[QCS6490 target](../testing/qsc6490_board.md). Accuracy, async/shared memory, DMA
+completion, encoder/ring and performance remain unqualified.
+
 ## Evidence level
 
 Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the

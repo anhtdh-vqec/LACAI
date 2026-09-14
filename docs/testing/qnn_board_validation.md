@@ -89,3 +89,15 @@ are the next source step. Until then, validate the model path with step 2.
 - Raw input digest, expected/actual tensor names/shape/dtype/quantization.
 - Dequantized golden comparison and tolerances.
 - Copies/latency/memory for the agreed workload once the engine executes.
+
+## 2026-09-14 result (board online)
+
+- Step 1: `qnn-platform-validator --backend dsp --testBackend` → unit test **Passed**,
+  Hexagon V68. Image QAIRT runtime is 2.43.0.
+- Step 2: `qnn-net-run` on SCRFD-500M-KPS and YOLOv8n-person wrote the expected tensors.
+- Step 4: the LACAI-owned engine executed both models on HTP via
+  `vqec_vision_ai_qnn_engine_smoke` (backend `/usr/lib/libQnnHtp.so`, system
+  `/usr/lib/libQnnSystem.so`). This required a source fix: call `graphFinalize` after
+  `composeGraphs` and before `graphExecute`.
+- Not done: step 3 numeric/accuracy check (inputs were zero/random), async/shared/update,
+  latency/memory, live FW stream.
