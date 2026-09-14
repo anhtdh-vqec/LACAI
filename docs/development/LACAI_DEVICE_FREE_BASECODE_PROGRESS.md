@@ -34,7 +34,7 @@ wired to the running path yet, and live FW camera/DMA/encoder remain open.
 | 17 | Metrics & tracing | partial | snapshots + executor counters + e2e latency printed by the service; histogram buckets/transport sink pending |
 | 18 | CMake modularization | **done** | per-module CMakeLists (core/perception/runtime/outputs/app/adapters/tests) with unchanged target names and centralized warning flags; root ~114 lines |
 | 19 | Warnings/sanitizers/static analysis | partial | WERROR + SANITIZE + host-sanitizers job; advisory `.clang-tidy` + CI job added; not yet enforced |
-| 20 | Wire/parser fuzzing | partial | wire + output-manifest + dense-decoder fuzz harnesses + nightly `fuzz` CI job; config loaders and ring parser pending |
+| 20 | Wire/parser fuzzing | partial | wire + manifest + dense-decoder + model-catalog fuzz harnesses + nightly `fuzz` CI job; deployment/feature loaders and ring parser pending |
 | 21 | FD/resource leak tests | **done** | repeated worker start/stop + pool cycles invariant test (no FD growth here; camera FD soak is board) |
 | 22 | Deterministic time abstraction | **done** | every step/recovery/worker API takes caller monotonic time; only the service loop reads steady_clock (the injection point) |
 | 23 | Explicit epoch semantics | **done** | worker/secondary stale-epoch flags; pump drops parked inputs on epoch change |
