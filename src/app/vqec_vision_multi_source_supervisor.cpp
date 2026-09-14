@@ -181,57 +181,87 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
     std::uint64_t _steady_now_ns, tensor_result& _result,
     multi_source_progress_report& _report) {
-    // Poll at most one completion per call, round-robin, so a fast source cannot starve
-    // result progress for the others.
-    for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
-        const auto index = static_cast<std::uint16_t>(
-            (static_cast<unsigned>(next_result_index_) + offset) % config_.source_count_);
-        if (sessions_[index] == nullptr) {
-            continue;
+    // One completion, round-robin. Returns true when a completion was consumed.
+    const auto poll_one = [&]() -> bool {
+        for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
+            const auto index = static_cast<std::uint16_t>(
+                (static_cast<unsigned>(next_result_index_) + offset) %
+                config_.source_count_);
+            if (sessions_[index] == nullptr) {
+                continue;
+            }
+            status step_status;
+            tensor_result candidate;
+            source_session_progress progress;
+            if (workers_[index].vqec_vision_ai_appl_sswrk_poll_completion(
+                    step_status, candidate, progress).code_ != status_code::ok) {
+                continue;
+            }
+            _report.source_index_ = index;
+            _report.source_status_ = step_status;
+            _report.source_health_ =
+                sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+            _report.source_progress_ = progress;
+            _report.has_source_ = true;
+            _report.has_result_ = progress.has_result_;
+            if (progress.has_result_) {
+                _result = std::move(candidate);
+            }
+            if (step_status.code_ != status_code::ok &&
+                step_status.code_ != status_code::pending) {
+                vqec_vision_ai_appl_mssup_record_fault(
+                    index, step_status.code_, _steady_now_ns);
+            }
+            next_result_index_ = static_cast<std::uint16_t>(
+                (static_cast<unsigned>(index) + 1U) % config_.source_count_);
+            return true;
         }
-        status step_status;
-        tensor_result candidate;
-        source_session_progress progress;
-        if (workers_[index].vqec_vision_ai_appl_sswrk_poll_completion(
-                step_status, candidate, progress).code_ != status_code::ok) {
-            continue;
+        return false;
+    };
+    // One non-blocking step on the next available slot. Returns true when accepted.
+    const auto request_one = [&]() -> bool {
+        for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
+            const auto index = static_cast<std::uint16_t>(
+                (static_cast<unsigned>(next_source_index_) + offset) %
+                config_.source_count_);
+            if (sessions_[index] == nullptr ||
+                sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ ==
+                    source_session_phase::stopped) {
+                continue;
+            }
+            if (workers_[index].vqec_vision_ai_appl_sswrk_request_step(_steady_now_ns)
+                    .code_ == status_code::ok) {
+                next_source_index_ = static_cast<std::uint16_t>(
+                    (static_cast<unsigned>(index) + 1U) % config_.source_count_);
+                _report.source_index_ = index;
+                _report.has_source_ = true;
+                return true;
+            }
         }
-        _report.source_index_ = index;
-        _report.source_status_ = step_status;
-        _report.source_health_ = sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
-        _report.source_progress_ = progress;
-        _report.has_source_ = true;
-        _report.has_result_ = progress.has_result_;
-        if (progress.has_result_) {
-            _result = std::move(candidate);
+        return false;
+    };
+
+    const bool poll_first = async_poll_turn_;
+    async_poll_turn_ = !async_poll_turn_;
+    if (poll_first) {
+        if (poll_one()) {
+            vqec_vision_ai_appl_mssup_refresh_state();
+            return _report.has_result_ ?
+                status{} :
+                status{status_code::pending, "async source produced no result yet"};
         }
-        if (step_status.code_ != status_code::ok && step_status.code_ != status_code::pending) {
-            vqec_vision_ai_appl_mssup_record_fault(index, step_status.code_, _steady_now_ns);
-        }
-        next_result_index_ = static_cast<std::uint16_t>(
-            (static_cast<unsigned>(index) + 1U) % config_.source_count_);
+        (void)request_one();
+        vqec_vision_ai_appl_mssup_refresh_state();
+        return {status_code::pending, "async step alternated"};
+    }
+    if (request_one()) {
+        vqec_vision_ai_appl_mssup_refresh_state();
+        return {status_code::pending, "async source step requested"};
+    }
+    if (poll_one()) {
         vqec_vision_ai_appl_mssup_refresh_state();
         return _report.has_result_ ?
             status{} : status{status_code::pending, "async source produced no result yet"};
-    }
-    // No completion ready: request one non-blocking step on the next available slot.
-    for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
-        const auto index = static_cast<std::uint16_t>(
-            (static_cast<unsigned>(next_source_index_) + offset) % config_.source_count_);
-        if (sessions_[index] == nullptr ||
-            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ ==
-                source_session_phase::stopped) {
-            continue;
-        }
-        if (workers_[index].vqec_vision_ai_appl_sswrk_request_step(_steady_now_ns).code_ ==
-            status_code::ok) {
-            next_source_index_ = static_cast<std::uint16_t>(
-                (static_cast<unsigned>(index) + 1U) % config_.source_count_);
-            _report.source_index_ = index;
-            _report.has_source_ = true;
-            vqec_vision_ai_appl_mssup_refresh_state();
-            return {status_code::pending, "async source step requested"};
-        }
     }
     vqec_vision_ai_appl_mssup_refresh_state();
     return {status_code::pending, "no async source step could be requested"};

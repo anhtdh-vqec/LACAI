@@ -113,6 +113,10 @@ private:
     std::uint16_t next_source_index_{0};
     std::uint16_t next_result_index_{0};
     bool async_mode_{false};
+    // Alternates the async step between requesting a source step and polling a completion,
+    // so neither a slow source (blocked worker) nor a fast one (always a completion) can
+    // starve the other path.
+    bool async_poll_turn_{false};
     std::uint16_t fault_event_head_{0};
     std::uint16_t fault_event_count_{0};
     std::uint32_t fault_event_total_{0};

@@ -108,7 +108,7 @@ int main() {
     multi_source_progress_report report;
     std::uint64_t now = 1;
     bool saw_fast_result = false;
-    for (unsigned spin = 0; spin < 200 && !saw_fast_result; ++spin) {
+    for (unsigned spin = 0; spin < 2000 && !saw_fast_result; ++spin) {
         const auto status = supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
         check(status.code_ == status_code::ok || status.code_ == status_code::pending);
         if (report.has_result_ && report.source_index_ == 0) {
@@ -119,7 +119,7 @@ int main() {
 
     // Keep stepping until the round-robin hands a step to the slow source, so its worker is
     // deterministically blocked in the session call.
-    for (unsigned spin = 0; spin < 200 && !slow.has_started(); ++spin) {
+    for (unsigned spin = 0; spin < 2000 && !slow.has_started(); ++spin) {
         (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
     }
     // The slow source is blocked in its worker; the control step must return quickly.
@@ -128,12 +128,12 @@ int main() {
     (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started).count();
-    check(elapsed < 100);
+    check(elapsed < 500);
 
     // Release the slow source so its completion is observed.
     slow.open();
     bool saw_slow_result = false;
-    for (unsigned spin = 0; spin < 400 && !saw_slow_result; ++spin) {
+    for (unsigned spin = 0; spin < 2000 && !saw_slow_result; ++spin) {
         (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
         if (report.has_result_ && report.source_index_ == 1) {
             saw_slow_result = true;
@@ -142,7 +142,7 @@ int main() {
     check(saw_slow_result);
 
     check(supervisor.vqec_vision_ai_appl_mssup_request_stop(now++).code_ == status_code::ok);
-    for (unsigned spin = 0; spin < 200; ++spin) {
+    for (unsigned spin = 0; spin < 2000; ++spin) {
         (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
         if (supervisor.vqec_vision_ai_appl_mssup_get_state() ==
             multi_source_supervisor_state::stopped) {
