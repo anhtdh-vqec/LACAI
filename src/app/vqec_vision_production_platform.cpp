@@ -48,6 +48,25 @@ tensor_element_type vqec_vision_ai_appl_pdplt_dtype(const std::string& _name) {
     return tensor_element_type::unknown;
 }
 
+
+tensor_spec vqec_vision_ai_appl_pdplt_tensor(const json& _entry) {
+    tensor_spec spec;
+    spec.name_ = _entry.value("name", std::string{});
+    if (_entry.contains("dims")) {
+        for (const auto& dim : _entry["dims"]) {
+            spec.dimensions_.push_back(dim.get<std::uint32_t>());
+        }
+    }
+    spec.dtype_ = vqec_vision_ai_appl_pdplt_dtype(_entry.value("dtype", std::string{}));
+    if (_entry.contains("quantization")) {
+        const auto& quantization = _entry["quantization"];
+        spec.quantization_.is_quantized_ = true;
+        spec.quantization_.scale_ = quantization.value("scale", 1.0F);
+        spec.quantization_.zero_point_ = quantization.value("zero_point", 0);
+    }
+    return spec;
+}
+
 class platform_tracker_factory final : public tracker_factory_port {
 public:
     explicit platform_tracker_factory(reference_tracker_config _config) noexcept
@@ -166,19 +185,18 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         if (opened.code_ != status_code::ok) {
             return opened;
         }
-        const auto prepared = owner.engine_->vqec_vision_ai_qcom_qneng_prepare(
-            impl.config_.model_library_);
-        if (prepared.code_ != status_code::ok) {
-            return prepared;
+        // Declared package metadata. The graph validates it against the composed QNN
+        // graph during activation; the platform must not prepare the engine here because
+        // the graph port owns the prepare/load lifecycle.
+        if (!io_manifest.contains("inputs") || io_manifest["inputs"].empty() ||
+            !io_manifest.contains("outputs") || io_manifest["outputs"].empty()) {
+            return {status_code::unsupported, "model package declares no IO manifest"};
         }
-        std::vector<tensor_spec> inputs;
+        tensor_spec declared_input = vqec_vision_ai_appl_pdplt_tensor(io_manifest["inputs"][0]);
         std::vector<tensor_spec> outputs;
-        const auto tensors =
-            owner.engine_->vqec_vision_ai_qcom_qneng_get_tensors(inputs, outputs);
-        if (tensors.code_ != status_code::ok || inputs.size() != 1) {
-            return {status_code::unsupported, "production platform needs one graph input"};
+        for (const auto& entry : io_manifest["outputs"]) {
+            outputs.push_back(vqec_vision_ai_appl_pdplt_tensor(entry));
         }
-
         owner.outputs_.model_id_ = model.model_id_;
         owner.outputs_.model_version_ = model.model_version_;
         owner.outputs_.artifact_sha256_ = model.artifact_sha256_;
@@ -191,10 +209,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         yolov8_decoder_config decoder_config;
         decoder_config.source_width_ = _deployment.sources_.front().profile_.width_;
         decoder_config.source_height_ = _deployment.sources_.front().profile_.height_;
-        decoder_config.tensor_width_ = inputs[0].dimensions_.size() == 4 ?
-            inputs[0].dimensions_[2] : 0;
-        decoder_config.tensor_height_ = inputs[0].dimensions_.size() == 4 ?
-            inputs[0].dimensions_[1] : 0;
+        decoder_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
+            declared_input.dimensions_[2] : 0;
+        decoder_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
+            declared_input.dimensions_[1] : 0;
         decoder_config.placement_ = image_placement::centre;
         decoder_config.box_tensor_ = decoder_json.value("box_tensor", std::string{"boxes_out"});
         decoder_config.score_tensor_ = decoder_json.value("score_tensor", std::string{"conf_out"});
@@ -207,16 +225,6 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         }
         owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
         owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
-        if (io_manifest.contains("inputs") && io_manifest["inputs"].is_array() &&
-            !io_manifest["inputs"].empty()) {
-            const auto& declared = io_manifest["inputs"][0];
-            if (declared.value("name", std::string{}) != inputs[0].name_ ||
-                vqec_vision_ai_appl_pdplt_dtype(declared.value("dtype", std::string{})) !=
-                    inputs[0].dtype_) {
-                return {status_code::unsupported,
-                    "declared model input differs from the composed graph"};
-            }
-        }
         impl.models_.push_back(std::move(owner));
     }
 
