@@ -118,7 +118,7 @@ Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
 7. [FW–AI APP integration contract](docs/contracts/fw_ai_app_contract.md) và [FW release compatibility](docs/contracts/fw_release_compatibility.md)
 8. [Feature catalog](docs/architecture/feature_catalog.md) và [model catalog](docs/architecture/model_catalog.md)
 9. [Multi-source configuration](docs/architecture/multi_source_configuration.md)
-10. [Implementation status](docs/development/implementation_status.md), [review checklist](docs/development/review_checklist.md)
+10. [Implementation status](docs/development/implementation_status.md), [capability matrix](docs/development/capability_matrix.md), [review checklist](docs/development/review_checklist.md)
 11. [Delivery plan](docs/planning/delivery_plan.md)
 
 ## Phạm vi
