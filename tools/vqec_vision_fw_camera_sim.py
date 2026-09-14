@@ -120,11 +120,12 @@ class CameraPipeline:
             return None
         data = bytes(info.data)
         buf.unmap(info)
-        if len(data) < self.args.width * self.args.height * 3 // 2:
+        frame_size = self.args.width * self.args.height * 3 // 2
+        if len(data) < frame_size:
             return None
-        os.ftruncate(self.memfd, len(data))
-        os.pwrite(self.memfd, data, 0)
-        return self.memfd, len(data)
+        os.ftruncate(self.memfd, frame_size)
+        os.pwrite(self.memfd, data[:frame_size], 0)
+        return self.memfd, frame_size
 
 
 class RawFrameProducer:

@@ -116,6 +116,17 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_reference AND
     set_target_properties(vqec_vision_ai_model_runner PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+# Board runner that consumes live RAW frames through LACAI's camera adapter (FW wire).
+if(TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_qnn_engine AND
+   TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_detection)
+    add_executable(vqec_vision_ai_camera_runner
+        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_camera_runner.cpp)
+    target_link_libraries(vqec_vision_ai_camera_runner PRIVATE
+        vqec_vision_ai_camera vqec_vision_ai_qnn_engine vqec_vision_ai_reference
+        vqec_vision_ai_detection nlohmann_json::nlohmann_json)
+    set_target_properties(vqec_vision_ai_camera_runner PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # Required external service executable. Built only when the JSON loaders and the
 # device-free reference backend are available; otherwise there is no runnable harness.
 if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
