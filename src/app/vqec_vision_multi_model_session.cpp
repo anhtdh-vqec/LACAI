@@ -450,9 +450,4 @@ multi_model_session::vqec_vision_ai_appl_srcsn_get_health() const noexcept {
     return health;
 }
 
-const raw_frame& multi_model_session::vqec_vision_ai_appl_mmses_get_last_frame()
-    const noexcept {
-    return pump_.vqec_vision_ai_appl_mmump_get_last_frame();
-}
-
 }  // namespace vqec::vision::ai
