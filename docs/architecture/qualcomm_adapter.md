@@ -7,8 +7,11 @@ and the optional LACAI-owned QNN engine ([ADR 0003](../adr/0003_owned_qnn_engine
 `inference_graph_port`, scheduling and ownership; backend choice is policy/capability, not a
 model-name branch. Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot is not
 required to write code. Historical direct-SDK blueprint below is not current implementation
-status. Runnable production service, live board qualification and preview output are
-missing. See implementation_status.md and fw_release_compatibility.md.
+status. On 2026-09-14 the owned engine was board-verified: SCRFD and YOLOv8n compose,
+finalize and execute on HTP V68 with output byte-identical to `qnn-net-run`, and the
+service harness plus `--mode production --platform fake` run natively. Live FW camera,
+preview/encoder and preview output are still missing. See implementation_status.md,
+qsc6490_board.md and fw_release_compatibility.md.
 Preview renderer/encoder must be separate from the inference graph and preserve the
 released H264/ring contract; selecting Codec2 requires board evidence, not just factory availability.
 Read docs/research/qualcomm_plugins_reference.md for all plugin usage details.

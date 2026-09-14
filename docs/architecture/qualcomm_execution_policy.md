@@ -37,21 +37,24 @@ resolved interface happens to expose. `available` (SDK symbol resolveable), `imp
 `admitted` (policy accepted for a model) are separate states; the probed capability is the
 intersection of adapter + model graph + backend + policy.
 
-| Capability | SDK symbol seen | Adapter implemented | Advertised now |
-|---|---|---|---|
-| Synchronous client-buffer execute | `graphExecute` | yes | `mode=synchronous`, `max_inflight_jobs=1` |
-| Native (graph-dtype) output | `graphExecute` | yes | `supports_native_output=true` |
-| Async execute | `graphExecuteAsync` | no | `supports_async=false` |
-| Shared/registered buffers | `memRegister`/`memDeRegister` | no | `supports_shared_memory=false`, bound `0` |
-| Artifact / LoRA update | `contextApplyBinarySection` | no | `supports_artifact_update=false` |
-| Multi-model execution domain | one context | no | `supports_multi_model_domain=false`, `graph_count=1` |
-| Perf profile | HTP perf infra | not applied | only `balanced` |
-| Compute-unit affinity/topology | HTP device infra | not probed | `compute_unit_count=0` |
+| Capability | SDK symbol seen | Adapter implemented | Qualified on QCS6490 | Advertised now |
+|---|---|---|---|---|
+| Synchronous client-buffer execute | `graphExecute` | yes | **yes** (SCRFD/YOLOv8n, byte-identical to qnn-net-run, 2026-09-14) | `mode=synchronous`, `max_inflight_jobs=1` |
+| Native (graph-dtype) output | `graphExecute` | yes | **yes** (uint16 UFIXED_POINT_16 returned) | `supports_native_output=true` |
+| Async execute | `graphExecuteAsync` | no | no | `supports_async=false` |
+| Shared/registered buffers | `memRegister`/`memDeRegister` | no | no | `supports_shared_memory=false`, bound `0` |
+| Artifact / LoRA update | `contextApplyBinarySection` | no | no | `supports_artifact_update=false` |
+| Multi-model execution domain | one context | no | no | `supports_multi_model_domain=false`, `graph_count=1` |
+| Perf profile | HTP perf infra | not applied | no | only `balanced` |
+| Compute-unit affinity/topology | HTP device infra | not probed | no | `compute_unit_count=0` |
 
 An unimplemented operation is reported unsupported so
 `vqec_vision_ai_core_inexe_policy_is_supported` rejects a dependent policy before load or
 submit; each row moves to `implemented` only with the matching lifecycle path and negative
-tests. Board qualification is still required before any row becomes `qualified`.
+tests. `prepare` must call `graphFinalize` after `composeGraphs`: generated model libraries
+compose but do not finalize, and `graphExecute` fails otherwise (board-discovered). Sync
+execute and native output are now board-qualified; async, shared memory, update, file
+domains and perf/topology still require a qualified lifecycle and board evidence.
 
 `prepare` creates a context, `dlopen`s one QNN model library (`.so` from
 qnn-model-lib-generator), resolves `QnnModel_composeGraphs`/`QnnModel_freeGraphsInfo`,

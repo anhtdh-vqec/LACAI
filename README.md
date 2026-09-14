@@ -17,20 +17,23 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Mảng | Trạng thái | Bằng chứng / còn lại |
 |---|---|---|
 | Contracts / core neutral | Source-delivered | Validator, plan, ledger, output policy, feature/model catalog |
-| Camera adapter (FW RAW) | Source-delivered | Wire decoder, SOCK_SEQPACKET/SCM_RIGHTS, lease Start/Stop, source lifecycle; chưa live FW |
+| Camera adapter (FW RAW) | Source-delivered | Wire decoder, SOCK_SEQPACKET/SCM_RIGHTS, lease Start/Stop, source lifecycle; chưa có live FW service |
 | Multi-source / multi-model pump | Source-delivered | 1..16 session, cadence, shared-owner fan-out; device-free tested |
-| Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; board-tested ở mức lifecycle |
-| QNN engine LACAI-owned | Source-delivered | dlopen + device + compose + execute + `inference_graph_port`; chưa qualify trên board |
-| Perception / feature pipeline | Source-delivered (ports) | Decoder/tracker/feature là contract + registry; thuật toán thật chưa có |
-| Output / preview / encoded | Helpers delivered | Chưa ghép thành pipeline chạy thật; thiếu renderer + hardware encoder |
-| Service `vqec_ai_vision_applications` | Harness chạy được | Chạy device-free dưới QEMU; production mode fail-closed |
+| Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; lifecycle + installed-plugin check pass native trên QCS6490 |
+| QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/YOLOv8n trên HTP V68; output byte-identical với `qnn-net-run`; async/shared/update chưa |
+| Perception / feature pipeline | Source-delivered | Reference dense decoder, IoU tracker, ROI feature, secondary scheduler; model/usecase thật chưa |
+| Output / preview / encoded | Helpers + fake | Fake encoder + bounded ring + conformance; renderer/hardware encoder thật chưa |
+| Service `vqec_ai_vision_applications` | Chạy được | Device-free dưới QEMU và native trên board (harness + production fake); thiếu platform owner thật |
 
 **Bằng chứng logic:** cấu hình default (mọi option OFF) **64/64** test và cấu hình mở rộng
 (Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **83/83** test
-chạy 100% dưới eSDK QEMU. Cấu hình mở rộng trước đó cũng pass natively trên QCS6490.
-Đây là logic/wiring evidence, **không** phải board/BSP, model-accuracy, performance hay
-zero-copy acceptance. Chi tiết: [esdk_emulation](docs/testing/esdk_emulation.md),
-[qsc6490_board](docs/testing/qsc6490_board.md), [qnn board runbook](docs/testing/qnn_board_validation.md).
+chạy 100% dưới eSDK QEMU.
+**Bằng chứng board (2026-09-14, QCS6490):** 79/79 test binary pass native; service harness và
+`--mode production --platform fake` route 2 source (exit 0), `--platform qualcomm` fail-closed;
+`qnn-platform-validator` DSP unit test pass (Hexagon V68); owned QNN engine execute SCRFD/YOLOv8n
+trên HTP với parity byte-identical. Chi tiết: [qsc6490_board](docs/testing/qsc6490_board.md),
+[qnn board runbook](docs/testing/qnn_board_validation.md),
+[capability matrix](docs/development/capability_matrix.md).
 
 ## Kiến trúc tổng quan
 
@@ -146,10 +149,11 @@ dữ liệu sinh trắc học hay secret.
 
 ## Giới hạn đã biết
 
-- Chưa có live FW/model integration, board qualification cho QNN engine, hardware-completion,
-  performance, thermal hay recovery evidence.
-- Chưa có decoder/tracker/feature/renderer/hardware encoder thật; đây là các port + registry.
-- Owned QNN engine hiện execute sync/copy; async, shared/registered memory và LoRA mới có
-  contract, chưa dùng trong execute.
+- Live FW camera stream chưa có (board không chạy camera service); chưa có hardware-completion,
+  DMA-BUF device evidence, accuracy theo nhãn hay multi-camera/thermal/performance acceptance.
+- Decoder/tracker/feature hiện là reference device-free; model/usecase thật và renderer/
+  hardware encoder chưa có.
+- Owned QNN engine execute sync/copy (đã board-verified); async, shared/registered memory và
+  LoRA mới có contract, chưa dùng trong execute.
 - CI workflow có job eSDK đang gate sau `vars.ESDK_ROOT`; chưa có bằng chứng runner được cấu hình.
 - Structural checker kiểm filename/include/CMake, không phải AST naming hay ownership validator.

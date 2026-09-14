@@ -17,7 +17,7 @@ listed in [QCS6490 target](../testing/qsc6490_board.md) and
 | 2 | `frame_source` IPC hardening | Kept as-is (review agrees) | — |
 | 3 | ACK in final-owner destructor can fault on EAGAIN | **Fixed** | `e84f1c1` |
 | 4 | Allocator created per `wrap_frame()` | **Fixed** (device measurement still open) | `cb75485` |
-| 5 | Plugin backend is the production baseline | Strategy adopted; benchmark is board-gated | S02 in [optimization plan](../planning/model_agnostic_optimization_plan.md) |
+| 5 | Plugin backend is the production baseline | Board seed measured: owned-engine sync execute SCRFD ~5.2 ms, YOLOv8n ~12.1 ms; full plugin-vs-direct-vs-CPU baseline still open | S02 in [optimization plan](../planning/model_agnostic_optimization_plan.md) |
 | 6 | Owned QNN not a hot path | **Partially fixed**: honest capabilities + off-hot-path metadata; async/worker remain | `b20ae11`, `52fe276` |
 | 7 | Blocking `graphExecute` blocks the supervisor | Planned: bounded worker/async execution | S07 (board/measurement gate) |
 | 8 | Direct QNN missing production preprocess/buffer manager | Planned: FastCV/converter processor + registered buffers | S03/S05 (board gate) |
@@ -28,7 +28,7 @@ listed in [QCS6490 target](../testing/qsc6490_board.md) and
 | 13 | Stop drain semantics implicit | **Fixed**: explicit `multi_model_drain_policy` | `692cd1a` |
 | 14 | Long C++ method naming | Deferred by reviewer; AGENTS mandates the scheme, needs a lead/ADR decision to change | AGENTS.md rule 2 |
 | 15 | Root CMake too granular | Deferred to the engineering-debt phase (reviewer roadmap step 7) | — |
-| 16 | No production executable | Acknowledged: reference harness only until the board vertical slice | S02/S10 |
+| 16 | No production executable | Partially addressed: `vqec_ai_vision_applications` runs harness and `--mode production --platform fake` natively on QCS6490; real platform owners still absent | S02/S10 |
 | 17 | Reuse Qualcomm IM SDK output/encode plumbing | Strategy adopted for S09 | S09 (board gate) |
 | 18 | Suggested roadmap | Adopted as the ordering for S02–S11 | — |
 | minor | `QSC6490` vs `QCS6490` casing | **Fixed** in prose; identifiers kept | `3480be5` |

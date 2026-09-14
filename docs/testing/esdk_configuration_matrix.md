@@ -13,9 +13,11 @@ reported as passing. All rows below use the approved eSDK AArch64 compiler and S
 | Expanded | CAMERA, CAMERA_DBUS, GST_FRAME_BRIDGE, QUALCOMM, MODEL_MANIFEST, MODEL_CATALOG, DEPLOYMENT_CONFIG, FEATURE_CATALOG, BUILD_MANIFEST_CHECK, ARTIFACT_DIGEST, QNN_ENGINE | 83/83 | eSDK QEMU; adds camera/D-Bus/GStreamer/Qualcomm/JSON/digest and the owned QNN engine library |
 
 `VQEC_VISION_AI_ENABLE_QNN_ENGINE=ON` requires `VQEC_VISION_AI_QAIRT_ROOT` (default
-`third_party/qairt`, a symlink to the installed private SDK). The QNN engine has no dedicated
-test target yet, so enabling it changes compiled coverage but not the registered test count;
-its behavioural evidence is board-gated (see [QNN board validation](qnn_board_validation.md)).
+`third_party/qairt`, a symlink to the installed private SDK). The QNN engine has no
+registered host/QEMU test; enabling it changes compiled coverage but not the test count. Its
+behavioural evidence comes from the board-only `vqec_vision_ai_qnn_engine_smoke` tool
+(compose/finalize/execute + parity/latency) on QCS6490; see
+[QNN board validation](qnn_board_validation.md) and [QCS6490 target](qsc6490_board.md).
 
 ## Option inventory
 

@@ -8,6 +8,14 @@ means the device-free unit is delivered but not yet wired onto the production pa
 
 Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last update.
 
+Board (2026-09-14, QCS6490): the target came online. 79/79 test binaries pass natively; the
+service harness and `--mode production --platform fake` route two sources and `--platform
+qualcomm` fails closed; the QNN DSP V68 unit test passes; and the owned QNN engine executes
+SCRFD/YOLOv8n on HTP with output byte-identical to `qnn-net-run` (latency seed SCRFD ~5.2 ms,
+YOLOv8n ~12.1 ms). See [QCS6490 target](../testing/qsc6490_board.md). This moves §5/§6
+engine execution from "module" toward qualified, but neither the worker nor the pool is
+wired to the running path yet, and live FW camera/DMA/encoder remain open.
+
 | § | Work item | Status | Commit / note |
 |---|---|---|---|
 | 3/§4 | Camera release dispatcher | **done** | `e84f1c1` |
