@@ -9,8 +9,8 @@ reported as passing. All rows below use the approved eSDK AArch64 compiler and S
 
 | Configuration | Options (all others OFF) | Tests | Evidence |
 |---|---|---|---|
-| Neutral | none | 69/69 | eSDK QEMU; reference backend, runtime executor, service harness, bounded inference worker and tensor pool |
-| Expanded | CAMERA, CAMERA_DBUS, GST_FRAME_BRIDGE, QUALCOMM, MODEL_MANIFEST, MODEL_CATALOG, DEPLOYMENT_CONFIG, FEATURE_CATALOG, BUILD_MANIFEST_CHECK, ARTIFACT_DIGEST, QNN_ENGINE | 88/88 | eSDK QEMU; adds camera/D-Bus/GStreamer/Qualcomm/JSON/digest and the owned QNN engine library |
+| Neutral | none | 70/70 | eSDK QEMU; reference backend, runtime executor, service harness, bounded inference worker and tensor pool |
+| Expanded | CAMERA, CAMERA_DBUS, GST_FRAME_BRIDGE, QUALCOMM, MODEL_MANIFEST, MODEL_CATALOG, DEPLOYMENT_CONFIG, FEATURE_CATALOG, BUILD_MANIFEST_CHECK, ARTIFACT_DIGEST, QNN_ENGINE | 89/89 | eSDK QEMU; adds camera/D-Bus/GStreamer/Qualcomm/JSON/digest and the owned QNN engine library |
 
 `VQEC_VISION_AI_ENABLE_QNN_ENGINE=ON` requires `VQEC_VISION_AI_QAIRT_ROOT` (default
 `third_party/qairt`, a symlink to the installed private SDK). The QNN engine has no

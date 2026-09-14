@@ -15,7 +15,8 @@ add_library(vqec_vision_ai_core STATIC
     vqec_vision_inference_execution.cpp
     vqec_vision_secondary_inference.cpp
     vqec_vision_preprocess_spec.cpp
-    vqec_vision_model_io_manifest.cpp)
+    vqec_vision_model_io_manifest.cpp
+    vqec_vision_model_package.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
