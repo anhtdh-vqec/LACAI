@@ -17,7 +17,7 @@ Evidence: neutral and expanded eSDK QEMU both `100%` at the time of the last upd
 | 8 | Recovery/health state machine | partial | supervisor fault channel `a33a87e`; per-source backoff/retry-budget controller added (this change); reconnect wiring pending |
 | 9 | Model/package admission hardening | partial | capability/metadata/model-class gates (`b20ae11`, `52fe276`, `595ed08`) |
 | 10 | Scheduler QoS semantics | partial | explicit policy, unsupported rejected `d469495`; queue semantics pending |
-| 11 | Secondary/ROI inference contract | todo | deferred; needs ADR |
+| 11 | Secondary/ROI inference contract | **done** | neutral contract + bounded scheduler + fake backend + correlation tests this change |
 | 12 | Preprocess conformance suite | **done** | conformance suite this change (solid/gradient/stride/offset/aspect/order/norm/quant/clip/reject) |
 | 13 | Real CPU decoder | todo | needs model metadata/decoder implementation |
 | 14 | Reference tracker | **done** | this change |

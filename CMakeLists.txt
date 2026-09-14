@@ -51,7 +51,8 @@ add_library(vqec_vision_ai_core STATIC
     src/core/vqec_vision_encoder_contract.cpp src/core/vqec_vision_observation.cpp
     src/core/vqec_vision_deployment_config.cpp src/core/vqec_vision_model_catalog.cpp
     src/core/vqec_vision_feature_event.cpp src/core/vqec_vision_feature_catalog.cpp
-    src/core/vqec_vision_inference_execution.cpp)
+    src/core/vqec_vision_inference_execution.cpp
+    src/core/vqec_vision_secondary_inference.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
 target_include_directories(vqec_vision_ai_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -272,7 +273,8 @@ target_link_libraries(vqec_vision_ai_source_supervisor PUBLIC vqec_vision_ai_cor
 set_target_properties(vqec_vision_ai_source_supervisor PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_scheduler STATIC
-    src/runtime/scheduler/vqec_vision_model_cadence.cpp)
+    src/runtime/scheduler/vqec_vision_model_cadence.cpp
+    src/runtime/scheduler/vqec_vision_secondary_inference_scheduler.cpp)
 target_include_directories(vqec_vision_ai_scheduler PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/scheduler>)
 target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)
@@ -798,6 +800,14 @@ if(BUILD_TESTING)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME recovery_controller_backoff
         COMMAND vqec_vision_ai_recovery_controller_test)
+    add_executable(vqec_vision_ai_secondary_inference_test
+        tests/unit/vqec_vision_secondary_inference_test.cpp)
+    target_link_libraries(vqec_vision_ai_secondary_inference_test
+        PRIVATE vqec_vision_ai_scheduler)
+    set_target_properties(vqec_vision_ai_secondary_inference_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME secondary_inference_scheduling
+        COMMAND vqec_vision_ai_secondary_inference_test)
     add_executable(vqec_vision_ai_tensor_contract_test tests/unit/vqec_vision_tensor_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)
