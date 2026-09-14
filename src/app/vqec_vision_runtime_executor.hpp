@@ -34,6 +34,10 @@ struct runtime_executor_metrics {
     std::uint64_t events_delivered_{0};
     std::uint64_t events_denied_{0};
     std::uint64_t events_failed_{0};
+    // Routed-result latency from the pipeline PTS to the step that routed it.
+    std::uint64_t end_to_end_ns_sum_{0};
+    std::uint64_t end_to_end_ns_max_{0};
+    std::uint32_t end_to_end_samples_{0};
 };
 
 struct feature_dispatch_report {

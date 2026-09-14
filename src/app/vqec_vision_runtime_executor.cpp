@@ -71,6 +71,13 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         delivery_gate_->vqec_vision_ai_core_otgat_get_revision() : 0;
     pending_report_.has_tracked_ = true;
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
+    if (result.pipeline_pts_ns_ != 0 && _steady_now_ns >= result.pipeline_pts_ns_) {
+        const auto latency = _steady_now_ns - result.pipeline_pts_ns_;
+        metrics_.end_to_end_ns_sum_ += latency;
+        metrics_.end_to_end_ns_max_ =
+            latency > metrics_.end_to_end_ns_max_ ? latency : metrics_.end_to_end_ns_max_;
+        ++metrics_.end_to_end_samples_;
+    }
     pending_report_.first_error_code_ = processed.code_;
     has_pending_ = true;
     ++metrics_.results_routed_;
