@@ -10,7 +10,7 @@ evidence. Update this table with any change that moves a row.
 | Static single-image model (via catalog + manifest validation) | yes | yes | no |
 | Multi-input / dynamic-shape / stateful model | no (rejected at activation) | yes (rejection) | no |
 | Capability/policy admission (fail-closed) | yes | yes | no |
-| Synchronous QNN client-buffer execution | yes | compiled + unit fixtures | **yes** (SCRFD/YOLOv8n compose+execute on HTP 2026-09-14) |
+| Synchronous QNN client-buffer execution | yes | compiled + unit fixtures | **yes** (SCRFD/YOLOv8n compose+execute on HTP; byte-identical to qnn-net-run) |
 | Async QNN execution | no | no | no |
 | Shared/registered memory (QnnMem) | contract only | no | no |
 | Artifact/LoRA update | contract only | no | no |

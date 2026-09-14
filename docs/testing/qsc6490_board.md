@@ -74,6 +74,10 @@ eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
   YOLOv8n-person (2 outputs) **execute on HTP** (exit 0). This exposed and fixed a real
   defect: the generated model library composes but does not finalize the graph, so
   `prepare` must call `graphFinalize` before `graphExecute`.
+- Numeric parity: with the same native input, the owned engine output is **byte-identical**
+  to `qnn-net-run --use_native_input_files --use_native_output_files` — SCRFD 9/9 and
+  YOLOv8n 2/2 tensors match. This is engine-versus-runtime parity, not model accuracy
+  against a labelled reference.
 
 Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
 camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the

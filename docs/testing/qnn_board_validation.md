@@ -99,5 +99,6 @@ are the next source step. Until then, validate the model path with step 2.
   `vqec_vision_ai_qnn_engine_smoke` (backend `/usr/lib/libQnnHtp.so`, system
   `/usr/lib/libQnnSystem.so`). This required a source fix: call `graphFinalize` after
   `composeGraphs` and before `graphExecute`.
-- Not done: step 3 numeric/accuracy check (inputs were zero/random), async/shared/update,
-  latency/memory, live FW stream.
+- Step 3 (partial): engine-versus-runtime parity on the same native input is byte-identical
+  (SCRFD 9/9, YOLOv8n 2/2). Labelled accuracy, async/shared/update, latency/memory and a
+  live FW stream are still not done.
