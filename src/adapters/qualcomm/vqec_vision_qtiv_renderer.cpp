@@ -157,8 +157,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         _config.bitrate_bps_ != 0 ? _config.bitrate_bps_ : 2000000U);
     const std::string description =
         "appsrc name=src is-live=true format=time"
-        " ! queue ! videoconvert ! video/x-raw,format=NV12"
-        " ! qtivoverlay"
+        " ! queue ! qtivoverlay"
         " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate + "\""
         " ! h264parse config-interval=1"
         " ! appsink name=enc max-buffers=2 drop=true sync=false";
