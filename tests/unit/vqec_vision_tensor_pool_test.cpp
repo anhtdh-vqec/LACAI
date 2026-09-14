@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "vqec_vision_tensor_pool.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -41,6 +42,11 @@ int main() {
               status_code::invalid_argument);
         bad.capacity_ = 2;
         bad.spec_.dtype_ = tensor_element_type::unknown;
+        check(pool.vqec_vision_ai_core_tnpl_configure(bad).code_ ==
+              status_code::invalid_argument);
+        bad.spec_ = make_spec();
+        bad.spec_.dimensions_ = {
+            static_cast<std::uint32_t>(tensor_contract_limits::g_max_output_bytes + 1U)};
         check(pool.vqec_vision_ai_core_tnpl_configure(bad).code_ ==
               status_code::invalid_argument);
         bad.spec_ = make_spec();

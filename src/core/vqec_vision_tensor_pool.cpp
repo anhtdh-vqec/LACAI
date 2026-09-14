@@ -21,8 +21,9 @@ status tensor_pool::vqec_vision_ai_core_tnpl_configure(const tensor_pool_config&
         return {status_code::invalid_argument, "invalid tensor pool configuration"};
     }
     const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(_config.spec_);
-    if (bytes == 0) {
-        return {status_code::invalid_argument, "tensor pool spec has no bytes"};
+    if (bytes == 0 || bytes > tensor_contract_limits::g_max_output_bytes) {
+        return {status_code::invalid_argument,
+            "tensor pool spec has no bytes or exceeds the slot limit"};
     }
     try {
         for (std::size_t index = 0; index < _config.capacity_; ++index) {

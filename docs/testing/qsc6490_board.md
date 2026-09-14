@@ -137,3 +137,12 @@ Board values were supplied explicitly: BT.709, progressive, 4,000,000 bit/s, GOP
 defaults. Because the compatibility camera uses memfd, the test includes CPU copies and
 does not prove released-FW DMA-BUF interop, zero-copy, model accuracy, performance,
 recording/UI behavior or long-run stability.
+
+The first stream exposed a cadence coupling defect: the catalog intentionally requested
+1 FPS inference, and the service rendered only result frames, reducing RTSP to 1 FPS. The
+repaired source session retains one latest preview frame independently of inference and the
+service applies the latest observation snapshot to every camera frame. A 10-second board
+sample wrote 291 H.264 access units (**29.1 FPS**) while inference remained 1 FPS. Rebased
+per-client RTSP timestamps reduced an `ffprobe` late-join startup sample to 0.98 seconds;
+a five-second TCP RTSP decode received 151 frames. These measurements apply only to this
+compatibility setup and are not a product performance or latency acceptance claim.

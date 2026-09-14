@@ -270,6 +270,13 @@ int main() {
     check(first.vqec_vision_ai_unit_mmpst_get_owner() ==
           second.vqec_vision_ai_unit_mmpst_get_owner());
     check(!weak_owner.expired());
+    raw_frame preview_frame;
+    check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(preview_frame).code_ ==
+          status_code::ok);
+    check(preview_frame.descriptor_.buffer_id_ == 1 && preview_frame.owner_ != nullptr);
+    check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(preview_frame).code_ ==
+          status_code::pending);
+    preview_frame = {};
 
     first.vqec_vision_ai_unit_mmpst_complete_result();
     check(pump.vqec_vision_ai_appl_mmump_pump_step(101, result, report).code_ ==
@@ -292,6 +299,8 @@ int main() {
     check(source.receive_calls_ == 1);
     pump.vqec_vision_ai_appl_mmump_begin_stop();
     check(weak_owner.expired());
+    check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(preview_frame).code_ ==
+          status_code::pending);
 
     fake_raw_source partial_source;
     fake_inference_graph busy_graph;

@@ -24,6 +24,7 @@ namespace {
 constexpr std::size_t g_nv12_plane_count = 2U;
 constexpr std::size_t g_nv12_chroma_row_divisor = 2U;
 constexpr std::uint32_t g_rgba_alpha_mask = 0xFFU;
+constexpr GstClockTime g_encoder_poll_timeout_ns = 0;
 
 GstBufferPool* vqec_vision_ai_qcom_qtvr_create_output_pool(
     GstCaps* _caps, guint _surface_count) {
@@ -406,7 +407,12 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     if (pushed != GST_FLOW_OK) {
         return {status_code::io_error, "qtiv renderer appsrc rejected the frame"};
     }
-    GstSample* sample = gst_app_sink_try_pull_sample(GST_APP_SINK(impl.appsink_), GST_SECOND);
+    // The hardware encoder may retain the current input until the next frame arrives.
+    // Blocking here serializes frame production behind that internal latency and can turn
+    // a one-frame delay into one full timeout per frame. Pick up the oldest ready access
+    // unit without waiting; a retained unit remains queued for the next render call.
+    GstSample* sample = gst_app_sink_try_pull_sample(
+        GST_APP_SINK(impl.appsink_), g_encoder_poll_timeout_ns);
     if (sample == nullptr) {
         const auto pipeline = vqec_vision_ai_qcom_qtvr_read_pipeline_error(impl.pipeline_);
         if (pipeline.code_ != status_code::ok) {

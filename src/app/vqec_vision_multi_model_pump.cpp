@@ -82,6 +82,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
 
 void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
     is_stopping_ = true;
+    preview_frame_ = {};
+    has_preview_frame_ = false;
     for (auto& retained : retained_frames_) {
         retained = {};
     }
@@ -188,6 +190,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
     }
     last_source_epoch_ = frame.descriptor_.session_epoch_;
+    preview_frame_ = frame;
+    has_preview_frame_ = true;
 
     model_cadence_selection selection;
     const auto selected = cadence_.vqec_vision_ai_sched_mdcad_select(
@@ -304,6 +308,17 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         return {status_code::pending, "due input parked until the graph frees up"};
     }
     return {status_code::pending, "RAW frame skipped because no due graph accepted it"};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_take_preview_frame(
+    raw_frame& _frame) {
+    if (!has_preview_frame_) {
+        return {status_code::pending, "no preview frame is retained"};
+    }
+    _frame = std::move(preview_frame_);
+    preview_frame_ = {};
+    has_preview_frame_ = false;
+    return {};
 }
 
 status multi_model_pump::vqec_vision_ai_appl_mmump_ensure_target(std::uint16_t _slot) {

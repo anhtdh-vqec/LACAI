@@ -228,7 +228,13 @@ def run_read(args):
     print(f"ring open: header={reader.header_size()} slot_hdr={reader.slot_header_size()} "
           f"slots={reader.slot_count()} payload={reader.payload_size()}", flush=True)
     publisher = RtspPublisher(args.port, args.mount, args.fps)
-    state = {"next": 0, "started": False, "pushed": 0, "generation": -1}
+    state = {
+        "next": 0,
+        "started": False,
+        "pushed": 0,
+        "client_frame": 0,
+        "generation": -1,
+    }
 
     def poll():
         if not publisher.ready():
@@ -237,6 +243,7 @@ def run_read(args):
             current = reader.write_sequence()
             state["next"] = max(0, current - reader.slot_count())
             state["started"] = False
+            state["client_frame"] = 0
             state["generation"] = publisher.generation
         current = reader.write_sequence()
         while state["next"] < current:
@@ -250,7 +257,12 @@ def run_read(args):
                 if not slot["keyframe"] or not has_h264_parameter_sets(slot["payload"]):
                     continue
                 state["started"] = True
-            publisher.push(slot["payload"], slot["sequence"] * publisher.duration_ns)
+            # Ring sequence is process-global and may already be large when a client
+            # connects. Rebase timestamps per RTSP media generation so a late joiner does
+            # not wait for the producer's historical running time before its first frame.
+            publisher.push(
+                slot["payload"], state["client_frame"] * publisher.duration_ns)
+            state["client_frame"] += 1
             state["pushed"] += 1
             if state["pushed"] % 60 == 0:
                 print(f"pushed={state['pushed']}", flush=True)

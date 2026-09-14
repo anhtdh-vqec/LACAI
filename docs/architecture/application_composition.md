@@ -30,3 +30,9 @@ runtime-owner review remain required before live integration acceptance.
 creates admitted multi-model sessions and perception bundles, binds every source, and
 returns this composition after validation. Platform RAW/graph owner creation and
 authenticated artifact/evidence resolution remain outside this class.
+
+The concrete production service takes the source session's bounded preview mailbox after
+each executor step. It caches completed observations by source/model and merges them only
+when a new model result arrives, then renders every camera frame with that snapshot. Tensor
+result backpressure and preview cadence remain separate; neither path creates an unbounded
+frame queue.

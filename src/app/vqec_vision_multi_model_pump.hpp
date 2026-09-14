@@ -62,6 +62,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_mmump_pump_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         multi_model_pump_report& _report);
+    // Takes the newest RAW frame received by the pump independently of model cadence.
+    // The one-slot mailbox is latest-wins and keeps the source owner alive until take.
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_take_preview_frame(
+        raw_frame& _frame);
     void vqec_vision_ai_appl_mmump_begin_stop() noexcept;
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_appl_mmump_get_model_count() const noexcept;
@@ -115,6 +119,8 @@ private:
     // One retained frame per model slot, released when a new submission replaces it or the
     // pump stops. This is what keeps the owner alive from submission to result take.
     std::array<raw_frame, deployment_limits::g_max_models_per_source> retained_frames_{};
+    raw_frame preview_frame_;
+    bool has_preview_frame_{false};
     bool is_configured_{false};
     bool is_stopping_{false};
     bool is_failed_{false};

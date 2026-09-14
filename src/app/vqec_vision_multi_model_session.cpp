@@ -458,4 +458,9 @@ const raw_frame& multi_model_session::vqec_vision_ai_appl_mmses_get_result_frame
     return last_result_frame_;
 }
 
+status multi_model_session::vqec_vision_ai_appl_mmses_take_preview_frame(
+    raw_frame& _frame) {
+    return pump_.vqec_vision_ai_appl_mmump_take_preview_frame(_frame);
+}
+
 }  // namespace vqec::vision::ai

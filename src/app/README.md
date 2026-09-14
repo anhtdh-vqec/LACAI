@@ -12,6 +12,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 
 - Own one acquisition lifecycle through validate/start/pump/drain/release with explicit deadlines.
 - Fan one frame owner out to every due model graph and route results by stable model slot.
+- Keep one latest-wins preview frame per source so output cadence is independent of model cadence.
 - Reconstruct source identity from retained submission tickets, then compose decode/track/feature.
 - Provide the take-once delivery slot so the executor cannot run ahead of an unconsumed result.
 
@@ -21,7 +22,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 |---|---|
 | `vqec_vision_camera_graph_pump.cpp` | Connects a started `raw_source_port` to a running `inference_graph_port`, one bounded step per call |
 | `vqec_vision_camera_session.cpp` | One-model validate/start/drain/release lifecycle with RPC reconciliation |
-| `vqec_vision_multi_model_pump.cpp` | Receive once, cadence-select, share owner, submit per binding (raw-frame or tensor) |
+| `vqec_vision_multi_model_pump.cpp` | Receive once, update the bounded preview mailbox, cadence-select, share owner and submit per binding |
 | `vqec_vision_multi_model_session.cpp` | Preflight all graphs, one FW acquisition, partial-start rollback, all-graph drain |
 | `vqec_vision_multi_source_supervisor.cpp` | Bind 1..16 borrowed sessions, round-robin progress, per-source fault isolation, latched stop |
 | `vqec_vision_perception_result_stage.cpp` | Correlate tensor PTS with retained source identity, decode + track transactionally |
@@ -42,6 +43,8 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - Authenticated FW registry RPC and complete authorization-scope output binding remain open.
 - The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
   interoperability, hardware-completion evidence and long-run performance remain open.
+- The current production service loop is serialized. The `.48` integration run sustained
+  29.1 encoded FPS with 1 FPS inference, but multi-source and thermal limits are unqualified.
 
 ## See also
 

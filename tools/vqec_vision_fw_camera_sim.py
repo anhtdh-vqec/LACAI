@@ -30,6 +30,7 @@ import socket
 import struct
 import sys
 import threading
+import time
 
 import gi
 
@@ -225,12 +226,15 @@ class RawFrameProducer:
 
         threading.Thread(target=ack_reader, daemon=True).start()
         while self.running and not stop["value"]:
+            with lock:
+                window_full = in_flight["count"] >= self.args.max_in_flight
+            if window_full:
+                time.sleep(0.001)
+                continue
             got = self.camera.next_fd(Gst.SECOND)
             if got is None:
                 continue
             with lock:
-                if in_flight["count"] >= self.args.max_in_flight:
-                    continue
                 in_flight["count"] += 1
             fd, size = got
             self.buf_id += 1

@@ -4,12 +4,9 @@
 // serialized executor loop.
 //
 // `--mode harness` (default) runs the device-free fake platform for development.
-// `--mode production --platform fake` runs the same explicit fake platform through the
-// production composition path; `--platform qualcomm` (or unset) fails closed because no
-// Qualcomm platform owner is wired yet. The fake decoder/tracker/feature produce no real
-// detections and prove nothing about model accuracy, Qualcomm support or hardware
-// completion. A usecase integrator registers real package factories and platform owners
-// before bundle construction. See docs/architecture/runtime_executor.md.
+// Production selects an explicit fake, reference or Qualcomm owner and never falls back.
+// The Qualcomm owner resolves the model package, executes QNN and optionally produces the
+// configured overlay/H.264 ring. See docs/architecture/runtime_executor.md.
 
 #include <array>
 #include <chrono>
@@ -256,6 +253,34 @@ const model_catalog_entry* vqec_vision_ai_appl_svcmn_find_model(
         }
     }
     return nullptr;
+}
+
+using model_observation_cache =
+    std::array<observation_batch, deployment_limits::g_max_models_per_source>;
+
+void vqec_vision_ai_appl_svcmn_merge_observations(
+    const model_observation_cache& _models, std::uint16_t _model_count,
+    observation_batch& _merged) {
+    observation_batch merged;
+    for (std::uint16_t slot = 0;
+         slot < _model_count && slot < deployment_limits::g_max_models_per_source;
+         ++slot) {
+        const auto& batch = _models[slot];
+        if (batch.frame_.source_epoch_ == 0) {
+            continue;
+        }
+        if (merged.frame_.source_epoch_ == 0) {
+            merged.frame_ = batch.frame_;
+            merged.geometry_ = batch.geometry_;
+        }
+        for (const auto& item : batch.observations_) {
+            if (merged.observations_.size() >= observation_limits::g_max_observations) {
+                break;
+            }
+            merged.observations_.push_back(item);
+        }
+    }
+    _merged = std::move(merged);
 }
 
 }  // namespace
@@ -688,6 +713,10 @@ int main(int _argc, char** _argv) {
     std::uint64_t steps = 0;
     std::uint32_t routed_source_mask = 0;
     status_code first_error_code = status_code::ok;
+    std::array<model_observation_cache, deployment_limits::g_max_sources>
+        latest_model_observations;
+    std::array<observation_batch, deployment_limits::g_max_sources>
+        latest_overlay_observations;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
@@ -715,29 +744,23 @@ int main(int _argc, char** _argv) {
                             dispatched.message_.c_str());
                     }
                 }
-                if (use_production_platform) {
-                    auto* taken_session =
-                        bundle->vqec_vision_ai_appl_rcfac_get_session(taken.source_index_);
-                    if (taken_session != nullptr) {
-                        const raw_frame& result_frame =
-                            taken_session->vqec_vision_ai_appl_mmses_get_result_frame();
-                        if (result_frame.owner_) {
-                            const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
-                                taken.source_index_, result_frame,
-                                tracked[taken.model_slot_]);
-                            if (rendered.code_ != status_code::ok &&
-                                rendered.code_ != status_code::pending) {
-                                std::fprintf(stderr, "render failed (%d): %s\n",
-                                    static_cast<int>(rendered.code_),
-                                    rendered.message_.c_str());
-                            }
-                        }
-                    }
+                const auto tracked_count =
+                    tracked[taken.model_slot_].observations_.size();
+                if (use_production_platform &&
+                    taken.source_index_ < deployment_limits::g_max_sources &&
+                    taken.model_slot_ < deployment_limits::g_max_models_per_source) {
+                    latest_model_observations[taken.source_index_][taken.model_slot_] =
+                        std::move(tracked[taken.model_slot_]);
+                    vqec_vision_ai_appl_svcmn_merge_observations(
+                        latest_model_observations[taken.source_index_],
+                        static_cast<std::uint16_t>(
+                            deployment.sources_[taken.source_index_].model_ids_.size()),
+                        latest_overlay_observations[taken.source_index_]);
                 }
                 std::printf("routed source=%u model=%u tracked=%zu delivered=%u\n",
                     static_cast<unsigned>(taken.source_index_),
                     static_cast<unsigned>(taken.model_slot_),
-                    tracked[taken.model_slot_].observations_.size(),
+                    tracked_count,
                     static_cast<unsigned>(dispatch_report.delivered_));
             }
         } else if (stepped.code_ != status_code::pending) {
@@ -747,6 +770,33 @@ int main(int _argc, char** _argv) {
             std::fprintf(stderr, "executor step failed (%d): %s\n",
                 static_cast<int>(stepped.code_), stepped.message_.c_str());
             break;
+        }
+        if (use_production_platform) {
+            for (std::uint16_t source_slot = 0;
+                 source_slot < deployment.sources_.size(); ++source_slot) {
+                auto* session = bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
+                raw_frame preview_frame;
+                if (session == nullptr ||
+                    session->vqec_vision_ai_appl_mmses_take_preview_frame(preview_frame)
+                            .code_ != status_code::ok ||
+                    !preview_frame.owner_) {
+                    continue;
+                }
+                auto& overlay = latest_overlay_observations[source_slot];
+                if (overlay.frame_.source_epoch_ != 0 &&
+                    overlay.frame_.source_epoch_ !=
+                        preview_frame.descriptor_.session_epoch_) {
+                    latest_model_observations[source_slot] = {};
+                    overlay = {};
+                }
+                const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
+                    source_slot, preview_frame, overlay);
+                if (rendered.code_ != status_code::ok &&
+                    rendered.code_ != status_code::pending) {
+                    std::fprintf(stderr, "render failed (%d): %s\n",
+                        static_cast<int>(rendered.code_), rendered.message_.c_str());
+                }
+            }
         }
         ++steps;
         // Pace the supervisor loop to wall time so camera frames, model cadence and the

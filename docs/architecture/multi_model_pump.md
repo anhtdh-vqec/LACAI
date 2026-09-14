@@ -19,6 +19,12 @@ adapter can therefore ACK the legacy frame only after the last real graph reader
 releases it. This lifetime rule is required, but does not prove DMA-BUF import, cache
 coherence, hardware completion or end-to-end zero-copy on a board.
 
+Every received frame also replaces one source-local, latest-wins preview mailbox. The
+serialized output owner takes that frame independently of model cadence and renders it
+with the newest completed observation snapshot. A 1 FPS model therefore does not force a
+30 FPS camera preview down to 1 FPS. Taking or replacing the mailbox explicitly releases
+its owner; stop clears it before source reconciliation.
+
 ## Bounded scheduling and overload
 
 - graph bindings, arm state and submission tickets use fixed arrays with a hard ceiling of
@@ -38,6 +44,8 @@ coherence, hardware completion or end-to-end zero-copy on a board.
   preprocessed input in a one-slot mailbox (`pending_model_mask`) and submits it when the
   graph frees, so a slow model keeps the newest frame instead of dropping it;
 - cadence advances once a frame is received, including skipped/busy selections;
+- preview storage is one frame per source and replacement drops stale preview work instead
+  of creating an output backlog;
 - every newly due graph is armed before the first submit, so shared retention-capacity
   rejection cannot occur after an earlier graph has already accepted that frame;
 - first hard source, cadence or graph error latches pump failure; the owning source session

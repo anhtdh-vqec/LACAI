@@ -91,6 +91,8 @@ public:
     // the same pixels; released on the next result or stop.
     [[nodiscard]] const raw_frame& vqec_vision_ai_appl_mmses_get_result_frame()
         const noexcept;
+    // Takes the newest camera frame independently of result cadence. Serialized caller only.
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_take_preview_frame(raw_frame& _frame);
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         source_session_progress& _progress) override;

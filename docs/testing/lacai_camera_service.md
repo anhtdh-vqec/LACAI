@@ -36,7 +36,9 @@ per-slot seqlock, so it is a lock-free observer. It publishes
 `rtsp://<host>:<port><mount>` through `GstRtspServer` and
 `rtph264pay name=pay0`. `--fps` is required. When a client connects, the reader scans the
 retained ring window for an IDR containing SPS/PPS, allowing late join when the configured
-GOP fits inside that window.
+GOP fits inside that window. PTS starts at zero for each RTSP media generation; ring-global
+sequence is never used as client running time, so a late join does not inherit process uptime
+as startup delay.
 
 ```bash
 python3 tools/vqec_vision_ring_rtsp.py read \
