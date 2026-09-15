@@ -105,6 +105,21 @@ float vqec_vision_ai_detec_y8dec_iou(
     return union_area > 0.0F ? intersection / union_area : 0.0F;
 }
 
+float vqec_vision_ai_detec_y8dec_fit_extent(
+    float _origin, float _extent, std::uint32_t _limit) noexcept {
+    const double available = static_cast<double>(_limit) - static_cast<double>(_origin);
+    if (!(available > 0.0) || !std::isfinite(_extent)) {
+        return 0.0F;
+    }
+    float fitted = static_cast<float>(std::min(static_cast<double>(_extent), available));
+    // The preview contract adds in double precision. A float-rounded extent can therefore
+    // exceed the exact remaining span even though its source corner was clamped to the limit.
+    if (static_cast<double>(fitted) > available) {
+        fitted = std::nextafter(fitted, 0.0F);
+    }
+    return fitted;
+}
+
 }  // namespace
 
 yolov8_decoder::yolov8_decoder(yolov8_decoder_config _config) : config_(std::move(_config)) {}
@@ -233,14 +248,10 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             if (x2 <= x1 || y2 <= y1) {
                 continue;
             }
-            float clipped_width = x2 - x1;
-            float clipped_height = y2 - y1;
-            if (static_cast<double>(x1) + clipped_width > config_.source_width_) {
-                clipped_width = std::nextafter(clipped_width, 0.0F);
-            }
-            if (static_cast<double>(y1) + clipped_height > config_.source_height_) {
-                clipped_height = std::nextafter(clipped_height, 0.0F);
-            }
+            const float clipped_width = vqec_vision_ai_detec_y8dec_fit_extent(
+                x1, x2 - x1, config_.source_width_);
+            const float clipped_height = vqec_vision_ai_detec_y8dec_fit_extent(
+                y1, y2 - y1, config_.source_height_);
             if (!(clipped_width > 0.0F) || !(clipped_height > 0.0F)) {
                 continue;
             }
