@@ -30,11 +30,13 @@ the ledger is deliberately not their resource owner. Destroying the ledger is no
 a resource cancellation mechanism. Its owner must reconcile jobs first.
 
 Every accepted ticket preserves the exact source epoch, source frame ID and source PTS
-supplied with the reservation. Source timestamps must be present and strictly increasing
-among accepted jobs. Missing, repeated, backward, stale epoch or overflow timestamps are rejected;
-no fabricated cadence or receive-time fallback. This is a single-source raw image
-policy, not a generic reordered/B-frame video policy. Rejected reservations do not
-advance the clock. Canceled reservations leave a permitted time gap.
+supplied with the reservation. The default `unique_source_frames` policy requires source
+timestamps to increase strictly. A dependent tensor graph explicitly arms with
+`repeated_tasks_per_source_frame`; only then may consecutive jobs repeat both the same
+source frame ID and the same PTS, for example one embedding job per face ROI. Equal PTS
+with another frame ID, backward PTS, stale epoch, missing/overflow timestamps are rejected.
+No caller fabricates cadence or changes source PTS to distinguish tasks. Rejected
+reservations do not advance the clock. Canceled reservations leave a permitted time gap.
 
 The caller supplies the graph running-time anchor after graph clock/base time are
 known. First accepted source PTS maps to that anchor; later PTS maps to anchor plus

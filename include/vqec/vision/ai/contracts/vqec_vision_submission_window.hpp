@@ -28,12 +28,22 @@ struct submission_ticket {
     std::uint64_t pipeline_pts_ns_{0};
 };
 
+// A full-frame graph accepts each source identity once. A dependent tensor graph may
+// accept multiple jobs derived from the same exact frame (for example one face per ROI),
+// while still rejecting backward PTS or an equal PTS attached to another frame identity.
+enum class submission_sequence_policy {
+    unique_source_frames,
+    repeated_tasks_per_source_frame
+};
+
 struct submission_config {
     std::uint64_t cycle_id_{0};
     std::uint64_t source_epoch_{0};
     std::uint64_t pipeline_anchor_ns_{0};
     std::uint64_t job_timeout_ns_{submission_limits::g_default_job_timeout_ns};
     unsigned capacity_{1};
+    submission_sequence_policy sequence_policy_{
+        submission_sequence_policy::unique_source_frames};
 };
 
 // Serialized bookkeeping only; no resource ownership or hardware cancellation.
@@ -75,6 +85,7 @@ private:
     std::uint64_t next_job_id_{1};
     std::uint64_t first_source_pts_ns_{0};
     std::uint64_t last_source_pts_ns_{0};
+    std::uint64_t last_source_frame_id_{0};
     bool configured_{false};
     bool has_timestamp_{false};
     bool draining_{false};

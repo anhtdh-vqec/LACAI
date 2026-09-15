@@ -30,7 +30,8 @@ public:
         const std::vector<tensor_spec>& _outputs, std::uint64_t _max_output_bytes) override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
         std::uint64_t _cycle_id, std::uint64_t _source_epoch,
-        std::uint64_t _job_timeout_ns) override;
+        std::uint64_t _job_timeout_ns,
+        submission_sequence_policy _sequence_policy) override;
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_frame(
         const raw_frame& _frame, std::uint64_t _steady_now_ns,
         submission_ticket& _ticket) override;

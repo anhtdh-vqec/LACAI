@@ -72,8 +72,9 @@ public:
         const std::vector<tensor_spec>&, std::uint64_t) override {
         return {};
     }
-    [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(std::uint64_t, std::uint64_t, std::uint64_t)
-        override {
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
+        std::uint64_t, std::uint64_t, std::uint64_t,
+        vqec::vision::ai::submission_sequence_policy) override {
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_frame(

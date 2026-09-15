@@ -200,7 +200,8 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         if (task_ok && embed) {
             if (armed_source_epoch_ == 0) {
                 const auto armed = embedding_graph_->vqec_vision_ai_ports_infgr_arm(
-                    cycle_id_, key.source_epoch_, job_timeout_ns_);
+                    cycle_id_, key.source_epoch_, job_timeout_ns_,
+                    submission_sequence_policy::repeated_tasks_per_source_frame);
                 if (armed.code_ == status_code::ok) {
                     armed_source_epoch_ = key.source_epoch_;
                 } else {

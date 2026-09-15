@@ -78,7 +78,12 @@ status qualcomm_inference_graph::vqec_vision_ai_ports_infgr_start(
 
 status qualcomm_inference_graph::vqec_vision_ai_ports_infgr_arm(
     std::uint64_t _cycle_id, std::uint64_t _source_epoch,
-    std::uint64_t _job_timeout_ns) {
+    std::uint64_t _job_timeout_ns,
+    submission_sequence_policy _sequence_policy) {
+    if (_sequence_policy != submission_sequence_policy::unique_source_frames) {
+        return {status_code::unsupported,
+            "plugin graph does not support repeated tasks for one source frame"};
+    }
     return graph_.vqec_vision_ai_qcom_plgr_arm_submission(
         _cycle_id, _source_epoch, _job_timeout_ns, retention_);
 }

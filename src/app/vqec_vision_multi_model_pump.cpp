@@ -260,7 +260,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         if (!is_armed_[slot]) {
             const auto armed = graph.vqec_vision_ai_ports_infgr_arm(
                 bindings_[slot].cycle_id_, frame.descriptor_.session_epoch_,
-                bindings_[slot].job_timeout_ns_);
+                bindings_[slot].job_timeout_ns_,
+                submission_sequence_policy::unique_source_frames);
             if (armed.code_ != status_code::ok) {
                 _report.error_model_slot_ = slot;
                 is_failed_ = true;

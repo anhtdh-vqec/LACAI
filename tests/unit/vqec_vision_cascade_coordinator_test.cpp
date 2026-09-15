@@ -123,8 +123,10 @@ public:
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
-        std::uint64_t, std::uint64_t, std::uint64_t) override {
+        std::uint64_t, std::uint64_t, std::uint64_t,
+        vqec::vision::ai::submission_sequence_policy _sequence_policy) override {
         ++arm_calls_;
+        sequence_policy_ = _sequence_policy;
         if (fail_arm_) {
             return {status_code::io_error, "fixture arm failed"};
         }
@@ -185,6 +187,8 @@ public:
 
     unsigned submit_calls_{0};
     unsigned arm_calls_{0};
+    vqec::vision::ai::submission_sequence_policy sequence_policy_{
+        vqec::vision::ai::submission_sequence_policy::unique_source_frames};
     bool is_outstanding_{false};
     bool fail_arm_{false};
 };
@@ -344,7 +348,8 @@ int main() {
                   0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
         check(report.accepted_ == 2 && report.embedded_ == 2 && report.failed_ == 0 &&
             aligned.size() == 2 && embeddings.size() == 2 && graph.arm_calls_ == 1 &&
-            graph.submit_calls_ == 2 &&
+            graph.submit_calls_ == 2 && graph.sequence_policy_ ==
+                vqec::vision::ai::submission_sequence_policy::repeated_tasks_per_source_frame &&
             embeddings[0].track_id_ == 100U && embeddings[0].is_l2_normalized_);
     }
 

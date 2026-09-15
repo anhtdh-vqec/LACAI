@@ -1,9 +1,10 @@
 # QCS6490 board test target
 
-The current development target is reachable as `root@192.168.138.98`. The local SSH
-configuration provides alias `lacai-qsc6490` and identity
-`/home/a/.ssh/lacai_qsc6490`. Use `ssh -o BatchMode=yes lacai-qsc6490` before asking
-for credentials. Passwords must remain outside this repository and command output.
+The currently allocated development target is `192.168.138.99`. Board `.48` is in use by
+another developer and must not be accessed until the user reallocates it. The existing
+local alias may still point at an earlier target, so verify its resolved hostname before
+using it. Try BatchMode access first. Passwords must remain outside this repository and
+command output.
 
 Observed on 2026-09-10:
 
@@ -179,3 +180,31 @@ A follow-up attempt to use the service's `e2e_*` stop metric produced a multi-se
 nonsensical value. Inspection confirmed that the owned QNN graph's internal pipeline PTS
 anchor is not the executor steady-clock domain. That metric is therefore excluded from
 this evidence; a future clock-domain contract must precede percentile latency claims.
+
+## 2026-09-15 live face-cascade run on `.99`
+
+The production service was cross-built with the approved eSDK, including the FastCV and
+owned QNN adapters, then run on `.99` against the compatibility FW camera source, SCRFD
+primary graph and EdgeFace secondary graph. Both model artifacts retained their recorded
+SHA-256 digests outside Git. The service shut down and drained cleanly.
+
+The first run routed 375 primary results and completed 99 embeddings, with six failed
+cascade tasks. Every failure occurred when one source frame produced two accepted faces.
+The secondary submission ledger required strictly increasing PTS, so it rejected the
+second valid ROI because dependent jobs from one frame intentionally share frame identity
+and PTS.
+
+The corrected contract now has two explicit sequence policies. Full-frame graphs require
+unique source frames. A dependent graph may accept consecutive jobs only when both frame ID
+and PTS repeat exactly; equal PTS on another frame and backward PTS remain invalid. Source
+PTS is preserved rather than fabricated per ROI. The post-fix run routed 445 primary
+results, completed five embeddings and reported zero cascade failures. The scene in that
+run did not contain two accepted faces in the same frame, so the repeated-task behavior is
+covered by the eSDK logic test and still needs a live multi-face recheck.
+
+A 15-second `/proc/<pid>/stat` sample measured 29.53% process CPU using the one-core
+convention, with encoded output disabled. This is a short compatibility-source diagnostic,
+not a product CPU, latency, thermal, model-accuracy or released-FW acceptance result. The
+service `e2e_*` metric remains excluded because the QNN pipeline PTS and executor steady
+clock have no established mapping. When the compatibility camera mock stopped, QMMF logged
+a pending-buffer timeout and track deletion failure; no LACAI service process remained.

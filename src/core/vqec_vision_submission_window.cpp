@@ -6,9 +6,14 @@ status submission_window::vqec_vision_ai_core_subwn_configure(const submission_c
     if (configured_) {
         return {status_code::invalid_state, "submission window already configured"};
     }
+    const bool known_sequence_policy =
+        _config.sequence_policy_ == submission_sequence_policy::unique_source_frames ||
+        _config.sequence_policy_ ==
+            submission_sequence_policy::repeated_tasks_per_source_frame;
     if (_config.cycle_id_ == 0 || _config.source_epoch_ == 0 || _config.capacity_ == 0 ||
         _config.capacity_ > slots_.size() || _config.pipeline_anchor_ns_ == UINT64_MAX ||
-        _config.job_timeout_ns_ == 0 || _config.job_timeout_ns_ == UINT64_MAX) {
+        _config.job_timeout_ns_ == 0 || _config.job_timeout_ns_ == UINT64_MAX ||
+        !known_sequence_policy) {
         return {status_code::invalid_argument, "invalid submission identity, capacity or timing"};
     }
     config_ = _config;
@@ -24,9 +29,19 @@ status submission_window::vqec_vision_ai_core_subwn_reserve(std::uint64_t _sourc
     if (!vqec_vision_ai_core_subwn_is_accepting()) {
         return {status_code::invalid_state, "submission window is not accepting"};
     }
+    const bool repeats_last_source = has_timestamp_ &&
+        _source_pts_ns == last_source_pts_ns_ &&
+        _source_frame_id == last_source_frame_id_;
+    const bool repeated_task_allowed =
+        config_.sequence_policy_ ==
+            submission_sequence_policy::repeated_tasks_per_source_frame &&
+        repeats_last_source;
     if (_source_epoch != config_.source_epoch_ || _source_pts_ns == UINT64_MAX ||
-        (has_timestamp_ && _source_pts_ns <= last_source_pts_ns_)) {
-        return {status_code::invalid_argument, "stale epoch or unavailable/non-increasing PTS"};
+        (has_timestamp_ && _source_pts_ns < last_source_pts_ns_) ||
+        (has_timestamp_ && _source_pts_ns == last_source_pts_ns_ &&
+            !repeated_task_allowed)) {
+        return {status_code::invalid_argument,
+            "stale epoch or invalid source frame/PTS sequence"};
     }
     const auto delta = has_timestamp_ ? _source_pts_ns - first_source_pts_ns_ : 0;
     if (delta >= UINT64_MAX - config_.pipeline_anchor_ns_ ||
@@ -48,6 +63,7 @@ status submission_window::vqec_vision_ai_core_subwn_reserve(std::uint64_t _sourc
         has_timestamp_ = true;
     }
     last_source_pts_ns_ = _source_pts_ns;
+    last_source_frame_id_ = _source_frame_id;
     available->job_id_ = next_job_id_++;
     available->deadline_ns_ = _steady_now_ns + config_.job_timeout_ns_;
     _ticket = {{config_.cycle_id_, available->job_id_},

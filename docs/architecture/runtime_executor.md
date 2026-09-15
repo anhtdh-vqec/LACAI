@@ -112,6 +112,8 @@ records bounded accepted/embedded/failed counts. Embedding values remain interna
 cleared when the routed result is taken or discarded; they are not logged or published by
 this boundary. A primary decode failure still invokes the coordinator with the exact ticket
 identity and an empty batch so retained-frame admission closes and shutdown cannot leak it.
+Multiple faces from one primary result keep that same source identity; the secondary graph
+uses distinct job tickets under its explicit repeated-task sequence policy.
 
 ## Metrics
 

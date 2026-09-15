@@ -84,7 +84,7 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
         std::uint64_t _cycle_id, std::uint64_t _source_epoch,
-        std::uint64_t _job_timeout_ns) override {
+        std::uint64_t _job_timeout_ns, vqec::vision::ai::submission_sequence_policy) override {
         (void)_cycle_id;
         (void)_source_epoch;
         (void)_job_timeout_ns;

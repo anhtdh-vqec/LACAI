@@ -80,7 +80,9 @@ int main() {
         vqec_vision_ai_ctest_rfgpt_spec("quantized", {1, 4}, tensor_element_type::int8),
         vqec_vision_ai_ctest_rfgpt_spec("half", {1, 2}, tensor_element_type::float16)};
     assert(graph.vqec_vision_ai_ports_infgr_start(outputs, 64).code_ == status_code::ok);
-    assert(graph.vqec_vision_ai_ports_infgr_arm(1, 1, 1000000000).code_ == status_code::ok);
+    assert(graph.vqec_vision_ai_ports_infgr_arm(1, 1, 1000000000,
+               vqec::vision::ai::submission_sequence_policy::unique_source_frames).code_ ==
+           status_code::ok);
 
     raw_frame frame;
     frame.descriptor_.buffer_id_ = 7;

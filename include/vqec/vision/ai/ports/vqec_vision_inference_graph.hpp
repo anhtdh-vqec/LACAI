@@ -44,7 +44,8 @@ public:
         std::uint64_t _max_output_bytes) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_arm(
         std::uint64_t _cycle_id, std::uint64_t _source_epoch,
-        std::uint64_t _job_timeout_ns) = 0;
+        std::uint64_t _job_timeout_ns,
+        submission_sequence_policy _sequence_policy) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_infgr_submit_frame(
         const raw_frame& _frame, std::uint64_t _steady_now_ns,
         submission_ticket& _ticket) = 0;

@@ -88,7 +88,8 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_start(
 }
 
 status reference_inference_graph::vqec_vision_ai_ports_infgr_arm(
-    std::uint64_t _cycle_id, std::uint64_t _source_epoch, std::uint64_t _job_timeout_ns) {
+    std::uint64_t _cycle_id, std::uint64_t _source_epoch, std::uint64_t _job_timeout_ns,
+    submission_sequence_policy _sequence_policy) {
     if (state_ != inference_graph_state::running || has_pending_) {
         return {status_code::invalid_state, "reference graph cannot arm in this state"};
     }
@@ -98,6 +99,7 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_arm(
     config.pipeline_anchor_ns_ = config_.pipeline_anchor_ns_;
     config.job_timeout_ns_ = _job_timeout_ns;
     config.capacity_ = 1;
+    config.sequence_policy_ = _sequence_policy;
     const auto configured = window_.vqec_vision_ai_core_subwn_configure(config);
     if (configured.code_ != status_code::ok) {
         return configured;

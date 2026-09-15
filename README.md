@@ -22,14 +22,15 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; lifecycle + installed-plugin check pass native trên QCS6490 |
 | QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/EdgeFace/YOLOv8n trên HTP V68; person output byte-identical với `qnn-net-run`; async/shared/update chưa |
 | Perception / feature pipeline | Source-delivered + person smoke | YOLOv8 decoder, IoU tracker, feature pipeline; person detections đã chạy từ camera thật qua QNN HTP |
-| Face cascade | Source-delivered | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding; golden/live FR acceptance chưa |
+| Face cascade | Compatibility board smoke | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding đã chạy trên `.99`; golden/post-fix multi-face/released-FW acceptance chưa |
 | Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow `.48`; released-FW/thermal/latency acceptance chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
 **Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 104/104 passed for the current
 source; Zvec real-library and frame-retention tests passed natively on `.48` in an earlier
-run. Person compatibility flow has measured throughput; live face-cascade, golden parity
-and released-FW acceptance remain open. Older native suite counts are historical runs.
+run. Person compatibility flow has measured throughput; face cascade has a live compatibility
+smoke on `.99`. Golden parity, post-fix multi-face and released-FW acceptance remain open.
+Older native suite counts are historical runs.
 See [implementation status](docs/development/implementation_status.md),
 [architecture alignment review](docs/development/architecture_alignment_review.md) and
 [open architecture issues](docs/development/architecture_alignment_review.md).
@@ -103,6 +104,7 @@ bash tools/vqec_vision_prepare_zvec.sh
 cmake -S . -B build-esdk-full -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
   -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
+  -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
   -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
   -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
   -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON -DVQEC_VISION_AI_BUILD_MANIFEST_CHECK=ON \

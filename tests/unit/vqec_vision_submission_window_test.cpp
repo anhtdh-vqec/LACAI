@@ -64,6 +64,36 @@ int main() {
     check(window.vqec_vision_ai_core_subwn_get_outstanding() == 0 &&
           !window.vqec_vision_ai_core_subwn_is_accepting());
 
+    submission_window repeated_tasks;
+    submission_config repeated_config{42, 1, 2000, 100, 1,
+        vqec::vision::ai::submission_sequence_policy::repeated_tasks_per_source_frame};
+    check(repeated_tasks.vqec_vision_ai_core_subwn_configure(repeated_config).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_reserve(1, 7, 300, 0, first).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_commit(first.token_).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_complete_input(first.token_).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_complete_result(first.token_).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_reserve(1, 7, 300, 1, second).code_ ==
+          status_code::ok);
+    check(second.pipeline_pts_ns_ == first.pipeline_pts_ns_);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_cancel_reserved(second.token_).code_ ==
+          status_code::ok);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_reserve(1, 8, 300, 1, second).code_ ==
+          status_code::invalid_argument);
+    check(repeated_tasks.vqec_vision_ai_core_subwn_reserve(1, 8, 299, 1, second).code_ ==
+          status_code::invalid_argument);
+
+    submission_window invalid_policy;
+    constexpr auto invalid_sequence_policy = static_cast<
+        vqec::vision::ai::submission_sequence_policy>(UINT8_MAX);
+    repeated_config.sequence_policy_ = invalid_sequence_policy;
+    check(invalid_policy.vqec_vision_ai_core_subwn_configure(repeated_config).code_ ==
+          status_code::invalid_argument);
+
     submission_window draining;
     config.cycle_id_ = 43;
     check(draining.vqec_vision_ai_core_subwn_configure(config).code_ == status_code::ok);

@@ -78,7 +78,8 @@ public:
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
-        std::uint64_t _cycle_id, std::uint64_t, std::uint64_t) override {
+        std::uint64_t _cycle_id, std::uint64_t, std::uint64_t,
+        vqec::vision::ai::submission_sequence_policy) override {
         cycle_id_ = _cycle_id;
         return {};
     }

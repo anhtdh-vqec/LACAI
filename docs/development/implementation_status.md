@@ -47,6 +47,15 @@ EdgeFace execution/tensor probes are recorded in
 [cascade inference](../architecture/cascade_inference.md). The legacy secondary scheduler
 does not retain source pixels and is not used by the delivered FD-to-embedding cascade.
 
+2026-09-15 `.99` update: the production SCRFD-to-EdgeFace path completed live embeddings
+through FastCV alignment and QNN HTP. A multi-face frame exposed that dependent ROI jobs
+share source frame ID and PTS; the inference contract now selects either unique full-frame
+submission or repeated tasks for the exact same source frame. After the fix, a short run
+routed 445 primary results, completed five embeddings and reported no cascade failures.
+That post-fix scene did not exercise multiple accepted faces, so live multi-face validation
+remains open. Process CPU measured 29.53% over 15 seconds with encoded output disabled;
+this compatibility-source sample is not a production acceptance result.
+
 ## Historical evidence detail
 
 Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
@@ -307,11 +316,15 @@ converts only the sampled source ROI. A `.48` plugin probe records the offload o
 `roi-batch-*` (hardware ROI crop + tensor batch via ROI meta), `qtivcomposer`, `qtiobjtracker`
 (ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
 verification requirement are in `docs/architecture/image_alignment_port.md`. EdgeFace
-golden parity, target cascade execution and asynchronous scheduling remain M5 work.
+golden parity, post-fix live multi-face validation, released-FW execution and asynchronous
+scheduling remain M5 work.
 
 The cascade coordinator arms its secondary graph once per configured source epoch with an
-explicit cycle identity and job timeout. It rejects an epoch change until graph lifecycle
-restart, rather than submitting a new epoch into an existing submission window.
+explicit cycle identity, job timeout and repeated-task sequence policy. The latter preserves
+the exact source PTS while allowing multiple face ROIs from the same frame; full-frame
+graphs retain strict unique-frame ordering. The coordinator rejects an epoch change until
+graph lifecycle restart, rather than submitting a new epoch into an existing submission
+window.
 
 Qualcomm full-frame preprocessing now validates the composed preprocess plus tensor
 quantization over every RGB8 channel value. It accepts direct UINT8 output or UINT16

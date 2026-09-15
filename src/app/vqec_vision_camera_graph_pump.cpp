@@ -64,7 +64,8 @@ status camera_graph_pump::vqec_vision_ai_appl_cgpmp_pump_step(
     const auto& descriptor = frame.descriptor_;
     if (!is_armed_) {
         const auto armed = graph_.vqec_vision_ai_ports_infgr_arm(
-            cycle_id_, descriptor.session_epoch_, job_timeout_ns_);
+            cycle_id_, descriptor.session_epoch_, job_timeout_ns_,
+            submission_sequence_policy::unique_source_frames);
         if (armed.code_ != status_code::ok) {
             is_failed_ = true;
             return armed;  // This frame was never submitted; normal release may ACK it.

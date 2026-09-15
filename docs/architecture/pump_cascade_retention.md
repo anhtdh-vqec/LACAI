@@ -61,7 +61,8 @@ once with its configured cycle/deadline for the retained source epoch before ten
 submission; an epoch change requires graph lifecycle restart. `runtime_executor` invokes
 the coordinator only for the dependency root slot, and the production service owns the
 secondary graph lifecycle and binding. Real EdgeFace golden parity and live cascade
-evidence remain M5 acceptance work.
+acceptance remain M5 work; a compatibility live smoke exists on `.99`, while post-fix
+multi-face and released-FW evidence remain open.
 
 
 
