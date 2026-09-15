@@ -64,6 +64,12 @@ conversion), not the QTI plugin. This is capability evidence only — it does no
 runtime execution, DSP offload, crop/tensor pool ownership or golden crop parity, all of
 which remain M4.
 
+Open semantics to establish empirically: the header does not specify whether
+`fcvTransformAffineu8_v2`'s 2×2 `affine` maps patch coordinates into the source (inverse
+warp) or source into the patch around `position`, nor its border/interpolation behavior.
+A synthetic-image smoke on `.48` must determine the convention before the adapter is
+trusted; do not assume.
+
 ## Not claimed
 
 Defining this contract does not prove FastCV/QTI affine capability, crop/tensor pool
