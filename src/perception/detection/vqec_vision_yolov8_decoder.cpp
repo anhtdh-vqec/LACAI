@@ -12,17 +12,8 @@
 namespace vqec::vision::ai {
 namespace {
 
-struct yolov8_candidate {
-    float score_{0.0F};
-    std::size_t class_index_{0};
-    float x_{0};
-    float y_{0};
-    float width_{0};
-    float height_{0};
-};
-
 float vqec_vision_ai_detec_y8dec_iou(
-    const yolov8_candidate& _left, const yolov8_candidate& _right) {
+    const yolov8_decoder_candidate& _left, const yolov8_decoder_candidate& _right) {
     if (_left.width_ <= 0.0F || _left.height_ <= 0.0F || _right.width_ <= 0.0F ||
         _right.height_ <= 0.0F) {
         return 0.0F;
@@ -61,7 +52,11 @@ float vqec_vision_ai_detec_y8dec_fit_extent(
 
 }  // namespace
 
-yolov8_decoder::yolov8_decoder(yolov8_decoder_config _config) : config_(std::move(_config)) {}
+yolov8_decoder::yolov8_decoder(yolov8_decoder_config _config) : config_(std::move(_config)) {
+    candidates_.reserve(yolov8_decoder_limits::g_max_candidates);
+    order_.reserve(yolov8_decoder_limits::g_max_candidates);
+    suppressed_.reserve(yolov8_decoder_limits::g_max_candidates);
+}
 
 status yolov8_decoder::vqec_vision_ai_cntr_mddec_validate(
     const model_outputs& _outputs) const {
@@ -139,7 +134,8 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
     const float stretch_y = static_cast<float>(config_.tensor_height_) /
         static_cast<float>(config_.source_height_);
 
-    std::vector<yolov8_candidate> candidates;
+    auto& candidates = candidates_;
+    candidates.clear();
     for (std::size_t anchor = 0; anchor < anchors; ++anchor) {
         for (std::size_t class_index = 0; class_index < config_.class_count_; ++class_index) {
             float confidence = 0.0F;
@@ -194,7 +190,7 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             if (!(clipped_width > 0.0F) || !(clipped_height > 0.0F)) {
                 continue;
             }
-            yolov8_candidate candidate;
+            yolov8_decoder_candidate candidate;
             candidate.score_ = confidence;
             candidate.class_index_ = class_index;
             candidate.x_ = x1;
@@ -202,14 +198,15 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             candidate.width_ = clipped_width;
             candidate.height_ = clipped_height;
             candidates.push_back(candidate);
-            if (candidates.size() > observation_limits::g_max_observations * 16U) {
+            if (candidates.size() > yolov8_decoder_limits::g_max_candidates) {
                 return {status_code::resource_exhausted,
                     "YOLOv8 decoder candidate count exceeds the bound"};
             }
         }
     }
 
-    std::vector<std::size_t> order(candidates.size());
+    auto& order = order_;
+    order.resize(candidates.size());
     for (std::size_t index = 0; index < order.size(); ++index) {
         order[index] = index;
     }
@@ -221,7 +218,8 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
     observation_batch batch;
     batch.frame_ = _expected_frame;
     batch.geometry_ = {config_.source_width_, config_.source_height_};
-    std::vector<bool> suppressed(candidates.size(), false);
+    auto& suppressed = suppressed_;
+    suppressed.assign(candidates.size(), false);
     for (const auto selected : order) {
         if (suppressed[selected]) {
             continue;

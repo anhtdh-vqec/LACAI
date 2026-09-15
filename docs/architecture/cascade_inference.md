@@ -115,8 +115,10 @@ alone is not a completed attendance usecase.
 
 The anchor-distance core uses activation-reserved candidate storage and fixed suppression
 storage, with deterministic score ties, finite-value checks and transactional publication.
-Output observation strings/landmark vectors still allocate under the current batch contract;
-primary production selection exists; pooled output ownership and golden model parity remain required.
+The YOLOv8 decoder now reuses an activation-bounded candidate/order/suppression workspace
+across decode calls (`yolov8_decoder_limits::g_max_candidates`). Output observation
+landmark/string vectors still allocate under the current batch contract; primary production
+selection exists; pooled output ownership and golden model parity remain required.
 Live FD-to-FR cascade composition remains open.
 
 ## Primary decoder package boundary

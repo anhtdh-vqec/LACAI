@@ -1,14 +1,32 @@
 #ifndef VQEC_VISION_AI_DETEC_YOLOV8_DECODER_HPP
 #define VQEC_VISION_AI_DETEC_YOLOV8_DECODER_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
 
 namespace vqec::vision::ai {
+
+namespace yolov8_decoder_limits {
+// Bounded candidate workspace ceiling before the decoder faults instead of growing.
+inline constexpr std::size_t g_max_candidates = observation_limits::g_max_observations * 16U;
+}  // namespace yolov8_decoder_limits
+
+// One thresholded candidate. Stored in a per-decoder workspace so a steady stream reuses
+// capacity instead of allocating a fresh vector on every decode.
+struct yolov8_decoder_candidate {
+    float score_{0.0F};
+    std::size_t class_index_{0};
+    float x_{0};
+    float y_{0};
+    float width_{0};
+    float height_{0};
+};
 
 // Backend-independent YOLOv8 detection decoder. It consumes the export's flat, channel-first
 // head: a box tensor [1,4,A] holding xywh (centre) and a score tensor [1,C,A] holding sigmoid
@@ -44,6 +62,10 @@ public:
 
 private:
     yolov8_decoder_config config_;
+    // Reused workspace; capacity is retained across decode calls for a steady stream.
+    std::vector<yolov8_decoder_candidate> candidates_;
+    std::vector<std::size_t> order_;
+    std::vector<bool> suppressed_;
 };
 
 }  // namespace vqec::vision::ai
