@@ -102,6 +102,58 @@ int main() {
     check(vqec_vision_ai_core_imaln_require_capability(small_destination, good_template).code_ ==
         status_code::unsupported);
 
+    // Similarity transform: identity, translation, and a known scale+rotation recovered
+    // from corresponding point sets.
+    {
+        const std::vector<landmark_point> reference = {
+            {0.0F, 0.0F}, {10.0F, 0.0F}, {10.0F, 10.0F}, {0.0F, 10.0F}};
+        alignment_transform identity;
+        check(vqec_vision_ai_core_imaln_compute_similarity(
+                  reference, reference, identity).code_ == status_code::ok);
+        check(std::fabs(identity.m00_ - 1.0F) < 1e-5F &&
+            std::fabs(identity.m11_ - 1.0F) < 1e-5F &&
+            std::fabs(identity.m01_) < 1e-5F && std::fabs(identity.m02_) < 1e-5F);
+
+        std::vector<landmark_point> translated = reference;
+        for (auto& point : translated) {
+            point.x_ += 7.0F;
+            point.y_ -= 3.0F;
+        }
+        alignment_transform translation;
+        check(vqec_vision_ai_core_imaln_compute_similarity(
+                  reference, translated, translation).code_ == status_code::ok);
+        check(std::fabs(translation.m02_ - 7.0F) < 1e-4F &&
+            std::fabs(translation.m12_ + 3.0F) < 1e-4F);
+
+        const float scale = 2.0F;
+        const float angle = 0.5235988F;  // 30 degrees
+        const float cosine = std::cos(angle);
+        const float sine = std::sin(angle);
+        std::vector<landmark_point> destination;
+        for (const auto& point : reference) {
+            destination.push_back({
+                scale * (cosine * point.x_ - sine * point.y_) + 5.0F,
+                scale * (sine * point.x_ + cosine * point.y_) - 3.0F});
+        }
+        alignment_transform recovered;
+        check(vqec_vision_ai_core_imaln_compute_similarity(
+                  reference, destination, recovered).code_ == status_code::ok);
+        check(std::fabs(recovered.m00_ - scale * cosine) < 1e-3F &&
+            std::fabs(recovered.m01_ + scale * sine) < 1e-3F &&
+            std::fabs(recovered.m10_ - scale * sine) < 1e-3F &&
+            std::fabs(recovered.m02_ - 5.0F) < 1e-2F &&
+            std::fabs(recovered.m12_ + 3.0F) < 1e-2F);
+
+        const std::vector<landmark_point> degenerate = {
+            {1.0F, 1.0F}, {1.0F, 1.0F}};
+        alignment_transform unused;
+        check(vqec_vision_ai_core_imaln_compute_similarity(
+                  degenerate, reference, unused).code_ == status_code::invalid_argument);
+        check(vqec_vision_ai_core_imaln_compute_similarity(
+                  std::vector<landmark_point>{{0.0F, 0.0F}}, reference, unused).code_ ==
+              status_code::invalid_argument);
+    }
+
     std::cout << "image alignment failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }

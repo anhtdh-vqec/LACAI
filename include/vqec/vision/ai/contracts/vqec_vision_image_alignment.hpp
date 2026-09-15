@@ -85,6 +85,15 @@ struct alignment_capabilities {
 [[nodiscard]] status vqec_vision_ai_core_imaln_require_capability(
     const alignment_capabilities& _capabilities, const alignment_template& _template);
 
+// Least-squares 4-DOF similarity (scale, rotation, translation) mapping source landmark
+// pixels into destination (template) pixels. Requires equal sets of at least two points and
+// rejects non-finite or degenerate (coincident) source points. Source/destination geometry
+// in the transform is left for the caller to fill from the frame and template.
+[[nodiscard]] status vqec_vision_ai_core_imaln_compute_similarity(
+    const std::vector<landmark_point>& _source_points,
+    const std::vector<landmark_point>& _reference_points,
+    alignment_transform& _transform);
+
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_CONTRACTS_IMAGE_ALIGNMENT_HPP
