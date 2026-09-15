@@ -118,7 +118,8 @@ endif()
 
 # Production platform owner for the Qualcomm target: concrete RAW source, QNN graph,
 # decoder, tracker and feature owners behind neutral ports.
-if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_camera AND
+if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
+   TARGET vqec_vision_ai_camera AND
    TARGET vqec_vision_ai_camera_dbus AND TARGET vqec_vision_ai_reference AND
    TARGET vqec_vision_ai_detection)
     add_library(vqec_vision_ai_production_platform STATIC
@@ -131,7 +132,8 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_camera AND
     target_link_libraries(vqec_vision_ai_production_platform PUBLIC
         vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
         vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
-        vqec_vision_ai_feature_runtime nlohmann_json::nlohmann_json)
+        vqec_vision_ai_feature_runtime vqec_vision_ai_qualcomm
+        nlohmann_json::nlohmann_json)
     if(TARGET vqec_vision_ai_qtiv_renderer)
         target_link_libraries(vqec_vision_ai_production_platform PUBLIC
             vqec_vision_ai_qtiv_renderer)

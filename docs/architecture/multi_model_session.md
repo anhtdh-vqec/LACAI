@@ -33,7 +33,9 @@ required for lifetime correctness.
 ## Stop and partial-start rollback
 
 A stop request permanently disables new receives and enters one common drain path from any
-startup/running state. Graph slots are reconciled in order:
+startup/running state. It also releases the completed-result frame retained for the output
+consumer; otherwise that obsolete preview owner can prevent the FW source lease from
+draining after all hardware work is already complete. Graph slots are reconciled in order:
 
 1. request graph drain/EOS when running;
 2. poll real result/input completion while outstanding jobs remain;

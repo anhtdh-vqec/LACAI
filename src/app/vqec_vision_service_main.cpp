@@ -32,7 +32,6 @@
 #include "vqec_vision_reference_source.hpp"
 #include "vqec_vision_fake_platform.hpp"
 #include "vqec_vision_production_platform.hpp"
-#include "vqec_vision_reference_processor.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
 
@@ -342,7 +341,6 @@ int main(int _argc, char** _argv) {
     fake_platform platform;
     reference_platform reference;
     production_platform production;
-    reference_image_processor image_processor;
     model_decoder_registry decoders;
     tracker_registry trackers;
     feature_processor_registry feature_registry;
@@ -357,6 +355,8 @@ int main(int _argc, char** _argv) {
         production_config.socket_dir_ = args.camera_socket_dir;
         production_config.producer_uid_ = args.camera_producer_uid;
         production_config.nv12_format_value_ = args.nv12_format_value;
+        production_config.preprocess_output_timeout_ns_ =
+            submission_limits::g_default_job_timeout_ns;
         production_config.output_ring_id_ = args.output_ring_id;
         production_config.output_bitrate_bps_ = args.output_bitrate_bps;
         production_config.output_keyframe_interval_frames_ =
@@ -514,15 +514,17 @@ int main(int _argc, char** _argv) {
             if (use_production_platform) {
                 inference_graph_port* graph =
                     production.vqec_vision_ai_appl_pdplt_graph(source_slot, model_slot);
+                image_processor_port* processor =
+                    production.vqec_vision_ai_appl_pdplt_processor(source_slot, model_slot);
                 const model_outputs* outputs =
                     production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
-                if (graph == nullptr || outputs == nullptr) {
+                if (graph == nullptr || processor == nullptr || outputs == nullptr) {
                     std::fprintf(stderr, "production platform has no graph for model %s\n",
                         model->model_id_.c_str());
                     return 1;
                 }
                 model_activation.graph_ = graph;
-                model_activation.processor_ = &image_processor;
+                model_activation.processor_ = processor;
                 model_activation.outputs_ = *outputs;
                 model_activation.paths_ =
                     production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);

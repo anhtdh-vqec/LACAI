@@ -99,10 +99,12 @@ it simply does not join across models yet.
 ## Metrics
 
 `vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
-events delivered/denied/failed) plus routed-result latency sum/max/samples. The service
-prints one `metrics ...` line at stop including `e2e_avg_us`/`e2e_max_us`. This is
-a seed telemetry surface, not a histogram/export pipeline; per-stage latency histograms and
-a metrics sink/transport are still open.
+events delivered/denied/failed) plus an experimental routed-result latency accumulator.
+The current accumulator compares the internal pipeline PTS with executor steady time; it
+is meaningful only when an adapter explicitly maps those domains. The owned QNN graph uses
+an identity anchor instead, so its printed `e2e_*` values must not be interpreted as
+latency. A clock-domain contract, submit/capture timestamps, per-stage histograms and a
+metrics sink/transport remain open.
 
 ## Limits
 

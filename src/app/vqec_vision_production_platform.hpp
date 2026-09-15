@@ -12,6 +12,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
@@ -40,6 +41,7 @@ struct production_platform_config {
     std::string socket_dir_{"/run/camera_ai"};
     std::uint32_t producer_uid_{0};
     std::uint32_t nv12_format_value_{23};
+    std::uint64_t preprocess_output_timeout_ns_{0};
     std::string tracker_contract_{"reference.tracker.v1"};
     std::string event_schema_id_{"reference.zone"};
     std::string event_schema_version_{"1"};
@@ -81,6 +83,8 @@ public:
     [[nodiscard]] raw_source_port* vqec_vision_ai_appl_pdplt_source(
         std::uint16_t _source_slot) noexcept;
     [[nodiscard]] inference_graph_port* vqec_vision_ai_appl_pdplt_graph(
+        std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept;
+    [[nodiscard]] image_processor_port* vqec_vision_ai_appl_pdplt_processor(
         std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept;
     [[nodiscard]] const model_outputs* vqec_vision_ai_appl_pdplt_outputs(
         const std::string& _model_id) const noexcept;

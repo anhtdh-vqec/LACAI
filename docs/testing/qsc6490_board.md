@@ -91,8 +91,9 @@ not the build root; the board set was rebuilt from those paths. The service prin
 line including routed-result latency
 (`metrics steps=170 routed=42 delivered=42 denied=0 failed=0 e2e_avg_us=... samples=42`);
 the reference fixture's pipeline PTS is not a steady-clock domain, so that latency value is
-only meaningful when the backend maps pipeline PTS from the step clock (the owned QNN path
-does). The owned engine still executes SCRFD and YOLOv8n on HTP (latency varies with board
+only meaningful when an adapter explicitly maps pipeline PTS from the step clock. The
+owned QNN path does not currently provide that mapping. The owned engine still executes
+SCRFD and YOLOv8n on HTP (latency varies with board
 load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
@@ -146,3 +147,35 @@ sample wrote 291 H.264 access units (**29.1 FPS**) while inference remained 1 FP
 per-client RTSP timestamps reduced an `ffprobe` late-join startup sample to 0.98 seconds;
 a five-second TCP RTSP decode received 151 frames. These measurements apply only to this
 compatibility setup and are not a product performance or latency acceptance claim.
+
+## 2026-09-15 live AI-throughput repair on `.48`
+
+The model cadence was raised from the prior 1/1 smoke value to the source rate of 30/1 in
+a board-only profile. The portable CPU preprocessor then limited the application to 97
+results per ten seconds (9.7 FPS), with 96.55% of sampled cycles attributed to that stage.
+
+The production platform now supplies a Qualcomm adapter through `image_processor_port`:
+`qtivtransform(engine=fcv)` performs manifest-driven letterbox resize and
+`qtimlvconverter(engine=fcv)` converts NV12 to UINT8 RGB. The graph's UINT16 quantization
+is packed with AArch64 NEON because the plugin's native UINT16 request spent 81.74% of
+sampled cycles in its generic normalization loop. Measured progression was 17.6 FPS for
+that native UINT16 path and 30.1 FPS after UINT8 plus NEON packing.
+
+With overlay, Qualcomm H.264 encode and ring output enabled, the service routed 300 model
+results in ten seconds at 45.4% process CPU. An independent TCP RTSP probe decoded 241
+1280x720 H.264 frames in eight seconds, or 30.1 FPS. The final `perf` sample attributed
+24.31% of CPU cycles to FastCV color conversion, 8.34% to the QNN-side input/output copy,
+5.00% to the remaining adapter preprocess work and 2.78% to YOLO tensor element decode.
+The FastCV DSP scale call was present in the captured stack. See
+[qualcomm_preprocessing.md](../architecture/qualcomm_preprocessing.md) for boundaries and
+remaining qualification work.
+
+This demonstrates frame-rate throughput for one source and one graph. The compatibility
+camera still copies QMMF output into memfd, and the run does not establish released-FW
+DMA-BUF interoperability, percentile capture-to-output latency, thermal stability,
+multi-model capacity or model accuracy.
+
+A follow-up attempt to use the service's `e2e_*` stop metric produced a multi-second
+nonsensical value. Inspection confirmed that the owned QNN graph's internal pipeline PTS
+anchor is not the executor steady-clock domain. That metric is therefore excluded from
+this evidence; a future clock-domain contract must precede percentile latency claims.

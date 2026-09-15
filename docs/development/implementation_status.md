@@ -85,8 +85,8 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
-| `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp` | Neutral NV12 image-processor port plus a device-free CPU baseline (letterbox, BT.601 limited RGB, normalize, quantize into the target dtype/quantization) | Accelerator/FastCV production processor, colorimetry from source binding and pipeline wiring |
-| `src/adapters/qualcomm/` | Private plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; person output was viewed on `.48` through compatibility FW services | Released-FW camera/ring/RTSP acceptance, direct output DMA import, native plugin output dtype, multi-graph QNN and BSP recovery |
+| `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
+| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.48` | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, thermal qualification and BSP recovery |
 | `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute and an `inference_graph_port` binding with tensor submission; a factory builds the owned engine+graph bundle from resolved paths and fails closed on an unsupported policy; compiles against vendored QAIRT with the eSDK compiler | Async/shared-memory/LoRA execution wiring, production composition/service selection and board qualification |
 | `src/app/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
@@ -111,11 +111,16 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 ## Qualcomm implementation boundary
 
 User-confirmed target: QCS6490 / Qualcomm Linux 1.8. [ADR 0002](../adr/0002_qualcomm_plugin_backend.md)
-selects a private GStreamer graph:
+supports the private plugin inference graph:
 
 ```text
 appsrc -> qtimlvconverter (engine=fcv) -> tensor capsfilter -> qtimlqnn -> appsink
 ```
+
+The current production service uses the owned QNN backend and a separate image-processor
+adapter: `appsrc -> qtivtransform(engine=fcv) -> qtimlvconverter(engine=fcv) -> appsink`,
+then submits the exact owned tensor through `inference_graph_port`. Backend selection and
+preprocess semantics come from activation metadata rather than model identity.
 
 The graph validates factories/properties/plans, configures transactionally, loads to READY,
 requires source binding before PLAYING, submits through `frame_submission`, correlates

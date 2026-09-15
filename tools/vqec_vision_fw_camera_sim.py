@@ -26,6 +26,7 @@ Run on the target (root), then start the LACAI app against:
 import argparse
 import array
 import os
+import signal
 import socket
 import struct
 import sys
@@ -46,6 +47,7 @@ DEFAULT_SOCKET_DIR = "/run/camera_ai"
 DEFAULT_BUS_NAME = "com.vnpt.camera.Camera"
 DEFAULT_OBJECT_PATH = "/com/vnpt/camera/Camera"
 DEFAULT_INTERFACE = "com.vnpt.camera.Camera1"
+THREAD_STOP_TIMEOUT_S = 2.0
 CODE_OK = 0
 CODEC_RAW = "RAW"
 
@@ -173,6 +175,8 @@ class RawFrameProducer:
             if self.server is not None:
                 self.server.close()
         finally:
+            if self.thread is not None and self.thread is not threading.current_thread():
+                self.thread.join(timeout=THREAD_STOP_TIMEOUT_S)
             if os.path.exists(self.socket_path):
                 os.unlink(self.socket_path)
 
@@ -238,12 +242,13 @@ class RawFrameProducer:
                 in_flight["count"] += 1
             fd, size = got
             self.buf_id += 1
+            pts_ns = time.monotonic_ns()
             header = FRAME_HEADER.pack(
                 self.buf_id, width, height, GST_VIDEO_FORMAT_NV12, 2,
                 0, width * height, 0, 0,               # offsets[0..3]
                 width, width, 0, 0,                    # strides[0..3]
                 size, 0, alloc,                        # size, mem_offset, mem_maxsize
-                self.buf_id * 1000000000 // self.args.fps, 0, 1000000000 // self.args.fps)
+                pts_ns, 0, 1000000000 // self.args.fps)
             fd_array = array.array("i", [fd])
             try:
                 client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
@@ -330,6 +335,8 @@ def main():
     control = CameraControlService(args, producer)
     control.register()
     loop = GLib.MainLoop()
+    signal.signal(signal.SIGINT, lambda *_args: GLib.idle_add(loop.quit))
+    signal.signal(signal.SIGTERM, lambda *_args: GLib.idle_add(loop.quit))
     try:
         loop.run()
     except KeyboardInterrupt:

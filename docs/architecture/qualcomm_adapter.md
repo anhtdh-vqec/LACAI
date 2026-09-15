@@ -14,6 +14,9 @@ private QTI DMA-pool/`qtivoverlay`/`v4l2h264enc` renderer also produced a color-
 person stream with visible boxes through the compatibility FW services on the `.48`
 board. This is integration-smoke evidence, not released-FW acceptance. See implementation_status.md,
 qsc6490_board.md and fw_release_compatibility.md.
+The production service now selects the private FastCV preprocessing adapter through the
+neutral `image_processor_port`; see [qualcomm_preprocessing.md](qualcomm_preprocessing.md)
+for its exact semantics, ownership, measured bottlenecks and remaining copies.
 Preview renderer/encoder must be separate from the inference graph and preserve the
 released H264/ring contract; selecting Codec2 requires board evidence, not just factory availability.
 Read docs/research/qualcomm_plugins_reference.md for all plugin usage details.

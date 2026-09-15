@@ -352,6 +352,7 @@ int main() {
     check(progress.has_result_ && progress.model_slot_ == 1);
 
     check(session.vqec_vision_ai_appl_mmses_request_stop(13).code_ == status_code::ok);
+    check(!session.vqec_vision_ai_appl_mmses_get_result_frame().owner_);
     for (std::uint64_t now = 14; now <= 21; ++now) {
         const auto status = session.vqec_vision_ai_appl_mmses_step(now, result, progress);
         check(status.code_ == status_code::pending || status.code_ == status_code::ok);

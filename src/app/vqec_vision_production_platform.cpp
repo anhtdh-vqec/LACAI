@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "vqec_vision_dbus_rpc.hpp"
+#include "vqec_vision_fastcv_processor.hpp"
 #include "vqec_vision_qnn_engine.hpp"
 #include "vqec_vision_qtiv_renderer.hpp"
 #include "vqec_vision_qnn_inference_graph.hpp"
@@ -28,6 +29,7 @@ struct model_slot_owner {
     model_outputs outputs_;
     std::unique_ptr<qnn_engine> engine_;
     std::unique_ptr<qnn_inference_graph> graph_;
+    std::unique_ptr<fastcv_processor> processor_;
     std::unique_ptr<yolov8_decoder> decoder_;
 };
 
@@ -148,7 +150,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_configure(
     }
     if (_config.package_dir_.empty() || _config.model_library_.empty() ||
         _config.backend_library_.empty() || _config.system_library_.empty() ||
-        _config.tracker_contract_.empty() || _config.event_schema_id_.empty()) {
+        _config.tracker_contract_.empty() || _config.event_schema_id_.empty() ||
+        _config.preprocess_output_timeout_ns_ == 0 ||
+        _config.preprocess_output_timeout_ns_ == UINT64_MAX) {
         return {status_code::invalid_argument, "invalid production platform configuration"};
     }
     impl.config_ = _config;
@@ -227,6 +231,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         }
         owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
         owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
+        owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
+            _deployment.sources_.front().memory_.max_frame_allocation_bytes_,
+            impl.config_.preprocess_output_timeout_ns_});
         impl.models_.push_back(std::move(owner));
     }
 
@@ -369,6 +376,15 @@ inference_graph_port* production_platform::vqec_vision_ai_appl_pdplt_graph(
         return nullptr;
     }
     return implementation_->models_[_model_slot].graph_.get();
+}
+
+image_processor_port* production_platform::vqec_vision_ai_appl_pdplt_processor(
+    std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept {
+    (void)_source_slot;
+    if (implementation_ == nullptr || _model_slot >= implementation_->models_.size()) {
+        return nullptr;
+    }
+    return implementation_->models_[_model_slot].processor_.get();
 }
 
 const model_outputs* production_platform::vqec_vision_ai_appl_pdplt_outputs(

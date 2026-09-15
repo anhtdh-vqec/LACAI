@@ -153,6 +153,22 @@ int main() {
         }
     }
 
+    // Clipping must remain valid after float subtraction near the right/bottom boundary.
+    {
+        yolov8_decoder decoder(make_config(1280, 720));
+        tensor_result result;
+        result.tensors_.push_back(make_float(
+            "boxes_out", {1, 4, 1}, {650.15F, 510.15F, 100.0F, 100.0F}));
+        result.tensors_.push_back(make_float("conf_out", {1, 1, 1}, {0.9F}));
+        observation_batch observations;
+        check(decoder.vqec_vision_ai_cntr_mddec_decode(
+                  result, preview_frame_key{1, 0, 1, 1, 1000}, observations).code_ ==
+              status_code::ok);
+        check(vqec_vision_ai_core_obval_validate_detections(
+                  observations, observations.frame_, observations.geometry_).code_ ==
+              status_code::ok);
+    }
+
     // Negative cases.
     {
         yolov8_decoder decoder(make_config(640, 640));

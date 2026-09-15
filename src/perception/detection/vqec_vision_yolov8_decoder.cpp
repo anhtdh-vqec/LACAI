@@ -233,13 +233,24 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             if (x2 <= x1 || y2 <= y1) {
                 continue;
             }
+            float clipped_width = x2 - x1;
+            float clipped_height = y2 - y1;
+            if (static_cast<double>(x1) + clipped_width > config_.source_width_) {
+                clipped_width = std::nextafter(clipped_width, 0.0F);
+            }
+            if (static_cast<double>(y1) + clipped_height > config_.source_height_) {
+                clipped_height = std::nextafter(clipped_height, 0.0F);
+            }
+            if (!(clipped_width > 0.0F) || !(clipped_height > 0.0F)) {
+                continue;
+            }
             yolov8_candidate candidate;
             candidate.score_ = confidence;
             candidate.class_index_ = class_index;
             candidate.x_ = x1;
             candidate.y_ = y1;
-            candidate.width_ = x2 - x1;
-            candidate.height_ = y2 - y1;
+            candidate.width_ = clipped_width;
+            candidate.height_ = clipped_height;
             candidates.push_back(candidate);
             if (candidates.size() > observation_limits::g_max_observations * 16U) {
                 return {status_code::resource_exhausted,

@@ -44,7 +44,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
   interoperability, hardware-completion evidence and long-run performance remain open.
 - The current production service loop is serialized. The `.48` integration run sustained
-  29.1 encoded FPS with 1 FPS inference, but multi-source and thermal limits are unqualified.
+  29.1 encoded FPS with 1 FPS inference. A later 30/1 cadence run using the Qualcomm
+  FastCV image-processor adapter sustained 30 AI results/s and 30.1 RTSP FPS; multi-source,
+  percentile latency and thermal limits remain unqualified.
 
 ## See also
 

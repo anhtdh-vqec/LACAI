@@ -196,6 +196,9 @@ status multi_model_session::vqec_vision_ai_appl_mmses_request_stop(
         return {};
     }
     pump_.vqec_vision_ai_appl_mmump_begin_stop();
+    // The output consumer can no longer request this completed-result frame after stop.
+    // Release it before asking the FW source to drain its cross-session owner count.
+    last_result_frame_ = {};
     if (state_ == multi_model_session_state::idle) {
         state_ = multi_model_session_state::stopped;
         return {};

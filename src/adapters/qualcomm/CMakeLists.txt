@@ -21,6 +21,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0)
     add_library(vqec_vision_ai_qualcomm STATIC
+        vqec_vision_fastcv_processor.cpp
         vqec_vision_plugin_graph.cpp
         vqec_vision_inference_graph.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
