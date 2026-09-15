@@ -64,11 +64,22 @@ conversion), not the QTI plugin. This is capability evidence only — it does no
 runtime execution, DSP offload, crop/tensor pool ownership or golden crop parity, all of
 which remain M4.
 
-Open semantics to establish empirically: the header does not specify whether
-`fcvTransformAffineu8_v2`'s 2×2 `affine` maps patch coordinates into the source (inverse
-warp) or source into the patch around `position`, nor its border/interpolation behavior.
-A synthetic-image smoke on `.48` must determine the convention before the adapter is
-trusted; do not assume.
+## FastCV affine convention (established on `.48`)
+
+A synthetic-image smoke (`tools/vqec_vision_fastcv_affine_smoke.cpp`, run on `.48`) established
+the convention of `fcvTransformAffineu8_v2(source, W, H, stride, position, affine, patch,
+pw, ph, stride)`:
+
+- `position[2]` is the patch center in **source** coordinates (float).
+- `affine[2][2]` (row-major a11,a12,a21,a22) is the **inverse** linear map from patch
+  coordinates relative to the center to source coordinates relative to `position`:
+  `source = position + affine * (patch - patch_center)`, `patch_center = (pw/2, ph/2)`.
+- Interpolation is bilinear (a half-scale warp of a gradient produced two-pixel steps).
+- Border behavior near the image edge is not yet exercised.
+
+Mapping the neutral source→destination similarity (`dst = M * src + t`) to FastCV:
+`affine = M⁻¹` and `position = M⁻¹ * (patch_center - t)`. This is a smoke-level convention;
+golden crop parity, edge/border behavior, NV12→RGB conversion and DSP offload remain M4.
 
 ## Not claimed
 

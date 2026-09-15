@@ -5,6 +5,7 @@ option(VQEC_VISION_AI_ENABLE_FW_RING "Enable wrapper for externally supplied FW 
 set(VQEC_VISION_AI_FW_RING_TARGET "camera_ai_common" CACHE STRING "Existing version-pinned FW SDK target")
 
 option(VQEC_VISION_AI_ENABLE_QUALCOMM "Enable the private GStreamer Qualcomm adapter" OFF)
+option(VQEC_VISION_AI_ENABLE_FASTCV "Link the FastCV library for alignment (board smoke)" OFF)
 option(VQEC_VISION_AI_ENABLE_QNN_ENGINE "Enable the LACAI-owned QNN engine adapter" OFF)
 set(VQEC_VISION_AI_QAIRT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/qairt" CACHE PATH
     "Approved QAIRT SDK root (headers under include/QNN, libraries under lib)")

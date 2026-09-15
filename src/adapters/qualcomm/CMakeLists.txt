@@ -59,6 +59,28 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
     set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+# Owned FastCV path. Currently a board-only affine smoke to establish the vendor warp
+# convention; the alignment adapter and its runtime wiring follow once that is verified.
+if(VQEC_VISION_AI_ENABLE_FASTCV)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "FastCV requires Linux")
+    endif()
+    find_path(VQEC_VISION_AI_FASTCV_INCLUDE_DIR fastcv/fastcv.h)
+    find_library(VQEC_VISION_AI_FASTCV_LIBRARY fastcvopt)
+    if(NOT VQEC_VISION_AI_FASTCV_INCLUDE_DIR OR NOT VQEC_VISION_AI_FASTCV_LIBRARY)
+        message(FATAL_ERROR
+            "FastCV headers/library not found in the toolchain sysroot; supply the "
+            "qcom-fastcv-binaries sysroot")
+    endif()
+    add_executable(vqec_vision_ai_fastcv_affine_smoke
+        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_fastcv_affine_smoke.cpp)
+    target_include_directories(vqec_vision_ai_fastcv_affine_smoke PRIVATE
+        "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
+    target_link_libraries(vqec_vision_ai_fastcv_affine_smoke PRIVATE
+        "${VQEC_VISION_AI_FASTCV_LIBRARY}")
+    set_target_properties(vqec_vision_ai_fastcv_affine_smoke PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # AI-owned encoded output adapter: qtivoverlay (hardware) + v4l2h264enc -> FW ring.
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
