@@ -11,7 +11,7 @@
   "channel_order": "rgb",
   "normalization": {
     "formula": "offset_scale",
-    "offset": [-1.0, -1.0, -1.0],
+    "offset": [127.5, 127.5, 127.5],
     "scale": [0.00784313725490196, 0.00784313725490196, 0.00784313725490196]
   },
   "coordinates": "tensor_pixels_xywh",
