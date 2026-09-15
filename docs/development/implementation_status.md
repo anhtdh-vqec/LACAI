@@ -288,4 +288,7 @@ release until `store.bytes() == 0`, and composition derives `cascade_root_` from
 `role`/`depends_on` with an optional per-source `cascade` deployment budget. Slice 3b adds the
 standalone `cascade_coordinator` (bounded per-frame task admission over
 `cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation); it is not yet
-wired into the executor/service and the secondary embedding graph remains M5.
+wired into the executor/service. The coordinator now also runs the secondary pipeline
+(quantize aligned RGB to the model input, submit, poll, embedding decode) when a secondary
+graph/decoder are configured, covered by the coordinator unit test with fakes. The real
+EdgeFace graph composition, executor wiring and golden parity remain M5.

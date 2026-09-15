@@ -52,10 +52,12 @@ Delivered (slice 3b): `cascade_coordinator` (`src/app/vqec_vision_cascade_coordi
 plus the neutral `cascade_frame_lease_port`. For one decoded primary observation batch it
 admits at most `max_tasks_per_frame_` faces, acquires the exact retained frame per task,
 aligns each through `image_alignment_port`, completes every acquired ticket (including on
-alignment failure) and closes admission once. Per-task failures are counted and isolated.
-Unit test `cascade_coordinator` covers bounded admission, ordering, align failure and
-acquire failure. Not yet wired into the executor/service, and the secondary embedding graph
-is M5.
+alignment failure) and closes admission once. When a secondary embedding graph and decoder
+are configured it also quantizes the aligned RGB to the model input, submits, polls and
+decodes the embedding. Per-task failures are counted and isolated. Unit test
+`cascade_coordinator` covers bounded admission, ordering, align failure, acquire failure,
+the align+embedding pipeline and misconfiguration. Not yet wired into the executor/service;
+the real EdgeFace graph and golden parity are M5.
 
 
 

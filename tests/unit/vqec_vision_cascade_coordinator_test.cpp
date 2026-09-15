@@ -1,7 +1,10 @@
 // Device-free tests for the cascade coordinator: bounded per-frame task admission, exact
-// acquire/complete/retire ordering, and per-task fault isolation.
+// acquire/complete/retire ordering, align-only and align+embedding pipelines, and per-task
+// fault isolation.
 
+#include <array>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -16,15 +19,14 @@ class fake_lease final : public cascade_frame_lease_port {
 public:
     [[nodiscard]] status vqec_vision_ai_ports_cflse_acquire(
         const preview_frame_key&, raw_frame& _frame, std::uint64_t& _ticket) override {
+        ++acquire_calls_;
         if (fail_acquire_) {
-            ++acquire_calls_;
             return {status_code::resource_exhausted, "fixture store is full"};
         }
         _frame.owner_ = std::make_shared<int>(0);
         _frame.native_handle_ = 1;
         _frame.descriptor_.allocation_size_bytes_ = 16;
         _ticket = next_ticket_++;
-        ++acquire_calls_;
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_cflse_retire(
@@ -68,7 +70,13 @@ public:
             status_code::ok) {
             return {status_code::invalid_argument, "fixture request invalid"};
         }
-        _result.tensor_.bytes_ = std::vector<std::uint8_t>(64U, 0U);
+        _result.tensor_.spec_.dimensions_ = {1U, template_.destination_height_,
+            template_.destination_width_, 3U};
+        _result.tensor_.spec_.dtype_ = tensor_element_type::uint8;
+        _result.tensor_.bytes_.assign(
+            static_cast<std::size_t>(template_.destination_width_) *
+                template_.destination_height_ * 3U,
+            10U);
         _result.has_transform_ = true;
         _ticket = 1;
         return {};
@@ -81,6 +89,98 @@ public:
 
     alignment_template template_;
     bool fail_{false};
+};
+
+class fake_embedding_graph final : public inference_graph_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_validate_activation() const override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_configure(
+        const inference_plan&) override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_load() override { return {}; }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_poll_state() override { return {}; }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_bind_source(
+        const source_binding&) override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_start(
+        const std::vector<tensor_spec>&, std::uint64_t) override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
+        std::uint64_t, std::uint64_t, std::uint64_t) override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_frame(
+        const raw_frame&, std::uint64_t, submission_ticket&) override {
+        return {status_code::unsupported, "fixture does not take raw frames"};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_tensors(
+        std::uint64_t, std::uint64_t, std::uint64_t, const std::vector<tensor_blob>&,
+        std::uint64_t, submission_ticket& _ticket) override {
+        ++submit_calls_;
+        _ticket = {};
+        _ticket.token_.job_id_ = 1;
+        is_outstanding_ = true;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_poll_result(
+        std::uint64_t, tensor_result& _result) override {
+        if (!is_outstanding_) {
+            return {status_code::pending, "fixture has no result"};
+        }
+        is_outstanding_ = false;
+        tensor_blob blob;
+        blob.spec_.name_ = "embedding";
+        blob.spec_.dtype_ = tensor_element_type::float32;
+        blob.spec_.dimensions_ = {1U, 4U};
+        const float values[4] = {3.0F, 4.0F, 0.0F, 0.0F};
+        blob.bytes_.resize(sizeof(values));
+        std::memcpy(blob.bytes_.data(), values, sizeof(values));
+        _result.tensors_.push_back(std::move(blob));
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_request_drain() override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_unload() override { return {}; }
+    [[nodiscard]] inference_graph_state vqec_vision_ai_ports_infgr_get_state() const noexcept
+        override {
+        return inference_graph_state::running;
+    }
+    [[nodiscard]] unsigned vqec_vision_ai_ports_infgr_get_outstanding() const noexcept
+        override {
+        return is_outstanding_ ? 1U : 0U;
+    }
+    [[nodiscard]] submission_ticket vqec_vision_ai_ports_infgr_get_pending_ticket()
+        const noexcept override {
+        return {};
+    }
+
+    unsigned submit_calls_{0};
+    bool is_outstanding_{false};
+};
+
+class fake_embedding_decoder final : public embedding_decoder_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_embdec_validate(
+        const model_outputs&) const override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_embdec_decode(
+        const tensor_result&, const preview_frame_key& _frame, std::uint64_t _track_id,
+        embedding_result& _embedding) override {
+        _embedding.frame_ = _frame;
+        _embedding.track_id_ = _track_id;
+        _embedding.model_id_ = "fixture";
+        _embedding.model_version_ = "1";
+        _embedding.values_ = {0.6F, 0.8F, 0.0F, 0.0F};
+        _embedding.is_l2_normalized_ = true;
+        return {};
+    }
 };
 
 alignment_template make_template() {
@@ -100,6 +200,7 @@ observation_batch make_batch(unsigned _count) {
     for (unsigned index = 0; index < _count; ++index) {
         observation item;
         item.frame_ = batch.frame_;
+        item.track_id_ = 100U + index;
         item.landmarks_.schema_id_ = "face.5pt";
         item.landmarks_.schema_version_ = "1";
         item.landmarks_.points_ = {{0.0F, 0.0F}, {112.0F, 0.0F}, {112.0F, 112.0F},
@@ -129,6 +230,9 @@ int main() {
             ++failures;
         }
     };
+    std::vector<alignment_result> aligned;
+    std::vector<embedding_result> embeddings;
+    cascade_coordinator_report report;
 
     // Two of three faces are admitted; each acquires, completes, and admission is retired.
     {
@@ -137,26 +241,23 @@ int main() {
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 2)).code_ == status_code::ok);
-        std::vector<alignment_result> aligned;
-        cascade_coordinator_report report;
         const auto batch = make_batch(3);
-        check(coordinator.vqec_vision_ai_appl_cscrd_process(batch, aligned, report).code_ ==
-            status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  0, batch, aligned, embeddings, report).code_ == status_code::ok);
         check(report.accepted_ == 2 && report.skipped_ == 1 && report.failed_ == 0);
-        check(aligned.size() == 2 && lease.acquire_calls_ == 2 &&
+        check(aligned.size() == 2 && embeddings.empty() && lease.acquire_calls_ == 2 &&
             lease.complete_calls_ == 2 && lease.retire_calls_ == 1);
     }
 
-    // An unconfigured coordinator fails closed.
+    // Unconfigured fails closed.
     {
         cascade_coordinator coordinator;
-        std::vector<alignment_result> aligned;
-        cascade_coordinator_report report;
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
-                  make_batch(1), aligned, report).code_ == status_code::invalid_state);
+                  0, make_batch(1), aligned, embeddings, report).code_ ==
+            status_code::invalid_state);
     }
 
-    // Alignment failure is isolated, the ticket is still completed and admission retired.
+    // Align failure is isolated, the ticket is completed and admission retired.
     {
         fake_aligner aligner;
         aligner.fail_ = true;
@@ -164,13 +265,10 @@ int main() {
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 2)).code_ == status_code::ok);
-        std::vector<alignment_result> aligned;
-        cascade_coordinator_report report;
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
-                  make_batch(2), aligned, report).code_ == status_code::ok);
+                  0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
         check(report.accepted_ == 0 && report.failed_ == 2 && aligned.empty() &&
-            lease.acquire_calls_ == 2 && lease.complete_calls_ == 2 &&
-            lease.retire_calls_ == 1);
+            lease.complete_calls_ == 2 && lease.retire_calls_ == 1);
     }
 
     // Acquire failure is counted and no ticket is completed; admission is still retired.
@@ -181,12 +279,47 @@ int main() {
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 2)).code_ == status_code::ok);
-        std::vector<alignment_result> aligned;
-        cascade_coordinator_report report;
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
-                  make_batch(2), aligned, report).code_ == status_code::ok);
-        check(report.accepted_ == 0 && report.failed_ == 2 && aligned.empty() &&
-            lease.complete_calls_ == 0 && lease.retire_calls_ == 1);
+                  0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 0 && report.failed_ == 2 && lease.complete_calls_ == 0 &&
+            lease.retire_calls_ == 1);
+    }
+
+    // Align + embedding: the aligned face is quantized, submitted, polled and decoded.
+    {
+        fake_aligner aligner;
+        fake_lease lease;
+        fake_embedding_graph graph;
+        fake_embedding_decoder decoder;
+        auto config = make_config(aligner, lease, 2);
+        config.embedding_graph_ = &graph;
+        config.embedding_decoder_ = &decoder;
+        config.normalize_offset_ = {-0.99609375F, -0.99609375F, -0.99609375F};
+        config.normalize_scale_ = {0.0078125F, 0.0078125F, 0.0078125F};
+        config.quant_scale_ = 3.05180438e-05F;
+        config.quant_zero_point_ = 32768;
+        config.job_timeout_ns_ = 1000000;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ == status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 2 && report.embedded_ == 2 && report.failed_ == 0 &&
+            aligned.size() == 2 && embeddings.size() == 2 && graph.submit_calls_ == 2 &&
+            embeddings[0].track_id_ == 100U && embeddings[0].is_l2_normalized_);
+    }
+
+    // A secondary graph without a decoder is rejected at configuration.
+    {
+        fake_aligner aligner;
+        fake_lease lease;
+        fake_embedding_graph graph;
+        auto config = make_config(aligner, lease, 2);
+        config.embedding_graph_ = &graph;
+        config.quant_scale_ = 3.05180438e-05F;
+        config.job_timeout_ns_ = 1000000;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ ==
+            status_code::invalid_argument);
     }
 
     // A zero task budget is rejected at configuration.
