@@ -125,6 +125,36 @@ Defining this contract does not prove FastCV/QTI affine capability, crop/tensor 
 ownership, cache/fence behavior, device completion, alignment parity against a golden crop
 or any FD→FR correlation. Those require the M4 adapter and board evidence.
 
+## Hardware offload options (board `.48` probe)
+
+`gst-inspect-1.0` on `.48` confirms the QTI plugin set relevant to alignment/preprocess:
+
+- `qtivtransform`: `engine` = `gles` (OpenGLES GPU) or `fcv` (FastCV), with `crop` and
+  `destination` rectangles, resize, flip and 90/180 rotation. It can offload an axis-aligned
+  ROI crop + NV12->RGB + resize to GPU/FastCV, but has **no arbitrary-angle affine**.
+- `qtimlvconverter`: machine-learning video converter with `image-batch-*` and
+  `roi-batch-*` modes; `roi-batch-*` uses `GstVideoRegionOfInterestMeta` to crop each ROI and
+  produce a tensor batch in hardware. This can offload per-face ROI crop + color + resize and
+  tensor packing for multiple faces in one pass.
+- `qtivcomposer`: GPU/FastCV video composer (`engine` gles/fcv).
+- `qtiobjtracker`: ByteTrack object tracker plugin; a candidate to replace the reference IoU
+  tracker.
+- `v4l2h264enc`/`v4l2h264dec`: hardware codec (already used).
+
+Recommended offload for the alignment adapter, instead of the current CPU ROI convert plus
+FastCV CPU warp:
+
+1. Take the face ROI (from primary detections) and drive `qtimlvconverter` `roi-batch-*` (or
+   `qtivtransform` crop/destination with `engine=gles|fcv`) to do ROI crop, color conversion
+   and resize in hardware.
+2. Keep only the residual arbitrary-angle similarity rotation on the small buffer via FastCV,
+   or verify that `engine-param` / a GLES transform matrix can express the full affine.
+3. Use `qtiobjtracker` (ByteTrack) to move tracking off CPU.
+
+The exact `engine-param` grammar and whether `qtivtransform`/`qtivcomposer` accept an
+arbitrary transform matrix must be verified with a board pipeline before use; no offload
+claim is made here.
+
 ## See also
 
 - [ADR 0005](../adr/0005_scalable_model_integration.md),

@@ -295,5 +295,9 @@ the frame-lease ticket is separate from the alignment ticket; the secondary inpu
 the full model input spec (name/dims/dtype/quantization) from the loaded graph; alignment
 completion is polled and a synchronous single-inflight embedding graph is required; and the
 FastCV aligner validates full luma/chroma plane bounds with overflow-safe arithmetic and
-converts only the sampled source ROI. The real EdgeFace graph composition, executor wiring
-and golden parity remain M5.
+converts only the sampled source ROI. A `.48` plugin probe records the offload options:
+`qtivtransform` (engine gles/fcv, crop/destination, no arbitrary affine), `qtimlvconverter`
+`roi-batch-*` (hardware ROI crop + tensor batch via ROI meta), `qtivcomposer`, `qtiobjtracker`
+(ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
+verification requirement are in `docs/architecture/image_alignment_port.md`. The real
+EdgeFace graph composition, executor wiring and golden parity remain M5.
