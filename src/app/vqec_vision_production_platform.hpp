@@ -10,6 +10,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_feature_event.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_model_package_registry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
@@ -32,9 +33,8 @@ namespace vqec::vision::ai {
 // runtime. All owners must outlive the runtime bundle and the bundle must reach stopped
 // before this owner is destroyed.
 struct production_platform_config {
-    // Model package directory holding io_manifest.json / preprocess.json / decoder.json.
-    std::string package_dir_;
-    std::string model_library_;
+    // Exact per-model package/artifact bindings, cross-validated with the model catalog.
+    model_package_registry model_packages_;
     std::string backend_library_;
     std::string system_library_;
     // Released FW camera route inputs.
@@ -83,9 +83,9 @@ public:
     [[nodiscard]] raw_source_port* vqec_vision_ai_appl_pdplt_source(
         std::uint16_t _source_slot) noexcept;
     [[nodiscard]] inference_graph_port* vqec_vision_ai_appl_pdplt_graph(
-        std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept;
+        std::uint16_t _source_slot, const std::string& _model_id) noexcept;
     [[nodiscard]] image_processor_port* vqec_vision_ai_appl_pdplt_processor(
-        std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept;
+        std::uint16_t _source_slot, const std::string& _model_id) noexcept;
     [[nodiscard]] const model_outputs* vqec_vision_ai_appl_pdplt_outputs(
         const std::string& _model_id) const noexcept;
     [[nodiscard]] resolved_model_paths vqec_vision_ai_appl_pdplt_paths(

@@ -212,9 +212,12 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_preprocess_spec.cpp | ppspc | vqec_vision_ai_core_ppspc_ |
 | src/core/vqec_vision_model_io_manifest.cpp | ioman | vqec_vision_ai_core_ioman_ |
 | src/core/vqec_vision_model_package.cpp | mpkg | vqec_vision_ai_core_mpkg_ |
+| src/core/vqec_vision_model_package_registry.cpp | mprgy | vqec_vision_ai_core_mprgy_ |
+| src/runtime/model_registry/vqec_vision_model_package_registry.cpp | mprld | vqec_vision_ai_mreg_mprld_ |
 | tests/unit/vqec_vision_preprocess_spec_test.cpp | ppst | vqec_vision_ai_unit_ppst_ |
 | tests/unit/vqec_vision_model_io_manifest_test.cpp | iomtst | vqec_vision_ai_unit_iomtst_ |
 | tests/unit/vqec_vision_model_package_test.cpp | mpktst | vqec_vision_ai_unit_mpktst_ |
+| tests/unit/vqec_vision_model_package_registry_test.cpp | mprtst | vqec_vision_ai_unit_mprtst_ |
 | src/runtime/scheduler/vqec_vision_secondary_inference_scheduler.cpp | secsd | vqec_vision_ai_sched_secsd_ |
 | tests/unit/vqec_vision_secondary_inference_test.cpp | sitst | vqec_vision_ai_unit_sitst_ |
 | tests/unit/vqec_vision_lifecycle_invariants_test.cpp | litst | vqec_vision_ai_unit_litst_ |

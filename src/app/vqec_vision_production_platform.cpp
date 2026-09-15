@@ -201,8 +201,8 @@ status production_platform::vqec_vision_ai_appl_pdplt_configure(
     if (impl.is_configured_) {
         return {status_code::invalid_state, "production platform is already configured"};
     }
-    if (_config.package_dir_.empty() || _config.model_library_.empty() ||
-        _config.backend_library_.empty() || _config.system_library_.empty() ||
+    if (_config.model_packages_.bindings_.empty() || _config.backend_library_.empty() ||
+        _config.system_library_.empty() ||
         _config.tracker_contract_.empty() || _config.event_schema_id_.empty() ||
         _config.preprocess_output_timeout_ns_ == 0 ||
         _config.preprocess_output_timeout_ns_ == UINT64_MAX) {
@@ -222,18 +222,28 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     if (impl.is_prepared_) {
         return {status_code::invalid_state, "production platform is already prepared"};
     }
-    const json io_manifest =
-        vqec_vision_ai_appl_pdplt_load(impl.config_.package_dir_ + "/io_manifest.json");
-    const json decoder_json =
-        vqec_vision_ai_appl_pdplt_load(impl.config_.package_dir_ + "/decoder.json");
+    const auto registry_status = vqec_vision_ai_core_mprgy_validate_registry(
+        impl.config_.model_packages_, _catalog);
+    if (registry_status.code_ != status_code::ok) {
+        return registry_status;
+    }
 
     for (const auto& model : _catalog.models_) {
+        const auto* binding = vqec_vision_ai_core_mprgy_find_binding(
+            impl.config_.model_packages_, model.model_id_);
+        if (binding == nullptr) {
+            return {status_code::invalid_argument, "model package binding is missing"};
+        }
+        const json io_manifest =
+            vqec_vision_ai_appl_pdplt_load(binding->package_dir_ + "/io_manifest.json");
+        const json decoder_json =
+            vqec_vision_ai_appl_pdplt_load(binding->package_dir_ + "/decoder.json");
         model_slot_owner owner;
         owner.model_id_ = model.model_id_;
         owner.paths_.model_id_ = model.model_id_;
         owner.paths_.target_id_ = model.target_id_;
         owner.paths_.artifact_ref_ = model.artifact_ref_;
-        owner.paths_.model_path_ = impl.config_.model_library_;
+        owner.paths_.model_path_ = binding->model_library_;
         owner.paths_.backend_path_ = impl.config_.backend_library_;
         owner.paths_.system_path_ = impl.config_.system_library_;
 
@@ -280,7 +290,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             decoder_json.value("confidence_threshold", 0.25F);
         decoder_config.iou_threshold_ = decoder_json.value("iou_threshold", 0.45F);
         decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
-            decoder_json, impl.config_.package_dir_, decoder_config.class_count_);
+            decoder_json, binding->package_dir_, decoder_config.class_count_);
         owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
         owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
         owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
@@ -422,21 +432,31 @@ raw_source_port* production_platform::vqec_vision_ai_appl_pdplt_source(
 }
 
 inference_graph_port* production_platform::vqec_vision_ai_appl_pdplt_graph(
-    std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept {
+    std::uint16_t _source_slot, const std::string& _model_id) noexcept {
     (void)_source_slot;
-    if (implementation_ == nullptr || _model_slot >= implementation_->models_.size()) {
+    if (implementation_ == nullptr) {
         return nullptr;
     }
-    return implementation_->models_[_model_slot].graph_.get();
+    for (auto& owner : implementation_->models_) {
+        if (owner.model_id_ == _model_id) {
+            return owner.graph_.get();
+        }
+    }
+    return nullptr;
 }
 
 image_processor_port* production_platform::vqec_vision_ai_appl_pdplt_processor(
-    std::uint16_t _source_slot, std::uint16_t _model_slot) noexcept {
+    std::uint16_t _source_slot, const std::string& _model_id) noexcept {
     (void)_source_slot;
-    if (implementation_ == nullptr || _model_slot >= implementation_->models_.size()) {
+    if (implementation_ == nullptr) {
         return nullptr;
     }
-    return implementation_->models_[_model_slot].processor_.get();
+    for (auto& owner : implementation_->models_) {
+        if (owner.model_id_ == _model_id) {
+            return owner.processor_.get();
+        }
+    }
+    return nullptr;
 }
 
 const model_outputs* production_platform::vqec_vision_ai_appl_pdplt_outputs(

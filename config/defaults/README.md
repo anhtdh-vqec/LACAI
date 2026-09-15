@@ -10,6 +10,7 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 | File | Purpose |
 |---|---|
 | `deployment.example.json` | Demonstrates two identical FW RAW source references |
+| `model_package_registry.example.json` | Demonstrates distinct package/artifact bindings for two generic models |
 
 The example dimensions, rates, memory values, model assignments and released
 `detect0`/`detect1` outputs are illustrative. Never install it as an effective configuration

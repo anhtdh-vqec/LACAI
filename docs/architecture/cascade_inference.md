@@ -89,8 +89,8 @@ biometric outputs are never committed to this repository.
 
 1. **Delivered:** typed landmark and embedding contracts validate count, finite values,
    source geometry, identity and configured size ceilings, with contract tests.
-2. Add a package registry so each model catalog entry resolves its own package/artifact;
-   remove the single-package production assumption.
+2. **Delivered:** the package registry resolves each catalog identity to its own package
+   and artifact, and production lookup no longer assumes source-slot order equals catalog order.
 3. Implement a package-configured anchor-distance detector decoder supporting typed
    quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
    inverse source transform and NMS.

@@ -197,6 +197,9 @@ không publish kết quả cũ sau revoke. Offline revocation có giới hạn �
 
 Package đề xuất: ai-runtime; ai-backend-qualcomm; ai-feature-<bundle>;
 ai-model-<model>-<target>. Bundle là đơn vị deploy, feature_id là đơn vị thương mại.
+Mỗi catalog model được map chính xác tới metadata/artifact triển khai qua
+[model package registry](model_package_registry.md); runtime không dùng chung một path
+ngầm định cho mọi model.
 Manifest pin runtime ABI/backend/model compatibility; staging + validate +
 controlled restart + health check + rollback coordinated với FW.
 Model signed/checksum-verified, thư mục readonly; state/config ở vị trí FW cấp.

@@ -12,7 +12,8 @@ set_target_properties(vqec_vision_ai_feature_runtime PROPERTIES CXX_EXTENSIONS O
 
 if(VQEC_VISION_AI_ENABLE_MODEL_CATALOG)
     add_library(vqec_vision_ai_model_catalog_config STATIC
-        model_registry/vqec_vision_model_catalog.cpp)
+        model_registry/vqec_vision_model_catalog.cpp
+        model_registry/vqec_vision_model_package_registry.cpp)
     target_include_directories(vqec_vision_ai_model_catalog_config PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/model_registry>)
     target_link_libraries(vqec_vision_ai_model_catalog_config

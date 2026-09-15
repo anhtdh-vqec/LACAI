@@ -91,7 +91,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp` | Validated cold-path reconciliation of desired, entitlement, resource and model-dependency gates; explicit effective states, per-association processor/stage ownership and slot-to-catalog mapping accessor | Runtime fan-out/pipeline owner composition, authenticated catalog/configuration source, concrete package factories and output policy |
 | `src/outputs/vqec_vision_feature_event_dispatch.cpp` | Validates one feature event, derives exact field scopes, rechecks captured policy revision and synchronously dispatches through a neutral sink | Bounded durable queue/retry, FW transport, dedup persistence and evidence service integration |
 | `src/runtime/lifecycle/vqec_vision_deployment_config.cpp` | Optional strict bounded deployment JSON loader; schemas/examples; pure deployment validation in core | Authenticated configuration activation and service lifecycle |
-| `src/runtime/model_registry/` | Optional model catalog/output manifest loaders and bounded OpenSSL SHA-256 stream comparison; core cross-validation and transactional plan composition | Signature verification, trusted immutable artifact/path resolution, decoder lookup and production model loading composition |
+| `src/runtime/model_registry/` | Optional model catalog/output manifest/package-registry loaders and bounded OpenSSL SHA-256 stream comparison; the package registry gives every catalog model an exact package/artifact binding | Signature verification, trusted immutable path opening and decoder lookup |
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
@@ -165,7 +165,7 @@ selecting an admitted path.
 - Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
-  The current configured AArch64 targets cross-build and 92 tests pass through the SDK
+  The current configured AArch64 targets cross-build and 93 tests pass through the SDK
   QEMU wrapper. Historical board runs include 65 expanded adapter binaries on QCS6490.
 - Golden, replay and live FW/model integration suites remain planned scaffolding. The
   executed board smoke result covers existing unit/contract binaries only.

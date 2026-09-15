@@ -33,7 +33,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `vqec_vision_runtime_composition_factory.cpp` | Build the admission snapshot and compose catalog-bound sessions/perception groups |
 | `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
 | `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; runs harness and reference/fake/Qualcomm production selections |
-| `vqec_vision_production_platform.cpp` | Composes FW RAW source, owned QNN graph, model decoder/tracker and optional Qualcomm encoded output |
+| `vqec_vision_production_platform.cpp` | Resolves each catalog identity through the package registry and composes FW RAW source, owned QNN graph, decoder/tracker and optional Qualcomm encoded output |
 | `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
 
 ## Limits and next work

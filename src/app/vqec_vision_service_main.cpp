@@ -27,6 +27,7 @@
 #include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
+#include "vqec_vision_model_package_registry.hpp"
 #include "vqec_vision_reference_graph.hpp"
 #include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_reference_source.hpp"
@@ -87,6 +88,22 @@ bool vqec_vision_ai_appl_svcmn_load_model_catalog(
     const auto loaded = vqec_vision_ai_mreg_mdcat_load_catalog(stream, _catalog, resident_bytes);
     if (loaded.code_ != status_code::ok) {
         std::fprintf(stderr, "model catalog rejected (%d): %s\n",
+            static_cast<int>(loaded.code_), loaded.message_.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool vqec_vision_ai_appl_svcmn_load_model_packages(
+    const std::string& _path, model_package_registry& _registry) {
+    std::ifstream stream(_path);
+    if (!stream.is_open()) {
+        std::fprintf(stderr, "cannot open model package registry: %s\n", _path.c_str());
+        return false;
+    }
+    const auto loaded = vqec_vision_ai_mreg_mprld_load_registry(stream, _registry);
+    if (loaded.code_ != status_code::ok) {
+        std::fprintf(stderr, "model package registry rejected (%d): %s\n",
             static_cast<int>(loaded.code_), loaded.message_.c_str());
         return false;
     }
@@ -155,6 +172,7 @@ struct parsed_arguments {
     std::string platform{"none"};
     bool production_mode{false};
     // Production platform owner inputs (Qualcomm).
+    std::string model_package_registry_path;
     std::string model_package;
     std::string model_library;
     std::string camera_socket_dir{"/run/camera_ai"};
@@ -196,6 +214,8 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             }
         } else if (option == "--platform" && has_value) {
             _args.platform = _argv[++index];
+        } else if (option == "--model-package-registry" && has_value) {
+            _args.model_package_registry_path = _argv[++index];
         } else if (option == "--model-package" && has_value) {
             _args.model_package = _argv[++index];
         } else if (option == "--model-library" && has_value) {
@@ -291,6 +311,7 @@ int main(int _argc, char** _argv) {
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>] "
             "[--mode harness|production] [--platform fake|reference|qualcomm] "
+            "[--model-package-registry <json>] "
             "[--output-ring-id <id> --output-bitrate <bps> "
             "--output-keyframe-interval <frames> "
             "--output-box-color-rgba <0xRRGGBBAA> "
@@ -312,6 +333,29 @@ int main(int _argc, char** _argv) {
     if (!args.feature_catalog_path.empty() &&
         !vqec_vision_ai_appl_svcmn_load_feature_catalog(args.feature_catalog_path, features)) {
         return 1;
+    }
+    model_package_registry model_packages;
+    if (!args.model_package_registry_path.empty()) {
+        if (!args.model_package.empty() || !args.model_library.empty()) {
+            std::fprintf(stderr,
+                "model package registry cannot be combined with legacy package arguments\n");
+            return 1;
+        }
+        if (!vqec_vision_ai_appl_svcmn_load_model_packages(
+                args.model_package_registry_path, model_packages)) {
+            return 1;
+        }
+    } else if (!args.model_package.empty() || !args.model_library.empty()) {
+        if (catalog.models_.size() != 1 || args.model_package.empty() ||
+            args.model_library.empty()) {
+            std::fprintf(stderr,
+                "legacy model package arguments require exactly one catalog model\n");
+            return 1;
+        }
+        const auto& model = catalog.models_.front();
+        model_packages.schema_version_ = model_package_registry_limits::g_schema_version;
+        model_packages.bindings_.push_back({model.model_id_, model.model_version_,
+            model.target_id_, model.artifact_ref_, args.model_package, args.model_library});
     }
 
     if (deployment.sources_.size() > deployment_limits::g_max_sources) {
@@ -348,8 +392,7 @@ int main(int _argc, char** _argv) {
     std::string attribute_schema_id;
     if (use_production_platform) {
         production_platform_config production_config;
-        production_config.package_dir_ = args.model_package;
-        production_config.model_library_ = args.model_library;
+        production_config.model_packages_ = model_packages;
         production_config.backend_library_ = service_harness::g_backend_library;
         production_config.system_library_ = service_harness::g_system_library;
         production_config.socket_dir_ = args.camera_socket_dir;
@@ -513,9 +556,10 @@ int main(int _argc, char** _argv) {
             model_activation.model_id_ = model->model_id_;
             if (use_production_platform) {
                 inference_graph_port* graph =
-                    production.vqec_vision_ai_appl_pdplt_graph(source_slot, model_slot);
+                    production.vqec_vision_ai_appl_pdplt_graph(source_slot, model->model_id_);
                 image_processor_port* processor =
-                    production.vqec_vision_ai_appl_pdplt_processor(source_slot, model_slot);
+                    production.vqec_vision_ai_appl_pdplt_processor(
+                        source_slot, model->model_id_);
                 const model_outputs* outputs =
                     production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
                 if (graph == nullptr || processor == nullptr || outputs == nullptr) {

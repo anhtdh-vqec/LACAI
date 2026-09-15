@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vqec:vision:ai:model-package-registry:1",
+  "title": "VQEC Vision AI model package deployment bindings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "packages"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/package" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id", "model_version", "target_id", "artifact_ref",
+        "package_dir", "model_library"
+      ],
+      "properties": {
+        "model_id": { "$ref": "#/$defs/identifier" },
+        "model_version": { "$ref": "#/$defs/identifier" },
+        "target_id": { "$ref": "#/$defs/identifier" },
+        "artifact_ref": { "$ref": "#/$defs/identifier" },
+        "package_dir": { "$ref": "#/$defs/path" },
+        "model_library": { "$ref": "#/$defs/path" }
+      }
+    }
+  }
+}

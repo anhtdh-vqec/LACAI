@@ -3,7 +3,7 @@
 Bounded model/artifact metadata loaders and neutral cross-validation. Never a signature
 authority or an execution executor.
 
-- **Status:** source-delivered optional loaders (JSON + SHA-256) — trusted resolution still open
+- **Status:** source-delivered optional catalog/package loaders (JSON + SHA-256) — trusted resolution still open
 - **Naming registry:** `mreg` (`mdcat`, `otman`, `ardgt`, `artsr`)
 - **Depends on:** `include/vqec/vision/ai/contracts/` model/output contracts
 - **Used by:** runtime composition factory and the optional `vqec_vision_ai_manifest_check` tool
@@ -25,6 +25,7 @@ authority or an execution executor.
 | `vqec_vision_output_manifest.cpp` | Bounded output-manifest loader with duplicate/unknown-key, type and depth checks |
 | `vqec_vision_artifact_digest.cpp` | OpenSSL SHA-256 stream comparison, optional from JSON parsing |
 | `vqec_vision_artifact_resolver.cpp` | Trusted artifact path resolution with containment and digest |
+| `vqec_vision_model_package_registry.cpp` | Strict per-model package/artifact deployment binding loader |
 
 ## Limits and next work
 
@@ -35,4 +36,5 @@ authority or an execution executor.
 ## See also
 
 - [Model catalog](../../../docs/architecture/model_catalog.md), [model output manifest](../../../docs/architecture/model_output_manifest.md)
+- [Model package registry](../../../docs/architecture/model_package_registry.md)
 - [Artifact digest](../../../docs/architecture/artifact_digest.md)

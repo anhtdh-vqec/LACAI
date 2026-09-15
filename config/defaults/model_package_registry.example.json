@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "model_id": "model_alpha",
+      "model_version": "1.0.0",
+      "target_id": "qualified_target",
+      "artifact_ref": "model_alpha_artifact",
+      "package_dir": "/opt/vqec/models/model_alpha/package",
+      "model_library": "/opt/vqec/models/model_alpha/libmodel_alpha.so"
+    },
+    {
+      "model_id": "model_beta",
+      "model_version": "1.0.0",
+      "target_id": "qualified_target",
+      "artifact_ref": "model_beta_artifact",
+      "package_dir": "/opt/vqec/models/model_beta/package",
+      "model_library": "/opt/vqec/models/model_beta/libmodel_beta.so"
+    }
+  ]
+}

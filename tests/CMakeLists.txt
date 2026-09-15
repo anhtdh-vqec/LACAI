@@ -254,6 +254,14 @@
         set_target_properties(vqec_vision_ai_model_catalog_loader_test
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME model_catalog_loading COMMAND vqec_vision_ai_model_catalog_loader_test)
+        add_executable(vqec_vision_ai_model_package_registry_test
+            unit/vqec_vision_model_package_registry_test.cpp)
+        target_link_libraries(vqec_vision_ai_model_package_registry_test
+            PRIVATE vqec_vision_ai_model_catalog_config)
+        set_target_properties(vqec_vision_ai_model_package_registry_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME model_package_registry_loading
+            COMMAND vqec_vision_ai_model_package_registry_test)
     endif()
     add_executable(vqec_vision_ai_deployment_config_test
         unit/vqec_vision_deployment_config_test.cpp)
