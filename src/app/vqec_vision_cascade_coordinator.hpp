@@ -29,6 +29,10 @@ struct cascade_coordinator_config {
     std::array<float, 3> normalize_scale_{1.0F, 1.0F, 1.0F};
     float quant_scale_{0.0F};
     std::int32_t quant_zero_point_{0};
+    // Submission-window identity and deadline for the secondary graph. The coordinator
+    // arms the graph once for its source epoch before the first tensor submission.
+    std::uint64_t cycle_id_{0};
+    std::uint64_t job_timeout_ns_{0};
     // Maximum faces aligned per primary frame.
     std::size_t max_tasks_per_frame_{0};
 };
@@ -68,6 +72,9 @@ private:
     std::array<float, 3> normalize_scale_{1.0F, 1.0F, 1.0F};
     float quant_scale_{0.0F};
     std::int32_t quant_zero_point_{0};
+    std::uint64_t cycle_id_{0};
+    std::uint64_t job_timeout_ns_{0};
+    std::uint64_t armed_source_epoch_{0};
     std::size_t max_tasks_per_frame_{0};
     // Full model input spec taken from the loaded graph (name, dims, dtype, quantization).
     tensor_spec embedding_input_spec_{};

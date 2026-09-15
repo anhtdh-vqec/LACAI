@@ -268,19 +268,21 @@ reference; metadata is not model acceptance.
 Model catalog schema v2 adds a required `role` (primary/secondary) and a validated
 `depends_on` of immutable primary identities; schema v1 documents are migrated to primary.
 A secondary model cannot be a full-frame deployment assignment. Loader and validator tests
-cover the accepted and rejected cases; the runtime pump does not yet consume the role.
+cover the accepted and rejected cases; runtime composition derives cascade roots from these
+dependencies without adding secondary models to the full-frame submit mask.
 
 Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
-domain-scoped completion tickets and byte accounting through drain. Logic tests pass eSDK
-QEMU and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration
-remains open.
+domain-scoped completion tickets and byte accounting through drain. The store is wired into
+the pump/session and logic tests pass eSDK QEMU and QCS6490 .48; this is not dependent-device
+completion evidence. Production coordinator invocation remains open.
 
 `image_alignment_port` is now a defined, unit-tested contract (template/request/result/
 transform/capabilities with fail-closed capability gating). The FastCV aligner delivers
 board-verified luma geometry and RGB color on `.48`; the generic embedding decoder
 (`embedding_decoder_port`, package-configured output/dimension/min-norm, L2 normalization)
-is delivered and unit-tested. Real EdgeFace packages, the secondary graph, alignment
-template metadata and the coordinator wiring into the service remain M5.
+is delivered and unit-tested. The EdgeFace package supplies the embedding contract and
+alignment template; production secondary graph lifecycle, coordinator wiring and golden
+parity remain M5.
 
 Cascade retention slices 1-3a are delivered: the pump retains
 cascade-root frames, `multi_model_session` owns a `cascade_frame_store` and delays FW source
@@ -301,3 +303,7 @@ converts only the sampled source ROI. A `.48` plugin probe records the offload o
 (ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
 verification requirement are in `docs/architecture/image_alignment_port.md`. The real
 EdgeFace graph composition, executor wiring and golden parity remain M5.
+
+The cascade coordinator arms its secondary graph once per configured source epoch with an
+explicit cycle identity and job timeout. It rejects an epoch change until graph lifecycle
+restart, rather than submitting a new epoch into an existing submission window.

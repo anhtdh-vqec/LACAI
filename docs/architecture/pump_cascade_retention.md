@@ -58,19 +58,22 @@ alignment failure) and closes admission once. When a secondary embedding graph a
 are configured it also quantizes the aligned RGB to the model input, submits, polls and
 decodes the embedding. Per-task failures are counted and isolated. Unit test
 `cascade_coordinator` covers bounded admission, ordering, align failure, acquire failure,
-the align+embedding pipeline and misconfiguration. Not yet wired into the executor/service;
-the real EdgeFace graph and golden parity are M5.
+the align+embedding pipeline and misconfiguration. The coordinator arms the secondary graph
+once with its configured cycle/deadline for the retained source epoch before tensor
+submission; an epoch change requires graph lifecycle restart. It is not yet wired into the
+executor/service; the real EdgeFace graph and golden parity are M5.
 
 
 
 ## Current state
 
-- `cascade_frame_store` (logic-tested): exact `camera/channel/epoch/frame/PTS` keys, byte
-  budget, domain-scoped completion tickets, retire/complete/reclaim. Not wired into
-  `multi_model_pump`.
-- `multi_model_pump` retains `retained_frames_[slot]` from submit to result take only; it
-  does not keep pixels after a primary result is taken, so a decoded detection cannot crop.
-- No cascade coordinator or secondary backend exists.
+- `cascade_frame_store` is session-owned and wired to `multi_model_pump` for exact
+  `camera/channel/epoch/frame/PTS` retention, byte accounting and domain-scoped tickets.
+- `multi_model_pump` retains cascade-root frames before primary submission and rolls back a
+  rejected submit; `multi_model_session` exposes the neutral frame-lease port and holds FW
+  release until retained work drains.
+- The standalone coordinator implements align + synchronous embedding execution. Production
+  secondary graph lifecycle and executor/service invocation remain open.
 
 ## Ownership model
 

@@ -65,7 +65,9 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
         _config.embedding_graph_ != nullptr || _config.embedding_decoder_ != nullptr;
     if (wants_embedding &&
         (_config.embedding_graph_ == nullptr || _config.embedding_decoder_ == nullptr ||
-         !std::isfinite(_config.quant_scale_) || !(_config.quant_scale_ > 0.0F))) {
+         !std::isfinite(_config.quant_scale_) || !(_config.quant_scale_ > 0.0F) ||
+         _config.cycle_id_ == 0 || _config.job_timeout_ns_ == 0 ||
+         _config.job_timeout_ns_ == std::numeric_limits<std::uint64_t>::max())) {
         return {status_code::invalid_argument, "invalid secondary embedding configuration"};
     }
     alignment_capabilities capabilities;
@@ -118,6 +120,8 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     normalize_scale_ = _config.normalize_scale_;
     quant_scale_ = _config.quant_scale_;
     quant_zero_point_ = _config.quant_zero_point_;
+    cycle_id_ = _config.cycle_id_;
+    job_timeout_ns_ = _config.job_timeout_ns_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
     embedding_input_spec_ = input_spec;
     has_embedding_input_spec_ = wants_embedding;
@@ -147,6 +151,11 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         return {status_code::invalid_argument, "cascade batch has no source frame identity"};
     }
     const bool embed = embedding_graph_ != nullptr;
+    if (embed && armed_source_epoch_ != 0 && armed_source_epoch_ != key.source_epoch_) {
+        (void)lease_->vqec_vision_ai_ports_cflse_retire(key);
+        return {status_code::invalid_state,
+            "secondary graph must restart before the source epoch changes"};
+    }
     std::size_t accepted = 0;
     for (const auto& observation : _tracked.observations_) {
         if (accepted >= max_tasks_per_frame_ ||
@@ -189,13 +198,25 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         }
         bool pushed_embedding = false;
         if (task_ok && embed) {
+            if (armed_source_epoch_ == 0) {
+                const auto armed = embedding_graph_->vqec_vision_ai_ports_infgr_arm(
+                    cycle_id_, key.source_epoch_, job_timeout_ns_);
+                if (armed.code_ == status_code::ok) {
+                    armed_source_epoch_ = key.source_epoch_;
+                } else {
+                    task_ok = false;
+                }
+            }
             tensor_blob input;
-            const auto quantized = vqec_vision_ai_appl_cscrd_quantize(
-                _aligned.back(), embedding_input_spec_, normalize_offset_, normalize_scale_,
-                quant_scale_, quant_zero_point_, input);
-            if (quantized.code_ != status_code::ok) {
-                task_ok = false;
-            } else {
+            if (task_ok) {
+                const auto quantized = vqec_vision_ai_appl_cscrd_quantize(
+                    _aligned.back(), embedding_input_spec_, normalize_offset_, normalize_scale_,
+                    quant_scale_, quant_zero_point_, input);
+                if (quantized.code_ != status_code::ok) {
+                    task_ok = false;
+                }
+            }
+            if (task_ok) {
                 submission_ticket secondary_ticket;
                 const auto submitted =
                     embedding_graph_->vqec_vision_ai_ports_infgr_submit_tensors(

@@ -15,6 +15,9 @@ using namespace vqec::vision::ai;
 
 namespace {
 
+constexpr std::uint64_t g_test_cycle_id = 1U;
+constexpr std::uint64_t g_test_job_timeout_ns = 1000000000U;
+
 class fake_lease final : public cascade_frame_lease_port {
 public:
     [[nodiscard]] status vqec_vision_ai_ports_cflse_acquire(
@@ -121,6 +124,10 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_arm(
         std::uint64_t, std::uint64_t, std::uint64_t) override {
+        ++arm_calls_;
+        if (fail_arm_) {
+            return {status_code::io_error, "fixture arm failed"};
+        }
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_submit_frame(
@@ -177,7 +184,9 @@ public:
     }
 
     unsigned submit_calls_{0};
+    unsigned arm_calls_{0};
     bool is_outstanding_{false};
+    bool fail_arm_{false};
 };
 
 class fake_embedding_decoder final : public embedding_decoder_port {
@@ -329,12 +338,15 @@ int main() {
             1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F};
         config.quant_scale_ = 3.05180438e-05F;
         config.quant_zero_point_ = 32768;
+        config.cycle_id_ = g_test_cycle_id;
+        config.job_timeout_ns_ = g_test_job_timeout_ns;
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ == status_code::ok);
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
                   0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
         check(report.accepted_ == 2 && report.embedded_ == 2 && report.failed_ == 0 &&
-            aligned.size() == 2 && embeddings.size() == 2 && graph.submit_calls_ == 2 &&
+            aligned.size() == 2 && embeddings.size() == 2 && graph.arm_calls_ == 1 &&
+            graph.submit_calls_ == 2 &&
             embeddings[0].track_id_ == 100U && embeddings[0].is_l2_normalized_);
     }
 
@@ -346,6 +358,8 @@ int main() {
         auto config = make_config(aligner, lease, 2);
         config.embedding_graph_ = &graph;
         config.quant_scale_ = 3.05180438e-05F;
+        config.cycle_id_ = g_test_cycle_id;
+        config.job_timeout_ns_ = g_test_job_timeout_ns;
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ ==
             status_code::invalid_argument);
