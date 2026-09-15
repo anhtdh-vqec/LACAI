@@ -1,0 +1,58 @@
+# Image alignment port
+
+Status: contract defined and unit-tested; no backend implements it and no orchestration
+consumes it yet. This is the boundary required by ADR 0005 for secondary (cascade) face
+crops; it does not itself make FD→FR run.
+
+## Purpose
+
+A secondary model (for example a face embedding network) consumes one aligned crop per
+detected face, not the full frame. `image_alignment_port` turns a borrowed source frame plus
+typed source-pixel landmarks into the exact aligned destination tensor, and returns the
+transform so results can be mapped back to the source frame.
+
+Contract: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`.
+Port: `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`.
+
+## Types
+
+- `alignment_template`: landmark schema id/version, destination width/height and the
+  ordered reference points. `reference_points_.size()` is the required landmark count.
+- `alignment_request`: source `preview_frame_key`, typed `observation_landmarks` and an
+  optional monotonic `deadline_ns_` (0 = none). It carries no frame owner.
+- `alignment_transform`: row-major 2x3 source→destination transform with source and
+  destination geometry, returned as provenance.
+- `alignment_result`: the owned destination `tensor_blob` and its transform.
+- `alignment_capabilities`: `supports_similarity_`, `max_points_`,
+  `max_destination_dimension_`.
+
+## Ownership and completion
+
+- The caller keeps the source frame `owner_` alive until `poll_completion` reports
+  `complete`. Timeout, stop request, source disconnect and FD close are **not** completion.
+- `align` borrows the source frame for the duration of the call and writes an owned
+  destination tensor into `_result`; failure preserves `_result`.
+- `align` returns a completion ticket; `poll_completion(ticket)` reports device completion.
+  An unknown ticket is `invalid_state`. The destination must not be consumed before
+  completion.
+- The port never owns the source, the crop pool or the cascade task queue.
+
+## Capability and errors
+
+- `probe_capabilities` reports support; `validate_template` fails closed with `unsupported`
+  when a template exceeds the probe. There is no silent CPU fallback.
+- Structural validation (`vqec_vision_ai_core_imaln_validate_template`/`_validate_request`)
+  rejects bad schema identity, destination geometry outside limits, empty/oversized or
+  non-finite reference points, mismatched landmark schema/count, and invalid frame identity
+  or deadline.
+
+## Not claimed
+
+Defining this contract does not prove FastCV/QTI affine capability, crop/tensor pool
+ownership, cache/fence behavior, device completion, alignment parity against a golden crop
+or any FD→FR correlation. Those require the M4 adapter and board evidence.
+
+## See also
+
+- [ADR 0005](../adr/0005_scalable_model_integration.md),
+  [cascade inference](cascade_inference.md)

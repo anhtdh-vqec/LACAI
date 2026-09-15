@@ -14,6 +14,7 @@ FastCV, Camera Service wire or product-origin types may cross this directory.
 | `vqec_vision_raw_source.hpp` | One logical FW RAW-source lifecycle and a moveable metadata/native-handle/shared-owner envelope |
 | `vqec_vision_inference_graph.hpp` | Neutral model-graph lifecycle, capability/policy and shared-frame or tensor submission |
 | `vqec_vision_image_processor.hpp` | Turns a borrowed NV12 view into the exact model input tensor |
+| `vqec_vision_image_alignment.hpp` | Landmark-based alignment/crop for secondary (cascade) models, capability-gated |
 | `vqec_vision_tracker.hpp` | Serialized per-source tracking after model decoding |
 | `vqec_vision_feature_processor.hpp` | Serialized per-source feature-algorithm boundary emitting bounded neutral events |
 | `vqec_vision_feature_event_sink.hpp` | Synchronous borrowed-event delivery; retry keeps the same event ID |
@@ -23,6 +24,7 @@ FastCV, Camera Service wire or product-origin types may cross this directory.
 - Application code must not call plugin APIs directly; it depends on these ports only.
 - Other platform adapters must preserve the same ownership and epoch semantics.
 - The image-processor tensor path is wired into the pump; additional platform implementations remain.
+- `image_alignment_port` is a contract only: no backend implements it yet and no orchestration consumes it.
 
 ## See also
 

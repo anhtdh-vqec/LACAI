@@ -219,6 +219,10 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_inference_execution.cpp | inexe | vqec_vision_ai_core_inexe_ |
 | src/core/vqec_vision_tensor_pool.cpp | tnpl | vqec_vision_ai_core_tnpl_ |
 | src/core/vqec_vision_secondary_inference.cpp | secin | vqec_vision_ai_core_secin_ |
+| include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
+| src/core/vqec_vision_image_alignment.cpp | imaln | vqec_vision_ai_core_imaln_ |
+| include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp | imaln | vqec_vision_ai_ports_imaln_ |
+| tests/unit/vqec_vision_image_alignment_test.cpp | imtst | vqec_vision_ai_unit_imtst_ |
 | src/core/vqec_vision_preprocess_spec.cpp | ppspc | vqec_vision_ai_core_ppspc_ |
 | src/core/vqec_vision_model_io_manifest.cpp | ioman | vqec_vision_ai_core_ioman_ |
 | src/core/vqec_vision_model_package.cpp | mpkg | vqec_vision_ai_core_mpkg_ |

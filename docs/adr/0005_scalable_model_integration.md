@@ -58,23 +58,29 @@ Still open: the deeper activation/ownership integration (secondary models never 
 full-frame submit mask at runtime) follows from the role field but is pump work tracked under
 section 4.
 
-## 2. `image_alignment_port` contract (must be defined before approval)
+## 2. `image_alignment_port` contract
 
-The port does not exist. Before approval it must specify:
+Delivered: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp` and
+`ports/vqec_vision_image_alignment.hpp`, with pure validators and the
+`image_alignment_contract` unit test. The contract specifies:
 
-- **Input ownership**: how the retained `raw_frame` owner is borrowed for the whole warp,
-  and that it stays alive until device completion;
-- **Landmarks**: schema id/version, point order, count and coordinate space (source pixels),
-  and how a mismatched or degenerate set is rejected;
-- **Geometry**: source ROI/key and destination tensor or crop geometry, with explicit
-  coordinates and units;
-- **Transform provenance**: the similarity/affine transform returned so results can be
-  mapped back to the source frame;
-- **Buffer ownership**: who owns the destination crop/tensor pool, pool bounds and reuse
-  rules;
-- **Completion**: cache/fence/device-completion semantics; timeout and stop are not
-  completion;
-- **Errors/timeout**: status taxonomy and deadline behavior, with no silent fallback.
+- **Input ownership**: the caller keeps the source `raw_frame` owner alive until
+  `poll_completion` reports complete; timeout/stop/disconnect/FD close are not completion;
+- **Landmarks**: schema id/version, ordered reference points; mismatched schema, count or
+  non-finite points are rejected;
+- **Geometry**: source key + destination width/height from the template; source geometry in
+  the returned transform;
+- **Transform provenance**: row-major 2x3 source→destination transform returned with the
+  result;
+- **Buffer ownership**: the destination `tensor_blob` in `alignment_result` is owned by the
+  caller; the port owns no pool;
+- **Completion**: `align` returns a ticket and `poll_completion` reports device completion;
+  unknown tickets are `invalid_state`;
+- **Errors/timeout**: structural validation and fail-closed capability checks
+  (`unsupported`), no silent fallback.
+
+Still open: the Qualcomm FastCV/QTI affine adapter, crop/tensor pool sizing, golden crop
+parity and device-completion evidence.
 
 ## 3. Retention and completion semantics (target)
 
@@ -146,9 +152,8 @@ later stage.
 
 - [x] Catalog/schema/validator migration with required `role`/`depends_on` is committed and
       tested (valid, missing, wrong-role dependency, cycle, self-reference).
-- [ ] `image_alignment_port` contract is defined with the ownership/completion/error fields
-      above.
-- [ ] Pump/session owner review of the retention and dependent-drain ownership is complete.
+- [x] `image_alignment_port` contract is defined with the ownership/completion/error fields
+      above.- [ ] Pump/session owner review of the retention and dependent-drain ownership is complete.
 - [ ] Retention generation/completion semantics and the `complete(ticket)` owner are
       finalized.
 - [ ] Capability/status docs are updated so none of the above is claimed as delivered

@@ -14,6 +14,7 @@ add_library(vqec_vision_ai_core STATIC
     vqec_vision_feature_event.cpp vqec_vision_feature_catalog.cpp
     vqec_vision_inference_execution.cpp
     vqec_vision_secondary_inference.cpp
+    vqec_vision_image_alignment.cpp
     vqec_vision_preprocess_spec.cpp
     vqec_vision_model_io_manifest.cpp
     vqec_vision_model_package.cpp
