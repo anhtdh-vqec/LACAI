@@ -17,6 +17,7 @@
 #include "vqec_vision_reference_tracker.hpp"
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
+#include "vqec_vision_anchor_distance_decoder.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
@@ -28,6 +29,28 @@ using nlohmann::json;
 inline constexpr char g_labels_key[] = "labels";
 inline constexpr char g_labels_ref_key[] = "labels_ref";
 
+// decoder.json primary decoder protocol; see cascade_inference.md.
+inline constexpr char g_decoder_kind[] = "kind";
+inline constexpr char g_decoder_anchor_distance[] = "anchor_distance";
+inline constexpr char g_decoder_yolov8[] = "yolov8";
+inline constexpr char g_decoder_decoder_contract[] = "decoder_contract";
+inline constexpr char g_decoder_class_id[] = "class_id";
+inline constexpr char g_decoder_landmark_schema_id[] = "landmark_schema_id";
+inline constexpr char g_decoder_landmark_schema_version[] = "landmark_schema_version";
+inline constexpr char g_decoder_landmark_count[] = "landmark_count";
+inline constexpr char g_decoder_anchor_offset_cells[] = "anchor_offset_cells";
+inline constexpr char g_decoder_confidence_threshold[] = "confidence_threshold";
+inline constexpr char g_decoder_iou_threshold[] = "iou_threshold";
+inline constexpr char g_decoder_max_candidates[] = "max_candidates";
+inline constexpr char g_decoder_stages[] = "stages";
+inline constexpr char g_decoder_score_tensor[] = "score_tensor";
+inline constexpr char g_decoder_box_tensor[] = "box_tensor";
+inline constexpr char g_decoder_landmark_tensor[] = "landmark_tensor";
+inline constexpr char g_decoder_stride[] = "stride";
+inline constexpr char g_decoder_grid_width[] = "grid_width";
+inline constexpr char g_decoder_grid_height[] = "grid_height";
+inline constexpr char g_decoder_anchors_per_cell[] = "anchors_per_cell";
+
 struct model_slot_owner {
     std::string model_id_;
     resolved_model_paths paths_;
@@ -35,7 +58,7 @@ struct model_slot_owner {
     std::unique_ptr<qnn_engine> engine_;
     std::unique_ptr<qnn_inference_graph> graph_;
     std::unique_ptr<fastcv_processor> processor_;
-    std::unique_ptr<yolov8_decoder> decoder_;
+    std::unique_ptr<model_decoder_port> decoder_;
 };
 
 json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
@@ -218,6 +241,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     if (implementation_ == nullptr || !implementation_->is_configured_) {
         return {status_code::invalid_state, "production platform is not configured"};
     }
+    if (_deployment.sources_.empty()) {
+        return {status_code::invalid_argument, "production deployment has no sources"};
+    }
     auto& impl = *implementation_;
     if (impl.is_prepared_) {
         return {status_code::invalid_state, "production platform is already prepared"};
@@ -229,6 +255,27 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     }
 
     for (const auto& model : _catalog.models_) {
+        const source_deployment_config* model_source = nullptr;
+        std::uint64_t max_frame_allocation_bytes = 0;
+        for (const auto& source : _deployment.sources_) {
+            if (std::find(source.model_ids_.begin(), source.model_ids_.end(),
+                    model.model_id_) == source.model_ids_.end()) {
+                continue;
+            }
+            if (model_source != nullptr &&
+                (model_source->profile_.width_ != source.profile_.width_ ||
+                 model_source->profile_.height_ != source.profile_.height_)) {
+                return {status_code::unsupported,
+                    "shared model decoder requires equal source dimensions"};
+            }
+            model_source = &source;
+            max_frame_allocation_bytes = std::max(max_frame_allocation_bytes,
+                source.memory_.max_frame_allocation_bytes_);
+        }
+        if (model_source == nullptr) {
+            continue;
+        }
+
         const auto* binding = vqec_vision_ai_core_mprgy_find_binding(
             impl.config_.model_packages_, model.model_id_);
         if (binding == nullptr) {
@@ -275,26 +322,71 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             owner.outputs_.max_output_bytes_ += vqec_vision_ai_core_tnctr_shape_bytes(output);
         }
 
-        yolov8_decoder_config decoder_config;
-        decoder_config.source_width_ = _deployment.sources_.front().profile_.width_;
-        decoder_config.source_height_ = _deployment.sources_.front().profile_.height_;
-        decoder_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
-            declared_input.dimensions_[2] : 0;
-        decoder_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
-            declared_input.dimensions_[1] : 0;
-        decoder_config.placement_ = image_placement::centre;
-        decoder_config.box_tensor_ = decoder_json.value("box_tensor", std::string{"boxes_out"});
-        decoder_config.score_tensor_ = decoder_json.value("score_tensor", std::string{"conf_out"});
-        decoder_config.class_count_ = decoder_json.value("class_count", std::size_t{1});
-        decoder_config.confidence_threshold_ =
-            decoder_json.value("confidence_threshold", 0.25F);
-        decoder_config.iou_threshold_ = decoder_json.value("iou_threshold", 0.45F);
-        decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
-            decoder_json, binding->package_dir_, decoder_config.class_count_);
-        owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
+        const auto kind = decoder_json.value(g_decoder_kind, std::string{g_decoder_yolov8});
+        if (kind == g_decoder_anchor_distance) {
+            if (decoder_json.at(g_decoder_decoder_contract).get<std::string>() !=
+                    model.decoder_contract_) {
+                return {status_code::invalid_argument, "decoder package contract mismatch"};
+            }
+            anchor_distance_decoder_config config;
+            config.source_width_ = model_source->profile_.width_;
+            config.source_height_ = model_source->profile_.height_;
+            config.tensor_width_ = model.tensor_width_;
+            config.tensor_height_ = model.tensor_height_;
+            config.placement_ = model.placement_;
+            config.class_id_ = decoder_json.at(g_decoder_class_id).get<std::string>();
+            config.landmark_schema_id_ = decoder_json.at(g_decoder_landmark_schema_id).get<std::string>();
+            config.landmark_schema_version_ = decoder_json.at(g_decoder_landmark_schema_version).get<std::string>();
+            config.landmark_count_ = decoder_json.at(g_decoder_landmark_count).get<std::size_t>();
+            config.anchor_offset_cells_ = decoder_json.at(g_decoder_anchor_offset_cells).get<float>();
+            config.confidence_threshold_ = decoder_json.at(g_decoder_confidence_threshold).get<float>();
+            config.iou_threshold_ = decoder_json.at(g_decoder_iou_threshold).get<float>();
+            config.max_candidates_ = decoder_json.at(g_decoder_max_candidates).get<std::size_t>();
+            const auto& stages = decoder_json.at(g_decoder_stages);
+            if (!stages.is_array() || stages.empty() ||
+                stages.size() > anchor_distance_decoder_limits::g_max_stages) {
+                return {status_code::invalid_argument, "decoder stages are invalid"};
+            }
+            for (const auto& stage : stages) {
+                config.stages_.push_back({
+                    stage.at(g_decoder_score_tensor).get<std::string>(),
+                    stage.at(g_decoder_box_tensor).get<std::string>(),
+                    stage.at(g_decoder_landmark_tensor).get<std::string>(),
+                    stage.at(g_decoder_stride).get<std::uint32_t>(),
+                    stage.at(g_decoder_grid_width).get<std::uint32_t>(),
+                    stage.at(g_decoder_grid_height).get<std::uint32_t>(),
+                    stage.at(g_decoder_anchors_per_cell).get<std::uint32_t>()});
+            }
+            owner.decoder_ = std::make_unique<anchor_distance_decoder>(std::move(config));
+        } else if (kind == g_decoder_yolov8) {
+            yolov8_decoder_config decoder_config;
+            decoder_config.source_width_ = model_source->profile_.width_;
+            decoder_config.source_height_ = model_source->profile_.height_;
+            decoder_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
+                declared_input.dimensions_[2] : 0;
+            decoder_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
+                declared_input.dimensions_[1] : 0;
+            decoder_config.placement_ = model.placement_;
+            decoder_config.box_tensor_ = decoder_json.value("box_tensor", std::string{"boxes_out"});
+            decoder_config.score_tensor_ = decoder_json.value("score_tensor", std::string{"conf_out"});
+            decoder_config.class_count_ = decoder_json.value("class_count", std::size_t{1});
+            decoder_config.confidence_threshold_ =
+                decoder_json.value("confidence_threshold", 0.25F);
+            decoder_config.iou_threshold_ = decoder_json.value("iou_threshold", 0.45F);
+            decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
+                decoder_json, binding->package_dir_, decoder_config.class_count_);
+            owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
+        } else {
+            return {status_code::unsupported, "unknown decoder package kind"};
+        }
+        const auto decoder_status =
+            owner.decoder_->vqec_vision_ai_cntr_mddec_validate(owner.outputs_);
+        if (decoder_status.code_ != status_code::ok) {
+            return decoder_status;
+        }
         owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
         owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-            _deployment.sources_.front().memory_.max_frame_allocation_bytes_,
+            max_frame_allocation_bytes,
             impl.config_.preprocess_output_timeout_ns_});
         impl.models_.push_back(std::move(owner));
     }

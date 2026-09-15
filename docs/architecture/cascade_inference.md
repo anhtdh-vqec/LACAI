@@ -117,3 +117,19 @@ storage, with deterministic score ties, finite-value checks and transactional pu
 Output observation strings/landmark vectors still allocate under the current batch contract;
 production package parsing, pooled output ownership and golden model parity remain required.
 The core is not yet registered by production_platform for a live FD-to-FR cascade.
+
+## Primary anchor-distance package boundary
+
+A primary detector package may set decoder.json kind to "anchor_distance".
+Its decoder_contract must exactly match the catalog. Required keys are class_id,
+landmark_schema_id, landmark_schema_version, landmark_count, anchor_offset_cells,
+confidence_threshold, iou_threshold, max_candidates and stages. Each stage requires
+score_tensor, box_tensor, landmark_tensor, stride, grid_width, grid_height and
+anchors_per_cell. No model-specific default is supplied for these fields.
+
+Source geometry comes from sources assigning this model; all such sources must currently
+have equal dimensions because the production owner holds one decoder per model.
+Tensor geometry and placement come from the model catalog, not decoder.json.
+Unknown explicit kinds fail. Packages without kind retain the existing YOLO compatibility
+format; this is not a fallback for a failed anchor-distance parse.
+This boundary enables primary FD; embedding models must still await secondary composition.

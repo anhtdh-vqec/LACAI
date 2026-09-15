@@ -104,6 +104,21 @@ int main() {
         check(std::abs(face.landmarks_.points_[0].x_ - 4.0F) < 0.01F &&
             std::abs(face.landmarks_.points_[0].y_ - 4.0F) < 0.01F);
     }
+    // The source is twice the tensor size: stretch must restore both box and landmarks.
+    auto stretch_config = vqec_vision_ai_unit_addtst_make_config();
+    stretch_config.placement_ = image_placement::stretch;
+    stretch_config.source_width_ *= 2;
+    stretch_config.source_height_ *= 2;
+    anchor_distance_decoder stretch_decoder(stretch_config);
+    observation_batch stretched;
+    check(stretch_decoder.vqec_vision_ai_cntr_mddec_decode(
+        tensors, frame, stretched).code_ == status_code::ok);
+    check(stretched.observations_.size() == 1);
+    if (stretched.observations_.size() == 1) {
+        check(std::abs(stretched.observations_[0].box_.width_ - 16.0F) < 0.01F);
+        check(std::abs(stretched.observations_[0].landmarks_.points_[0].x_ - 8.0F) < 0.01F);
+        check(std::abs(stretched.observations_[0].landmarks_.points_[0].y_ - 8.0F) < 0.01F);
+    }
     // A malformed score must fail atomically, preserving the previously decoded batch.
     auto saved_score = tensors.tensors_.front();
     auto& score = tensors.tensors_.front();

@@ -219,3 +219,9 @@ Anchor-distance FD decoder core is source-delivered: quantized tensor reads, inv
 placement, NMS and typed landmarks, with malformed-score/bounds/atomic-output tests.
 Candidate workspace is preallocated. Production registration, pooled observation output
 and real model golden parity remain open before the camera cascade is accepted.
+
+Primary anchor-distance packages now select their decoder in production_platform by
+explicit decoder.json kind and exact catalog contract. Geometry/placement bind to the
+assigned source/catalog; shared models with unequal source geometry are rejected.
+The schema is config/schemas/anchor_distance_decoder.schema.json. Live primary FD and
+secondary FR still require model-package deployment/golden acceptance.

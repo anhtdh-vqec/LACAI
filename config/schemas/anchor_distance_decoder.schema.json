@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Primary anchor-distance decoder package",
+  "type": "object",
+  "required": [
+    "kind",
+    "decoder_contract",
+    "class_id",
+    "landmark_schema_id",
+    "landmark_schema_version",
+    "landmark_count",
+    "max_candidates",
+    "anchor_offset_cells",
+    "confidence_threshold",
+    "iou_threshold",
+    "stages"
+  ],
+  "properties": {
+    "kind": {
+      "const": "anchor_distance"
+    },
+    "decoder_contract": {
+      "type": "string",
+      "minLength": 1
+    },
+    "class_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "landmark_schema_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "landmark_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "landmark_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16
+    },
+    "max_candidates": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "anchor_offset_cells": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidence_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "iou_threshold": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "score_tensor",
+          "box_tensor",
+          "landmark_tensor",
+          "stride",
+          "grid_width",
+          "grid_height",
+          "anchors_per_cell"
+        ],
+        "properties": {
+          "score_tensor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "box_tensor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "landmark_tensor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stride": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "grid_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "grid_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "anchors_per_cell": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

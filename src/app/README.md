@@ -53,3 +53,8 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - [Camera graph pump](../../docs/architecture/camera_graph_pump.md), [multi-model pump](../../docs/architecture/multi_model_pump.md)
 - [Multi-model session](../../docs/architecture/multi_model_session.md), [multi-source supervisor](../../docs/architecture/multi_source_supervisor.md)
 - [Runtime executor](../../docs/architecture/runtime_executor.md), [application composition](../../docs/architecture/application_composition.md)
+
+Primary detector composition accepts explicit anchor_distance packages (see
+docs/architecture/cascade_inference.md) and legacy YOLO packages. A shared decoder requires
+equal source dimensions; decoder placement follows catalog preprocessing placement.
+Embedding graph/cascade composition remains pending.
