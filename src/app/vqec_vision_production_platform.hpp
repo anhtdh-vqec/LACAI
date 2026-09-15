@@ -14,6 +14,8 @@
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_image_alignment.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
@@ -58,6 +60,19 @@ struct production_platform_config {
     std::string output_interlace_mode_;
 };
 
+// Borrowed neutral ports and package metadata for one dependency-activated cascade model.
+// The caller owns graph lifecycle and keeps the platform alive until the graph is drained.
+struct production_cascade_binding {
+    inference_graph_port* graph_{nullptr};
+    embedding_decoder_port* decoder_{nullptr};
+    image_alignment_port* aligner_{nullptr};
+    alignment_template alignment_;
+    preprocess_spec preprocess_;
+    inference_plan plan_;
+    std::vector<tensor_spec> outputs_;
+    std::uint64_t max_output_bytes_{0};
+};
+
 class production_platform final {
 public:
     production_platform();
@@ -92,6 +107,11 @@ public:
         const std::string& _model_id) const noexcept;
     [[nodiscard]] resolved_model_paths vqec_vision_ai_appl_pdplt_paths(
         const std::string& _model_id) const noexcept;
+    // Resolves a secondary embedding model activated by this source's primary assignment.
+    // Failure preserves _binding. This performs no graph lifecycle operation.
+    [[nodiscard]] status vqec_vision_ai_appl_pdplt_cascade_binding(
+        std::uint16_t _source_slot, const std::string& _model_id,
+        production_cascade_binding& _binding);
     // Renders one source frame with the tracked observations and writes the encoded AU to
     // the FW ring. No-op with ok when output is disabled. Borrowed frame; call on the
     // serialized runtime owner.

@@ -301,8 +301,8 @@ converts only the sampled source ROI. A `.48` plugin probe records the offload o
 `qtivtransform` (engine gles/fcv, crop/destination, no arbitrary affine), `qtimlvconverter`
 `roi-batch-*` (hardware ROI crop + tensor batch via ROI meta), `qtivcomposer`, `qtiobjtracker`
 (ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
-verification requirement are in `docs/architecture/image_alignment_port.md`. The real
-EdgeFace graph composition, executor wiring and golden parity remain M5.
+verification requirement are in `docs/architecture/image_alignment_port.md`. EdgeFace
+graph lifecycle, executor wiring and golden parity remain M5.
 
 The cascade coordinator arms its secondary graph once per configured source epoch with an
 explicit cycle identity and job timeout. It rejects an epoch change until graph lifecycle
@@ -312,3 +312,10 @@ Qualcomm full-frame preprocessing now validates the composed preprocess plus ten
 quantization over every RGB8 channel value. It accepts direct UINT8 output or UINT16
 full-range widening with at most one quantized LSB of affine-rounding error, including the
 face packages' nonzero zero point, and rejects any other mapping before plugin execution.
+
+Production platform preparation now resolves dependency-activated secondary models, opens
+their QNN backend owner, validates the embedding decoder and alignment template against the
+catalog/package, constructs the FastCV aligner behind `image_alignment_port`, and exposes a
+neutral cascade binding. Detection decoders remain registered only for primary models.
+Secondary graph lifecycle and executor/service invocation are still open; the current
+production cascade owner explicitly supports one active source and fails closed otherwise.

@@ -10,6 +10,9 @@
 #include "vqec_vision_dbus_rpc.hpp"
 #include "vqec_vision_backend_factory.hpp"
 #include "vqec_vision_fastcv_processor.hpp"
+#if defined(VQEC_VISION_AI_HAS_FASTCV_ALIGNER)
+#include "vqec_vision_fastcv_aligner.hpp"
+#endif
 #include "vqec_vision_qtiv_renderer.hpp"
 #include "vqec_vision_raw_source_resolver.hpp"
 #include "vqec_vision_reference_feature.hpp"
@@ -18,6 +21,7 @@
 #include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
 #include "vqec_vision_decoder_package.hpp"
+#include "vqec_vision_embedding_decoder.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
@@ -28,11 +32,18 @@ using nlohmann::json;
 
 struct model_slot_owner {
     std::string model_id_;
+    model_role role_{model_role::primary};
+    std::vector<std::uint16_t> source_slots_;
     resolved_model_paths paths_;
+    inference_plan plan_;
     model_outputs outputs_;
     std::unique_ptr<qnn_backend_bundle> backend_;
     std::unique_ptr<fastcv_processor> processor_;
     std::unique_ptr<model_decoder_port> decoder_;
+    std::unique_ptr<embedding_decoder> embedding_decoder_;
+    std::unique_ptr<image_alignment_port> aligner_;
+    alignment_template alignment_;
+    preprocess_spec preprocess_;
 };
 
 json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
@@ -220,23 +231,30 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     for (const auto& model : _catalog.models_) {
         const source_deployment_config* model_source = nullptr;
         std::uint64_t max_frame_allocation_bytes = 0;
-        for (const auto& source : _deployment.sources_) {
-            if (std::find(source.model_ids_.begin(), source.model_ids_.end(),
-                    model.model_id_) == source.model_ids_.end()) {
+        std::vector<std::uint16_t> source_slots;
+        for (std::uint16_t source_slot = 0;
+             source_slot < _deployment.sources_.size(); ++source_slot) {
+            const auto& source = _deployment.sources_[source_slot];
+            if (!vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
                 continue;
             }
-            if (model_source != nullptr &&
+            if (model.role_ == model_role::primary && model_source != nullptr &&
                 (model_source->profile_.width_ != source.profile_.width_ ||
                  model_source->profile_.height_ != source.profile_.height_)) {
                 return {status_code::unsupported,
                     "shared model decoder requires equal source dimensions"};
             }
             model_source = &source;
+            source_slots.push_back(source_slot);
             max_frame_allocation_bytes = std::max(max_frame_allocation_bytes,
                 source.memory_.max_frame_allocation_bytes_);
         }
         if (model_source == nullptr) {
             continue;
+        }
+        if (model.role_ == model_role::secondary && source_slots.size() != 1U) {
+            return {status_code::unsupported,
+                "current cascade graph owner requires exactly one active source"};
         }
 
         const auto* binding = vqec_vision_ai_core_mprgy_find_binding(
@@ -263,6 +281,8 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         }
         model_slot_owner owner;
         owner.model_id_ = model.model_id_;
+        owner.role_ = model.role_;
+        owner.source_slots_ = std::move(source_slots);
         owner.paths_.model_id_ = model.model_id_;
         owner.paths_.target_id_ = model.target_id_;
         owner.paths_.artifact_ref_ = model.artifact_ref_;
@@ -300,7 +320,75 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             owner.outputs_.max_output_bytes_ += vqec_vision_ai_core_tnctr_shape_bytes(output);
         }
 
-        if (package.kind_ == decoder_package_kind::anchor_distance) {
+        if (package.kind_ == decoder_package_kind::embedding) {
+            if (model.role_ != model_role::secondary ||
+                vqec_vision_ai_core_ppspc_validate(model.preprocess_).code_ != status_code::ok ||
+                model.preprocess_.normalization_ != normalization_formula::offset_scale ||
+                model.preprocess_.source_format_ != source_pixel_format::nv12 ||
+                model.preprocess_.resize_ != resize_mode::crop ||
+                model.preprocess_.interpolation_ != interpolation_mode::bilinear ||
+                model.preprocess_.placement_ != image_placement::stretch ||
+                model.preprocess_.matrix_ != package.color_matrix_ ||
+                model.preprocess_.range_ != package.color_range_ ||
+                model.preprocess_.channels_ != package.channel_order_ ||
+                declared_input.dimensions_.size() != 4U ||
+                declared_input.dimensions_[0] != 1U ||
+                declared_input.dimensions_[1] != package.destination_height_ ||
+                declared_input.dimensions_[2] != package.destination_width_ ||
+                declared_input.dimensions_[3] != 3U ||
+                model.tensor_width_ != package.destination_width_ ||
+                model.tensor_height_ != package.destination_height_ ||
+                model.input_type_ != declared_input.dtype_ ||
+                declared_input.dtype_ != tensor_element_type::uint16 ||
+                !declared_input.quantization_.is_quantized_) {
+                return {status_code::invalid_argument,
+                    "embedding package differs from catalog preprocessing"};
+            }
+            embedding_decoder_config decoder_config;
+            decoder_config.model_id_ = model.model_id_;
+            decoder_config.model_version_ = model.model_version_;
+            decoder_config.output_tensor_ = package.embedding_output_tensor_;
+            decoder_config.dimension_ = package.embedding_dimension_;
+            decoder_config.min_norm_ = package.min_norm_;
+            owner.embedding_decoder_ =
+                std::make_unique<embedding_decoder>(std::move(decoder_config));
+            const auto decoder_status =
+                owner.embedding_decoder_->vqec_vision_ai_ports_embdec_validate(owner.outputs_);
+            if (decoder_status.code_ != status_code::ok) {
+                return decoder_status;
+            }
+            owner.alignment_.schema_id_ = package.landmark_schema_id_;
+            owner.alignment_.schema_version_ = package.landmark_schema_version_;
+            owner.alignment_.destination_width_ = package.destination_width_;
+            owner.alignment_.destination_height_ = package.destination_height_;
+            owner.alignment_.reference_points_ = package.reference_points_;
+            const auto alignment_status =
+                vqec_vision_ai_core_imaln_validate_template(owner.alignment_);
+            if (alignment_status.code_ != status_code::ok) {
+                return alignment_status;
+            }
+            owner.preprocess_ = model.preprocess_;
+#if defined(VQEC_VISION_AI_HAS_FASTCV_ALIGNER)
+            fastcv_aligner_config aligner_config;
+            aligner_config.output_rgb_ = true;
+            aligner_config.matrix_ = package.color_matrix_;
+            aligner_config.range_ = package.color_range_;
+            aligner_config.order_ = package.channel_order_;
+            owner.aligner_ = std::make_unique<fastcv_aligner>(aligner_config);
+#else
+            return {status_code::unsupported,
+                "embedding package requires the FastCV alignment adapter"};
+#endif
+            const auto planned = vqec_vision_ai_core_mdcat_compose_inference_plan(
+                *model_source, model, owner.paths_, owner.plan_);
+            if (planned.code_ != status_code::ok) {
+                return planned;
+            }
+        } else if (package.kind_ == decoder_package_kind::anchor_distance) {
+            if (model.role_ != model_role::primary) {
+                return {status_code::invalid_argument,
+                    "anchor-distance package must be a primary model"};
+            }
             anchor_distance_decoder_config config;
             config.source_width_ = model_source->profile_.width_;
             config.source_height_ = model_source->profile_.height_;
@@ -322,6 +410,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             }
             owner.decoder_ = std::make_unique<anchor_distance_decoder>(std::move(config));
         } else {
+            if (model.role_ != model_role::primary) {
+                return {status_code::invalid_argument,
+                    "YOLO package must be a primary model"};
+            }
             yolov8_decoder_config decoder_config;
             decoder_config.source_width_ = model_source->profile_.width_;
             decoder_config.source_height_ = model_source->profile_.height_;
@@ -339,14 +431,16 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 package, binding->package_dir_);
             owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
         }
-        const auto decoder_status =
-            owner.decoder_->vqec_vision_ai_cntr_mddec_validate(owner.outputs_);
-        if (decoder_status.code_ != status_code::ok) {
-            return decoder_status;
+        if (owner.decoder_ != nullptr) {
+            const auto decoder_status =
+                owner.decoder_->vqec_vision_ai_cntr_mddec_validate(owner.outputs_);
+            if (decoder_status.code_ != status_code::ok) {
+                return decoder_status;
+            }
+            owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
+                max_frame_allocation_bytes,
+                impl.config_.preprocess_output_timeout_ns_});
         }
-        owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-            max_frame_allocation_bytes,
-            impl.config_.preprocess_output_timeout_ns_});
         impl.models_.push_back(std::move(owner));
     }
 
@@ -425,6 +519,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_decoders(
         return {status_code::invalid_state, "production platform is not prepared"};
     }
     for (const auto& model : _catalog.models_) {
+        if (model.role_ == model_role::secondary) {
+            continue;
+        }
         bool registered = false;
         for (const auto& owner : implementation_->models_) {
             if (owner.model_id_ != model.model_id_ || owner.decoder_ == nullptr) {
@@ -554,6 +651,41 @@ resolved_model_paths production_platform::vqec_vision_ai_appl_pdplt_paths(
         }
     }
     return {};
+}
+
+status production_platform::vqec_vision_ai_appl_pdplt_cascade_binding(
+    std::uint16_t _source_slot, const std::string& _model_id,
+    production_cascade_binding& _binding) {
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "production platform is not prepared"};
+    }
+    for (auto& owner : implementation_->models_) {
+        if (owner.model_id_ != _model_id || owner.role_ != model_role::secondary ||
+            std::find(owner.source_slots_.begin(), owner.source_slots_.end(), _source_slot) ==
+                owner.source_slots_.end()) {
+            continue;
+        }
+        auto* graph = owner.backend_ != nullptr ?
+            owner.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+        if (graph == nullptr || owner.embedding_decoder_ == nullptr ||
+            owner.aligner_ == nullptr) {
+            return {status_code::invalid_state,
+                "cascade model owners are incomplete"};
+        }
+        production_cascade_binding candidate;
+        candidate.graph_ = graph;
+        candidate.decoder_ = owner.embedding_decoder_.get();
+        candidate.aligner_ = owner.aligner_.get();
+        candidate.alignment_ = owner.alignment_;
+        candidate.preprocess_ = owner.preprocess_;
+        candidate.plan_ = owner.plan_;
+        candidate.outputs_ = owner.outputs_.outputs_;
+        candidate.max_output_bytes_ = owner.outputs_.max_output_bytes_;
+        _binding = std::move(candidate);
+        return {};
+    }
+    return {status_code::unsupported,
+        "source has no prepared cascade model binding"};
 }
 
 }  // namespace vqec::vision::ai

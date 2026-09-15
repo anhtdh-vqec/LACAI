@@ -2,9 +2,10 @@
 
 Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md).
 
-Status: primary decoder production selection, typed contracts and retained-frame primitive
-are source-delivered. Model execution probes pass; secondary alignment/graph composition,
-gallery recovery and attendance remain open. The primitive is not yet connected to the pump.
+Status: primary decoder selection, typed contracts, retained-frame integration, secondary
+coordinator, FastCV alignment, embedding decoder and production binding are source-delivered.
+Model execution probes pass; secondary graph lifecycle/executor invocation, golden parity,
+gallery recovery and attendance remain open.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -14,11 +15,10 @@ landmarks, then recognition consumes one aligned 112x112 crop for each admitted 
 Configuring the recognition graph as another full-frame model would lose alignment,
 repeat useless work and break source-frame correlation.
 
-The existing `secondary_inference_scheduler` bounds and prioritizes opaque tasks, but its
-request carries only an ROI and source identity. By the time a primary result is decoded,
-the corresponding RAW owner may already have been released. A numeric frame ID cannot be
-used to recover pixels. Therefore the scheduler is not yet a usable FD-to-FR composition
-boundary and production code must not look up a later preview frame as a substitute.
+The legacy `secondary_inference_scheduler` only bounds opaque queued requests and is not the
+FD-to-FR composition owner. The delivered cascade path retains the exact RAW frame before
+primary submission, then binds each landmark task to a frame-store completion ticket. A
+numeric frame ID or a later preview frame must never substitute for those retained pixels.
 
 ## Required neutral flow
 
@@ -55,16 +55,18 @@ Landmarks use a bounded typed pixel-coordinate structure with an explicit point 
 schema identity. They are not serialized into an opaque observation string. The secondary
 request now binds the landmark set (`has_landmarks_` + `observation_landmarks`), ROI, source
 key, model slot, optional track ID and, when the task needs the exact pixels, a cascade
-retention binding (`requires_retained_frame_` + `retention_ticket_`). The alignment adapter
-returns the exact tensor transform so downstream evidence can be mapped back to the source
-frame. Transform provenance is still contract-only; the alignment adapter is not implemented.
+retention binding (`requires_retained_frame_` + `retention_ticket_`). The FastCV alignment
+adapter returns the exact tensor transform so downstream evidence can be mapped back to the
+source frame. Golden crop/tensor parity remains required.
 
 ## Model-package and graph composition
 
 Each catalog model resolves its own package/artifact via the model package registry.
-Production supports explicit primary decoder selection. Catalog role/dependency handling
-for secondary embedding graphs remains open. Digest/selection validation alone is not
-proof of signed authenticity or TOCTOU-safe artifact loading.
+Production supports explicit primary decoder selection and resolves secondary embedding
+graphs through catalog roles and dependency activation. It prepares a neutral graph,
+decoder, alignment and preprocess binding; the service has not yet started or invoked that
+graph. Digest/selection validation alone is not proof of signed authenticity or TOCTOU-safe
+artifact loading.
 
 Continuous primary graphs remain in `multi_model_session`. Secondary graphs are owned by
 one cascade execution domain and invoked only from admitted primary results. They do not
@@ -155,14 +157,17 @@ An embedding package sets kind to "embedding". Required keys are decoder_contrac
 output_tensor, dimension, landmark_schema_id, landmark_schema_version, destination_width,
 destination_height and reference_points (ordered 2D points); optional keys are min_norm,
 color_matrix, color_range and channel_order. It declares the secondary model's output
-identity, the L2-normalization floor and the landmark alignment template. Production does
-not yet prepare an embedding graph or consume the template.
+identity, the L2-normalization floor and the landmark alignment template. Production now
+constructs the dependency-activated QNN graph owner, embedding decoder and FastCV aligner,
+cross-validates their catalog/package color, tensor and alignment contracts, and exposes
+them as a neutral cascade binding. Graph lifecycle and executor invocation remain open.
 
 Source geometry comes from sources assigning this model; all such sources must currently
 have equal dimensions because the production owner holds one decoder per model.
 Tensor geometry and placement come from the model catalog, not decoder.json.
 Unknown explicit kinds fail; this is not a fallback for a failed anchor-distance parse.
-This boundary enables primary FD; embedding models must still await secondary composition.
+This boundary enables primary FD and validates the production embedding binding; the latter
+still awaits graph lifecycle and executor invocation.
 
 ## Retained-frame primitive
 

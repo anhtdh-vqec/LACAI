@@ -136,12 +136,20 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/tracking>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/detection>)
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/detection>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/embedding>)
     target_link_libraries(vqec_vision_ai_production_platform PUBLIC
         vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
         vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
-        vqec_vision_ai_feature_runtime vqec_vision_ai_qualcomm
+        vqec_vision_ai_embedding_decoder vqec_vision_ai_feature_runtime
+        vqec_vision_ai_qualcomm
         nlohmann_json::nlohmann_json)
+    if(TARGET vqec_vision_ai_fastcv_aligner)
+        target_link_libraries(vqec_vision_ai_production_platform PUBLIC
+            vqec_vision_ai_fastcv_aligner)
+        target_compile_definitions(vqec_vision_ai_production_platform PRIVATE
+            VQEC_VISION_AI_HAS_FASTCV_ALIGNER=1)
+    endif()
     if(TARGET vqec_vision_ai_qtiv_renderer)
         target_link_libraries(vqec_vision_ai_production_platform PUBLIC
             vqec_vision_ai_qtiv_renderer)
