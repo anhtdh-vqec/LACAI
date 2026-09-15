@@ -272,6 +272,10 @@
     target_link_libraries(vqec_vision_ai_observation_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_observation_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME observation_contract COMMAND vqec_vision_ai_observation_test)
+    add_executable(vqec_vision_ai_embedding_test unit/vqec_vision_embedding_test.cpp)
+    target_link_libraries(vqec_vision_ai_embedding_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_embedding_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME embedding_contract COMMAND vqec_vision_ai_embedding_test)
     add_executable(vqec_vision_ai_encoder_contract_test
         unit/vqec_vision_encoder_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_encoder_contract_test PRIVATE vqec_vision_ai_core)

@@ -54,7 +54,7 @@ observation_batch vqec_vision_ai_ctest_tstgt_make_detections(std::uint64_t _epoc
     const preview_frame_key frame{0, 0, _epoch, 5, 10};
     return {frame, {640, 360},
             {{frame, 0, "person", {1, 2, 3, 4, 0xffffffffU, "person"}, 0.9F,
-              observation_quality::high, {}}}};
+              observation_quality::high, {}, {}}}};
 }
 
 }  // namespace

@@ -7,12 +7,13 @@ using namespace vqec::vision::ai;
 int main() {
     const preview_frame_key frame{2, 1, 4, 10, 20};
     const preview_geometry geometry{640, 360};
-    observation_batch batch{
-        frame, geometry,
-        {{frame, 7, "person", {10, 20, 30, 40, 0xffffffffU, "person"}, 0.9F,
-          observation_quality::high,
-          {{"human.ppe.helmet", "2", "present", 0.8F,
-            observation_quality::medium, 18, 30}}}}};
+    const observation tracked{
+        frame, 7, "person", {10, 20, 30, 40, 0xffffffffU, "person"}, 0.9F,
+        observation_quality::high,
+        {{"human.ppe.helmet", "2", "present", 0.8F,
+          observation_quality::medium, 18, 30}},
+        {}};
+    observation_batch batch{frame, geometry, {tracked}};
 
     const observation_attribute* attribute = nullptr;
     assert(vqec_vision_ai_attr_atrdr_find_current_attribute(

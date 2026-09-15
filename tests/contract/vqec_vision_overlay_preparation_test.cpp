@@ -10,7 +10,7 @@ int main() {
     observation_batch observations{
         frame, geometry,
         {{frame, 1, "person", {10, 20, 30, 40, 0xffffffffU, ""}, 0.8F,
-          observation_quality::high, {}}}};
+          observation_quality::high, {}, {}}}};
     output_gate gate;
     output_policy policy;
     policy.revision_ = 1;

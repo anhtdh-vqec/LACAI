@@ -15,6 +15,14 @@ traffic properties can be added without changing the envelope. Sensitive values 
 embeddings or face identity require a separate reviewed storage/output contract and are
 not automatically drawable or publishable.
 
+Decoder geometry such as face landmarks is carried separately as typed source-pixel
+points with a schema ID/version defining point order. Empty landmarks require empty
+schema identity; a populated set is bounded, finite and strictly inside source geometry.
+Model-package decoder configuration enforces an exact point count such as five rather
+than relying on a model name. Embeddings use the separate `embedding_result` contract,
+which binds source frame, track and model provenance and validates dimension, finite
+values and optional L2-normalization claims.
+
 Observed and expiry timestamps are in the producer's declared source clock. Expiry must
 not precede observation and must be finite; `UINT64_MAX` is not a permanent-value
 shortcut. `unknown` quality is allowed and must not be treated as a positive

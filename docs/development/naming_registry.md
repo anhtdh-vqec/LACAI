@@ -126,6 +126,11 @@ file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation
 Test `tests/unit/vqec_vision_observation_test.cpp`, file_id `ovtst`, prefix
 `vqec_vision_ai_unit_ovtst_`; main retains language exception.
 
+Embedding contract: `include/vqec/vision/ai/contracts/vqec_vision_embedding.hpp` and
+`src/core/vqec_vision_embedding.cpp`, file_id `embct`, prefix
+`vqec_vision_ai_core_embct_`. Test `tests/unit/vqec_vision_embedding_test.cpp`, file_id
+`embtst`; main retains the language exception.
+
 Encoder input validation: `src/core/vqec_vision_encoder_contract.cpp`, file_id `encct`,
 prefix `vqec_vision_ai_core_encct_`; declarations in encoder_backend contract header.
 Test `tests/unit/vqec_vision_encoder_contract_test.cpp`, file_id `ectst`, prefix

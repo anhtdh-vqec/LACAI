@@ -21,7 +21,7 @@ public:
         _observations = {_expected_frame, {640, 360},
                          {{_expected_frame, 0, "person",
                            {1, 2, 3, 4, 0xffffffffU, "person"}, 0.9F,
-                           observation_quality::high, {}}}};
+                           observation_quality::high, {}, {}}}};
         return {};
     }
 };

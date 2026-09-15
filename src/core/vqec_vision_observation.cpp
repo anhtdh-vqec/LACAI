@@ -50,6 +50,24 @@ status vqec_vision_ai_core_obval_validate_observations(
                 }
             }
         }
+        const auto& landmarks = item.landmarks_;
+        if ((!landmarks.points_.empty() &&
+                (!vqec_vision_ai_core_obval_valid_identifier(landmarks.schema_id_) ||
+                    !vqec_vision_ai_core_obval_valid_identifier(
+                        landmarks.schema_version_))) ||
+            (landmarks.points_.empty() &&
+                (!landmarks.schema_id_.empty() || !landmarks.schema_version_.empty())) ||
+            landmarks.points_.size() > observation_limits::g_max_landmark_points) {
+            return {status_code::invalid_argument, "invalid observation landmark identity"};
+        }
+        for (const auto& point : landmarks.points_) {
+            if (!std::isfinite(point.x_) || !std::isfinite(point.y_) || point.x_ < 0.0F ||
+                point.y_ < 0.0F || point.x_ >= _batch.geometry_.width_ ||
+                point.y_ >= _batch.geometry_.height_) {
+                return {status_code::invalid_argument,
+                    "observation landmark is outside source geometry"};
+            }
+        }
         for (std::size_t attribute_index = 0;
              attribute_index < item.attributes_.size(); ++attribute_index) {
             const auto& attribute = item.attributes_[attribute_index];

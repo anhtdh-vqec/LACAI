@@ -1,7 +1,8 @@
 # Cascade inference for detection and embeddings
 
-Status: contract and composition design; model execution probes are complete, while the
-frame-retention, landmark and secondary-preprocess implementation remains open.
+Status: contract and composition design; model execution probes plus neutral typed
+landmark/embedding contracts are complete, while decoder production, frame retention and
+secondary preprocessing remain open.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -86,8 +87,8 @@ biometric outputs are never committed to this repository.
 
 ## Implementation sequence
 
-1. Add typed landmark and embedding contracts with strict count, finite-value, geometry,
-   identity and byte bounds; add golden contract tests.
+1. **Delivered:** typed landmark and embedding contracts validate count, finite values,
+   source geometry, identity and configured size ceilings, with contract tests.
 2. Add a package registry so each model catalog entry resolves its own package/artifact;
    remove the single-package production assumption.
 3. Implement a package-configured anchor-distance detector decoder supporting typed

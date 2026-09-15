@@ -55,7 +55,7 @@ int main() {
     observation_batch detections{
         frame, geometry,
         {{frame, 0, "person", {10, 10, 20, 20, 0xffffffffU, "person"}, 0.9F,
-          observation_quality::high, {}}}};
+          observation_quality::high, {}, {}}}};
     observation_batch tracked;
     assert(tracker.vqec_vision_ai_ports_trker_update_tracks(
                detections, 100, false, tracked).code_ == status_code::ok);

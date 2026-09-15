@@ -15,6 +15,7 @@ inline constexpr std::size_t g_max_observations = 256;
 inline constexpr std::size_t g_max_attributes = 32;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
 inline constexpr std::size_t g_max_attribute_value_bytes = 512;
+inline constexpr std::size_t g_max_landmark_points = 128;
 inline constexpr float g_min_confidence = 0.0F;
 inline constexpr float g_max_confidence = 1.0F;
 }  // namespace observation_limits
@@ -31,6 +32,19 @@ struct observation_attribute {
     std::uint64_t expires_at_ns_{0};
 };
 
+struct landmark_point {
+    float x_{0.0F};
+    float y_{0.0F};
+};
+
+// Typed source-pixel landmarks produced by a decoder. The schema identifies ordering
+// (for example, a five-point face layout); model packages enforce their exact count.
+struct observation_landmarks {
+    std::string schema_id_;
+    std::string schema_version_;
+    std::vector<landmark_point> points_;
+};
+
 struct observation {
     preview_frame_key frame_;
     std::uint64_t track_id_{0};
@@ -39,6 +53,7 @@ struct observation {
     float confidence_{0.0F};
     observation_quality quality_{observation_quality::unknown};
     std::vector<observation_attribute> attributes_;
+    observation_landmarks landmarks_;
 };
 
 struct observation_batch {

@@ -12,12 +12,30 @@ int main() {
     };
     const preview_frame_key frame{0, 0, 1, 10, 20};
     const preview_geometry geometry{640, 360};
-    observation_batch batch{frame, geometry, {
-        {frame, 1, "person", {10, 20, 30, 40, 0xffffffff, "person"}, 0.9F,
-            observation_quality::high, {{"human.age", "1", "adult", 0.8F,
-                observation_quality::medium, 20, 100}}}}};
+    observation item;
+    item.frame_ = frame;
+    item.track_id_ = 1;
+    item.class_id_ = "person";
+    item.box_ = {10, 20, 30, 40, 0xffffffff, "person"};
+    item.confidence_ = 0.9F;
+    item.quality_ = observation_quality::high;
+    item.attributes_.push_back({"human.age", "1", "adult", 0.8F,
+        observation_quality::medium, 20, 100});
+    observation_batch batch{frame, geometry, {item}};
     check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
         status_code::ok);
+    batch.observations_[0].landmarks_ = {
+        "human.face.landmarks5", "1", {{20.0F, 30.0F}, {30.0F, 30.0F}}};
+    check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
+        status_code::ok);
+    batch.observations_[0].landmarks_.points_[0].x_ = 640.0F;
+    check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
+        status_code::invalid_argument);
+    batch.observations_[0].landmarks_.points_[0].x_ = 20.0F;
+    batch.observations_[0].landmarks_.schema_id_.clear();
+    check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
+        status_code::invalid_argument);
+    batch.observations_[0].landmarks_ = {};
     batch.observations_[0].confidence_ = 1.1F;
     check(vqec_vision_ai_core_obval_validate_batch(batch, frame, geometry).code_ ==
         status_code::invalid_argument);

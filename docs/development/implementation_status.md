@@ -75,7 +75,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 
 | Area / source owner | Delivered source behavior | Remaining boundary |
 |---|---|---|
-| `src/core/`, `include/vqec/vision/ai/contracts/` | Status, explicit frame/tensor metadata, inference/source-binding validation, source-frame-correlated submission ledger, observation/feature-event validation, output policy, preview and encoder contracts | Concrete decoder/tracker/feature algorithms; device completion evidence |
+| `src/core/`, `include/vqec/vision/ai/contracts/` | Status, explicit frame/tensor metadata, inference/source-binding validation, source-frame-correlated submission ledger, typed landmark/embedding and observation/feature-event validation, output policy, preview and encoder contracts | Additional decoder/tracker/feature algorithms; device completion evidence |
 | `include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp` | Neutral model-decoder port keeps model output identity and expected frame key at the tensor-to-observation boundary; contract test source is registered in CMake | Concrete detector decoders, model-specific geometry/NMS and tensor-to-observation implementation |
 | `src/perception/detection/vqec_vision_model_decode_stage.cpp` | Transactional portable decoder stage validates decoded observations, geometry binding and exception containment before publication; the package-configured YOLOv8 decoder is live on QCS6490 | Anchor-distance/landmark decoder and additional model contracts |
 | `src/perception/detection/vqec_vision_model_decoder_registry.cpp` | Bounded activation-time mapping from catalog decoder contracts to non-owning decoder ports; validates output-manifest identity through the selected decoder | Trusted decoder loading, lifecycle ownership and concrete model implementations |
@@ -159,13 +159,14 @@ selecting an admitted path.
 - JSON loaders require locally provided nlohmann_json 3.12.0; digest requires OpenSSL 3.0
   Crypto. FW ring requires an existing version-pinned SDK target. CMake does not acquire a
   sibling source tree or download these dependencies.
-- The optional `vqec_vision_ai_manifest_check` executable checks metadata only. There is
-  no `vqec_ai_vision_applications` service entrypoint/target, installed IPK or active CI workflow.
+- The optional `vqec_vision_ai_manifest_check` executable checks metadata only. The required
+  `vqec_ai_vision_applications` service target has reference and Qualcomm production
+  composition; installed IPK packaging and an active CI workflow remain open.
 - Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
   fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
   memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
-  The configured AArch64 targets cross-build; 47 neutral tests pass under SDK QEMU and
-  all 65 binaries from the expanded adapter configuration pass natively on QCS6490.
+  The current configured AArch64 targets cross-build and 92 tests pass through the SDK
+  QEMU wrapper. Historical board runs include 65 expanded adapter binaries on QCS6490.
 - Golden, replay and live FW/model integration suites remain planned scaffolding. The
   executed board smoke result covers existing unit/contract binaries only.
 - `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include
@@ -181,9 +182,10 @@ selecting an admitted path.
    graph and retention-domain owners; the neutral runtime factory builds admitted
    sessions/perception/feature pipelines and the reference backend runs them end to end,
    while the trusted resolver, real platform owner factories and measured admission remain.
-2. Concrete tensor decoders, tracking/attributes and the 13 commercial features/traffic.
-   Perception/features and alternate vendor directories currently contain READMEs only;
-   the service harness registers development fixtures, not usecase packages.
+2. Additional tensor decoders, production tracking/attributes and the commercial
+   features/traffic. The package-configured YOLOv8 decoder is live; typed landmarks and
+   embeddings are contract-delivered, while the anchor-distance face decoder, cascade and
+   attendance package remain open.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop
    and safe ring startup/recovery to complete preview end to end. Feature events can be
    authorized and delivered to a bound sink; bounded durable queue/retry and FW transport
@@ -204,6 +206,6 @@ Application composition wires admitted sessions to supervisor activation, progre
 stop, with one pending tensor/report slot and session-derived recovery reporting. See
 [composition contract](../architecture/application_composition.md). `runtime_executor`
 now drives that composition, routes results through the per-source perception/feature
-pipeline, and backs the required `vqec_vision_applications` executable with a device-free
+pipeline, and backs the required `vqec_ai_vision_applications` executable with a device-free
 reference backend. See [runtime executor](../architecture/runtime_executor.md). Live
 FW/model execution, real package registration and owner review remain pending.

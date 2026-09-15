@@ -70,7 +70,7 @@ observation_batch vqec_vision_ai_ctest_fsct_make_tracked(std::uint64_t _epoch) {
     const preview_frame_key frame{1, 0, _epoch, 5, 20};
     return {frame, {640, 360},
             {{frame, 1, "person", {1, 2, 3, 4, 0xffffffffU, "person"}, 0.9F,
-              observation_quality::high, {}}}};
+              observation_quality::high, {}, {}}}};
 }
 
 }  // namespace
