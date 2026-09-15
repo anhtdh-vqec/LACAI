@@ -20,6 +20,7 @@ capability từ SDK/plugin đã cài. Quy tắc evidence: [documentation style](
 | Cascade coordinator | Exact-frame alignment + sync embedding logic tests | Compatibility combined path `.99` | Post-fix multi-face + async worker/completion |
 | Cascade frame store | Pump/session/executor integration + logic tests | Native synthetic lifetime/ticket test | Dependent hardware completion + epoch recovery |
 | Zvec index | C API adapter, default build | Real library synthetic search/mutation test | Durable gallery/recovery/load benchmark |
+| Recognition matching policy | Subject aggregation + configurable threshold/margin | eSDK logic test | Feature processor wiring, calibration and temporal state |
 | QTI overlay/H264/ring | Production compatibility path | Person 30 encoded FPS | Released FW conformance and generic output ports |
 | FD→embedding→attendance | Source-composed through typed embedding | FD→embedding compatibility smoke `.99`; attendance absent | Golden/released-FW cascade, enrollment, matching, recovery, events |
 | Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |

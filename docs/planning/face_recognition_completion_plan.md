@@ -285,6 +285,11 @@ identity mồ côi; không search khi revision mismatch. Có backup/restore/rebu
 
 ## 13. M8 — Matching và trạng thái nhận diện
 
+**Tiến độ M8 (2026-09-15):** neutral recognition policy đã tổng hợp candidate theo opaque
+`subject_ref`, áp dụng ngưỡng similarity và margin cấu hình, và phát known/unknown/ambiguous.
+Search revision/backend failure vẫn là trạng thái riêng; enrollment, temporal track state,
+quality/liveness và calibration trên dữ liệu thật còn mở.
+
 - [ ] Search pinned model/version/gallery revision qua neutral port; Zvec là candidate retrieval.
 - [ ] Aggregate nhiều template thành subject candidate; top-1/top-2 margin so giữa hai subject
   khác nhau, không giữa hai template của cùng người. Lấy đủ candidates để không bỏ sót runner-up.

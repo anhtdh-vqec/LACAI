@@ -14,6 +14,9 @@ Versioned face/body embedding index boundary for recognition and retrieval workf
   compare-and-swap revisions.
 - Search candidates include their opaque `subject_ref` alongside `record_id` and similarity;
   consumers may aggregate templates by subject without treating a record ID as identity.
+- The model-agnostic recognition policy aggregates candidate templates by subject and emits
+  configurable known/unknown/ambiguous decisions. Backend failures stay unavailable and are
+  never silently converted to unknown.
 - Zvec replaces the earlier FAISS plan; vendor code lives in `src/adapters/zvec`.
 - Zvec is a derived optional backend. It is enabled only with an externally supplied,
   version-reviewed C API installation; the collection path is deployment configuration,

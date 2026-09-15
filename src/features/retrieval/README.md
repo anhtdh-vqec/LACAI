@@ -3,7 +3,8 @@
 Compute/state: attributes/embedding + track entity refs + external search index.
 
 - **Feature ID:** `retrieval`
-- **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Status:** matching policy contract delivered; processor, configuration schema and
+  entitlement are still pending
 - **Naming registry:** `retr`
 - **Acceptance focus:** search records/results; recall@k, latency, authorization
 
@@ -15,6 +16,9 @@ Compute/state: attributes/embedding + track entity refs + external search index.
 ## Limits and next work
 
 - Requires a compiled-in factory registered for its `processor_contract` plus a bounded configuration schema.
+- The neutral policy groups index candidates by opaque subject, applies configured similarity
+  and cross-subject margin, and emits known/unknown/ambiguous. It does not own gallery
+  persistence, temporal track state or authorization.
 - No entitlement, configuration values, artifact paths or measured KPIs are defined here.
 
 ## See also

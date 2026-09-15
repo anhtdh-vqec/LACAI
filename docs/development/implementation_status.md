@@ -56,6 +56,12 @@ That post-fix scene did not exercise multiple accepted faces, so live multi-face
 remains open. Process CPU measured 29.53% over 15 seconds with encoded output disabled;
 this compatibility-source sample is not a production acceptance result.
 
+The neutral recognition policy now aggregates multiple index records by opaque subject,
+applies configured minimum similarity and cross-subject margin, and emits deterministic
+known/unknown/ambiguous decisions. Backend failure remains an unavailable condition owned
+by the caller. Feature processor wiring, calibration, temporal track state and attendance
+are still open.
+
 ## Historical evidence detail
 
 Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
