@@ -131,6 +131,13 @@ Embedding contract: `include/vqec/vision/ai/contracts/vqec_vision_embedding.hpp`
 `vqec_vision_ai_core_embct_`. Test `tests/unit/vqec_vision_embedding_test.cpp`, file_id
 `embtst`; main retains the language exception.
 
+Embedding index port: `include/vqec/vision/ai/ports/vqec_vision_embedding_index.hpp`
+declares interface prefix `vqec_vision_ai_ports_emidx_`. Exact backend
+`src/perception/embedding/vqec_vision_exact_embedding_index.cpp` uses file_id `exidx`,
+prefix `vqec_vision_ai_embed_exidx_`. Test
+`tests/unit/vqec_vision_exact_embedding_index_test.cpp` uses file_id `exitst`, prefix
+`vqec_vision_ai_unit_exitst_`; `main` retains the language exception.
+
 Encoder input validation: `src/core/vqec_vision_encoder_contract.cpp`, file_id `encct`,
 prefix `vqec_vision_ai_core_encct_`; declarations in encoder_backend contract header.
 Test `tests/unit/vqec_vision_encoder_contract_test.cpp`, file_id `ectst`, prefix
