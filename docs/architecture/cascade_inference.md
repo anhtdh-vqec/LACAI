@@ -1,5 +1,7 @@
 # Cascade inference for detection and embeddings
 
+Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md).
+
 Status: contract and composition design; model execution probes plus neutral typed
 landmark/embedding contracts are complete, while decoder production, frame retention and
 secondary preprocessing remain open.
