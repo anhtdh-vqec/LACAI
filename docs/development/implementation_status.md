@@ -225,3 +225,7 @@ explicit decoder.json kind and exact catalog contract. Geometry/placement bind t
 assigned source/catalog; shared models with unequal source geometry are rejected.
 The schema is config/schemas/anchor_distance_decoder.schema.json. Live primary FD and
 secondary FR still require model-package deployment/golden acceptance.
+
+Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
+unique completion tickets and byte accounting through drain. Logic tests pass eSDK QEMU
+and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration remains open.

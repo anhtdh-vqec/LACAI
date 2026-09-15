@@ -435,3 +435,7 @@ Anchor-distance decoder: `src/perception/detection/vqec_vision_anchor_distance_d
 file_id `addcd`, prefix `vqec_vision_ai_detec_addcd_`. Test
 `tests/unit/vqec_vision_anchor_distance_decoder_test.cpp`, file_id `addtst`,
 prefix `vqec_vision_ai_unit_addtst_`.
+
+Cascade frame store: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
+file_id `cfstr`, prefix `vqec_vision_ai_sched_cfstr_` (header-only).
+Test `tests/unit/vqec_vision_cascade_frame_store_test.cpp`, file_id `cfst`.

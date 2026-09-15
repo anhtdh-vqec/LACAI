@@ -27,3 +27,7 @@ Allocation-free per-source model cadence selection and bounded future job schedu
 ## See also
 
 - [Model cadence](../../../docs/architecture/model_cadence.md)
+
+`vqec_vision_cascade_frame_store.hpp` retains primary frames for dependent tasks.
+Retire prevents new tasks; explicit completion drains retained slots. Worker frame owners
+must survive actual hardware reads. See cascade_inference.md for the lifecycle contract.

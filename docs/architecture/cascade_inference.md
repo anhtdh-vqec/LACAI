@@ -133,3 +133,14 @@ Tensor geometry and placement come from the model catalog, not decoder.json.
 Unknown explicit kinds fail. Packages without kind retain the existing YOLO compatibility
 format; this is not a fallback for a failed anchor-distance parse.
 This boundary enables primary FD; embedding models must still await secondary composition.
+
+## Retained-frame primitive
+
+The serial cascade_frame_store uses activation-sized frame/task storage and a byte budget.
+Exact camera/channel/epoch/frame/PTS keys prevent cross-frame lookup. Acquire returns an
+owned raw_frame and a unique completion ticket; workers must retain that copy until actual
+hardware completion. Retire closes admission; outstanding tickets keep the slot charged.
+Completion tickets cannot be replayed within the store lifetime. No automatic timeout or
+epoch eviction exists. Callers retire old keys and drain their jobs explicitly.
+The store must outlive orchestration; destroying it does not cancel submitted hardware,
+whose workers must still own their frame copies. This primitive is not yet pump-integrated.

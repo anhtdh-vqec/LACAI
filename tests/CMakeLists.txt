@@ -675,3 +675,8 @@ if(VQEC_VISION_AI_ENABLE_ZVEC)
         COMMAND vqec_vision_ai_zvec_embedding_index_test
             "${CMAKE_CURRENT_BINARY_DIR}/zvec_synthetic_gallery")
 endif()
+
+add_executable(vqec_vision_ai_cascade_frame_store_test unit/vqec_vision_cascade_frame_store_test.cpp)
+target_link_libraries(vqec_vision_ai_cascade_frame_store_test PRIVATE vqec_vision_ai_scheduler)
+set_target_properties(vqec_vision_ai_cascade_frame_store_test PROPERTIES CXX_EXTENSIONS OFF)
+add_test(NAME cascade_frame_retention COMMAND vqec_vision_ai_cascade_frame_store_test)
