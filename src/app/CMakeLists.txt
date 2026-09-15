@@ -171,7 +171,8 @@ endif()
 
 # Required external service executable. Built only when the JSON loaders and the
 # device-free reference backend are available; otherwise there is no runnable harness.
-if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config AND
+if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference AND
+   TARGET vqec_vision_ai_deployment_config AND
    TARGET vqec_vision_ai_model_catalog_config AND TARGET vqec_vision_ai_feature_catalog_config)
     add_executable(vqec_ai_vision_applications
         vqec_vision_service_main.cpp

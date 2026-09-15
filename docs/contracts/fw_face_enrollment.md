@@ -49,7 +49,11 @@ The adapter resolves a configured trusted FW bus name to its unique sender at st
 All four methods require that exact sender; FW reconnection requires rebinding/restart.
 No caller-supplied identity field grants authorization. RPC timeout and callback budget
 are mandatory validated deployment settings. This authenticates the configured peer;
-feature entitlement and output-name authorization remain separate gates.
+feature entitlement and output-name authorization remain separate gates. The service
+requires `--fr-feature-id` and `--fr-identity-attribute` when FR is enabled and installs
+a policy rule for each deployed source. A recognized subject is labelled only after that
+scope is authorized at render time; a denied identity scope leaves the detector box
+without a subject label.
 
 - request IDs and subject/source references are bounded UTF-8 identifiers; commands are
   idempotent only when the same request ID and immutable payload are repeated;
@@ -63,5 +67,6 @@ feature entitlement and output-name authorization remain separate gates.
 - no method carries image bytes, raw embeddings, filesystem paths, or credentials.
 
 The current controller implements the bounded lifecycle and revision checks in-process.
-Durable encrypted storage, peer authentication, and the concrete DBus object/interface
+The optional GIO DBus adapter implements the concrete object/interface and authenticates
+the configured FW peer at startup. Durable encrypted storage and peer-name provisioning
 remain platform integration work; they must not bypass this port.

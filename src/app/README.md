@@ -41,7 +41,11 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 
 - Decoder implementations are borrowed; tracker ownership is per binding.
 - Multi-model features still need an explicit bounded temporal join.
-- Authenticated FW registry RPC and complete authorization-scope output binding remain open.
+- Authenticated FW registry RPC and deployment-time peer-name provisioning remain open.
+- FR service mode requires explicit `--fr-feature-id` and
+  `--fr-identity-attribute`; recognized labels are emitted only when the output gate
+  authorizes that source/feature/attribute scope. Enrollment control is optional GIO
+  D-Bus and never carries image bytes or embeddings.
 - The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
   interoperability, hardware-completion evidence and long-run performance remain open.
 - The current production service loop is serialized. The `.48` integration run sustained

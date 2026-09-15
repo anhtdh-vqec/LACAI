@@ -385,6 +385,8 @@ struct parsed_arguments {
     bool fr_margin_set{false};
     bool fr_templates_set{false};
     bool fr_top_k_set{false};
+    std::string fr_feature_id;
+    std::string fr_identity_attribute;
     bool enrollment_dbus{false};
     bool enrollment_dbus_session_bus{false};
     std::string enrollment_peer_name;
@@ -467,6 +469,10 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.fr_top_k = static_cast<std::size_t>(
                 std::strtoull(_argv[++index], nullptr, 10));
             _args.fr_top_k_set = true;
+        } else if (option == "--fr-feature-id" && has_value) {
+            _args.fr_feature_id = _argv[++index];
+        } else if (option == "--fr-identity-attribute" && has_value) {
+            _args.fr_identity_attribute = _argv[++index];
         } else if (option == "--enrollment-dbus") {
             _args.enrollment_dbus = true;
         } else if (option == "--enrollment-dbus-session") {
@@ -554,6 +560,7 @@ int main(int _argc, char** _argv) {
             "--output-interlace-mode <gst-interlace-mode>] "
             "[--fr-gallery-path <path> --fr-min-similarity <0..1> "
             "--fr-subject-margin <0..1> --fr-max-templates <n> --fr-top-k <n> "
+            "--fr-feature-id <id> --fr-identity-attribute <id> "
             "[--enrollment-dbus|--enrollment-dbus-session]]\n");
         return 2;
     }
@@ -573,13 +580,16 @@ int main(int _argc, char** _argv) {
     }
     const bool has_fr_arguments = !args.fr_gallery_path.empty() || args.fr_similarity_set ||
         args.fr_margin_set || args.fr_templates_set || args.fr_top_k_set ||
+        !args.fr_feature_id.empty() || !args.fr_identity_attribute.empty() ||
         args.enrollment_dbus;
     const bool has_complete_fr_arguments = !args.fr_gallery_path.empty() &&
         args.fr_similarity_set && args.fr_margin_set && args.fr_templates_set &&
-        args.fr_top_k_set;
+        args.fr_top_k_set && !args.fr_feature_id.empty() &&
+        !args.fr_identity_attribute.empty();
     if (has_fr_arguments && !has_complete_fr_arguments) {
         std::fprintf(stderr,
-            "FR requires gallery path, similarity, margin, max templates and top-k\n");
+            "FR requires gallery path, similarity, margin, max templates, top-k, feature id "
+            "and identity attribute\n");
         return 1;
     }
     model_package_registry model_packages;
@@ -863,6 +873,7 @@ int main(int _argc, char** _argv) {
     feature_wiring.catalog_revision_ = catalog.revision_;
     feature_wiring.source_count_ = activation.source_count_;
     bool has_feature_wiring = false;
+    bool output_policy_applied = false;
     if (!features.features_.empty()) {
         const auto configured = feature_manager.vqec_vision_ai_ftmgr_famgr_configure(
             features, catalog, deployment);
@@ -922,6 +933,15 @@ int main(int _argc, char** _argv) {
                 rule.attributes_.push_back(attribute_schema_id);
                 policy.rules_.push_back(std::move(rule));
             }
+            if (has_complete_fr_arguments) {
+                for (const auto& source : deployment.sources_) {
+                    output_scope_rule rule;
+                    rule.source_id_ = source.source_id_;
+                    rule.feature_id_ = args.fr_feature_id;
+                    rule.attributes_.push_back(args.fr_identity_attribute);
+                    policy.rules_.push_back(std::move(rule));
+                }
+            }
             const auto applied =
                 output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
             if (applied.code_ != status_code::ok) {
@@ -929,6 +949,7 @@ int main(int _argc, char** _argv) {
                     static_cast<int>(applied.code_), applied.message_.c_str());
                 return 1;
             }
+            output_policy_applied = true;
             std::array<std::array<std::vector<feature_stage*>,
                 deployment_limits::g_max_models_per_source>,
                 deployment_limits::g_max_sources> stages_by_slot{};
@@ -973,6 +994,28 @@ int main(int _argc, char** _argv) {
                 }
             }
         }
+    }
+
+    if (has_complete_fr_arguments && !output_policy_applied) {
+        output_policy policy;
+        policy.revision_ = service_harness::g_policy_revision;
+        policy.not_before_ns_ = 0;
+        policy.expires_ns_ = service_harness::g_policy_expiry_ns;
+        for (const auto& source : deployment.sources_) {
+            output_scope_rule rule;
+            rule.source_id_ = source.source_id_;
+            rule.feature_id_ = args.fr_feature_id;
+            rule.attributes_.push_back(args.fr_identity_attribute);
+            policy.rules_.push_back(std::move(rule));
+        }
+        const auto applied =
+            output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
+        if (applied.code_ != status_code::ok) {
+            std::fprintf(stderr, "FR output policy apply failed (%d): %s\n",
+                static_cast<int>(applied.code_), applied.message_.c_str());
+            return 1;
+        }
+        output_policy_applied = true;
     }
 
     if (has_feature_wiring) {
@@ -1225,11 +1268,23 @@ int main(int _argc, char** _argv) {
                     } else {
                         const auto& owner = cascade_owners[taken.source_index_];
                         if (owner.root_model_slot_ < deployment_limits::g_max_models_per_source) {
-                            const auto labelled = recognition.vqec_vision_ai_embed_rcses_apply_labels(
-                                recognition_results, tracked[owner.root_model_slot_]);
-                            if (labelled.code_ != status_code::ok) {
-                                std::fprintf(stderr, "FR label correlation failed (%d): %s\n",
-                                    static_cast<int>(labelled.code_), labelled.message_.c_str());
+                            const output_authorization identity_scope{
+                                service_harness::g_policy_revision,
+                                deployment.sources_[taken.source_index_].source_id_,
+                                args.fr_feature_id, {args.fr_identity_attribute}};
+                            const auto authorized = output_policy_gate
+                                .vqec_vision_ai_core_otgat_authorize(identity_scope, now_ns);
+                            if (authorized.code_ != status_code::ok) {
+                                std::fprintf(stderr, "FR identity output denied (%d): %s\n",
+                                    static_cast<int>(authorized.code_), authorized.message_.c_str());
+                            } else {
+                                const auto labelled = recognition
+                                    .vqec_vision_ai_embed_rcses_apply_labels(
+                                        recognition_results, tracked[owner.root_model_slot_]);
+                                if (labelled.code_ != status_code::ok) {
+                                    std::fprintf(stderr, "FR label correlation failed (%d): %s\n",
+                                        static_cast<int>(labelled.code_), labelled.message_.c_str());
+                                }
                             }
                         }
                     }
