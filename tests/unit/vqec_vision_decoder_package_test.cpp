@@ -2,6 +2,7 @@
 // key rejection, type/range validation, cross-stage tensor uniqueness and failure
 // preservation.
 
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -173,6 +174,25 @@ int main() {
         status_code::invalid_argument);
     check(yoke.decoder_contract_ == preserved.decoder_contract_ &&
         yoke.box_tensor_ == preserved.box_tensor_ && yoke.class_count_ == 1U);
+
+    // The shipped SCRFD package must satisfy the strict loader it is deployed through.
+#if defined(VQEC_VISION_AI_MODEL_MANIFEST_DIR)
+    {
+        std::ifstream scrfd(std::string(VQEC_VISION_AI_MODEL_MANIFEST_DIR) +
+            "/scrfd_500m_bnkps/decoder.json");
+        if (!scrfd.is_open()) {
+            ++failures;
+        } else {
+            decoder_package shipped;
+            check(vqec_vision_ai_mreg_dcpkg_load(scrfd, shipped).code_ == status_code::ok);
+            check(shipped.kind_ == decoder_package_kind::anchor_distance);
+            check(shipped.decoder_contract_ == "face.detect.scrfd");
+            check(shipped.landmark_count_ == 5U && shipped.stages_.size() == 3U);
+            check(shipped.stages_[0].score_tensor_ == "score_8" &&
+                shipped.stages_[2].stride_ == 32U);
+        }
+    }
+#endif
 
     std::cout << "decoder package loader failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;

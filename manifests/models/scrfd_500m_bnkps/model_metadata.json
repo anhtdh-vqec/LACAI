@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "model_id": "scrfd_500m_bnkps",
+  "model_version": "1.0",
+  "target_id": "qcs6490",
+  "graph_name": "scrfd_500m_bnkps_w8a16",
+  "artifact_ref": "scrfd_500m_bnkps_w8a16.so",
+  "artifact_sha256": "2f315dcd1996b0280c162e9bf79f0e1e64123675d4be2553ef698328dea103d9",
+  "artifact_bytes": 1075944,
+  "io_manifest_ref": "io_manifest.json",
+  "preprocess_ref": "preprocess.json",
+  "decoder_contract": "face.detect.scrfd",
+  "decoder_ref": "decoder.json",
+  "source": {
+    "model_name": "scrfd_500m_bnkps_w8a16",
+    "quantization": "W8A16",
+    "generator": "qnn-model-lib-generator",
+    "runtime": "QAIRT 2.43.0 on QCS6490 (board /usr/lib/libQnnHtp.so)",
+    "probe": "LACAI-owned synchronous QNN engine, zero-valued input, 2026-09-15",
+    "notes": "Model binary stays outside Git; the digest above is metadata only and is not signature verification."
+  }
+}

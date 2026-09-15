@@ -268,6 +268,8 @@
             unit/vqec_vision_decoder_package_test.cpp)
         target_link_libraries(vqec_vision_ai_decoder_package_test
             PRIVATE vqec_vision_ai_decoder_package)
+        target_compile_definitions(vqec_vision_ai_decoder_package_test PRIVATE
+            VQEC_VISION_AI_MODEL_MANIFEST_DIR="${CMAKE_SOURCE_DIR}/manifests/models")
         set_target_properties(vqec_vision_ai_decoder_package_test
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME decoder_package_loading

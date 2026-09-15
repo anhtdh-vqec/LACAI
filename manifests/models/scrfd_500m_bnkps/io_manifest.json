@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "model_id": "scrfd_500m_bnkps",
+  "inputs": [
+    {
+      "name": "input_1",
+      "rank": 4,
+      "dims": [1, 640, 640, 3],
+      "layout": "nhwc",
+      "dtype": "uint16",
+      "quantization": { "scale": 3.03988327e-05, "zero_point": 32768 },
+      "source_document": "QNN runtime-reported ABI, QCS6490 HTP board probe 2026-09-15"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "score_8",
+      "rank": 3,
+      "dims": [1, 12800, 1],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 1.52587891e-05, "zero_point": 0 }
+    },
+    {
+      "name": "score_16",
+      "rank": 3,
+      "dims": [1, 3200, 1],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 1.52587891e-05, "zero_point": 0 }
+    },
+    {
+      "name": "score_32",
+      "rank": 3,
+      "dims": [1, 800, 1],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 1.52587891e-05, "zero_point": 0 }
+    },
+    {
+      "name": "bbox_8",
+      "rank": 3,
+      "dims": [1, 12800, 4],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 7.81242052e-05, "zero_point": 1722 }
+    },
+    {
+      "name": "bbox_16",
+      "rank": 3,
+      "dims": [1, 3200, 4],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 9.55337309e-05, "zero_point": 0 }
+    },
+    {
+      "name": "bbox_32",
+      "rank": 3,
+      "dims": [1, 800, 4],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 8.25099996e-05, "zero_point": 20 }
+    },
+    {
+      "name": "kps_8",
+      "rank": 3,
+      "dims": [1, 12800, 10],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 9.88173124e-05, "zero_point": 31030 }
+    },
+    {
+      "name": "kps_16",
+      "rank": 3,
+      "dims": [1, 3200, 10],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 0.000124453567, "zero_point": 30927 }
+    },
+    {
+      "name": "kps_32",
+      "rank": 3,
+      "dims": [1, 800, 10],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 0.000104254454, "zero_point": 32151 }
+    }
+  ],
+  "notes": {
+    "anchors": [12800, 3200, 800],
+    "derivation": "80*80*2 + 40*40*2 + 20*20*2, two anchors per grid cell at strides 8/16/32",
+    "score": "one channel per anchor; sigmoid probability before/after dequantization must be confirmed against the reference",
+    "bbox": "left/top/right/bottom distances in stride units; the decoder multiplies by stride before inverse letterbox",
+    "kps": "5 (x,y) landmark offsets in stride units; ordering (eye/nose/mouth) must be confirmed against the reference",
+    "dfl": "not present; SCRFD regresses distances directly",
+    "nms": "absent in graph; the decoder thresholds and runs per-class NMS"
+  }
+}

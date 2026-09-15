@@ -1,0 +1,41 @@
+{
+  "kind": "anchor_distance",
+  "decoder_contract": "face.detect.scrfd",
+  "class_id": "face",
+  "landmark_schema_id": "face.5pt",
+  "landmark_schema_version": "1",
+  "landmark_count": 5,
+  "anchor_offset_cells": 0.5,
+  "confidence_threshold": 0.5,
+  "iou_threshold": 0.4,
+  "max_candidates": 4096,
+  "stages": [
+    {
+      "score_tensor": "score_8",
+      "box_tensor": "bbox_8",
+      "landmark_tensor": "kps_8",
+      "stride": 8,
+      "grid_width": 80,
+      "grid_height": 80,
+      "anchors_per_cell": 2
+    },
+    {
+      "score_tensor": "score_16",
+      "box_tensor": "bbox_16",
+      "landmark_tensor": "kps_16",
+      "stride": 16,
+      "grid_width": 40,
+      "grid_height": 40,
+      "anchors_per_cell": 2
+    },
+    {
+      "score_tensor": "score_32",
+      "box_tensor": "bbox_32",
+      "landmark_tensor": "kps_32",
+      "stride": 32,
+      "grid_width": 20,
+      "grid_height": 20,
+      "anchors_per_cell": 2
+    }
+  ]
+}

@@ -88,6 +88,13 @@ grid location at strides 8, 16 and 32. Exact tensor names, shapes and quantizati
 copied into each reviewed model package from the runtime-reported ABI. Model binaries and
 biometric outputs are never committed to this repository.
 
+The runtime-reported ABI is now recorded in the in-repo metadata packages
+`manifests/models/scrfd_500m_bnkps/` (input `input_1`, outputs `score_*`/`bbox_*`/`kps_*`)
+and `manifests/models/edgeface_s_gamma_05/` (input `input`, output `embedding`). Their `.so`
+artifacts and any golden data stay outside Git. The SCRFD `decoder.json` is consumed by the
+strict `vqec_vision_decoder_package` loader and is covered by a loader test. Golden parity,
+the M4 alignment path and the M5 embedding decoder remain open.
+
 ## Implementation sequence
 
 1. **Delivered:** typed landmark and embedding contracts validate count, finite values,

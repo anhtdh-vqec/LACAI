@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "model_id": "scrfd_500m_bnkps",
+      "model_version": "1.0",
+      "target_id": "qcs6490",
+      "artifact_ref": "scrfd_500m_bnkps_w8a16.so",
+      "package_dir": "/opt/vqec/models/scrfd_500m_bnkps/package",
+      "model_library": "/opt/vqec/models/scrfd_500m_bnkps/libscrfd_500m_bnkps_w8a16.so"
+    }
+  ]
+}

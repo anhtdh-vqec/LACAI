@@ -259,6 +259,13 @@ types, out-of-range values and cross-stage tensor-name reuse are rejected, and t
 contract must equal the catalog contract. The loader unit test covers these cases under
 eSDK QEMU; real-model golden parity is still required.
 
+M0 metadata packages for the face chain are recorded from the board runtime ABI:
+`manifests/models/scrfd_500m_bnkps/` (anchor-distance decoder, catalog/registry examples)
+and `manifests/models/edgeface_s_gamma_05/` (embedding decoder pending M5). The `.so`
+artifacts, thresholds and preprocessing provenance still need the model team's golden
+reference; metadata is not model acceptance.
+
 Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
-unique completion tickets and byte accounting through drain. Logic tests pass eSDK QEMU
-and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration remains open.
+domain-scoped completion tickets and byte accounting through drain. Logic tests pass eSDK
+QEMU and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration
+remains open.

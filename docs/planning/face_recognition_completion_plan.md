@@ -103,6 +103,16 @@ full-frame chỉ để làm hai model cùng execute.
 **Gate:** cùng input, QNN execution/parity đã đối chiếu; input preprocessing có nguồn rõ.
 Sai contract phải fail activation; artifact digest không được gọi là chữ ký xác thực.
 
+**Tiến độ M0 (2026-09-15):** metadata package đã tạo từ ABI probe thật trên `.48` —
+`manifests/models/scrfd_500m_bnkps/` (io_manifest, decoder.json anchor_distance,
+preprocess, model_metadata + SHA-256) và `manifests/models/edgeface_s_gamma_05/`
+(io_manifest, preprocess, model_metadata + SHA-256; decoder.json để M5). Catalog/registry
+example: `manifests/models/model_catalog.face.example.json`,
+`config/defaults/model_package_registry.face.example.json`. SCRFD `decoder.json` được test
+bằng loader strict. **Còn thiếu:** golden được phép dùng, xác nhận threshold/anchor
+offset/landmark ordering/color/normalization theo reference, alignment template EdgeFace,
+và pin QAIRT runtime. Không coi metadata là nghiệm thu model.
+
 ## 6. M1 — Primary FD chạy đúng thật
 
 Vị trí chính: `src/app/vqec_vision_production_platform.cpp`,

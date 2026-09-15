@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "model_id": "edgeface_s_gamma_05",
+  "inputs": [
+    {
+      "name": "input",
+      "rank": 4,
+      "dims": [1, 112, 112, 3],
+      "layout": "nhwc",
+      "dtype": "uint16",
+      "quantization": { "scale": 3.05180438e-05, "zero_point": 32768 },
+      "source_document": "QNN runtime-reported ABI, QCS6490 HTP board probe 2026-09-15"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "embedding",
+      "rank": 2,
+      "dims": [1, 512],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 4.08594024e-05, "zero_point": 12899 }
+    }
+  ],
+  "notes": {
+    "input": "112x112x3 aligned face crop; the 5-point similarity transform is M4 work and is not declared here.",
+    "embedding": "512-D embedding; L2 normalization and model-version binding are the M5 embedding decoder's responsibility. This is not a matching decision."
+  }
+}

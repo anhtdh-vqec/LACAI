@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "model_id": "scrfd_500m_bnkps",
+  "source_format": "nv12",
+  "color_matrix": "bt709",
+  "color_range": "limited",
+  "resize": "letterbox",
+  "interpolation": "bilinear",
+  "placement": "centre",
+  "pad_value": [0.0, 0.0, 0.0],
+  "channel_order": "rgb",
+  "normalization": {
+    "formula": "offset_scale",
+    "offset": [-0.99609375, -0.99609375, -0.99609375],
+    "scale": [0.0078125, 0.0078125, 0.0078125]
+  },
+  "coordinates": "tensor_pixels_xywh",
+  "notes": {
+    "normalization": "(pixel - 127.5) / 128.0, the standard SCRFD reference. The uint16 input quantization (zero_point 32768, scale 3.03988327e-05) spans about [-0.996, 0.996], which is consistent. Confirm against golden.",
+    "color_matrix": "BT.709 limited is assumed from an HD FW NV12 source. Confirm against golden; a BT.601 source must not use BT.709 coefficients.",
+    "channel_order": "RGB is assumed. Confirm against golden.",
+    "pad_value": "0.0 letterbox fill is assumed. Confirm against golden.",
+    "coordinates": "The decoder consumes stride-unit distances and applies the inverse letterbox; the tensor-space convention is not a decoder.json coordinate field for this kind."
+  }
+}
