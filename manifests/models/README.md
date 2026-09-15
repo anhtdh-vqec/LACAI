@@ -8,15 +8,18 @@ Model integration metadata and verified artifact references/checksums. Do not co
 |---|---|
 | `output_fixture.json` | Synthetic parser input; digest/decoder are placeholders |
 | `model_catalog.example.json` | Synthetic Model-team catalog paired with the deployment example |
-| `model_catalog.face.example.json` | Face detector catalog with the SCRFD package binding |
+| `model_catalog.face.example.json` | Face chain catalog: SCRFD primary plus EdgeFace secondary dependency |
 | `yolov8n_person/` | Approved YOLOv8n-person kit (M0–M4) |
 | `scrfd_500m_bnkps/` | SCRFD face detector package (M0; runtime ABI from the QCS6490 probe) |
-| `edgeface_s_gamma_05/` | EdgeFace embedding package (M0; decoder/alignment are M4/M5) |
+| `edgeface_s_gamma_05/` | EdgeFace-S gamma=0.5 embedding package with decoder/alignment metadata |
 | `VERIFICATION_CHECKLIST.md` | Per-model fields to verify before a package is accepted |
 
 The SCRFD and EdgeFace directories hold metadata only; their `.so` artifacts stay outside
 Git. They are not artifact authentication: a digest match is not signature verification.
-EdgeFace is not bindable in a production catalog until the M5 embedding decoder exists.
+The face catalog assigns only SCRFD to the full-frame source mask. EdgeFace is activated
+through its dependency and is never listed in deployment `model_ids`. The matching face
+deployment example is `config/defaults/deployment.face.example.json`. Its resource values
+are conservative planning envelopes, not measured board capacity.
 
 Never install a synthetic example as production configuration. Use the optional
 `vqec_vision_ai_manifest_check` executable for read-only syntax/metadata validation, not
