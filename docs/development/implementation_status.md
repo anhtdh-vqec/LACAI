@@ -6,9 +6,9 @@ must not be interpreted as the current missing-feature list.
 
 ## Current summary and evidence authority
 
-The current cascade/runtime source passes the expanded eSDK QEMU suite (104/104 on
+The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.
-Native Zvec and retained-frame synthetic tests passed on .48. Person compatibility flow
+Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow
 has measured 30 AI results/s; approximately 44.5% process CPU remains above the requested
 15–25% target. These are historical measured runs, not a new test run for this docs update.
 The source now composes primary FD, retained-frame alignment, secondary EdgeFace execution
