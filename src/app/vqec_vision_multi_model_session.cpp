@@ -541,4 +541,18 @@ bool multi_model_session::vqec_vision_ai_appl_mmses_has_cascade_store() const no
     return cascade_store_ != nullptr;
 }
 
+status multi_model_session::vqec_vision_ai_ports_cflse_acquire(
+    const preview_frame_key& _key, raw_frame& _frame, std::uint64_t& _ticket) {
+    return vqec_vision_ai_appl_mmses_acquire_cascade_frame(_key, _frame, _ticket);
+}
+
+status multi_model_session::vqec_vision_ai_ports_cflse_retire(
+    const preview_frame_key& _key) {
+    return vqec_vision_ai_appl_mmses_retire_cascade_frame(_key);
+}
+
+status multi_model_session::vqec_vision_ai_ports_cflse_complete(std::uint64_t _ticket) {
+    return vqec_vision_ai_appl_mmses_complete_cascade_task(_ticket);
+}
+
 }  // namespace vqec::vision::ai

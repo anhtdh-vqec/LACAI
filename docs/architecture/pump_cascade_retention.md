@@ -28,6 +28,8 @@ drain are not yet implemented.
 - Drain gate: with a retained frame outstanding, the session waits before
   `releasing_source`, so the FW source is not released until `store.bytes() == 0`. A stop
   that never completes hits the existing stop deadline and flags recovery-required.
+- `multi_model_session` now implements the neutral `cascade_frame_lease_port` (acquire/
+  retire/complete delegate to the store), so the coordinator can drive it directly.
 - Tests: the `multi_model_source_lifecycle` session test covers missing-budget rejection,
   retain on submit, the stop gate holding the source, and release after retire + complete.
 

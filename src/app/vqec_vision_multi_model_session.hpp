@@ -9,6 +9,7 @@
 #include "vqec_vision_cascade_frame_store.hpp"
 #include "vqec_vision_multi_model_pump.hpp"
 #include "vqec_vision_source_session.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_cascade_frame_lease.hpp"
 
 namespace vqec::vision::ai {
 
@@ -84,7 +85,8 @@ struct multi_model_session_snapshot {
 
 // One acquisition cycle for 1..16 borrowed graphs. Calls are serialized and monotonic.
 // Explicit stopped state is required before destroying source, graph or retention owners.
-class multi_model_session final : public source_session_port {
+class multi_model_session final : public source_session_port,
+                                  public cascade_frame_lease_port {
 public:
     multi_model_session(raw_source_port& _source, multi_model_session_config _config);
     multi_model_session(const multi_model_session& _other) = delete;
@@ -125,6 +127,14 @@ public:
         std::uint64_t _steady_now_ns) override;
     [[nodiscard]] source_session_health
     vqec_vision_ai_appl_srcsn_get_health() const noexcept override;
+    // cascade_frame_lease_port: the session-owned store, driven by the cascade coordinator.
+    [[nodiscard]] status vqec_vision_ai_ports_cflse_acquire(
+        const preview_frame_key& _key, raw_frame& _frame,
+        std::uint64_t& _ticket) override;
+    [[nodiscard]] status vqec_vision_ai_ports_cflse_retire(
+        const preview_frame_key& _key) override;
+    [[nodiscard]] status vqec_vision_ai_ports_cflse_complete(
+        std::uint64_t _ticket) override;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_mmses_check_time(
