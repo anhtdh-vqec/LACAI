@@ -69,6 +69,11 @@ owns bounded start/drain/unload without inserting the graph into full-frame cade
 composition and coordinator invocation remain open. Digest/selection validation alone is
 not proof of signed authenticity or TOCTOU-safe artifact loading.
 
+The coordinator derives quantization scale and zero point from the running graph's exact
+input `tensor_spec`; callers cannot supply a second quantization copy. Offset/scale
+normalization remains package/catalog metadata and is cross-validated during production
+preparation.
+
 Continuous primary graphs remain in `multi_model_session`. Secondary graphs are owned by
 one cascade execution domain and invoked only from admitted primary results. They do not
 participate in full-frame cadence masks. A shared QNN context is an optimization gate;

@@ -336,8 +336,6 @@ int main() {
         config.normalize_offset_ = {127.5F, 127.5F, 127.5F};
         config.normalize_scale_ = {
             1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F};
-        config.quant_scale_ = 3.05180438e-05F;
-        config.quant_zero_point_ = 32768;
         config.cycle_id_ = g_test_cycle_id;
         config.job_timeout_ns_ = g_test_job_timeout_ns;
         cascade_coordinator coordinator;
@@ -357,7 +355,6 @@ int main() {
         fake_embedding_graph graph;
         auto config = make_config(aligner, lease, 2);
         config.embedding_graph_ = &graph;
-        config.quant_scale_ = 3.05180438e-05F;
         config.cycle_id_ = g_test_cycle_id;
         config.job_timeout_ns_ = g_test_job_timeout_ns;
         cascade_coordinator coordinator;

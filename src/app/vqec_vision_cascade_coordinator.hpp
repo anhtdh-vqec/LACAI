@@ -27,8 +27,6 @@ struct cascade_coordinator_config {
     alignment_template template_;
     std::array<float, 3> normalize_offset_{0.0F, 0.0F, 0.0F};
     std::array<float, 3> normalize_scale_{1.0F, 1.0F, 1.0F};
-    float quant_scale_{0.0F};
-    std::int32_t quant_zero_point_{0};
     // Submission-window identity and deadline for the secondary graph. The coordinator
     // arms the graph once for its source epoch before the first tensor submission.
     std::uint64_t cycle_id_{0};
@@ -70,8 +68,6 @@ private:
     alignment_capabilities capabilities_{};
     std::array<float, 3> normalize_offset_{0.0F, 0.0F, 0.0F};
     std::array<float, 3> normalize_scale_{1.0F, 1.0F, 1.0F};
-    float quant_scale_{0.0F};
-    std::int32_t quant_zero_point_{0};
     std::uint64_t cycle_id_{0};
     std::uint64_t job_timeout_ns_{0};
     std::uint64_t armed_source_epoch_{0};

@@ -15,7 +15,7 @@ namespace {
 status vqec_vision_ai_appl_cscrd_quantize(
     const alignment_result& _aligned, const tensor_spec& _target,
     const std::array<float, 3>& _offset, const std::array<float, 3>& _scale,
-    float _quant_scale, std::int32_t _quant_zero_point, tensor_blob& _blob) {
+    tensor_blob& _blob) {
     const auto& spec = _aligned.tensor_.spec_;
     if (spec.dtype_ != tensor_element_type::uint8 || spec.dimensions_.size() != 4U ||
         spec.dimensions_[0] != 1U || spec.dimensions_[3] != 3U) {
@@ -37,7 +37,7 @@ status vqec_vision_ai_appl_cscrd_quantize(
     std::vector<std::uint16_t> quantized(expected, 0U);
     const auto converted = vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
         _aligned.tensor_.bytes_.data(), width, height, width * 3U, _offset, _scale,
-        _quant_scale, _quant_zero_point, quantized.data());
+        _target.quantization_.scale_, _target.quantization_.zero_point_, quantized.data());
     if (converted.code_ != status_code::ok) {
         return converted;
     }
@@ -65,7 +65,6 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
         _config.embedding_graph_ != nullptr || _config.embedding_decoder_ != nullptr;
     if (wants_embedding &&
         (_config.embedding_graph_ == nullptr || _config.embedding_decoder_ == nullptr ||
-         !std::isfinite(_config.quant_scale_) || !(_config.quant_scale_ > 0.0F) ||
          _config.cycle_id_ == 0 || _config.job_timeout_ns_ == 0 ||
          _config.job_timeout_ns_ == std::numeric_limits<std::uint64_t>::max())) {
         return {status_code::invalid_argument, "invalid secondary embedding configuration"};
@@ -105,7 +104,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
             input_spec.dimensions_.size() != 4U || input_spec.dimensions_[0] != 1U ||
             input_spec.dimensions_[1] != _config.template_.destination_height_ ||
             input_spec.dimensions_[2] != _config.template_.destination_width_ ||
-            input_spec.dimensions_[3] != 3U) {
+            input_spec.dimensions_[3] != 3U ||
+            !input_spec.quantization_.is_quantized_ ||
+            !std::isfinite(input_spec.quantization_.scale_) ||
+            !(input_spec.quantization_.scale_ > 0.0F)) {
             return {status_code::invalid_argument,
                 "embedding graph input spec does not match the alignment template"};
         }
@@ -118,8 +120,6 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     capabilities_ = capabilities;
     normalize_offset_ = _config.normalize_offset_;
     normalize_scale_ = _config.normalize_scale_;
-    quant_scale_ = _config.quant_scale_;
-    quant_zero_point_ = _config.quant_zero_point_;
     cycle_id_ = _config.cycle_id_;
     job_timeout_ns_ = _config.job_timeout_ns_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
@@ -211,7 +211,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
             if (task_ok) {
                 const auto quantized = vqec_vision_ai_appl_cscrd_quantize(
                     _aligned.back(), embedding_input_spec_, normalize_offset_, normalize_scale_,
-                    quant_scale_, quant_zero_point_, input);
+                    input);
                 if (quantized.code_ != status_code::ok) {
                     task_ok = false;
                 }
