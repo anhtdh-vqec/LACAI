@@ -441,6 +441,9 @@ int main() {
         auto cascade_deployment = vqec_vision_ai_ctest_rcfct_make_deployment();
         for (auto& source : cascade_deployment.sources_) {
             source.cascade_ = {2, 4, 4096};
+            // Admission charges both the primary and dependency-activated secondary
+            // tensor envelopes before runtime composition checks the cascade owner.
+            source.memory_.max_tensor_bytes_ = 16 * g_mib;
         }
         {
             auto missing_budget = cascade_deployment;
