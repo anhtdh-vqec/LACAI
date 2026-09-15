@@ -30,7 +30,8 @@ set_target_properties(vqec_vision_ai_attributes PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_embedding STATIC
     embedding/vqec_vision_exact_embedding_index.cpp
     embedding/vqec_vision_recognition_policy.cpp
-    embedding/vqec_vision_recognition_session.cpp)
+    embedding/vqec_vision_recognition_session.cpp
+    embedding/vqec_vision_face_enrollment_controller.cpp)
 target_include_directories(vqec_vision_ai_embedding PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/embedding>)
 target_link_libraries(vqec_vision_ai_embedding PUBLIC vqec_vision_ai_core)

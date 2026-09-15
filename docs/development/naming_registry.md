@@ -156,6 +156,12 @@ template metadata, revision-CAS mutations and recognition label correlation whil
 remaining independent of Zvec. Test `tests/unit/vqec_vision_recognition_session_test.cpp`
 uses file_id `rcstst`; `main` retains the language exception.
 
+Enrollment port `include/vqec/vision/ai/ports/vqec_vision_face_enrollment.hpp` uses
+file_id `fenrl` and interface prefix `vqec_vision_ai_ports_fenrl_`. Its in-process
+controller `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp` uses
+file_id `fenrc`, prefix `vqec_vision_ai_embed_fenrc_`; DBus adapters must remain behind
+this port.
+
 Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
 declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix
