@@ -115,3 +115,8 @@ and the legacy `input.mean`/`input.sigma` profile is ignored. This is what allow
 quantized (non-float32) input, such as the YOLOv8n-person uint16 graph, to use an explicit
 `offset_scale` normalization instead of the identity-only legacy profile. The object is
 validated by `vqec_vision_ai_core_ppspc_validate`; an invalid spec fails catalog load.
+
+Deployment admission treats a secondary model as active for each source that assigns all
+of its declared primary dependencies. Its resident/context concurrency and per-source
+tensor envelope are therefore charged even though the secondary model never appears in the
+full-frame `model_ids` submit mask.

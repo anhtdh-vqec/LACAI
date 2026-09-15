@@ -194,6 +194,18 @@ void vqec_vision_ai_unit_mctst_check_roles_and_dependencies() {
     if (vqec_vision_ai_core_mdcat_validate_catalog(catalog, bytes).code_ != status_code::ok) {
         throw std::runtime_error("valid secondary dependency rejected");
     }
+    auto cascade_deployment = vqec_vision_ai_unit_mctst_make_deployment();
+    cascade_deployment.sources_[0].model_ids_ = {"person_detector"};
+    if (vqec_vision_ai_core_mdcat_validate_deployment_models(
+            cascade_deployment, catalog, bytes).code_ != status_code::ok ||
+        bytes != 64U * g_mib) {
+        throw std::runtime_error("secondary dependency resources were not admitted");
+    }
+    cascade_deployment.sources_[0].memory_.max_tensor_bytes_ = 8U * g_mib;
+    if (vqec_vision_ai_core_mdcat_validate_deployment_models(
+            cascade_deployment, catalog, bytes).code_ != status_code::resource_exhausted) {
+        throw std::runtime_error("secondary tensor budget was not enforced");
+    }
     auto missing = catalog;
     missing.models_[1].depends_on_.clear();
     if (vqec_vision_ai_core_mdcat_validate_catalog(missing, bytes).code_ !=

@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -194,6 +195,25 @@ bool vqec_vision_ai_core_mdcat_source_supports_model(
             profile.fps_numerator_, profile.fps_denominator_);
 }
 
+bool vqec_vision_ai_core_mdcat_source_assigns_model(
+    const source_deployment_config& _source, const std::string& _model_id) noexcept {
+    return std::find(_source.model_ids_.begin(), _source.model_ids_.end(), _model_id) !=
+        _source.model_ids_.end();
+}
+
+bool vqec_vision_ai_core_mdcat_source_activates_model(
+    const source_deployment_config& _source, const model_catalog_entry& _model) noexcept {
+    if (_model.role_ == model_role::primary) {
+        return vqec_vision_ai_core_mdcat_source_assigns_model(_source, _model.model_id_);
+    }
+    return !_model.depends_on_.empty() &&
+        std::all_of(_model.depends_on_.begin(), _model.depends_on_.end(),
+            [&_source](const model_dependency& _dependency) {
+                return vqec_vision_ai_core_mdcat_source_assigns_model(
+                    _source, _dependency.model_id_);
+            });
+}
+
 }  // namespace
 
 status vqec_vision_ai_core_mdcat_validate_catalog(
@@ -284,27 +304,29 @@ status vqec_vision_ai_core_mdcat_validate_deployment_models(
     }
     std::uint64_t required_resident = 0;
     for (const auto& model : _catalog.models_) {
-        unsigned assignments = 0;
+        unsigned direct_assignments = 0;
+        unsigned active_sources = 0;
         for (const auto& source : _deployment.sources_) {
-            for (const auto& model_id : source.model_ids_) {
-                if (model_id == model.model_id_) {
-                    ++assignments;
-                }
+            if (vqec_vision_ai_core_mdcat_source_assigns_model(source, model.model_id_)) {
+                ++direct_assignments;
+            }
+            if (vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
+                ++active_sources;
             }
         }
-        if (assignments > model.resources_.max_concurrent_sources_) {
+        if (active_sources > model.resources_.max_concurrent_sources_) {
             return {status_code::resource_exhausted, "model source concurrency exceeded"};
         }
         // A secondary model is invoked by its primary's cascade, never as a full-frame
         // source assignment.
-        if (assignments != 0 && model.role_ == model_role::secondary) {
+        if (direct_assignments != 0 && model.role_ == model_role::secondary) {
             return {status_code::invalid_argument,
                 "secondary model cannot be assigned as a full-frame source model"};
         }
         const unsigned resident_instances =
-            model.resources_.can_share_context_across_sources_ && assignments != 0
+            model.resources_.can_share_context_across_sources_ && active_sources != 0
                 ? 1U
-                : assignments;
+                : active_sources;
         if (!vqec_vision_ai_core_mdcat_multiply_bytes(
                 model.resources_.resident_bytes_, resident_instances,
                 required_resident)) {
@@ -314,15 +336,19 @@ status vqec_vision_ai_core_mdcat_validate_deployment_models(
     for (const auto& source : _deployment.sources_) {
         std::uint64_t tensor_bytes = 0;
         for (const auto& model_id : source.model_ids_) {
-            const auto* model = vqec_vision_ai_core_mdcat_find_model(_catalog, model_id);
-            if (model == nullptr) {
+            if (vqec_vision_ai_core_mdcat_find_model(_catalog, model_id) == nullptr) {
                 return {status_code::invalid_argument, "deployment references unknown model"};
             }
-            if (!vqec_vision_ai_core_mdcat_source_supports_model(source, *model)) {
+        }
+        for (const auto& model : _catalog.models_) {
+            if (!vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
+                continue;
+            }
+            if (!vqec_vision_ai_core_mdcat_source_supports_model(source, model)) {
                 return {status_code::unsupported, "source profile is incompatible with model"};
             }
             if (!vqec_vision_ai_core_mdcat_add_bytes(
-                    model->resources_.max_tensor_bytes_per_source_, tensor_bytes)) {
+                    model.resources_.max_tensor_bytes_per_source_, tensor_bytes)) {
                 return {status_code::resource_exhausted, "source tensor arithmetic overflow"};
             }
         }
