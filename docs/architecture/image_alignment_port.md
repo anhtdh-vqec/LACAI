@@ -98,6 +98,17 @@ Still M4: 3-channel RGB conversion and destination color/normalization, crop/ten
 golden crop parity, edge/border behavior, and any DSP offload claim. The adapter is built
 only under `VQEC_VISION_AI_ENABLE_FASTCV` and is not yet wired into the cascade coordinator.
 
+### RGB conversion is not a drop-in (must not be guessed)
+
+The FastCV semi-planar conversion `fcvColorYCrCb420PseudoPlanarToRGB8888u8` expects a Y plane
+followed by an interleaved **CrCb** (NV21) plane and outputs **RGBA8888**, and the documented
+coefficients are BT.601. Our source binding declares linear **NV12** (CbCr) and
+`bt709_limited`. So the FastCV color helper does not match the source by default: channel
+order and color matrix both differ. An RGB destination requires an explicit color-matrix/
+format source on the request and empirical verification on `.48` (or a reviewed neutral
+conversion). It must not be assumed. The current adapter returns a single-channel luma
+destination, which is geometry-verified but not suitable for EdgeFace RGB input.
+
 ## Not claimed
 
 Defining this contract does not prove FastCV/QTI affine capability, crop/tensor pool
