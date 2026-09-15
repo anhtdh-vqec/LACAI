@@ -156,6 +156,8 @@ The serial cascade_frame_store uses activation-sized frame/task storage and a by
 Exact camera/channel/epoch/frame/PTS keys prevent cross-frame lookup. Acquire returns an
 owned raw_frame and a unique completion ticket; workers must retain that copy until actual
 hardware completion. Retire closes admission; outstanding tickets keep the slot charged.
+Tickets carry a store domain: a completion from a retired store is rejected instead of
+releasing a replacement store's task, and a zero frame/task/byte budget fails closed.
 Completion tickets cannot be replayed within the store lifetime. No automatic timeout or
 epoch eviction exists. Callers retire old keys and drain their jobs explicitly.
 The store must outlive orchestration; destroying it does not cancel submitted hardware,

@@ -45,6 +45,40 @@ int main() {
     second.owner_.reset(); // simulated real completion of the final task
     check(store.vqec_vision_ai_sched_cfstr_complete(ticket).code_ == status_code::ok);
     check(lifetime.expired() && store.vqec_vision_ai_sched_cfstr_bytes() == 0);
+
+    // A completion ticket is not portable between store instances.
+    {
+        cascade_frame_store first(1, 1, 16);
+        cascade_frame_store replacement(1, 1, 16);
+        raw_frame owned;
+        owned.native_handle_ = 1;
+        owned.owner_ = std::make_shared<int>(0);
+        owned.descriptor_.allocation_size_bytes_ = 16;
+        owned.descriptor_.session_epoch_ = 1;
+        owned.descriptor_.buffer_id_ = 2;
+        owned.descriptor_.pts_ns_ = 3;
+        check(first.vqec_vision_ai_sched_cfstr_retain(key, owned).code_ == status_code::ok);
+        raw_frame acquired;
+        std::uint64_t first_ticket = 0;
+        check(first.vqec_vision_ai_sched_cfstr_acquire(key, acquired, first_ticket).code_ ==
+            status_code::ok);
+        check(replacement.vqec_vision_ai_sched_cfstr_retain(key, owned).code_ == status_code::ok);
+        check(replacement.vqec_vision_ai_sched_cfstr_complete(first_ticket).code_ ==
+            status_code::invalid_state);
+        check(first.vqec_vision_ai_sched_cfstr_complete(first_ticket).code_ == status_code::ok);
+    }
+
+    // A zero budget fails closed instead of silently admitting no tasks.
+    {
+        cascade_frame_store empty(0, 0, 0);
+        check(empty.vqec_vision_ai_sched_cfstr_retain(key, frame).code_ ==
+            status_code::invalid_state);
+        raw_frame none;
+        std::uint64_t none_ticket = 0;
+        check(empty.vqec_vision_ai_sched_cfstr_acquire(key, none, none_ticket).code_ ==
+            status_code::invalid_state);
+    }
+
     std::cout << "cascade frame store failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }
