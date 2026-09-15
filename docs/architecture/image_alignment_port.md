@@ -81,6 +81,23 @@ Mapping the neutral source→destination similarity (`dst = M * src + t`) to Fas
 `affine = M⁻¹` and `position = M⁻¹ * (patch_center - t)`. This is a smoke-level convention;
 golden crop parity, edge/border behavior, NV12→RGB conversion and DSP offload remain M4.
 
+## Owned FastCV adapter (delivered, single-channel slice)
+
+`fastcv_aligner` (`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`) implements the port:
+it validates the request/template, computes the neutral similarity, maps it to FastCV, maps
+the borrowed source NV12 FD read-only (page-aligned `mmap`) and copies the luma plane into a
+contiguous buffer, warps with `fcvTransformAffineu8_v2`, and returns an owned single-channel
+`uint8` destination tensor plus the transform and a synchronous completion ticket.
+
+Board evidence (`.48`, synthetic NV12 memfd, `vqec_vision_fastcv_affine_smoke`): the identity
+warp centered at source (32, 32) produced the expected 8×8 neighborhood with the marker `255`
+exactly at the patch center (`align_rc=0`, `bytes=64`, `complete=1`). This verifies the
+geometry mapping, not color, DSP offload or golden parity.
+
+Still M4: 3-channel RGB conversion and destination color/normalization, crop/tensor pooling,
+golden crop parity, edge/border behavior, and any DSP offload claim. The adapter is built
+only under `VQEC_VISION_AI_ENABLE_FASTCV` and is not yet wired into the cascade coordinator.
+
 ## Not claimed
 
 Defining this contract does not prove FastCV/QTI affine capability, crop/tensor pool

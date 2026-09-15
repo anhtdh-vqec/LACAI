@@ -78,6 +78,18 @@ if(VQEC_VISION_AI_ENABLE_FASTCV)
         "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
     target_link_libraries(vqec_vision_ai_fastcv_affine_smoke PRIVATE
         "${VQEC_VISION_AI_FASTCV_LIBRARY}")
+
+    add_library(vqec_vision_ai_fastcv_aligner STATIC
+        vqec_vision_fastcv_aligner.cpp)
+    target_include_directories(vqec_vision_ai_fastcv_aligner PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+    target_include_directories(vqec_vision_ai_fastcv_aligner PRIVATE
+        "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
+    target_link_libraries(vqec_vision_ai_fastcv_aligner
+        PUBLIC vqec_vision_ai_core PRIVATE "${VQEC_VISION_AI_FASTCV_LIBRARY}")
+    set_target_properties(vqec_vision_ai_fastcv_aligner PROPERTIES CXX_EXTENSIONS OFF)
+    target_link_libraries(vqec_vision_ai_fastcv_affine_smoke
+        PRIVATE vqec_vision_ai_fastcv_aligner)
     set_target_properties(vqec_vision_ai_fastcv_affine_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
