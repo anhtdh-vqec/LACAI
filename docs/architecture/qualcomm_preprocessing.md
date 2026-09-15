@@ -27,14 +27,19 @@ preprocess manifest. `qtimlvconverter` owns NV12-to-RGB/BGR conversion. The adap
 the `fcv` engine explicitly and fails closed when the installed properties, enum nicks or
 requested semantics do not match. The current reviewed surface accepts linear NV12,
 BT.601-limited or BT.709-limited input, bilinear stretch/letterbox, batch-one NHWC RGB/BGR
-and the exact UINT8/UINT16 offset-scale quantization implemented by the pipeline.
+and only UINT8/UINT16 offset-scale contracts whose full 256-value mapping differs by at
+most one quantized LSB from the pipeline's direct integer output. The one-LSB allowance is
+the declared boundary between affine rounding and integer widening; golden tensor parity is
+still required for each converted artifact.
 
 The graph input used in this board run is UINT16. Asking `qtimlvconverter` to produce
 UINT16 invokes its generic per-value normalization loop. LACAI therefore requests UINT8
-from the plugin and packs each byte as the equivalent little-endian UINT16 value. On
+from the plugin and widens each byte to the full UINT16 range (`value * 257`). On
 AArch64 this packing uses NEON byte interleave; the scalar fallback keeps the adapter
 source compilable for another architecture. This decision is derived from the tensor
-contract and never from a model name.
+contract and never from a model name. Validation exhaustively checks all 256 possible
+channel values, so nonzero model zero points such as the face packages' `32768` are accepted
+only when the resulting affine mapping is compatible with that widening.
 
 ## Ownership and remaining copies
 

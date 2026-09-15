@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace vqec::vision::ai {
 namespace {
@@ -109,6 +110,51 @@ status vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
                     std::round(real / static_cast<double>(_quant_scale)) +
                     static_cast<double>(_quant_zero_point);
                 out[channel] = static_cast<std::uint16_t>(std::clamp(stored, 0.0, 65535.0));
+            }
+        }
+    }
+    return {};
+}
+
+status vqec_vision_ai_core_color_validate_direct_integer_mapping(
+    const preprocess_spec& _preprocess, const tensor_spec& _target) noexcept {
+    if (_preprocess.normalization_ != normalization_formula::offset_scale ||
+        (_target.dtype_ != tensor_element_type::uint8 &&
+            _target.dtype_ != tensor_element_type::uint16) ||
+        !_target.quantization_.is_quantized_ ||
+        !std::isfinite(_target.quantization_.scale_) ||
+        !(_target.quantization_.scale_ > 0.0F)) {
+        return {status_code::unsupported,
+            "direct integer mapping requires quantized uint8/uint16 offset_scale input"};
+    }
+    constexpr std::uint32_t g_rgb8_max = std::numeric_limits<std::uint8_t>::max();
+    constexpr std::uint32_t g_uint16_widening =
+        std::numeric_limits<std::uint16_t>::max() / g_rgb8_max;
+    constexpr std::int64_t g_max_quantized_mapping_error = 1;
+    const std::uint32_t widening = _target.dtype_ == tensor_element_type::uint16 ?
+        g_uint16_widening : 1U;
+    const double output_max = _target.dtype_ == tensor_element_type::uint16 ?
+        static_cast<double>(std::numeric_limits<std::uint16_t>::max()) :
+        static_cast<double>(std::numeric_limits<std::uint8_t>::max());
+    for (std::size_t channel = 0; channel < _preprocess.offset_.size(); ++channel) {
+        if (!std::isfinite(_preprocess.offset_[channel]) ||
+            !std::isfinite(_preprocess.scale_[channel])) {
+            return {status_code::invalid_argument,
+                "direct integer mapping has non-finite preprocessing coefficients"};
+        }
+        for (std::uint32_t pixel = 0; pixel <= g_rgb8_max; ++pixel) {
+            const double real =
+                (static_cast<double>(pixel) - _preprocess.offset_[channel]) *
+                _preprocess.scale_[channel];
+            const double stored = std::clamp(
+                std::round(real / _target.quantization_.scale_) +
+                    static_cast<double>(_target.quantization_.zero_point_),
+                0.0, output_max);
+            const auto quantized = static_cast<std::int64_t>(stored);
+            const auto direct = static_cast<std::int64_t>(pixel * widening);
+            if (std::abs(quantized - direct) > g_max_quantized_mapping_error) {
+                return {status_code::unsupported,
+                    "preprocess quantization differs from direct integer mapping"};
             }
         }
     }

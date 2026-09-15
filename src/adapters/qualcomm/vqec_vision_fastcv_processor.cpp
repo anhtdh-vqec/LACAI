@@ -19,6 +19,7 @@
 
 #include "vqec_vision_dmabuf_bridge.hpp"
 #include "vqec_vision_tensor_output.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
@@ -66,7 +67,6 @@ inline constexpr char g_mpeg2_chroma_site[] = "mpeg2";
 inline constexpr std::uint32_t g_tensor_batch = 1;
 inline constexpr std::uint32_t g_tensor_channels = 3;
 inline constexpr float g_uint8_input_max = 255.0F;
-inline constexpr float g_uint16_output_max = 65535.0F;
 inline constexpr float g_float_comparison_tolerance = 0.0001F;
 #if defined(__aarch64__)
 inline constexpr std::size_t g_neon_u8_lane_count = 16U;
@@ -291,7 +291,7 @@ status fastcv_processor::vqec_vision_ai_ports_imgpr_validate(
         _target.dimensions_[3] != g_tensor_channels ||
         (_target.dtype_ != tensor_element_type::uint8 &&
             _target.dtype_ != tensor_element_type::uint16) ||
-        !_target.quantization_.is_quantized_ || _target.quantization_.zero_point_ != 0) {
+        !_target.quantization_.is_quantized_) {
         return {status_code::unsupported,
             "FastCV adapter requires a quantized NHWC RGB uint8/uint16 tensor"};
     }
@@ -305,16 +305,11 @@ status fastcv_processor::vqec_vision_ai_ports_imgpr_validate(
         return {status_code::unsupported,
             "FastCV adapter does not implement the requested preprocess semantics"};
     }
-    const float integer_scale = _target.dtype_ == tensor_element_type::uint16 ?
-        g_uint16_output_max / g_uint8_input_max : 1.0F;
-    for (std::size_t channel = 0; channel < g_tensor_channels; ++channel) {
-        const float requested_scale =
-            _plan.preprocess_.scale_[channel] / _target.quantization_.scale_;
-        if (std::fabs(_plan.preprocess_.offset_[channel]) > g_float_comparison_tolerance ||
-            std::fabs(requested_scale - integer_scale) > g_float_comparison_tolerance) {
-            return {status_code::unsupported,
-                "FastCV integer conversion differs from the preprocess quantization"};
-        }
+    const auto direct_mapping =
+        vqec_vision_ai_core_color_validate_direct_integer_mapping(
+            _plan.preprocess_, _target);
+    if (direct_mapping.code_ != status_code::ok) {
+        return direct_mapping;
     }
     return {};
 }

@@ -109,6 +109,23 @@ int main() {
             status_code::invalid_argument);
     }
 
+    // Both face models reduce to the converter's exact uint8-to-uint16 widening despite
+    // their nonzero tensor zero point. A changed scale fails closed.
+    {
+        preprocess_spec preprocess;
+        preprocess.normalization_ = normalization_formula::offset_scale;
+        preprocess.offset_ = {127.5F, 127.5F, 127.5F};
+        preprocess.scale_ = {0.0078125F, 0.0078125F, 0.0078125F};
+        tensor_spec target;
+        target.dtype_ = tensor_element_type::uint16;
+        target.quantization_ = {true, 3.0398832677747123e-05F, 32768};
+        check(vqec_vision_ai_core_color_validate_direct_integer_mapping(preprocess, target)
+                  .code_ == status_code::ok);
+        preprocess.scale_ = {0.01F, 0.01F, 0.01F};
+        check(vqec_vision_ai_core_color_validate_direct_integer_mapping(preprocess, target)
+                  .code_ == status_code::unsupported);
+    }
+
     std::cout << "color conversion failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;
 }

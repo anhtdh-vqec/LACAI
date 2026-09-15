@@ -7,6 +7,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_image_enums.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
 
 namespace vqec::vision::ai {
 
@@ -33,6 +34,15 @@ namespace vqec::vision::ai {
     const std::array<float, 3>& _offset, const std::array<float, 3>& _scale,
     float _quant_scale, std::int32_t _quant_zero_point,
     std::uint16_t* _output) noexcept;
+
+// Proves that applying an offset_scale preprocess followed by the target quantization maps
+// every possible RGB8 channel value to within one quantized LSB of the direct integer output
+// produced by the Qualcomm converter path: identity for uint8 or full-range widening for
+// uint16. The one-LSB allowance covers the boundary between the model's affine rounding and
+// integer widening. This is a pure, exhaustive 256-value check; success does not claim
+// device execution or golden parity.
+[[nodiscard]] status vqec_vision_ai_core_color_validate_direct_integer_mapping(
+    const preprocess_spec& _preprocess, const tensor_spec& _target) noexcept;
 
 }  // namespace vqec::vision::ai
 

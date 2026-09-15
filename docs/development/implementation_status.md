@@ -307,3 +307,8 @@ EdgeFace graph composition, executor wiring and golden parity remain M5.
 The cascade coordinator arms its secondary graph once per configured source epoch with an
 explicit cycle identity and job timeout. It rejects an epoch change until graph lifecycle
 restart, rather than submitting a new epoch into an existing submission window.
+
+Qualcomm full-frame preprocessing now validates the composed preprocess plus tensor
+quantization over every RGB8 channel value. It accepts direct UINT8 output or UINT16
+full-range widening with at most one quantized LSB of affine-rounding error, including the
+face packages' nonzero zero point, and rejects any other mapping before plugin execution.
