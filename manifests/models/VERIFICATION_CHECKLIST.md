@@ -63,6 +63,19 @@ signature verification.
 
 ## Definition of done for a model
 
-A model is verified when every row is either observed-and-confirmed or golden-verified, the
-package parses through the strict loaders, a board run reproduces the reference within the
-declared tolerance, and the limitations are recorded. Metadata alone is never acceptance.
+Package verification is **stage 1 only**; it is necessary but not sufficient. Closable
+stages, each with its own evidence and owner (see ADR 0005 section 6):
+
+1. **Package verification** — every row below is observed-and-confirmed or golden-verified,
+   and the package parses through the strict loaders;
+2. **Board model execution** — the exact artifact executes on QCS6490 with recorded
+   parity/limits;
+3. **FD→FR correlation** — the retained frame maps to the correct face/embedding per epoch,
+   frame and track;
+4. **Accuracy/calibration** — thresholds calibrated and measured on a representative
+   dataset;
+5. **Attendance/usecase acceptance** — enrollment, matching, delivery, restart recovery and
+   delete accepted end to end.
+
+Only stage 5 is usecase acceptance. Metadata alone, or a single successful execution, never
+closes a later stage.
