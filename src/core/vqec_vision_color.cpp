@@ -79,4 +79,39 @@ status vqec_vision_ai_core_color_convert_nv12_to_rgb(
     return {};
 }
 
+status vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
+    const std::uint8_t* _rgb, std::uint32_t _width, std::uint32_t _height,
+    std::uint32_t _rgb_stride,
+    const std::array<float, 3>& _offset, const std::array<float, 3>& _scale,
+    float _quant_scale, std::int32_t _quant_zero_point,
+    std::uint16_t* _output) noexcept {
+    if (_rgb == nullptr || _output == nullptr || _width == 0 || _height == 0 ||
+        _rgb_stride < _width * 3U || !(_quant_scale > 0.0F) || !std::isfinite(_quant_scale)) {
+        return {status_code::invalid_argument, "invalid RGB to uint16 quantization arguments"};
+    }
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        if (!std::isfinite(_offset[channel]) || !std::isfinite(_scale[channel])) {
+            return {status_code::invalid_argument, "non-finite normalization coefficients"};
+        }
+    }
+    for (std::uint32_t row = 0; row < _height; ++row) {
+        const std::uint8_t* input_row = _rgb + static_cast<std::size_t>(row) * _rgb_stride;
+        std::uint16_t* output_row =
+            _output + static_cast<std::size_t>(row) * _width * 3U;
+        for (std::uint32_t column = 0; column < _width; ++column) {
+            const std::uint8_t* pixel = input_row + static_cast<std::size_t>(column) * 3U;
+            std::uint16_t* out = output_row + static_cast<std::size_t>(column) * 3U;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const double real =
+                    static_cast<double>(pixel[channel]) * _scale[channel] + _offset[channel];
+                const double stored =
+                    std::round(real / static_cast<double>(_quant_scale)) +
+                    static_cast<double>(_quant_zero_point);
+                out[channel] = static_cast<std::uint16_t>(std::clamp(stored, 0.0, 65535.0));
+            }
+        }
+    }
+    return {};
+}
+
 }  // namespace vqec::vision::ai

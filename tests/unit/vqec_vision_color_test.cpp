@@ -1,5 +1,6 @@
 // Device-free tests for the neutral NV12 -> RGB/BGR conversion policy.
 
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -87,6 +88,24 @@ int main() {
         check(vqec_vision_ai_core_color_convert_nv12_to_rgb(nullptr, 2, frame.uv_.data(), 2,
                   2, 2, color_matrix::bt601, color_range::limited, channel_order::rgb,
                   rgb.data(), 6).code_ == status_code::invalid_argument);
+    }
+
+    // RGB uint8 to the EdgeFace uint16 quantized input tensor (BT.709 limited normalization).
+    {
+        const std::array<float, 3> offset = {-0.99609375F, -0.99609375F, -0.99609375F};
+        const std::array<float, 3> scale = {0.0078125F, 0.0078125F, 0.0078125F};
+        constexpr float quant_scale = 3.05180438e-05F;
+        constexpr std::int32_t quant_zero_point = 32768;
+        std::vector<std::uint8_t> rgb = {0U, 0U, 0U, 255U, 255U, 255U, 128U, 128U, 128U};
+        std::vector<std::uint16_t> quantized(9U, 0U);
+        check(vqec_vision_ai_core_color_quantize_rgb8_to_uint16(rgb.data(), 3U, 1U, 9U,
+                  offset, scale, quant_scale, quant_zero_point, quantized.data()).code_ ==
+            status_code::ok);
+        check(quantized[0] == 128U && quantized[3] == 65408U &&
+            quantized[6] == 32896U);
+        check(vqec_vision_ai_core_color_quantize_rgb8_to_uint16(rgb.data(), 3U, 1U, 9U,
+                  offset, scale, 0.0F, quant_zero_point, quantized.data()).code_ ==
+            status_code::invalid_argument);
     }
 
     std::cout << "color conversion failures: " << failures << '\n';
