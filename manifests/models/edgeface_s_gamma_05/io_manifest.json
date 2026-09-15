@@ -23,7 +23,11 @@
     }
   ],
   "notes": {
-    "input": "112x112x3 aligned face crop; the 5-point similarity transform is M4 work and is not declared here.",
-    "embedding": "512-D embedding; L2 normalization and model-version binding are the M5 embedding decoder's responsibility. This is not a matching decision."
+    "confirmed_by_model_team": true,
+    "source": "Camera FW RAW is NV12 / BT.709 limited; the model tensor is RGB uint16 NHWC.",
+    "input_quantization": "q = round(normalized / input_scale) + 32768, with input_scale = 3.05180438e-05 and input zero_point 32768. The aligned crop is 112x112 RGB.",
+    "output_dequantization": "float_embedding = (q - 12899) * 4.08594024e-05 (uint16 UFXP16, 512 dimensions, zero_point 12899).",
+    "embedding": "512-D embedding; L2 normalization and model-version binding are the embedding decoder's responsibility. This is not a matching decision.",
+    "offline_path": "For offline JPEG/PNG input the documented path is BGR/RGB image -> RGB -> letterbox 640x640 -> float normalization -> quantize to uint16 by scale/zero_point."
   }
 }

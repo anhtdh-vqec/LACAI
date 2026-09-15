@@ -22,6 +22,19 @@ board path `/var/roothome/ai_app_dsp/models/libedgeface_s_gamma_05_w8a16_ada_w8a
 - output `embedding` `[1,512]`, `uint16`, scale `4.08594024e-05`, zero_point `12899`,
   1024 bytes.
 
+## Confirmed by the model team
+
+- Source: Camera FW RAW is **NV12 / BT.709 limited**; the model tensor is **RGB uint16 NHWC**.
+- Input (112x112): `q = round(normalized / input_scale) + 32768`, with `input_scale =
+  3.05180438e-05` (input zero_point `32768`).
+- Output: uint16 UFXP16, 512 dimensions, `float_embedding = (q - 12899) * 4.08594024e-05`
+  (zero_point `12899`, scale `4.08594024e-05`).
+- Offline JPEG/PNG path: BGR/RGB image -> RGB -> letterbox 640x640 -> float normalization ->
+  quantize to uint16 by scale/zero_point.
+
+These match the recorded ABI and the `fastcv_aligner` RGB + quantize and the
+`embedding_decoder` dequantize paths.
+
 ## Not usable yet (M4/M5)
 
 - `decoder.json` now declares the embedding kind (output tensor `embedding`, dimension 512,
