@@ -98,16 +98,21 @@ Still M4: 3-channel RGB conversion and destination color/normalization, crop/ten
 golden crop parity, edge/border behavior, and any DSP offload claim. The adapter is built
 only under `VQEC_VISION_AI_ENABLE_FASTCV` and is not yet wired into the cascade coordinator.
 
-### RGB conversion is not a drop-in (must not be guessed)
+### RGB destination (delivered, board-verified color)
 
 The FastCV semi-planar conversion `fcvColorYCrCb420PseudoPlanarToRGB8888u8` expects a Y plane
-followed by an interleaved **CrCb** (NV21) plane and outputs **RGBA8888**, and the documented
-coefficients are BT.601. Our source binding declares linear **NV12** (CbCr) and
-`bt709_limited`. So the FastCV color helper does not match the source by default: channel
-order and color matrix both differ. An RGB destination requires an explicit color-matrix/
-format source on the request and empirical verification on `.48` (or a reviewed neutral
-conversion). It must not be assumed. The current adapter returns a single-channel luma
-destination, which is geometry-verified but not suitable for EdgeFace RGB input.
+followed by an interleaved **CrCb** (NV21) plane and outputs **RGBA8888** with BT.601
+coefficients, while the source binding declares linear **NV12** (CbCr) and `bt709_limited`.
+Rather than guess, the adapter uses the reviewed neutral
+`vqec_vision_ai_core_color_convert_nv12_to_rgb` with an explicit matrix/range/order, then
+deinterleaves to three planar channels and warps each with the verified patch warp before
+interleaving to the requested RGB/BGR order. `fastcv_aligner_config` carries
+`output_rgb_`/`matrix_`/`range_`/`order_`; RGB output is `uint8` `[1,H,W,3]`.
+
+Board `.48` smoke: a uniform BT.601-limited red NV12 aligned to `rgb center=254,0,0`, and the
+luma path produced the expected geometry. This verifies color and geometry for the synthetic
+case; real golden crop parity, per-channel fast paths and any DSP offload remain open, and the
+per-channel warp is not the optimized path.
 
 ## Not claimed
 

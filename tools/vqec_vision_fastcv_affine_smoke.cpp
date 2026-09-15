@@ -149,6 +149,37 @@ int main() {
             align_result.tensor_.bytes_[4 * patch_width + 4],
             align_result.tensor_.bytes_[(patch_height / 2) * patch_width + patch_width / 2]);
     }
+    // RGB path: a uniform BT.601 limited red NV12 must align to a red RGB patch.
+    for (unsigned index = 0; index < width * height; ++index) {
+        nv12[index] = 81U;
+    }
+    for (unsigned index = width * height; index < nv12_bytes; ++index) {
+        nv12[index] = (index % 2U == 0U) ? 90U : 240U;
+    }
+    if (::pwrite(fd, nv12.data(), nv12_bytes, 0) != static_cast<ssize_t>(nv12_bytes)) {
+        std::printf("memfd pwrite failed\n");
+        return 1;
+    }
+    fastcv_aligner_config rgb_config;
+    rgb_config.output_rgb_ = true;
+    rgb_config.matrix_ = color_matrix::bt601;
+    rgb_config.range_ = color_range::limited;
+    rgb_config.order_ = channel_order::rgb;
+    fastcv_aligner rgb_aligner(rgb_config);
+    alignment_result rgb_result;
+    std::uint64_t rgb_ticket = 0;
+    const auto rgb_status = rgb_aligner.vqec_vision_ai_ports_imaln_align(
+        align_request, frame, align_template, rgb_result, rgb_ticket);
+    std::printf("aligner rgb_rc=%d bytes=%zu\n", static_cast<int>(rgb_status.code_),
+        rgb_result.tensor_.bytes_.size());
+    if (rgb_status.code_ == status_code::ok &&
+        rgb_result.tensor_.bytes_.size() == patch_width * patch_height * 3U) {
+        const unsigned center = (patch_height / 2U) * patch_width + patch_width / 2U;
+        const std::uint8_t* pixel = rgb_result.tensor_.bytes_.data() + center * 3U;
+        std::printf("aligner rgb center=%u,%u,%u (expect ~254,0,0)\n", pixel[0], pixel[1],
+            pixel[2]);
+    }
+
     ::close(fd);
     return 0;
 }
