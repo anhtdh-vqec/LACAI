@@ -4,6 +4,7 @@ add_library(vqec_vision_ai_detection STATIC
     detection/vqec_vision_model_decode_stage.cpp
     detection/vqec_vision_model_decoder_registry.cpp
     detection/vqec_vision_tensor_reader.cpp
+    detection/vqec_vision_anchor_distance_decoder.cpp
     detection/vqec_vision_dense_decoder.cpp
     detection/vqec_vision_yolov8_decoder.cpp)
 target_include_directories(vqec_vision_ai_detection PUBLIC

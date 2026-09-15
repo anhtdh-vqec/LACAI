@@ -214,3 +214,8 @@ FW/model execution, real package registration and owner review remain pending.
 Zvec v0.7.0 real-library integration: eSDK-compiled adapter/test passed QEMU and native
 QCS6490 .48 on 2026-09-15. Pinned public ARM64 SDK is under third_party/zvec; bootstrap
 verifies the release checksum. This is synthetic index evidence, not live FR acceptance.
+
+Anchor-distance FD decoder core is source-delivered: quantized tensor reads, inverse
+placement, NMS and typed landmarks, with malformed-score/bounds/atomic-output tests.
+Candidate workspace is preallocated. Production registration, pooled observation output
+and real model golden parity remain open before the camera cascade is accepted.

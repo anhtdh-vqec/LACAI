@@ -443,6 +443,14 @@
         PRIVATE vqec_vision_ai_detection)
     set_target_properties(vqec_vision_ai_yolov8_decoder_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME yolov8_decoder_detection COMMAND vqec_vision_ai_yolov8_decoder_test)
+    add_executable(vqec_vision_ai_anchor_distance_decoder_test
+        unit/vqec_vision_anchor_distance_decoder_test.cpp)
+    target_link_libraries(vqec_vision_ai_anchor_distance_decoder_test
+        PRIVATE vqec_vision_ai_detection)
+    set_target_properties(vqec_vision_ai_anchor_distance_decoder_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME anchor_distance_decoder_detection
+        COMMAND vqec_vision_ai_anchor_distance_decoder_test)
     add_executable(vqec_vision_ai_device_free_harness_test
         unit/vqec_vision_device_free_harness_test.cpp)
     target_link_libraries(vqec_vision_ai_device_free_harness_test

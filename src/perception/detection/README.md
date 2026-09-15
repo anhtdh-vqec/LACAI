@@ -3,7 +3,7 @@
 Neutral model-decoding boundary from owned tensor results to tracked observations. Keeps
 model algorithms and vendor types out of `src/core` and `src/app`.
 
-- **Status:** source-delivered contract + registry — concrete detector decoders missing
+- **Status:** source-delivered contract + registry — dense, YOLO and anchor-distance decoder cores available
 - **Naming registry:** `detec` (`mdstg`, `mdreg`, `tnrd`)
 - **Depends on:** `model_decoder_port`, output-manifest identity, neutral observation contract
 - **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`
@@ -26,7 +26,8 @@ model algorithms and vendor types out of `src/core` and `src/app`.
 
 ## Limits and next work
 
-- Concrete detector geometry/NMS semantics and model implementations remain unimplemented.
+- Anchor-distance FD production package wiring and golden parity remain open.
+- Candidate/NMS workspace is preallocated; output batch allocations still need a pooled contract.
 - Registry activation validation is validation-only and must not mutate live decoder state.
 - Decoder exceptions are contained (`resource_exhausted`/`io_error`) without changing registrations.
 

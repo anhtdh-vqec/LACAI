@@ -91,7 +91,7 @@ biometric outputs are never committed to this repository.
    source geometry, identity and configured size ceilings, with contract tests.
 2. **Delivered:** the package registry resolves each catalog identity to its own package
    and artifact, and production lookup no longer assumes source-slot order equals catalog order.
-3. Implement a package-configured anchor-distance detector decoder supporting typed
+3. **Decoder core delivered:** configurable anchor-distance detector decoder supporting typed
    quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
    inverse source transform and NMS.
 4. Add the bounded cascade frame store and extend secondary requests with exact frame
@@ -110,3 +110,10 @@ biometric outputs are never committed to this repository.
 Attendance acceptance additionally requires a consent/entitlement decision and an owner
 for encrypted gallery and event persistence. A face detector plus nearest embedding match
 alone is not a completed attendance usecase.
+
+
+The anchor-distance core uses activation-reserved candidate storage and fixed suppression
+storage, with deterministic score ties, finite-value checks and transactional publication.
+Output observation strings/landmark vectors still allocate under the current batch contract;
+production package parsing, pooled output ownership and golden model parity remain required.
+The core is not yet registered by production_platform for a live FD-to-FR cascade.

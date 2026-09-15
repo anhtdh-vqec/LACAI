@@ -430,3 +430,8 @@ file_id `zvitst`, prefix `vqec_vision_ai_unit_zvitst_`.
 
 Zvec dependency bootstrap: `tools/vqec_vision_prepare_zvec.sh`; no named functions.
 Release/version/URL/checksum constants belong to `third_party/zvec/dependency.json`.
+
+Anchor-distance decoder: `src/perception/detection/vqec_vision_anchor_distance_decoder.cpp`,
+file_id `addcd`, prefix `vqec_vision_ai_detec_addcd_`. Test
+`tests/unit/vqec_vision_anchor_distance_decoder_test.cpp`, file_id `addtst`,
+prefix `vqec_vision_ai_unit_addtst_`.
