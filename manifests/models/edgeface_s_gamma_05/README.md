@@ -8,7 +8,7 @@ Git; this directory holds only metadata and (later) small privacy-safe golden re
 | `model_metadata.json` | identity, graph name, artifact ref + SHA-256 (metadata, not signature verification) |
 | `io_manifest.json` | declared input/output tensor identity from the QCS6490 runtime probe |
 | `preprocess.json` | declared color/normalization of the aligned 112x112 tensor |
-| `decoder.json` | **not present yet** — the embedding decoder contract is M5 work |
+| `decoder.json` | embedding decoder contract: output tensor/dimension, landmark alignment template, destination color policy |
 | `golden/` | aligned crop, input tensor and embedding reference (pending) |
 
 Artifact: `libedgeface_s_gamma_05_w8a16_ada_w8a16.so`, SHA-256
@@ -24,11 +24,12 @@ board path `/var/roothome/ai_app_dsp/models/libedgeface_s_gamma_05_w8a16_ada_w8a
 
 ## Not usable yet (M4/M5)
 
-- No `decoder.json`: the typed embedding decoder (dimension/finite checks, L2 normalization,
-  model/version binding, stale-result rejection) is not implemented. Do not bind this model
-  in a production catalog until M5 lands.
-- Alignment (5-point similarity transform to 112x112) and the landmark template are M4
-  work; `preprocess.json` declares only the color/normalization of the aligned tensor.
+- `decoder.json` now declares the embedding kind (output tensor `embedding`, dimension 512,
+  min norm, 5-point `face.5pt` alignment template to 112×112, RGB/BT.709-limited), but
+  production does not yet prepare an embedding graph/decoder or consume the template; do not
+  bind this model in a production catalog until secondary composition lands.
+- Alignment (5-point similarity transform to 112x112) is delivered in
+  `fastcv_aligner`; the aligned RGB must still be quantized to this model's uint16 input.
 - Embeddings are sensitive biometric data. Keep them out of logs, Git and CI artifacts.
 
 ## Intended catalog entry (M5, schema v2)

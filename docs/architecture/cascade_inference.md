@@ -151,6 +151,13 @@ class_count, confidence_threshold, iou_threshold, box_tensor and score_tensor; i
 labels and labels_ref are mutually exclusive. Informational metadata (strides, grids,
 anchors, box layout metadata) is shape-checked but not consumed by the runtime.
 
+An embedding package sets kind to "embedding". Required keys are decoder_contract,
+output_tensor, dimension, landmark_schema_id, landmark_schema_version, destination_width,
+destination_height and reference_points (ordered 2D points); optional keys are min_norm,
+color_matrix, color_range and channel_order. It declares the secondary model's output
+identity, the L2-normalization floor and the landmark alignment template. Production does
+not yet prepare an embedding graph or consume the template.
+
 Source geometry comes from sources assigning this model; all such sources must currently
 have equal dimensions because the production owner holds one decoder per model.
 Tensor geometry and placement come from the model catalog, not decoder.json.

@@ -1,0 +1,21 @@
+{
+  "kind": "embedding",
+  "decoder_contract": "face.embedding.edgeface",
+  "output_tensor": "embedding",
+  "dimension": 512,
+  "min_norm": 1e-06,
+  "landmark_schema_id": "face.5pt",
+  "landmark_schema_version": "1",
+  "destination_width": 112,
+  "destination_height": 112,
+  "reference_points": [
+    { "x": 38.2946, "y": 51.6963 },
+    { "x": 73.5318, "y": 51.5014 },
+    { "x": 56.0252, "y": 71.7366 },
+    { "x": 41.5493, "y": 92.3655 },
+    { "x": 70.7299, "y": 92.2041 }
+  ],
+  "color_matrix": "bt709",
+  "color_range": "limited",
+  "channel_order": "rgb"
+}

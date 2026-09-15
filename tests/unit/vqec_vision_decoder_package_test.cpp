@@ -175,6 +175,50 @@ int main() {
     check(yoke.decoder_contract_ == preserved.decoder_contract_ &&
         yoke.box_tensor_ == preserved.box_tensor_ && yoke.class_count_ == 1U);
 
+    // Embedding kind: output identity, dimension, alignment template and color policy.
+    {
+        const std::string document = R"json({
+          "kind": "embedding",
+          "decoder_contract": "face.embedding.edgeface",
+          "output_tensor": "embedding",
+          "dimension": 512,
+          "min_norm": 1e-06,
+          "landmark_schema_id": "face.5pt",
+          "landmark_schema_version": "1",
+          "destination_width": 112,
+          "destination_height": 112,
+          "reference_points": [
+            {"x": 38.0, "y": 51.0}, {"x": 73.0, "y": 51.0},
+            {"x": 56.0, "y": 71.0}, {"x": 41.0, "y": 92.0}, {"x": 70.0, "y": 92.0}
+          ],
+          "color_matrix": "bt709",
+          "color_range": "limited",
+          "channel_order": "rgb"
+        })json";
+        decoder_package embedding;
+        check(load(document, embedding).code_ == status_code::ok);
+        check(embedding.kind_ == decoder_package_kind::embedding &&
+            embedding.embedding_output_tensor_ == "embedding" &&
+            embedding.embedding_dimension_ == 512U &&
+            embedding.reference_points_.size() == 5U &&
+            embedding.destination_width_ == 112U &&
+            embedding.color_matrix_ == color_matrix::bt709 &&
+            embedding.channel_order_ == channel_order::rgb);
+        expect_invalid(R"json({"kind":"embedding","decoder_contract":"x",
+            "dimension":512,"landmark_schema_id":"s","landmark_schema_version":"1",
+            "destination_width":112,"destination_height":112,
+            "reference_points":[{"x":0,"y":0},{"x":1,"y":1}]})json");
+        expect_invalid(R"json({"kind":"embedding","decoder_contract":"x",
+            "output_tensor":"embedding","dimension":512,"landmark_schema_id":"s",
+            "landmark_schema_version":"1","destination_width":112,"destination_height":112,
+            "reference_points":[{"x":0,"y":0},{"x":1,"y":1}],"extra":1})json");
+        expect_invalid(R"json({"kind":"embedding","decoder_contract":"x",
+            "output_tensor":"embedding","dimension":512,"landmark_schema_id":"s",
+            "landmark_schema_version":"1","destination_width":112,"destination_height":112,
+            "reference_points":[{"x":0,"y":0},{"x":1,"y":1}],
+            "color_matrix":"bt2020"})json");
+    }
+
     // The shipped SCRFD package must satisfy the strict loader it is deployed through.
 #if defined(VQEC_VISION_AI_MODEL_MANIFEST_DIR)
     {
@@ -190,6 +234,19 @@ int main() {
             check(shipped.landmark_count_ == 5U && shipped.stages_.size() == 3U);
             check(shipped.stages_[0].score_tensor_ == "score_8" &&
                 shipped.stages_[2].stride_ == 32U);
+        }
+        std::ifstream edgeface(std::string(VQEC_VISION_AI_MODEL_MANIFEST_DIR) +
+            "/edgeface_s_gamma_05/decoder.json");
+        if (!edgeface.is_open()) {
+            ++failures;
+        } else {
+            decoder_package shipped;
+            check(vqec_vision_ai_mreg_dcpkg_load(edgeface, shipped).code_ == status_code::ok);
+            check(shipped.kind_ == decoder_package_kind::embedding &&
+                shipped.embedding_output_tensor_ == "embedding" &&
+                shipped.embedding_dimension_ == 512U &&
+                shipped.reference_points_.size() == 5U &&
+                shipped.destination_width_ == 112U);
         }
     }
 #endif

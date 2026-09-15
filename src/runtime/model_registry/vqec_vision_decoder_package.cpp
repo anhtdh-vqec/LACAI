@@ -39,6 +39,16 @@ constexpr std::initializer_list<const char*> g_anchor_required_keys = {
     "landmark_count", "anchor_offset_cells", "confidence_threshold", "iou_threshold",
     "max_candidates", "stages"};
 
+constexpr std::initializer_list<const char*> g_embedding_allowed_keys = {
+    "kind", "decoder_contract", "output_tensor", "dimension", "min_norm",
+    "landmark_schema_id", "landmark_schema_version", "destination_width",
+    "destination_height", "reference_points", "color_matrix", "color_range",
+    "channel_order"};
+
+constexpr std::initializer_list<const char*> g_embedding_required_keys = {
+    "kind", "decoder_contract", "output_tensor", "dimension", "landmark_schema_id",
+    "landmark_schema_version", "destination_width", "destination_height", "reference_points"};
+
 void vqec_vision_ai_mreg_dcpkg_require_keys(
     const decoder_json& _object, std::initializer_list<const char*> _allowed,
     std::initializer_list<const char*> _required) {
@@ -309,6 +319,82 @@ decoder_package vqec_vision_ai_mreg_dcpkg_read_anchor_distance(const decoder_jso
     return package;
 }
 
+decoder_package vqec_vision_ai_mreg_dcpkg_read_embedding(const decoder_json& _root) {
+    vqec_vision_ai_mreg_dcpkg_require_keys(
+        _root, g_embedding_allowed_keys, g_embedding_required_keys);
+    decoder_package package;
+    package.kind_ = decoder_package_kind::embedding;
+    package.decoder_contract_ = vqec_vision_ai_mreg_dcpkg_read_identifier(
+        _root.at("decoder_contract"));
+    package.embedding_output_tensor_ = vqec_vision_ai_mreg_dcpkg_read_identifier(
+        _root.at("output_tensor"));
+    package.embedding_dimension_ = vqec_vision_ai_mreg_dcpkg_read_size(_root.at("dimension"),
+        1U, decoder_package_limits::g_max_embedding_dimensions);
+    if (_root.contains("min_norm")) {
+        const auto number = vqec_vision_ai_mreg_dcpkg_read_number(_root.at("min_norm"));
+        if (number < 0.0) {
+            throw invalid_decoder_package{};
+        }
+        package.min_norm_ = static_cast<float>(number);
+    }
+    package.landmark_schema_id_ = vqec_vision_ai_mreg_dcpkg_read_identifier(
+        _root.at("landmark_schema_id"));
+    package.landmark_schema_version_ = vqec_vision_ai_mreg_dcpkg_read_identifier(
+        _root.at("landmark_schema_version"));
+    package.destination_width_ = vqec_vision_ai_mreg_dcpkg_read_u32(
+        _root.at("destination_width"), decoder_package_limits::g_min_destination_dimension,
+        decoder_package_limits::g_max_destination_dimension);
+    package.destination_height_ = vqec_vision_ai_mreg_dcpkg_read_u32(
+        _root.at("destination_height"), decoder_package_limits::g_min_destination_dimension,
+        decoder_package_limits::g_max_destination_dimension);
+    const auto& points = _root.at("reference_points");
+    if (!points.is_array() || points.size() < 2U ||
+        points.size() > decoder_package_limits::g_max_landmarks) {
+        throw invalid_decoder_package{};
+    }
+    for (const auto& point : points) {
+        vqec_vision_ai_mreg_dcpkg_require_keys(point, {"x", "y"}, {});
+        landmark_point parsed;
+        const auto x = vqec_vision_ai_mreg_dcpkg_read_number(point.at("x"));
+        const auto y = vqec_vision_ai_mreg_dcpkg_read_number(point.at("y"));
+        parsed.x_ = static_cast<float>(x);
+        parsed.y_ = static_cast<float>(y);
+        package.reference_points_.push_back(parsed);
+    }
+    package.landmark_count_ = package.reference_points_.size();
+    if (_root.contains("color_matrix")) {
+        const auto name = vqec_vision_ai_mreg_dcpkg_read_plain_text(_root.at("color_matrix"));
+        if (name == "bt601") {
+            package.color_matrix_ = color_matrix::bt601;
+        } else if (name == "bt709") {
+            package.color_matrix_ = color_matrix::bt709;
+        } else {
+            throw invalid_decoder_package{};
+        }
+    }
+    if (_root.contains("color_range")) {
+        const auto name = vqec_vision_ai_mreg_dcpkg_read_plain_text(_root.at("color_range"));
+        if (name == "limited") {
+            package.color_range_ = color_range::limited;
+        } else if (name == "full") {
+            package.color_range_ = color_range::full;
+        } else {
+            throw invalid_decoder_package{};
+        }
+    }
+    if (_root.contains("channel_order")) {
+        const auto name = vqec_vision_ai_mreg_dcpkg_read_plain_text(_root.at("channel_order"));
+        if (name == "rgb") {
+            package.channel_order_ = channel_order::rgb;
+        } else if (name == "bgr") {
+            package.channel_order_ = channel_order::bgr;
+        } else {
+            throw invalid_decoder_package{};
+        }
+    }
+    return package;
+}
+
 }  // namespace
 
 status vqec_vision_ai_mreg_dcpkg_load(
@@ -366,13 +452,20 @@ status vqec_vision_ai_mreg_dcpkg_load(
             const auto name = vqec_vision_ai_mreg_dcpkg_read_plain_text(root.at("kind"));
             if (name == "anchor_distance") {
                 kind = decoder_package_kind::anchor_distance;
+            } else if (name == "embedding") {
+                kind = decoder_package_kind::embedding;
             } else if (name != "yolov8") {
                 throw invalid_decoder_package{};
             }
         }
-        decoder_package candidate = kind == decoder_package_kind::anchor_distance ?
-            vqec_vision_ai_mreg_dcpkg_read_anchor_distance(root) :
-            vqec_vision_ai_mreg_dcpkg_read_yolov8(root);
+        decoder_package candidate;
+        if (kind == decoder_package_kind::anchor_distance) {
+            candidate = vqec_vision_ai_mreg_dcpkg_read_anchor_distance(root);
+        } else if (kind == decoder_package_kind::embedding) {
+            candidate = vqec_vision_ai_mreg_dcpkg_read_embedding(root);
+        } else {
+            candidate = vqec_vision_ai_mreg_dcpkg_read_yolov8(root);
+        }
         _package = std::move(candidate);
         return {};
     } catch (const invalid_decoder_package&) {
