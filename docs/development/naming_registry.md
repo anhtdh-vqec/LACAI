@@ -427,3 +427,6 @@ Runtime composition factory registrations (source delivered):
 
 Zvec integration test: `tests/unit/vqec_vision_zvec_embedding_index_test.cpp`,
 file_id `zvitst`, prefix `vqec_vision_ai_unit_zvitst_`.
+
+Zvec dependency bootstrap: `tools/vqec_vision_prepare_zvec.sh`; no named functions.
+Release/version/URL/checksum constants belong to `third_party/zvec/dependency.json`.

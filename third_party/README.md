@@ -7,6 +7,7 @@ neutral layers.
 | Component | Role | License | Delivery |
 |---|---|---|---|
 | `qai_appbuilder/` | Qualcomm AI AppBuilder reference for plugin/QNN mechanisms (not linked) | BSD-3-Clause | git submodule, pinned |
+| `zvec/` | Embedding index C API | Apache-2.0 (upstream; bundled dependencies retain their licenses) | Pinned public ARM64 SDK, checksum-verified bootstrap |
 | `qairt/` | QAIRT/QNN SDK used to build the optional owned QNN engine | Qualcomm proprietary | local symlink, gitignored |
 | `nlohmann/` | Header-only JSON parser used by optional loaders | MIT | vendored single header |
 

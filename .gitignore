@@ -25,3 +25,7 @@ compile_commands.json
 
 # Private Qualcomm QAIRT SDK (installed externally; never commit) and its symlink
 /third_party/qairt
+
+# Downloaded public Zvec SDK; reproducible from pinned release metadata
+/third_party/zvec/sdk/
+/third_party/zvec/.download.*/

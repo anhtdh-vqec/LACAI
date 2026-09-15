@@ -15,8 +15,8 @@ option(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST "Enable bounded JSON output manifest
 option(VQEC_VISION_AI_ENABLE_MODEL_CATALOG "Enable bounded JSON model catalog loading" OFF)
 option(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG "Enable bounded JSON deployment configuration loading" OFF)
 option(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG "Enable bounded JSON feature catalog loading" OFF)
-option(VQEC_VISION_AI_ENABLE_ZVEC "Enable the optional external Zvec embedding index" OFF)
-set(VQEC_VISION_AI_ZVEC_ROOT "" CACHE PATH
+option(VQEC_VISION_AI_ENABLE_ZVEC "Build the Zvec embedding index backend" ON)
+set(VQEC_VISION_AI_ZVEC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zvec/sdk" CACHE PATH
     "External Zvec installation root (contains include/zvec and lib)")
 option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata checker" OFF)
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
@@ -69,12 +69,12 @@ if(VQEC_VISION_AI_ENABLE_ZVEC)
     endif()
     find_path(VQEC_VISION_AI_ZVEC_INCLUDE_DIR zvec/c_api.h
         PATHS "${VQEC_VISION_AI_ZVEC_ROOT}/include"
-        NO_DEFAULT_PATH)
-    find_library(VQEC_VISION_AI_ZVEC_LIBRARY zvec
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_library(VQEC_VISION_AI_ZVEC_LIBRARY zvec_c_api
         PATHS "${VQEC_VISION_AI_ZVEC_ROOT}/lib"
-        NO_DEFAULT_PATH)
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
     if(NOT VQEC_VISION_AI_ZVEC_INCLUDE_DIR OR NOT VQEC_VISION_AI_ZVEC_LIBRARY)
-        message(FATAL_ERROR "Zvec C API header/library not found under VQEC_VISION_AI_ZVEC_ROOT")
+        message(FATAL_ERROR "Zvec C API SDK missing. Run bash tools/vqec_vision_prepare_zvec.sh or supply a reviewed VQEC_VISION_AI_ZVEC_ROOT.")
     endif()
     add_library(vqec_vision_ai_zvec_external INTERFACE)
     target_include_directories(vqec_vision_ai_zvec_external SYSTEM INTERFACE

@@ -68,3 +68,12 @@ passes 95/95 with Zvec disabled. No libzvec was found in the eSDK or temporary d
 area; therefore linking and the Zvec integration test have NOT run. The optional test
 checks same/orthogonal/opposite vectors, threshold conversion, revision rejection and
 delete visibility when an approved target library is supplied.
+
+## Real-library validation (supersedes the missing-library note above)
+
+The pinned public Linux ARM64 v0.7.0 SDK is now acquired under third_party/zvec/sdk
+using the checksum-verified bootstrap. CMake enables the adapter by default and links
+libzvec_c_api.so. On 2026-09-15 the eSDK-built integration executable passed both QEMU
+and native QCS6490 .48 execution (zero failed checks). Existing collection recovery,
+authoritative encrypted enrollment and live FD-to-FR composition remain open.
+The upstream library is a release binary; only LACAI was compiled with the eSDK.
