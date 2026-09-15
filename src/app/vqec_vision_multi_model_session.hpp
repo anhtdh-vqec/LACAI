@@ -3,8 +3,10 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
+#include "vqec_vision_cascade_frame_store.hpp"
 #include "vqec_vision_multi_model_pump.hpp"
 #include "vqec_vision_source_session.hpp"
 
@@ -33,6 +35,9 @@ struct multi_model_graph_config {
     std::uint64_t max_output_bytes_{0};
     std::uint64_t cycle_id_{0};
     std::uint64_t job_timeout_ns_{1000000000};
+    // True when this model's decoded results may spawn secondary tasks that need the exact
+    // source frame; the session retains such frames until the dependents complete.
+    bool cascade_root_{false};
 };
 
 // Explicit stop semantics for a result that becomes ready while graphs drain. A model
@@ -53,6 +58,14 @@ struct multi_model_session_config {
     std::uint16_t graph_count_{0};
     int rpc_timeout_ms_{1000};
     multi_model_drain_policy drain_policy_{multi_model_drain_policy::drain_and_discard};
+    // Source identity used to key retained cascade frames.
+    std::uint32_t camera_id_{0};
+    std::uint32_t channel_id_{0};
+    // Cascade retention budget. Required (and must be nonzero) when any graph is a cascade
+    // root; ignored otherwise. Sized by composition from the admitted workload.
+    std::size_t cascade_frames_{0};
+    std::size_t cascade_tasks_per_frame_{0};
+    std::uint64_t cascade_max_bytes_{0};
 };
 
 struct multi_model_session_snapshot {
@@ -65,6 +78,7 @@ struct multi_model_session_snapshot {
     unsigned source_readers_{0};
     std::uint16_t graph_count_{0};
     std::uint16_t running_graph_count_{0};
+    std::uint64_t cascade_bytes_{0};
     bool is_recovery_required_{false};
 };
 
@@ -93,6 +107,17 @@ public:
         const noexcept;
     // Takes the newest camera frame independently of result cadence. Serialized caller only.
     [[nodiscard]] status vqec_vision_ai_appl_mmses_take_preview_frame(raw_frame& _frame);
+    // Cascade coordinator boundary. A secondary task acquires the exact retained source
+    // frame by key and completes its ticket only after the dependent device read finishes.
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_acquire_cascade_frame(
+        const preview_frame_key& _key, raw_frame& _frame, std::uint64_t& _ticket);
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_complete_cascade_task(
+        std::uint64_t _ticket);
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_retire_cascade_frame(
+        const preview_frame_key& _key);
+    [[nodiscard]] std::uint64_t
+    vqec_vision_ai_appl_mmses_get_cascade_bytes() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_mmses_has_cascade_store() const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         source_session_progress& _progress) override;
@@ -112,6 +137,7 @@ private:
     raw_source_port& source_;
     multi_model_session_config config_;
     multi_model_pump pump_;
+    std::unique_ptr<cascade_frame_store> cascade_store_;
     raw_frame last_result_frame_;
     multi_model_session_state state_{multi_model_session_state::idle};
     status last_error_;

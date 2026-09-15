@@ -1,6 +1,7 @@
 #include "vqec_vision_multi_model_session.hpp"
 
 #include <limits>
+#include <new>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
@@ -123,9 +124,41 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
         pump_bindings[slot].processor_ = graph_config.processor_;
         pump_bindings[slot].plan_ = graph_config.processor_ != nullptr ?
             &config_.graphs_[slot].plan_ : nullptr;
+        pump_bindings[slot].cascade_root_ = graph_config.cascade_root_;
     }
-    return pump_.vqec_vision_ai_appl_mmump_configure(
+    bool has_cascade_root = false;
+    for (std::uint16_t slot = 0; slot < config_.graph_count_; ++slot) {
+        has_cascade_root = has_cascade_root || config_.graphs_[slot].cascade_root_;
+    }
+    if (has_cascade_root &&
+        (config_.cascade_frames_ == 0 || config_.cascade_tasks_per_frame_ == 0 ||
+         config_.cascade_max_bytes_ == 0)) {
+        return {status_code::invalid_argument,
+            "cascade-root session requires a nonzero retention budget"};
+    }
+    const auto configured = pump_.vqec_vision_ai_appl_mmump_configure(
         config_.cadence_, pump_bindings, config_.graph_count_);
+    if (configured.code_ != status_code::ok) {
+        return configured;
+    }
+    cascade_store_.reset();
+    if (has_cascade_root) {
+        try {
+            cascade_store_ = std::make_unique<cascade_frame_store>(
+                config_.cascade_frames_, config_.cascade_tasks_per_frame_,
+                config_.cascade_max_bytes_);
+        } catch (const std::bad_alloc&) {
+            return {status_code::resource_exhausted,
+                "cascade frame store allocation failed"};
+        }
+        const auto bound = pump_.vqec_vision_ai_appl_mmump_bind_cascade_store(
+            *cascade_store_, config_.camera_id_, config_.channel_id_);
+        if (bound.code_ != status_code::ok) {
+            cascade_store_.reset();
+            return bound;
+        }
+    }
+    return {};
 }
 
 status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
@@ -212,6 +245,12 @@ status multi_model_session::vqec_vision_ai_appl_mmses_request_stop(
 status multi_model_session::vqec_vision_ai_appl_mmses_stop_graph(
     std::uint64_t _steady_now_ns) {
     if (drain_graph_slot_ >= config_.graph_count_) {
+        // Release the FW source only after every retained cascade frame has been completed
+        // by its dependent; timeout is handled by the session stop deadline, not here.
+        if (cascade_store_ != nullptr &&
+            cascade_store_->vqec_vision_ai_sched_cfstr_bytes() != 0) {
+            return {status_code::pending, "waiting for cascade dependents to complete"};
+        }
         state_ = multi_model_session_state::releasing_source;
         return {status_code::pending, "all graphs reconciled; source release is next"};
     }
@@ -380,6 +419,8 @@ multi_model_session::vqec_vision_ai_appl_mmses_get_snapshot() const noexcept {
     snapshot.first_error_code_ = last_error_.code_;
     snapshot.source_readers_ = source_.vqec_vision_ai_ports_rawsr_get_outstanding();
     snapshot.graph_count_ = config_.graph_count_;
+    snapshot.cascade_bytes_ = cascade_store_ != nullptr ?
+        cascade_store_->vqec_vision_ai_sched_cfstr_bytes() : 0;
     snapshot.is_recovery_required_ = is_recovery_required_;
     for (std::uint16_t slot = 0;
          slot < config_.graph_count_ &&
@@ -464,6 +505,40 @@ const raw_frame& multi_model_session::vqec_vision_ai_appl_mmses_get_result_frame
 status multi_model_session::vqec_vision_ai_appl_mmses_take_preview_frame(
     raw_frame& _frame) {
     return pump_.vqec_vision_ai_appl_mmump_take_preview_frame(_frame);
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_acquire_cascade_frame(
+    const preview_frame_key& _key, raw_frame& _frame, std::uint64_t& _ticket) {
+    if (cascade_store_ == nullptr) {
+        return {status_code::invalid_state, "session has no cascade frame store"};
+    }
+    return cascade_store_->vqec_vision_ai_sched_cfstr_acquire(_key, _frame, _ticket);
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_complete_cascade_task(
+    std::uint64_t _ticket) {
+    if (cascade_store_ == nullptr) {
+        return {status_code::invalid_state, "session has no cascade frame store"};
+    }
+    return cascade_store_->vqec_vision_ai_sched_cfstr_complete(_ticket);
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_retire_cascade_frame(
+    const preview_frame_key& _key) {
+    if (cascade_store_ == nullptr) {
+        return {status_code::invalid_state, "session has no cascade frame store"};
+    }
+    return cascade_store_->vqec_vision_ai_sched_cfstr_retire(_key);
+}
+
+std::uint64_t multi_model_session::vqec_vision_ai_appl_mmses_get_cascade_bytes()
+    const noexcept {
+    return cascade_store_ != nullptr ?
+        cascade_store_->vqec_vision_ai_sched_cfstr_bytes() : 0;
+}
+
+bool multi_model_session::vqec_vision_ai_appl_mmses_has_cascade_store() const noexcept {
+    return cascade_store_ != nullptr;
 }
 
 }  // namespace vqec::vision::ai

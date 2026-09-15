@@ -56,6 +56,7 @@ public:
         frame_.descriptor_.buffer_id_ = _buffer_id;
         frame_.descriptor_.session_epoch_ = 3;
         frame_.descriptor_.pts_ns_ = _buffer_id * 1000;
+        frame_.descriptor_.allocation_size_bytes_ = 16;
         frame_.native_handle_ = 17;
         frame_.owner_ = std::make_shared<int>(1);
         has_frame_ = true;
@@ -270,9 +271,12 @@ vqec_vision_ai_unit_mmsts_make_session_config(
 int main() {
     using namespace vqec::vision::ai;
     unsigned failures = 0;
-    const auto check = [&failures](bool _condition) {
+    unsigned check_index = 0;
+    const auto check = [&failures, &check_index](bool _condition) {
+        ++check_index;
         if (!_condition) {
             ++failures;
+            std::cerr << "failed check " << check_index << "\n";
         }
     };
 
@@ -413,6 +417,94 @@ int main() {
               status_code::ok);
         check(drain_session.vqec_vision_ai_appl_mmses_take_drain_result(drained).code_ ==
               status_code::pending);
+    }
+
+    // Section 14: cascade retention. A cascade-root session owns a frame store, retains the
+    // source frame on submit, and must not release the FW source until the dependent
+    // completes the retention ticket.
+    {
+        fake_session_source cascade_source;
+        fake_session_graph cascade_graph;
+        multi_model_session_config cascade_config;
+        cascade_config.graph_count_ = 1;
+        cascade_config.graphs_[0] =
+            vqec_vision_ai_unit_mmsts_make_graph_config(cascade_graph, 41);
+        cascade_config.graphs_[0].cascade_root_ = true;
+        cascade_config.cadence_.source_fps_numerator_ = 25;
+        cascade_config.cadence_.source_fps_denominator_ = 1;
+        cascade_config.cadence_.model_count_ = 1;
+        cascade_config.cadence_.model_fps_numerators_[0] = 25;
+        cascade_config.cadence_.model_fps_denominators_[0] = 1;
+        cascade_config.startup_timeout_ns_ = 1000;
+        cascade_config.stop_timeout_ns_ = 100000;
+        cascade_config.camera_id_ = 2;
+        cascade_config.cascade_frames_ = 1;
+        cascade_config.cascade_tasks_per_frame_ = 2;
+        cascade_config.cascade_max_bytes_ = 1024;
+        multi_model_session cascade_session(cascade_source, cascade_config);
+
+        // A cascade-root session without a retention budget is rejected before acquisition.
+        {
+            multi_model_session_config no_budget = cascade_config;
+            no_budget.cascade_max_bytes_ = 0;
+            fake_session_source bad_source;
+            fake_session_graph bad_graph;
+            multi_model_session bad_session(bad_source, no_budget);
+            check(bad_session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
+                  status_code::invalid_argument);
+            check(bad_source.start_calls_ == 0);
+        }
+
+        check(cascade_session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
+              status_code::pending);
+        std::uint64_t now = 1;
+        while (cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::running && now <= 20) {
+            (void)cascade_session.vqec_vision_ai_appl_mmses_step(now++, result, progress);
+        }
+        check(cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+              multi_model_session_state::running);
+        check(cascade_session.vqec_vision_ai_appl_mmses_has_cascade_store());
+
+        cascade_source.vqec_vision_ai_unit_mmsts_supply_frame(1);
+        check(cascade_session.vqec_vision_ai_appl_mmses_step(now++, result, progress).code_ ==
+              status_code::ok);
+        check(cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
+        cascade_graph.vqec_vision_ai_unit_mmsts_complete_result();
+
+        // Stop while the retained frame is outstanding: the FW source must not be released.
+        check(cascade_session.vqec_vision_ai_appl_mmses_request_stop(now++).code_ ==
+              status_code::ok);
+        for (int index = 0; index < 12; ++index) {
+            (void)cascade_session.vqec_vision_ai_appl_mmses_step(now++, result, progress);
+        }
+        check(cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+              multi_model_session_state::stopped);
+        check(cascade_source.stop_calls_ == 0 &&
+              cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
+
+        // The dependent completes: the frame is released and the source drains.
+        const preview_frame_key key{2, 0, 3, 1, 1000};
+        raw_frame acquired;
+        std::uint64_t ticket = 0;
+        check(cascade_session.vqec_vision_ai_appl_mmses_acquire_cascade_frame(
+                  key, acquired, ticket).code_ == status_code::ok);
+        check(acquired.owner_ != nullptr &&
+              cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
+        // The coordinator closes admission once it has acquired every dependent task, then
+        // completes each ticket after the device read finishes.
+        check(cascade_session.vqec_vision_ai_appl_mmses_retire_cascade_frame(key).code_ ==
+              status_code::ok);
+        check(cascade_session.vqec_vision_ai_appl_mmses_complete_cascade_task(ticket).code_ ==
+              status_code::ok);
+        check(cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 0);
+        while (cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::stopped && now <= 200) {
+            (void)cascade_session.vqec_vision_ai_appl_mmses_step(now++, result, progress);
+        }
+        check(cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+              multi_model_session_state::stopped);
+        check(cascade_source.stop_calls_ == 1);
     }
 
     std::cout << "multi-model session failures: " << failures << '\n';

@@ -17,6 +17,28 @@ drain are not yet implemented.
 - Tests: `multi_model_pump_cascade_retention` covers retain, rollback, drop, fail-closed
   unbound store and the non-cascade no-op path.
 
+## Delivered (slice 2)
+
+- `multi_model_session` owns the `cascade_frame_store` (`multi_model_graph_config.
+  cascade_root_`, `multi_model_session_config.camera_id_/channel_id_/cascade_frames_/
+  cascade_tasks_per_frame_/cascade_max_bytes_`; a nonzero budget is required when any graph
+  is a cascade root) and binds it to the pump.
+- Coordinator API: `acquire_cascade_frame`, `retire_cascade_frame`,
+  `complete_cascade_task`, `get_cascade_bytes`; the snapshot exposes `cascade_bytes_`.
+- Drain gate: with a retained frame outstanding, the session waits before
+  `releasing_source`, so the FW source is not released until `store.bytes() == 0`. A stop
+  that never completes hits the existing stop deadline and flags recovery-required.
+- Tests: the `multi_model_source_lifecycle` session test covers missing-budget rejection,
+  retain on submit, the stop gate holding the source, and release after retire + complete.
+
+## Not delivered (slice 3+)
+
+- Composition wiring: camera/channel from deployment and `cascade_root_` derived from the
+  catalog `role`/`depends_on`, plus admission-derived store sizing.
+- The cascade coordinator that turns a decoded primary result into bounded secondary tasks
+  (alignment + embedding), and the secondary backend.
+
+
 ## Current state
 
 - `cascade_frame_store` (logic-tested): exact `camera/channel/epoch/frame/PTS` keys, byte

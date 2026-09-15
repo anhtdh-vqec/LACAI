@@ -278,7 +278,8 @@ remains open.
 `image_alignment_port` is now a defined, unit-tested contract (template/request/result/
 transform/capabilities with fail-closed capability gating). No backend implements it and no
 orchestration consumes it; FastCV/QTI affine capability, crop/tensor pool and golden crop
-parity remain M4. The pump cascade retention slice 1 is delivered: the pump can borrow a
-session-owned `cascade_frame_store` and retain/roll back cascade-root frames per frame
-(`multi_model_pump_cascade_retention`); session wiring, the cascade coordinator and the
-dependent/completion drain are still open.
+parity remain M4. Cascade retention slice 2 is delivered: `multi_model_session` owns a
+`cascade_frame_store`, retains cascade-root frames through the pump, exposes
+acquire/retire/complete, and delays FW source release until `store.bytes() == 0`. Composition
+wiring (camera/channel + `cascade_root_` from the catalog) and the cascade coordinator that
+creates secondary tasks remain open.
