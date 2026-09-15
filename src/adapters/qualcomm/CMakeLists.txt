@@ -22,6 +22,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0)
     add_library(vqec_vision_ai_qualcomm STATIC
         vqec_vision_fastcv_processor.cpp
+        vqec_vision_qtiv_color.cpp
         vqec_vision_plugin_graph.cpp
         vqec_vision_inference_graph.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
@@ -57,6 +58,15 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
     target_link_libraries(vqec_vision_ai_qnn_engine_smoke
         PRIVATE vqec_vision_ai_qnn_engine)
     set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
+# Board-only smoke for the QtIV color-conversion offload. Not registered as a test.
+if(VQEC_VISION_AI_ENABLE_QUALCOMM)
+    add_executable(vqec_vision_ai_qtiv_color_smoke
+        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_qtiv_color_smoke.cpp)
+    target_link_libraries(vqec_vision_ai_qtiv_color_smoke
+        PRIVATE vqec_vision_ai_qualcomm)
+    set_target_properties(vqec_vision_ai_qtiv_color_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Owned FastCV path. Currently a board-only affine smoke to establish the vendor warp

@@ -74,6 +74,8 @@ Chỉ thư mục có hàm cần ID; thư mục tài liệu/manifest không cần
 | src/adapters/qualcomm/vqec_vision_qnn_engine.cpp | qneng | vqec_vision_ai_qcom_qneng_ |
 | src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp | fcprc | vqec_vision_ai_qcom_fcprc_ |
 | src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp | fcaln | vqec_vision_ai_qcom_fcaln_ (port overrides retain vqec_vision_ai_ports_imaln_) |
+| src/adapters/qualcomm/vqec_vision_qtiv_color.cpp | qtcol | vqec_vision_ai_qcom_qtcol_ |
+| tools/vqec_vision_qtiv_color_smoke.cpp | qtcsm | vqec_vision_ai_tools_qtcsm_ |
 | src/adapters/qualcomm/vqec_vision_buffer_manager.cpp | bufmg | vqec_vision_ai_qcom_bufmg_ |
 | src/adapters/qualcomm/vqec_vision_backend_factory.cpp | bfact | vqec_vision_ai_qcom_bfact_ |
 | src/adapters/qualcomm/vqec_vision_sdk_loader.cpp | sdkld | vqec_vision_ai_qcom_sdkld_ |

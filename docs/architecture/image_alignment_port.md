@@ -164,6 +164,24 @@ resize/colorspace/flip/90-180-rotate, so **arbitrary-angle affine is not proven*
 verified offload is therefore axis-aligned ROI crop + NV12->RGB + resize on FastCV/GPU; the
 residual rotation stays on FastCV until a board pipeline proves an affine-capable path.
 
+### `qtiv_color_converter` (offload adapter, board-verified for fcv)
+
+`src/adapters/qualcomm/vqec_vision_qtiv_color.cpp` runs a persistent `appsrc ->
+qtivtransform -> appsink` pipeline (fixed NV12/RGB caps) and converts one tightly packed
+NV12 image to RGB on the plugin backend. On `.48`, `engine=fcv` returned `bytes=12288` for a
+64x64 frame (rc 0). Two findings constrain integration and need an owner decision:
+
+- Color parity: a synthetic BT.601 red produced `(238,14,14)` from the plugin versus
+  `(254,0,0)` from the reviewed neutral converter (~16/255 difference). The plugin colour
+  conversion is therefore **not bit-identical** to the neutral path; which is authoritative
+  for FR preprocessing must be decided with golden data.
+- `engine=gles` did not deliver a sample in this appsrc path (basesrc not-negotiated) and is
+  not claimed.
+
+The converter is not yet wired into `fastcv_aligner`; the offload integration (ROI crop +
+color + resize on the plugin, rotation on FastCV, and the colour-authority decision) is the
+next step.
+
 ## See also
 
 - [ADR 0005](../adr/0005_scalable_model_integration.md),
