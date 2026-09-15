@@ -16,12 +16,28 @@
 namespace vqec::vision::ai {
 
 namespace model_catalog_limits {
-inline constexpr std::uint32_t g_schema_version = 1;
+// Current schema. Version 1 (no role/depends_on) is migrated on load; version 2 requires
+// an explicit role and dependency declaration.
+inline constexpr std::uint32_t g_schema_version = 2;
+inline constexpr std::uint32_t g_legacy_schema_version = 1;
 inline constexpr std::size_t g_max_models = 64;
+inline constexpr std::size_t g_max_dependencies = 16;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
 inline constexpr std::uint64_t g_max_model_resident_bytes = 2ULL * 1024 * 1024 * 1024;
 inline constexpr std::uint64_t g_max_catalog_resident_bytes = 8ULL * 1024 * 1024 * 1024;
 }  // namespace model_catalog_limits
+
+// A primary model runs in the full-frame cadence. A secondary model consumes a primary
+// model's result (for example an aligned crop) and never joins the full-frame submit mask.
+enum class model_role { primary, secondary };
+
+// Immutable reference to another catalog model. Matching id + version + target binds the
+// dependency to one catalog identity rather than an arbitrary string.
+struct model_dependency {
+    std::string model_id_;
+    std::string model_version_;
+    std::string target_id_;
+};
 
 struct model_source_constraints {
     std::uint32_t min_width_{0};
@@ -50,6 +66,11 @@ struct model_catalog_entry {
     std::string decoder_contract_;
     std::string preprocess_contract_;
     std::string graph_name_;
+    // Role is primary by default for legacy/in-memory entries; the strict loader requires an
+    // explicit role in schema version 2. A secondary entry must declare depends_on; a
+    // primary entry must not.
+    model_role role_{model_role::primary};
+    std::vector<model_dependency> depends_on_;
     std::uint32_t tensor_width_{0};
     std::uint32_t tensor_height_{0};
     tensor_element_type input_type_{tensor_element_type::uint8};

@@ -265,6 +265,11 @@ and `manifests/models/edgeface_s_gamma_05/` (embedding decoder pending M5). The 
 artifacts, thresholds and preprocessing provenance still need the model team's golden
 reference; metadata is not model acceptance.
 
+Model catalog schema v2 adds a required `role` (primary/secondary) and a validated
+`depends_on` of immutable primary identities; schema v1 documents are migrated to primary.
+A secondary model cannot be a full-frame deployment assignment. Loader and validator tests
+cover the accepted and rejected cases; the runtime pump does not yet consume the role.
+
 Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
 domain-scoped completion tickets and byte accounting through drain. Logic tests pass eSDK
 QEMU and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration

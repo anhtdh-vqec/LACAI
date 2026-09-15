@@ -182,6 +182,54 @@ void vqec_vision_ai_unit_mctst_check_output_binding() {
     }
 }
 
+void vqec_vision_ai_unit_mctst_check_roles_and_dependencies() {
+    auto catalog = vqec_vision_ai_unit_mctst_make_catalog();
+    model_dependency dependency;
+    dependency.model_id_ = "person_detector";
+    dependency.model_version_ = "1.0.0";
+    dependency.target_id_ = "qcs6490_qlinux_1_8";
+    catalog.models_[1].role_ = model_role::secondary;
+    catalog.models_[1].depends_on_ = {dependency};
+    std::uint64_t bytes = 0;
+    if (vqec_vision_ai_core_mdcat_validate_catalog(catalog, bytes).code_ != status_code::ok) {
+        throw std::runtime_error("valid secondary dependency rejected");
+    }
+    auto missing = catalog;
+    missing.models_[1].depends_on_.clear();
+    if (vqec_vision_ai_core_mdcat_validate_catalog(missing, bytes).code_ !=
+        status_code::invalid_argument) {
+        throw std::runtime_error("secondary without dependency accepted");
+    }
+    auto primary_dep = catalog;
+    primary_dep.models_[0].depends_on_ = {dependency};
+    if (vqec_vision_ai_core_mdcat_validate_catalog(primary_dep, bytes).code_ !=
+        status_code::invalid_argument) {
+        throw std::runtime_error("primary with dependency accepted");
+    }
+    auto self = catalog;
+    self.models_[1].depends_on_[0].model_id_ = "person_attributes";
+    if (vqec_vision_ai_core_mdcat_validate_catalog(self, bytes).code_ !=
+        status_code::invalid_argument) {
+        throw std::runtime_error("self dependency accepted");
+    }
+    // A dependency must resolve to a primary model, not another secondary.
+    auto chain = catalog;
+    chain.models_[0].role_ = model_role::secondary;
+    chain.models_[0].depends_on_ = {dependency};
+    chain.models_[0].depends_on_[0].model_id_ = "person_attributes";
+    chain.models_[1].depends_on_[0].model_id_ = "person_detector";
+    if (vqec_vision_ai_core_mdcat_validate_catalog(chain, bytes).code_ !=
+        status_code::invalid_argument) {
+        throw std::runtime_error("secondary dependency target accepted");
+    }
+    // A secondary model cannot be a full-frame deployment assignment.
+    auto deployment = vqec_vision_ai_unit_mctst_make_deployment();
+    if (vqec_vision_ai_core_mdcat_validate_deployment_models(
+            deployment, catalog, bytes).code_ != status_code::invalid_argument) {
+        throw std::runtime_error("secondary deployment assignment accepted");
+    }
+}
+
 }  // namespace
 }  // namespace vqec::vision::ai
 
@@ -191,6 +239,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_unit_mctst_check_deployment_models();
         vqec::vision::ai::vqec_vision_ai_unit_mctst_check_plan_composition();
         vqec::vision::ai::vqec_vision_ai_unit_mctst_check_output_binding();
+        vqec::vision::ai::vqec_vision_ai_unit_mctst_check_roles_and_dependencies();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

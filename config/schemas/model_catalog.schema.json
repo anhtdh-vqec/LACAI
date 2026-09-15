@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:vqec:vision:ai:model-catalog:1",
+  "$id": "urn:vqec:vision:ai:model-catalog:2",
   "title": "VQEC Vision AI model-team catalog",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "revision", "catalog_id", "models"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "revision": { "type": "integer", "minimum": 1 },
     "catalog_id": { "$ref": "#/$defs/identifier" },
     "models": {
@@ -81,13 +81,23 @@
         "can_share_context_across_sources": { "type": "boolean" }
       }
     },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "model_version", "target_id"],
+      "properties": {
+        "model_id": { "$ref": "#/$defs/identifier" },
+        "model_version": { "$ref": "#/$defs/identifier" },
+        "target_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
     "model": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
         "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
-        "input", "inference_cadence", "source_constraints", "resources"
+        "input", "inference_cadence", "source_constraints", "resources", "role"
       ],
       "properties": {
         "model_id": { "$ref": "#/$defs/identifier" },
@@ -102,8 +112,25 @@
         "input": { "$ref": "#/$defs/input" },
         "inference_cadence": { "$ref": "#/$defs/rate" },
         "source_constraints": { "$ref": "#/$defs/source_constraints" },
-        "resources": { "$ref": "#/$defs/resources" }
-      }
+        "resources": { "$ref": "#/$defs/resources" },
+        "role": { "enum": ["primary", "secondary"] },
+        "depends_on": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/dependency" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "role": { "const": "secondary" } }, "required": ["role"] },
+          "then": { "required": ["depends_on"] }
+        },
+        {
+          "if": { "properties": { "role": { "const": "primary" } }, "required": ["role"] },
+          "then": { "not": { "required": ["depends_on"] } }
+        }
+      ]
     }
   }
 }

@@ -141,6 +141,30 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
         return {status_code::resource_exhausted,
                 "model tensor budget cannot hold the declared input"};
     }
+    switch (_model.role_) {
+        case model_role::primary:
+            if (!_model.depends_on_.empty()) {
+                return {status_code::invalid_argument,
+                    "primary model must not declare dependencies"};
+            }
+            break;
+        case model_role::secondary:
+            if (_model.depends_on_.empty() ||
+                _model.depends_on_.size() > model_catalog_limits::g_max_dependencies) {
+                return {status_code::invalid_argument,
+                    "secondary model requires a bounded dependency list"};
+            }
+            for (const auto& dependency : _model.depends_on_) {
+                if (!vqec_vision_ai_core_mdcat_is_identifier(dependency.model_id_) ||
+                    !vqec_vision_ai_core_mdcat_is_identifier(dependency.model_version_) ||
+                    !vqec_vision_ai_core_mdcat_is_identifier(dependency.target_id_)) {
+                    return {status_code::invalid_argument, "invalid model dependency identity"};
+                }
+            }
+            break;
+        default:
+            return {status_code::invalid_argument, "invalid model role"};
+    }
     return {};
 }
 
@@ -174,7 +198,8 @@ bool vqec_vision_ai_core_mdcat_source_supports_model(
 
 status vqec_vision_ai_core_mdcat_validate_catalog(
     const model_catalog& _catalog, std::uint64_t& _declared_resident_bytes) {
-    if (_catalog.schema_version_ != model_catalog_limits::g_schema_version) {
+    if (_catalog.schema_version_ != model_catalog_limits::g_schema_version &&
+        _catalog.schema_version_ != model_catalog_limits::g_legacy_schema_version) {
         return {status_code::unsupported, "unsupported model catalog schema"};
     }
     if (_catalog.revision_ == 0 ||
@@ -196,6 +221,37 @@ status vqec_vision_ai_core_mdcat_validate_catalog(
                 _catalog.models_[previous].output_manifest_ref_ ==
                     model.output_manifest_ref_) {
                 return {status_code::invalid_argument, "duplicate model catalog identity"};
+            }
+        }
+        // Dependencies must resolve to a different primary catalog identity, and the same
+        // dependency must not be declared twice.
+        for (std::size_t dep_index = 0; dep_index < model.depends_on_.size(); ++dep_index) {
+            const auto& dependency = model.depends_on_[dep_index];
+            if (dependency.model_id_ == model.model_id_ &&
+                dependency.model_version_ == model.model_version_ &&
+                dependency.target_id_ == model.target_id_) {
+                return {status_code::invalid_argument, "model must not depend on itself"};
+            }
+            const model_catalog_entry* target = nullptr;
+            for (const auto& other : _catalog.models_) {
+                if (other.model_id_ == dependency.model_id_ &&
+                    other.model_version_ == dependency.model_version_ &&
+                    other.target_id_ == dependency.target_id_) {
+                    target = &other;
+                    break;
+                }
+            }
+            if (target == nullptr || target->role_ != model_role::primary) {
+                return {status_code::invalid_argument,
+                    "model dependency must resolve to a primary catalog model"};
+            }
+            for (std::size_t earlier = 0; earlier < dep_index; ++earlier) {
+                const auto& other = model.depends_on_[earlier];
+                if (other.model_id_ == dependency.model_id_ &&
+                    other.model_version_ == dependency.model_version_ &&
+                    other.target_id_ == dependency.target_id_) {
+                    return {status_code::invalid_argument, "duplicate model dependency"};
+                }
             }
         }
         if (!vqec_vision_ai_core_mdcat_add_bytes(
@@ -238,6 +294,12 @@ status vqec_vision_ai_core_mdcat_validate_deployment_models(
         }
         if (assignments > model.resources_.max_concurrent_sources_) {
             return {status_code::resource_exhausted, "model source concurrency exceeded"};
+        }
+        // A secondary model is invoked by its primary's cascade, never as a full-frame
+        // source assignment.
+        if (assignments != 0 && model.role_ == model_role::secondary) {
+            return {status_code::invalid_argument,
+                "secondary model cannot be assigned as a full-frame source model"};
         }
         const unsigned resident_instances =
             model.resources_.can_share_context_across_sources_ && assignments != 0

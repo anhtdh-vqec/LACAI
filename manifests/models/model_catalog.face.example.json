@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "revision": 1,
   "catalog_id": "models_face_qcs6490_v1",
   "models": [
@@ -40,7 +40,8 @@
         "output_queue_buffers": 2,
         "max_concurrent_sources": 16,
         "can_share_context_across_sources": true
-      }
+      },
+      "role": "primary"
     }
   ]
 }

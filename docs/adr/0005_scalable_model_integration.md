@@ -46,19 +46,17 @@ architecture and the work required; it does not claim any of it is delivered.
 
 ## 1. Catalog role and dependency (required change)
 
-None of this exists in the current contract/loader/validator/schema. Required work:
+Delivered in schema version 2: `role` is a required validated field; `depends_on` is required
+for `secondary` and forbidden for `primary`, references an immutable
+`(model_id, model_version, target_id)` primary identity, and rejects self/duplicate/
+secondary targets. `validate_deployment_models` rejects a secondary model as a full-frame
+assignment. Version 1 documents are migrated to version 2 with primary roles. Contract,
+loader, validator, schema, examples and tests (`model_catalog_validation`,
+`model_catalog_loading`) are committed; see `docs/architecture/model_catalog.md`.
 
-- Add `role` as a required, validated field. Either a new schema version with an explicit
-  migration, or a documented strict migration from the previous catalog version; no
-  implicit default at load time.
-- `depends_on` must be non-empty when `role=secondary`, and rejected when `role=primary`.
-- The dependency must resolve to an immutable primary catalog identity (model id,
-  version, target); it is validated against the catalog, not stored as an opaque string.
-- Reject cycles and self-dependencies; a secondary model must not be a full-frame cadence
-  member.
-- Update `model_catalog.schema.json`, catalog examples, the SCRFD/EdgeFace manifests, the
-  strict loader, the pure validator, activation-failure tests, and the migration path from
-  the current catalog version.
+Still open: the deeper activation/ownership integration (secondary models never entering the
+full-frame submit mask at runtime) follows from the role field but is pump work tracked under
+section 4.
 
 ## 2. `image_alignment_port` contract (must be defined before approval)
 
@@ -146,7 +144,7 @@ later stage.
 
 ## Approve after (gates)
 
-- [ ] Catalog/schema/validator migration with required `role`/`depends_on` is committed and
+- [x] Catalog/schema/validator migration with required `role`/`depends_on` is committed and
       tested (valid, missing, wrong-role dependency, cycle, self-reference).
 - [ ] `image_alignment_port` contract is defined with the ownership/completion/error fields
       above.

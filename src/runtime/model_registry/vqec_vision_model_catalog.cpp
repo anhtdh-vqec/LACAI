@@ -28,6 +28,33 @@ void vqec_vision_ai_mreg_mdcat_require_keys(
     }
 }
 
+// Every key must be allowed (rejects unknown keys) and every required key must be present.
+// Unlike require_keys, optional keys are permitted.
+void vqec_vision_ai_mreg_mdcat_require_allowed_keys(
+    const catalog_json& _object, std::initializer_list<const char*> _allowed,
+    std::initializer_list<const char*> _required) {
+    if (!_object.is_object()) {
+        throw invalid_catalog_document{};
+    }
+    for (auto iterator = _object.begin(); iterator != _object.end(); ++iterator) {
+        bool allowed = false;
+        for (const char* key : _allowed) {
+            if (iterator.key() == key) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) {
+            throw invalid_catalog_document{};
+        }
+    }
+    for (const char* key : _required) {
+        if (!_object.contains(key)) {
+            throw invalid_catalog_document{};
+        }
+    }
+}
+
 std::uint64_t vqec_vision_ai_mreg_mdcat_read_uint(const catalog_json& _value) {
     if (!_value.is_number_unsigned()) {
         throw invalid_catalog_document{};
@@ -180,17 +207,25 @@ preprocess_spec vqec_vision_ai_mreg_mdcat_read_preprocess(const catalog_json& _v
 }
 
 model_catalog_entry vqec_vision_ai_mreg_mdcat_read_model(
-    const catalog_json& _value) {
-    if (!_value.is_object() || _value.size() < 13U || _value.size() > 14U) {
-        throw invalid_catalog_document{};
-    }
-    for (const char* key : {"model_id", "model_version", "target_id", "artifact_ref",
-             "artifact_sha256", "output_manifest_ref", "decoder_contract",
-             "preprocess_contract", "graph_name", "input", "inference_cadence",
-             "source_constraints", "resources"}) {
-        if (!_value.contains(key)) {
-            throw invalid_catalog_document{};
-        }
+    const catalog_json& _value, std::uint32_t _schema_version) {
+    const bool role_required = _schema_version >= model_catalog_limits::g_schema_version;
+    if (role_required) {
+        vqec_vision_ai_mreg_mdcat_require_allowed_keys(_value,
+            {"model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
+             "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
+             "preprocess", "input", "inference_cadence", "source_constraints", "resources",
+             "role", "depends_on"},
+            {"model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
+             "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
+             "input", "inference_cadence", "source_constraints", "resources", "role"});
+    } else {
+        vqec_vision_ai_mreg_mdcat_require_allowed_keys(_value,
+            {"model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
+             "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
+             "preprocess", "input", "inference_cadence", "source_constraints", "resources"},
+            {"model_id", "model_version", "target_id", "artifact_ref", "artifact_sha256",
+             "output_manifest_ref", "decoder_contract", "preprocess_contract", "graph_name",
+             "input", "inference_cadence", "source_constraints", "resources"});
     }
     model_catalog_entry model;
     model.model_id_ = vqec_vision_ai_mreg_mdcat_read_text(_value.at("model_id"));
@@ -268,6 +303,39 @@ model_catalog_entry vqec_vision_ai_mreg_mdcat_read_model(
         throw invalid_catalog_document{};
     }
     model.resources_.can_share_context_across_sources_ = share.get<bool>();
+    if (role_required) {
+        const auto role_name = vqec_vision_ai_mreg_mdcat_read_text(_value.at("role"));
+        if (role_name == "primary") {
+            model.role_ = model_role::primary;
+            if (_value.contains("depends_on")) {
+                throw invalid_catalog_document{};
+            }
+        } else if (role_name == "secondary") {
+            model.role_ = model_role::secondary;
+            if (!_value.contains("depends_on")) {
+                throw invalid_catalog_document{};
+            }
+            const auto& dependencies = _value.at("depends_on");
+            if (!dependencies.is_array() || dependencies.empty() ||
+                dependencies.size() > model_catalog_limits::g_max_dependencies) {
+                throw invalid_catalog_document{};
+            }
+            for (const auto& entry : dependencies) {
+                vqec_vision_ai_mreg_mdcat_require_keys(
+                    entry, {"model_id", "model_version", "target_id"});
+                model_dependency dependency;
+                dependency.model_id_ =
+                    vqec_vision_ai_mreg_mdcat_read_text(entry.at("model_id"));
+                dependency.model_version_ =
+                    vqec_vision_ai_mreg_mdcat_read_text(entry.at("model_version"));
+                dependency.target_id_ =
+                    vqec_vision_ai_mreg_mdcat_read_text(entry.at("target_id"));
+                model.depends_on_.push_back(std::move(dependency));
+            }
+        } else {
+            throw invalid_catalog_document{};
+        }
+    }
     return model;
 }
 
@@ -320,9 +388,15 @@ status vqec_vision_ai_mreg_mdcat_load_catalog(
         const auto root = catalog_json::parse(document, callback);
         vqec_vision_ai_mreg_mdcat_require_keys(
             root, {"schema_version", "revision", "catalog_id", "models"});
-        model_catalog candidate;
-        candidate.schema_version_ =
+        const auto schema_version =
             vqec_vision_ai_mreg_mdcat_read_u32(root.at("schema_version"));
+        if (schema_version != model_catalog_limits::g_schema_version &&
+            schema_version != model_catalog_limits::g_legacy_schema_version) {
+            return {status_code::unsupported, "unsupported model catalog schema"};
+        }
+        model_catalog candidate;
+        // Version 1 documents are migrated: every entry becomes primary with no dependency.
+        candidate.schema_version_ = model_catalog_limits::g_schema_version;
         candidate.revision_ = vqec_vision_ai_mreg_mdcat_read_uint(root.at("revision"));
         candidate.catalog_id_ = vqec_vision_ai_mreg_mdcat_read_text(root.at("catalog_id"));
         const auto& models = root.at("models");
@@ -332,7 +406,8 @@ status vqec_vision_ai_mreg_mdcat_load_catalog(
         }
         candidate.models_.reserve(models.size());
         for (const auto& model : models) {
-            candidate.models_.push_back(vqec_vision_ai_mreg_mdcat_read_model(model));
+            candidate.models_.push_back(
+                vqec_vision_ai_mreg_mdcat_read_model(model, schema_version));
         }
         std::uint64_t declared_bytes = 0;
         const auto valid =

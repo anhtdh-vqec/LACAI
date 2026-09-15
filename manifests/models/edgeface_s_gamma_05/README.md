@@ -31,6 +31,21 @@ board path `/var/roothome/ai_app_dsp/models/libedgeface_s_gamma_05_w8a16_ada_w8a
   work; `preprocess.json` declares only the color/normalization of the aligned tensor.
 - Embeddings are sensitive biometric data. Keep them out of logs, Git and CI artifacts.
 
+## Intended catalog entry (M5, schema v2)
+
+When the embedding decoder lands, this model is a **secondary** catalog entry that depends
+on the SCRFD primary identity (it never joins the full-frame submit mask):
+
+```json
+{
+  "model_id": "edgeface_s_gamma_05",
+  "role": "secondary",
+  "depends_on": [
+    { "model_id": "scrfd_500m_bnkps", "model_version": "1.0", "target_id": "qcs6490" }
+  ]
+}
+```
+
 ## Policy
 
 No model binary, biometric data or private SDK in Git. A digest match is not artifact

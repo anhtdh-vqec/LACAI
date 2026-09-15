@@ -1,7 +1,29 @@
-# Model catalog configuration v1
+# Model catalog configuration v2
 
 Status: neutral contract, pure validation, bounded JSON loader and source tests delivered;
 artifact authentication/resolution and live graph composition are pending.
+
+## Role and dependency (schema version 2)
+
+Schema version 2 adds two validated fields:
+
+- `role` is required and is `primary` or `secondary`. A primary model runs in the full-frame
+  cadence; a secondary model consumes a primary's result (for example an aligned crop) and
+  never joins the full-frame submit mask.
+- `depends_on` is required when `role=secondary` and forbidden when `role=primary`. Each
+  entry is an immutable `(model_id, model_version, target_id)` reference that must resolve to
+  an existing **primary** model in the same catalog. Self-dependencies, duplicate
+  dependencies and dependencies on a secondary model are rejected.
+
+A secondary model assigned as a full-frame deployment source model is rejected by
+`validate_deployment_models`, so a cascade-dependent model cannot silently run in the
+full-frame fan-out.
+
+Migration: schema version 1 documents (no `role`/`depends_on`) are accepted and normalized
+to version 2 on load, with every entry becoming `primary` and no dependency. The loader
+requires an explicit `role` for version 2 documents; there is no silent default at load
+time. The schema and the C++ validator are the authority; in-memory entries default to
+`primary` for legacy callers.
 
 ## Ownership and separation
 
@@ -47,11 +69,12 @@ and never takes tensor/preprocess values from deployment configuration.
 
 ## JSON boundary
 
-Schema: `config/schemas/model_catalog.schema.json`.
+Schema: `config/schemas/model_catalog.schema.json` (version 2).
 Synthetic handoff: `manifests/models/model_catalog.example.json`.
 
-The strict startup loader is limited to 512 KiB and depth 16, rejects unknown/duplicate
-keys and preserves outputs on failure. JSON Schema is review assistance; C++ validation
+The strict startup loader accepts schema version 1 (migrated to version 2 as described
+above) and version 2, is limited to 512 KiB and depth 16, rejects unknown/duplicate keys and
+preserves outputs on failure. JSON Schema is review assistance; C++ validation
 remains authoritative for rational-rate comparisons, uniqueness and checked memory sums.
 Parsing does not verify a signature or digest, pin an open file, load executable code or
 prove resource measurements.
@@ -82,7 +105,7 @@ profile, generation/drain and source-epoch/reset policy before they can be enabl
 descriptors exist but no conformance fixture or board evidence does.
 
 
-## Optional authoritative preprocess (catalog v2)
+## Optional authoritative preprocess
 
 A catalog model entry may carry an optional `preprocess` object (the package
 `preprocess.json` shape). When present and structurally valid, it is the authoritative
