@@ -35,8 +35,19 @@ drain are not yet implemented.
 
 - Composition wiring: camera/channel from deployment and `cascade_root_` derived from the
   catalog `role`/`depends_on`, plus admission-derived store sizing.
+
+Delivered (slice 3a): the deployment source config has an optional `cascade`
+(`frames`/`tasks_per_frame`/`max_bytes`) budget, counted in the resident total and either
+all-zero or fully set; `runtime_composition_factory` derives `cascade_root_` from the
+catalog `role`/`depends_on`, sets camera/channel and the store sizing, and fails composition
+when a cascade root has no source budget. Covered by the deployment validation test and the
+composition factory contract test.
+
+## Remaining
+
 - The cascade coordinator that turns a decoded primary result into bounded secondary tasks
   (alignment + embedding), and the secondary backend.
+
 
 
 ## Current state

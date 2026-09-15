@@ -26,6 +26,32 @@ void vqec_vision_ai_life_dpcfg_require_keys(
     }
 }
 
+// Every key must be allowed (rejects unknown keys) and every required key must be present.
+void vqec_vision_ai_life_dpcfg_require_allowed_keys(
+    const deployment_json& _object, std::initializer_list<const char*> _allowed,
+    std::initializer_list<const char*> _required) {
+    if (!_object.is_object()) {
+        throw invalid_deployment{};
+    }
+    for (auto iterator = _object.begin(); iterator != _object.end(); ++iterator) {
+        bool allowed = false;
+        for (const char* key : _allowed) {
+            if (iterator.key() == key) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) {
+            throw invalid_deployment{};
+        }
+    }
+    for (const char* key : _required) {
+        if (!_object.contains(key)) {
+            throw invalid_deployment{};
+        }
+    }
+}
+
 std::uint64_t vqec_vision_ai_life_dpcfg_read_uint(const deployment_json& _value) {
     if (!_value.is_number_unsigned()) {
         throw invalid_deployment{};
@@ -128,7 +154,12 @@ status vqec_vision_ai_life_dpcfg_load(
         }
         candidate.sources_.reserve(sources.size());
         for (const auto& source_json : sources) {
-            vqec_vision_ai_life_dpcfg_require_keys(source_json,
+            vqec_vision_ai_life_dpcfg_require_allowed_keys(source_json,
+                {"source_id", "raw_source_ref", "camera_id", "channel_id",
+                 "preview_output_ref", "width", "height", "fps_numerator",
+                 "fps_denominator", "max_frame_allocation_bytes", "max_inflight_frames",
+                 "preview_surface_count", "max_tensor_bytes", "max_temporal_bytes",
+                 "model_ids", "cascade"},
                 {"source_id", "raw_source_ref", "camera_id", "channel_id",
                  "preview_output_ref", "width", "height", "fps_numerator",
                  "fps_denominator", "max_frame_allocation_bytes", "max_inflight_frames",
@@ -163,6 +194,17 @@ status vqec_vision_ai_life_dpcfg_load(
                 vqec_vision_ai_life_dpcfg_read_uint(source_json.at("max_tensor_bytes"));
             source.memory_.max_temporal_bytes_ =
                 vqec_vision_ai_life_dpcfg_read_uint(source_json.at("max_temporal_bytes"));
+            if (source_json.contains("cascade")) {
+                const auto& cascade = source_json.at("cascade");
+                vqec_vision_ai_life_dpcfg_require_keys(
+                    cascade, {"frames", "tasks_per_frame", "max_bytes"});
+                source.cascade_.frames_ =
+                    vqec_vision_ai_life_dpcfg_read_unsigned(cascade.at("frames"));
+                source.cascade_.tasks_per_frame_ =
+                    vqec_vision_ai_life_dpcfg_read_unsigned(cascade.at("tasks_per_frame"));
+                source.cascade_.max_bytes_ =
+                    vqec_vision_ai_life_dpcfg_read_uint(cascade.at("max_bytes"));
+            }
             const auto& models = source_json.at("model_ids");
             if (!models.is_array() || models.empty() ||
                 models.size() > deployment_limits::g_max_models_per_source) {

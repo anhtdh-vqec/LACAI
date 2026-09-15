@@ -21,6 +21,9 @@ inline constexpr std::uint32_t g_max_dimension_pixels = 8192;
 inline constexpr std::uint32_t g_max_frames_per_second = 240;
 inline constexpr unsigned g_max_inflight_frames_per_source = 4;
 inline constexpr unsigned g_max_preview_surfaces_per_source = 4;
+inline constexpr unsigned g_max_cascade_frames_per_source = 4;
+inline constexpr unsigned g_max_cascade_tasks_per_frame = 256;
+inline constexpr std::uint64_t g_max_cascade_bytes_per_source = 512ULL * 1024 * 1024;
 inline constexpr std::uint64_t g_max_frame_allocation_bytes = 256ULL * 1024 * 1024;
 inline constexpr std::uint64_t g_max_tensor_bytes_per_source = 64ULL * 1024 * 1024;
 inline constexpr std::uint64_t g_max_temporal_bytes_per_source = 256ULL * 1024 * 1024;
@@ -42,6 +45,15 @@ struct source_memory_config {
     std::uint64_t max_temporal_bytes_{0};
 };
 
+// Cascade (secondary-dependent) retention budget for one source. Either all fields are zero
+// (no cascade roots may depend on this source) or all are nonzero and within limits. Bytes
+// bound the retained source frames plus dependent crop work.
+struct source_cascade_config {
+    unsigned frames_{0};
+    unsigned tasks_per_frame_{0};
+    std::uint64_t max_bytes_{0};
+};
+
 struct source_deployment_config {
     std::string source_id_;
     // Mandatory FW-owned RAW source registry identity. Camera/Box transport is opaque.
@@ -53,6 +65,7 @@ struct source_deployment_config {
     std::string preview_output_ref_;
     source_profile_config profile_;
     source_memory_config memory_;
+    source_cascade_config cascade_;
     std::vector<std::string> model_ids_;
 };
 

@@ -20,7 +20,8 @@
       "preview_surface_count": 2,
       "max_tensor_bytes": 16777216,
       "max_temporal_bytes": 33554432,
-      "model_ids": ["person_detector"]
+      "model_ids": ["person_detector"],
+      "cascade": { "frames": 2, "tasks_per_frame": 8, "max_bytes": 8388608 }
     },
     {
       "source_id": "box_input_1",

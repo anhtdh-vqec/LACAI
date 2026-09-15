@@ -107,6 +107,16 @@
           "maxItems": 16,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/identifier" }
+        },
+        "cascade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frames", "tasks_per_frame", "max_bytes"],
+          "properties": {
+            "frames": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "tasks_per_frame": { "type": "integer", "minimum": 1, "maximum": 256 },
+            "max_bytes": { "type": "integer", "minimum": 1, "maximum": 536870912 }
+          }
         }
       },
       "allOf": [

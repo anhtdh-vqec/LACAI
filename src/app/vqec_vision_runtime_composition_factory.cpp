@@ -12,6 +12,25 @@ namespace {
 constexpr std::size_t g_max_runtime_graphs =
     deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source;
 
+// A model is a cascade root when some secondary catalog model depends on its exact
+// immutable identity. Its frames are then retained for the dependents.
+bool vqec_vision_ai_appl_rcfac_is_cascade_root(
+    const model_catalog& _catalog, const model_catalog_entry& _model) noexcept {
+    for (const auto& other : _catalog.models_) {
+        if (other.role_ != model_role::secondary) {
+            continue;
+        }
+        for (const auto& dependency : other.depends_on_) {
+            if (dependency.model_id_ == _model.model_id_ &&
+                dependency.model_version_ == _model.model_version_ &&
+                dependency.target_id_ == _model.target_id_) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 status vqec_vision_ai_appl_rcfac_validate_policy(
     const runtime_composition_activation& _activation) {
     if (_activation.source_count_ == 0 ||
@@ -306,6 +325,11 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             session_config.startup_timeout_ns_ = _activation.startup_timeout_ns_;
             session_config.stop_timeout_ns_ = _activation.stop_timeout_ns_;
             session_config.rpc_timeout_ms_ = _activation.rpc_timeout_ms_;
+            session_config.camera_id_ = source.camera_id_;
+            session_config.channel_id_ = source.channel_id_;
+            session_config.cascade_frames_ = source.cascade_.frames_;
+            session_config.cascade_tasks_per_frame_ = source.cascade_.tasks_per_frame_;
+            session_config.cascade_max_bytes_ = source.cascade_.max_bytes_;
 
             for (std::uint16_t model_slot = 0;
                  model_slot < source_activation.model_count_; ++model_slot) {
@@ -325,6 +349,13 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
                     perception_activations[source_slot][model_slot]);
                 if (composed.code_ != status_code::ok) {
                     return composed;
+                }
+                const bool is_cascade_root = vqec_vision_ai_appl_rcfac_is_cascade_root(
+                    _catalog, _catalog.models_[catalog_index]);
+                session_config.graphs_[model_slot].cascade_root_ = is_cascade_root;
+                if (is_cascade_root && source.cascade_.max_bytes_ == 0) {
+                    return {status_code::invalid_argument,
+                        "cascade-root model requires a source cascade budget"};
                 }
             }
         }

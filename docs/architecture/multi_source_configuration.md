@@ -156,3 +156,13 @@ versioned per-source output registry is required to map more than one source to 
 See also [Camera Service contract](../contracts/camera_service.md),
 [model integration](../contracts/model_integration.md), and
 [FW ring sink](fw_ring_sink.md).
+
+## 7. Cascade retention budget
+
+A source that hosts a cascade root (a model some secondary catalog model depends on) must
+declare a `cascade` budget: `frames`, `tasks_per_frame` and `max_bytes`. Either all three are
+zero (the source hosts no cascade root) or all three are nonzero and within limits; a partial
+budget is rejected. The budget is counted in the deployment resident total. Composition sets
+the session store sizing and `cascade_root_` from the catalog `role`/`depends_on`, and a
+cascade-root model without a source budget fails composition. The runtime then retains the
+exact source frame and releases the FW lease only after `store.bytes() == 0`.

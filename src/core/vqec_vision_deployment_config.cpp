@@ -91,6 +91,20 @@ status vqec_vision_ai_core_dpval_validate_deployment(
             return {status_code::invalid_argument,
                     "source preview output or frame budget mismatch"};
         }
+        const auto& cascade = source.cascade_;
+        const bool cascade_zero = cascade.frames_ == 0 &&
+            cascade.tasks_per_frame_ == 0 && cascade.max_bytes_ == 0;
+        const bool cascade_set = cascade.frames_ != 0 &&
+            cascade.tasks_per_frame_ != 0 && cascade.max_bytes_ != 0;
+        if (!cascade_zero && !cascade_set) {
+            return {status_code::invalid_argument, "partial source cascade budget"};
+        }
+        if (cascade_set &&
+            (cascade.frames_ > deployment_limits::g_max_cascade_frames_per_source ||
+             cascade.tasks_per_frame_ > deployment_limits::g_max_cascade_tasks_per_frame ||
+             cascade.max_bytes_ > deployment_limits::g_max_cascade_bytes_per_source)) {
+            return {status_code::invalid_argument, "source cascade budget exceeds limit"};
+        }
         for (std::size_t other = 0; other < index; ++other) {
             const auto& previous = _config.sources_[other];
             if (previous.source_id_ == source.source_id_ ||
@@ -126,6 +140,7 @@ status vqec_vision_ai_core_dpval_validate_deployment(
             !vqec_vision_ai_core_dpval_add_bytes(preview_bytes, total) ||
             !vqec_vision_ai_core_dpval_add_bytes(memory.max_tensor_bytes_, total) ||
             !vqec_vision_ai_core_dpval_add_bytes(memory.max_temporal_bytes_, total) ||
+            !vqec_vision_ai_core_dpval_add_bytes(cascade.max_bytes_, total) ||
             total > _config.max_total_resident_bytes_) {
             return {status_code::resource_exhausted, "declared multi-source memory exceeds budget"};
         }

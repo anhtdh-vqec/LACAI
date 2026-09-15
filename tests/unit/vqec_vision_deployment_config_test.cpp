@@ -135,6 +135,46 @@ void vqec_vision_ai_unit_dptst_check_profile_binding() {
     }
 }
 
+void vqec_vision_ai_unit_dptst_check_cascade_budget() {
+    auto config = vqec_vision_ai_unit_dptst_make_config();
+    // Zero (unset) is valid: no cascade roots depend on the source.
+    vqec_vision_ai_unit_dptst_require_status(
+        config, status_code::ok, "zero cascade budget");
+    // A partial budget is rejected.
+    config.sources_[0].cascade_.frames_ = 2;
+    vqec_vision_ai_unit_dptst_require_status(
+        config, status_code::invalid_argument, "partial cascade budget");
+    config.sources_[0].cascade_.tasks_per_frame_ = 8;
+    vqec_vision_ai_unit_dptst_require_status(
+        config, status_code::invalid_argument, "partial cascade budget bytes");
+    // A complete budget within limits is accepted and counted.
+    config.sources_[0].cascade_.max_bytes_ = 4 * g_mib;
+    vqec_vision_ai_unit_dptst_require_status(
+        config, status_code::ok, "valid cascade budget");
+    std::uint64_t declared_bytes = 0;
+    if (vqec_vision_ai_core_dpval_validate_deployment(config, declared_bytes).code_ !=
+        status_code::ok) {
+        throw std::runtime_error("cascade budget not validated");
+    }
+    config.sources_[0].cascade_.max_bytes_ = 1;
+    config.sources_[0].cascade_.frames_ = 1;
+    config.sources_[0].cascade_.tasks_per_frame_ = 1;
+    std::uint64_t smaller = 0;
+    if (vqec_vision_ai_core_dpval_validate_deployment(config, smaller).code_ !=
+            status_code::ok ||
+        smaller >= declared_bytes) {
+        throw std::runtime_error("cascade budget is not counted in resident bytes");
+    }
+    // A budget above the ceiling is rejected.
+    config = vqec_vision_ai_unit_dptst_make_config();
+    config.sources_[0].cascade_.frames_ = 1;
+    config.sources_[0].cascade_.tasks_per_frame_ = 1;
+    config.sources_[0].cascade_.max_bytes_ =
+        deployment_limits::g_max_cascade_bytes_per_source + 1;
+    vqec_vision_ai_unit_dptst_require_status(
+        config, status_code::invalid_argument, "oversized cascade budget");
+}
+
 }  // namespace
 }  // namespace vqec::vision::ai
 
@@ -144,6 +184,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_unit_dptst_check_raw_source_contract();
         vqec::vision::ai::vqec_vision_ai_unit_dptst_check_profile_and_memory();
         vqec::vision::ai::vqec_vision_ai_unit_dptst_check_profile_binding();
+        vqec::vision::ai::vqec_vision_ai_unit_dptst_check_cascade_budget();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

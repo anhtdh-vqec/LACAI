@@ -421,5 +421,57 @@ int main() {
     assert(reached_stopped);
     assert(first_source.start_count_ == 0 && second_source.start_count_ == 0 &&
            first_graph.configure_count_ == 0 && second_graph.configure_count_ == 0);
+
+    // Cascade: a secondary catalog model that depends on detector makes detector a cascade
+    // root. The source must declare a cascade budget and the session must own a store.
+    {
+        auto cascade_catalog = vqec_vision_ai_ctest_rcfct_make_catalog();
+        model_catalog_entry embedding = vqec_vision_ai_ctest_rcfct_make_model();
+        embedding.model_id_ = "embedding";
+        embedding.artifact_ref_ = "embedding.artifact";
+        embedding.output_manifest_ref_ = "embedding.outputs";
+        embedding.decoder_contract_ = "embedding.decoder.v1";
+        embedding.graph_name_ = "embedding.graph";
+        embedding.tensor_width_ = 112;
+        embedding.tensor_height_ = 112;
+        embedding.role_ = model_role::secondary;
+        embedding.depends_on_ = {{"detector", "1.0", "qcs6490"}};
+        cascade_catalog.models_.push_back(embedding);
+
+        auto cascade_deployment = vqec_vision_ai_ctest_rcfct_make_deployment();
+        for (auto& source : cascade_deployment.sources_) {
+            source.cascade_ = {2, 4, 4096};
+        }
+        {
+            auto missing_budget = cascade_deployment;
+            missing_budget.sources_[0].cascade_ = {};
+            vqec_vision_ai_ctest_rcfct_source a;
+            vqec_vision_ai_ctest_rcfct_source b;
+            vqec_vision_ai_ctest_rcfct_graph c;
+            vqec_vision_ai_ctest_rcfct_graph d;
+            const auto activation = vqec_vision_ai_ctest_rcfct_make_activation(
+                cascade_catalog.models_[0], a, b, c, d);
+            std::unique_ptr<runtime_composition_bundle> rejected;
+            assert(vqec_vision_ai_appl_rcfac_create_bundle(missing_budget, cascade_catalog,
+                       activation, decoders, trackers, rejected).code_ ==
+                   status_code::invalid_argument);
+        }
+        vqec_vision_ai_ctest_rcfct_source a;
+        vqec_vision_ai_ctest_rcfct_source b;
+        vqec_vision_ai_ctest_rcfct_graph c;
+        vqec_vision_ai_ctest_rcfct_graph d;
+        const auto activation = vqec_vision_ai_ctest_rcfct_make_activation(
+            cascade_catalog.models_[0], a, b, c, d);
+        std::unique_ptr<runtime_composition_bundle> cascade_bundle;
+        assert(vqec_vision_ai_appl_rcfac_create_bundle(cascade_deployment, cascade_catalog,
+                   activation, decoders, trackers, cascade_bundle).code_ == status_code::ok);
+        auto* cascade_session = cascade_bundle->vqec_vision_ai_appl_rcfac_get_session(0);
+        assert(cascade_session != nullptr);
+        tensor_result cascade_result;
+        source_session_progress cascade_progress;
+        assert(cascade_session->vqec_vision_ai_appl_mmses_step(
+                   0, cascade_result, cascade_progress).code_ == status_code::pending);
+        assert(cascade_session->vqec_vision_ai_appl_mmses_has_cascade_store());
+    }
     return 0;
 }
