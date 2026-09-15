@@ -12,6 +12,7 @@ Model integration metadata and verified artifact references/checksums. Do not co
 | `yolov8n_person/` | Approved YOLOv8n-person kit (M0–M4) |
 | `scrfd_500m_bnkps/` | SCRFD face detector package (M0; runtime ABI from the QCS6490 probe) |
 | `edgeface_s_gamma_05/` | EdgeFace embedding package (M0; decoder/alignment are M4/M5) |
+| `VERIFICATION_CHECKLIST.md` | Per-model fields to verify before a package is accepted |
 
 The SCRFD and EdgeFace directories hold metadata only; their `.so` artifacts stay outside
 Git. They are not artifact authentication: a digest match is not signature verification.
