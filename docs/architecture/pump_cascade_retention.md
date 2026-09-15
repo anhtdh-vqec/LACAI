@@ -98,9 +98,10 @@ executor/service; the real EdgeFace graph and golden parity are M5.
 - On source epoch change: retire the old keys (close admission), cancel queued tasks, drain
   submitted tasks; publish a gap so a new person is not emitted because an ID reset.
 - On stop: `multi_model_pump::begin_stop` closes new receives; the session retires keys and
-  waits until all secondary tasks complete and `store.bytes() == 0` before releasing the FW
-  source lease. The supervisor's global stop latches to the session; the source is not
-  released while any owner is outstanding.
+  drains primary graphs. A cascade-root result completed during drain is not sent to a new
+  dependent, so the session retires that exact ticket's frame. Already-acquired secondary
+  tickets remain charged until their real completion. The session requires
+  `store.bytes() == 0` before releasing the FW source lease.
 - On failure/timeout: the task is marked faulted and counted; the frame stays charged until
   real completion or an explicit recovery/quarantine decision. No silent release.
 

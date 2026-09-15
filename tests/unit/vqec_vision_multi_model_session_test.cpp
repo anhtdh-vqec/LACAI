@@ -472,7 +472,16 @@ int main() {
         check(cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
         cascade_graph.vqec_vision_ai_unit_mmsts_complete_result();
 
-        // Stop while the retained frame is outstanding: the FW source must not be released.
+        const preview_frame_key key{2, 0, 3, 1, 1000};
+        raw_frame acquired;
+        std::uint64_t ticket = 0;
+        cascade_frame_lease_port& lease = cascade_session;
+        check(lease.vqec_vision_ai_ports_cflse_acquire(key, acquired, ticket).code_ ==
+              status_code::ok);
+        check(acquired.owner_ != nullptr);
+
+        // Stop drains the primary result and closes admission, but the acquired secondary
+        // ticket keeps the FW source owner alive until its real completion.
         check(cascade_session.vqec_vision_ai_appl_mmses_request_stop(now++).code_ ==
               status_code::ok);
         for (int index = 0; index < 12; ++index) {
@@ -483,19 +492,8 @@ int main() {
         check(cascade_source.stop_calls_ == 0 &&
               cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
 
-        // The dependent completes: the frame is released and the source drains.
-        const preview_frame_key key{2, 0, 3, 1, 1000};
-        raw_frame acquired;
-        std::uint64_t ticket = 0;
-        // The coordinator drives the session through cascade_frame_lease_port.
-        cascade_frame_lease_port& lease = cascade_session;
-        check(lease.vqec_vision_ai_ports_cflse_acquire(key, acquired, ticket).code_ ==
-              status_code::ok);
-        check(acquired.owner_ != nullptr &&
-              cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 16);
-        // The coordinator closes admission once it has acquired every dependent task, then
-        // completes each ticket after the device read finishes.
-        check(lease.vqec_vision_ai_ports_cflse_retire(key).code_ == status_code::ok);
+        // The drained primary already retired admission. Completion of the acquired
+        // dependent ticket releases the final owner and allows source shutdown.
         check(lease.vqec_vision_ai_ports_cflse_complete(ticket).code_ == status_code::ok);
         check(cascade_session.vqec_vision_ai_appl_mmses_get_cascade_bytes() == 0);
         while (cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=

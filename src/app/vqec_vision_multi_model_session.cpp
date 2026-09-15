@@ -260,9 +260,26 @@ status multi_model_session::vqec_vision_ai_appl_mmses_stop_graph(
         return graph.vqec_vision_ai_ports_infgr_request_drain();
     }
     if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
+        const auto pending_ticket = graph.vqec_vision_ai_ports_infgr_get_pending_ticket();
         tensor_result polled;
         const auto result = graph.vqec_vision_ai_ports_infgr_poll_result(
             _steady_now_ns, polled);
+        if (result.code_ == status_code::ok &&
+            config_.graphs_[drain_graph_slot_].cascade_root_ &&
+            cascade_store_ != nullptr) {
+            // Stop has closed downstream cascade admission, so no coordinator will consume
+            // this drained primary result. Retire its exact frame after primary completion;
+            // already-acquired secondary tickets still keep the owner charged until their
+            // own hardware completion.
+            const preview_frame_key key{config_.camera_id_, config_.channel_id_,
+                pending_ticket.source_epoch_, pending_ticket.source_frame_id_,
+                pending_ticket.source_pts_ns_};
+            const auto retired =
+                cascade_store_->vqec_vision_ai_sched_cfstr_retire(key);
+            if (retired.code_ != status_code::ok) {
+                return retired;
+            }
+        }
         // Stop semantics are explicit: retain the last result only when the policy asks for
         // it; otherwise reconcile ownership and discard it.
         if (result.code_ == status_code::ok &&
