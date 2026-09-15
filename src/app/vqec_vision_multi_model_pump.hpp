@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "vqec_vision_model_cadence.hpp"
+#include "vqec_vision_cascade_frame_store.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
@@ -20,6 +21,9 @@ struct multi_model_graph_binding {
     // When set, the binding's plan is required and the pump submits preprocessed tensors.
     image_processor_port* processor_{nullptr};
     const inference_plan* plan_{nullptr};
+    // True when this model's decoded results may spawn secondary tasks that need the exact
+    // source frame. A cascade-root submission retains the frame in the borrowed store.
+    bool cascade_root_{false};
 };
 
 struct multi_model_pump_report {
@@ -35,6 +39,10 @@ struct multi_model_pump_report {
     std::uint16_t pending_model_mask_{0};
     std::uint16_t result_model_slot_{UINT16_MAX};
     std::uint16_t error_model_slot_{UINT16_MAX};
+    // Cascade-root slots whose frame was retained this step, and those skipped because the
+    // borrowed store had no admitted budget.
+    std::uint16_t cascade_retained_model_mask_{0};
+    std::uint16_t cascade_dropped_model_mask_{0};
     bool has_result_{false};
     // Frame owner retained for the reported result so an AI-owned output stage can render
     // the same pixels. Valid until the next submission for that slot or stop; it keeps the
@@ -59,6 +67,12 @@ public:
     // after its graph is loaded and before any frame is received, so the per-frame path
     // performs no metadata lookup (S04/O07). A non-preprocessing binding is unaffected.
     [[nodiscard]] status vqec_vision_ai_appl_mmump_resolve_targets();
+    // Binds the session-owned cascade frame store before the first frame is received. The
+    // pump borrows it and retains cascade-root frames under the source key. It does not
+    // complete or retire entries on stop; the session owns that drain.
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_bind_cascade_store(
+        cascade_frame_store& _store, std::uint32_t _camera_id,
+        std::uint32_t _channel_id);
     [[nodiscard]] status vqec_vision_ai_appl_mmump_pump_step(
         std::uint64_t _steady_now_ns, tensor_result& _result,
         multi_model_pump_report& _report);
@@ -120,6 +134,13 @@ private:
     // pump stops. This is what keeps the owner alive from submission to result take.
     std::array<raw_frame, deployment_limits::g_max_models_per_source> retained_frames_{};
     raw_frame preview_frame_;
+    // Borrowed session-owned cascade retention. Null means no cascade-root binding is
+    // admitted; a cascade-root binding without a bound store fails closed.
+    cascade_frame_store* cascade_store_{nullptr};
+    std::uint32_t camera_id_{0};
+    std::uint32_t channel_id_{0};
+    bool has_cascade_root_{false};
+    bool has_received_frame_{false};
     bool has_preview_frame_{false};
     bool is_configured_{false};
     bool is_stopping_{false};

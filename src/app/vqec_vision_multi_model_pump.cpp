@@ -50,8 +50,23 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     bindings_ = bindings;
     cadence_ = cadence;
     model_count_ = _binding_count;
+    has_cascade_root_ = false;
+    for (std::uint16_t slot = 0; slot < _binding_count; ++slot) {
+        has_cascade_root_ = has_cascade_root_ || bindings[slot].cascade_root_;
+    }
     has_target_spec_.fill(false);
     is_configured_ = true;
+    return {};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_bind_cascade_store(
+    cascade_frame_store& _store, std::uint32_t _camera_id, std::uint32_t _channel_id) {
+    if (cascade_store_ != nullptr || has_received_frame_) {
+        return {status_code::invalid_state, "cascade frame store is already bound"};
+    }
+    cascade_store_ = &_store;
+    camera_id_ = _camera_id;
+    channel_id_ = _channel_id;
     return {};
 }
 
@@ -129,6 +144,10 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     if (!is_configured_) {
         return {status_code::invalid_state, "multi-model pump is not configured"};
     }
+    if (has_cascade_root_ && cascade_store_ == nullptr) {
+        return {status_code::invalid_state,
+            "cascade-root binding requires a bound cascade frame store"};
+    }
     if (_steady_now_ns == std::numeric_limits<std::uint64_t>::max() ||
         _steady_now_ns < last_now_ns_) {
         return {status_code::invalid_argument, "pump requires monotonic steady time"};
@@ -181,6 +200,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         is_failed_ = true;
         return {status_code::protocol_error, "RAW frame has no valid identity or owner"};
     }
+    has_received_frame_ = true;
     if (last_source_epoch_ != 0 &&
         frame.descriptor_.session_epoch_ != last_source_epoch_) {
         // Source epoch changed: never submit parked old-epoch inputs into the new epoch.
@@ -250,11 +270,56 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         }
     }
 
+    // Retain the source frame once for every due cascade-root slot before any of them reads
+    // it. All cascade models on one frame share a single store entry; if the store has no
+    // admitted budget none of them can run.
+    std::uint16_t cascade_active = 0;
+    if (has_cascade_root_) {
+        for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+            const auto bit = static_cast<std::uint16_t>(1U << slot);
+            if (bindings_[slot].cascade_root_ && (selection.due_model_mask_ & bit) != 0 &&
+                (_report.busy_model_mask_ & bit) == 0 &&
+                (_report.pending_model_mask_ & bit) == 0) {
+                cascade_active = static_cast<std::uint16_t>(cascade_active | bit);
+            }
+        }
+    }
+    preview_frame_key cascade_key;
+    bool cascade_retained = false;
+    if (cascade_active != 0) {
+        cascade_key.camera_id_ = camera_id_;
+        cascade_key.channel_id_ = channel_id_;
+        cascade_key.source_epoch_ = frame.descriptor_.session_epoch_;
+        cascade_key.frame_id_ = frame.descriptor_.buffer_id_;
+        cascade_key.source_pts_ns_ = frame.descriptor_.pts_ns_;
+        const auto retained = cascade_store_->vqec_vision_ai_sched_cfstr_retain(
+            cascade_key, frame);
+        if (retained.code_ == status_code::resource_exhausted) {
+            // No budget for this frame: every cascade-root model for it is dropped, not just
+            // one, because they all need the same pixels.
+            _report.cascade_dropped_model_mask_ = cascade_active;
+            cascade_active = 0;
+        } else if (retained.code_ != status_code::ok) {
+            for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+                if ((cascade_active & (1U << slot)) != 0) {
+                    _report.error_model_slot_ = slot;
+                    break;
+                }
+            }
+            is_failed_ = true;
+            return retained;
+        } else {
+            cascade_retained = true;
+        }
+    }
+    bool cascade_submitted = false;
+
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         const auto bit = static_cast<std::uint16_t>(1U << slot);
         if ((selection.due_model_mask_ & bit) == 0 ||
             (_report.busy_model_mask_ & bit) != 0 ||
-            (_report.pending_model_mask_ & bit) != 0) {
+            (_report.pending_model_mask_ & bit) != 0 ||
+            (_report.cascade_dropped_model_mask_ & bit) != 0) {
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
@@ -280,6 +345,9 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
                 frame, _steady_now_ns, ticket);
         }
         if (ticket.token_.job_id_ != 0) {
+            if (bindings_[slot].cascade_root_) {
+                cascade_submitted = true;
+            }
             _report.submitted_tickets_[slot] = ticket;
             _report.submitted_model_mask_ = static_cast<std::uint16_t>(
                 _report.submitted_model_mask_ | bit);
@@ -296,6 +364,15 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             is_failed_ = true;
             return submitted;
         }
+    }
+    if (cascade_retained && !cascade_submitted) {
+        // No cascade-root graph accepted the frame: roll back so it is not left charged
+        // without a matching result.
+        (void)cascade_store_->vqec_vision_ai_sched_cfstr_retire(cascade_key);
+        cascade_retained = false;
+    }
+    if (cascade_retained) {
+        _report.cascade_retained_model_mask_ = cascade_active;
     }
     const auto flushed = vqec_vision_ai_appl_mmump_flush_pending(_steady_now_ns, _report);
     if (flushed.code_ != status_code::ok) {

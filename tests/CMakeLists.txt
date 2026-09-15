@@ -203,6 +203,14 @@
     set_target_properties(vqec_vision_ai_multi_model_pump_test
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME multi_model_frame_fanout COMMAND vqec_vision_ai_multi_model_pump_test)
+    add_executable(vqec_vision_ai_multi_model_pump_cascade_test
+        unit/vqec_vision_multi_model_pump_cascade_test.cpp)
+    target_link_libraries(vqec_vision_ai_multi_model_pump_cascade_test
+        PRIVATE vqec_vision_ai_multi_model_pump)
+    set_target_properties(vqec_vision_ai_multi_model_pump_cascade_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME multi_model_pump_cascade_retention
+        COMMAND vqec_vision_ai_multi_model_pump_cascade_test)
     add_executable(vqec_vision_ai_multi_model_pump_tensor_test
         unit/vqec_vision_multi_model_pump_tensor_test.cpp)
     target_link_libraries(vqec_vision_ai_multi_model_pump_tensor_test

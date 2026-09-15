@@ -1,8 +1,21 @@
 # Pump cascade retention and dependent drain (design)
 
-Status: **decided (owner-directed)**; implementation is not delivered. The
-`cascade_frame_store` primitive and `image_alignment_port` contract exist; the pump is not
-integrated and no secondary backend runs.
+Status: **decided (owner-directed); slice 1 delivered, the rest is not.** The pump now
+borrows a session-owned `cascade_frame_store` and retains/rolls back cascade-root frames per
+frame (unit-tested). The session wiring, cascade coordinator, dependent drain and completion
+drain are not yet implemented.
+
+## Delivered (slice 1)
+
+- `multi_model_graph_binding.cascade_root_` marks a primary-with-dependents model.
+- `multi_model_pump::vqec_vision_ai_appl_mmump_bind_cascade_store(store, camera_id,
+  channel_id)` borrows the session store before the first frame.
+- The pump retains the exact frame once per due cascade-root set before submitting and
+  reports `cascade_retained_model_mask_`/`cascade_dropped_model_mask_`; a full store drops
+  the whole cascade-root set for that frame (all dependents need the same pixels), and a
+  rejected submit retires the entry so nothing stays charged.
+- Tests: `multi_model_pump_cascade_retention` covers retain, rollback, drop, fail-closed
+  unbound store and the non-cascade no-op path.
 
 ## Current state
 
