@@ -27,6 +27,7 @@ public:
         _frame.native_handle_ = 1;
         _frame.descriptor_.allocation_size_bytes_ = 16;
         _ticket = next_ticket_++;
+        issued_.push_back(_ticket);
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_cflse_retire(
@@ -34,15 +35,22 @@ public:
         ++retire_calls_;
         return {};
     }
-    [[nodiscard]] status vqec_vision_ai_ports_cflse_complete(std::uint64_t) override {
-        ++complete_calls_;
-        return {};
+    [[nodiscard]] status vqec_vision_ai_ports_cflse_complete(std::uint64_t _ticket) override {
+        for (auto iterator = issued_.begin(); iterator != issued_.end(); ++iterator) {
+            if (*iterator == _ticket) {
+                issued_.erase(iterator);
+                ++complete_calls_;
+                return {};
+            }
+        }
+        return {status_code::invalid_state, "fixture ticket was never issued"};
     }
 
     unsigned acquire_calls_{0};
     unsigned retire_calls_{0};
     unsigned complete_calls_{0};
-    std::uint64_t next_ticket_{1};
+    std::uint64_t next_ticket_{100};
+    std::vector<std::uint64_t> issued_;
     bool fail_acquire_{false};
 };
 
@@ -83,12 +91,13 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_ports_imaln_poll_completion(
         std::uint64_t, bool& _complete) override {
-        _complete = true;
+        _complete = !completion_pending_;
         return {};
     }
 
     alignment_template template_;
     bool fail_{false};
+    bool completion_pending_{false};
 };
 
 class fake_embedding_graph final : public inference_graph_port {
@@ -157,6 +166,13 @@ public:
     }
     [[nodiscard]] submission_ticket vqec_vision_ai_ports_infgr_get_pending_ticket()
         const noexcept override {
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_infgr_get_input_specs(
+        std::vector<tensor_spec>& _inputs) const override {
+        _inputs.clear();
+        _inputs.push_back({"input", {1U, 112U, 112U, 3U}, tensor_element_type::uint16,
+            {true, 3.05180438e-05F, 32768}});
         return {};
     }
 
@@ -285,6 +301,20 @@ int main() {
             lease.retire_calls_ == 1);
     }
 
+    // A pending alignment completion fails the task but still releases the frame ticket.
+    {
+        fake_aligner aligner;
+        aligner.completion_pending_ = true;
+        fake_lease lease;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(
+                  make_config(aligner, lease, 2)).code_ == status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  0, make_batch(1), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 0 && report.failed_ == 1 && aligned.empty() &&
+            lease.complete_calls_ == 1 && lease.retire_calls_ == 1);
+    }
+
     // Align + embedding: the aligned face is quantized, submitted, polled and decoded.
     {
         fake_aligner aligner;
@@ -298,7 +328,6 @@ int main() {
         config.normalize_scale_ = {0.0078125F, 0.0078125F, 0.0078125F};
         config.quant_scale_ = 3.05180438e-05F;
         config.quant_zero_point_ = 32768;
-        config.job_timeout_ns_ = 1000000;
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ == status_code::ok);
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
@@ -316,7 +345,6 @@ int main() {
         auto config = make_config(aligner, lease, 2);
         config.embedding_graph_ = &graph;
         config.quant_scale_ = 3.05180438e-05F;
-        config.job_timeout_ns_ = 1000000;
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ ==
             status_code::invalid_argument);

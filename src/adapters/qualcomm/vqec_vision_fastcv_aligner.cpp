@@ -22,6 +22,27 @@ constexpr std::uint64_t g_align_ticket = 1;
 
 constexpr char g_aligned_tensor_name[] = "aligned_luma";
 
+// True when a plane with the given offset/stride/width/height lies entirely inside the
+// valid view, using overflow-safe arithmetic.
+bool vqec_vision_ai_qcom_fcaln_plane_fits(std::uint64_t _offset, std::int32_t _stride,
+    std::uint32_t _width, std::uint32_t _height, std::uint64_t _view_bytes) noexcept {
+    if (_stride <= 0 || static_cast<std::uint64_t>(_stride) < _width || _height == 0 ||
+        _offset > _view_bytes) {
+        return false;
+    }
+    const std::uint64_t stride = static_cast<std::uint64_t>(_stride);
+    const std::uint64_t last_row = static_cast<std::uint64_t>(_height) - 1U;
+    if (last_row != 0 &&
+        stride > (std::numeric_limits<std::uint64_t>::max() - _width) / last_row) {
+        return false;
+    }
+    const std::uint64_t span = last_row * stride + _width;
+    if (_offset > std::numeric_limits<std::uint64_t>::max() - span) {
+        return false;
+    }
+    return _offset + span <= _view_bytes;
+}
+
 }  // namespace
 
 fastcv_aligner::fastcv_aligner(fastcv_aligner_config _config) noexcept : config_(_config) {}
@@ -51,10 +72,12 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
     }
     const auto& descriptor = _source.descriptor_;
     if (_source.native_handle_ < 0 || descriptor.width_ == 0 || descriptor.height_ == 0 ||
-        descriptor.view_size_bytes_ == 0 || descriptor.strides_[0] <= 0 ||
-        static_cast<std::uint64_t>(descriptor.strides_[0]) < descriptor.width_ ||
-        descriptor.offsets_[0] > descriptor.view_size_bytes_) {
-        return {status_code::invalid_argument, "alignment source frame is not linear NV12"};
+        descriptor.view_size_bytes_ == 0 || descriptor.height_ % 2 != 0 ||
+        !vqec_vision_ai_qcom_fcaln_plane_fits(descriptor.offsets_[0],
+            descriptor.strides_[0], descriptor.width_, descriptor.height_,
+            descriptor.view_size_bytes_)) {
+        return {status_code::invalid_argument,
+            "alignment source luma plane is out of bounds"};
     }
     alignment_transform transform;
     const auto fitted = vqec_vision_ai_core_imaln_compute_similarity(
@@ -90,6 +113,10 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
         (descriptor.memory_offset_bytes_ / static_cast<std::uint64_t>(page_size)) *
         static_cast<std::uint64_t>(page_size);
     const std::uint64_t in_page_offset = descriptor.memory_offset_bytes_ - aligned_offset;
+    if (descriptor.view_size_bytes_ >
+        std::numeric_limits<std::uint64_t>::max() - in_page_offset) {
+        return {status_code::invalid_argument, "alignment source view length overflows"};
+    }
     const std::uint64_t map_length = descriptor.view_size_bytes_ + in_page_offset;
     void* mapping = ::mmap(nullptr, static_cast<std::size_t>(map_length), PROT_READ,
         MAP_PRIVATE, static_cast<int>(_source.native_handle_),
@@ -108,9 +135,9 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
         if ((config_.matrix_ != color_matrix::bt601 &&
                 config_.matrix_ != color_matrix::bt709) ||
             (config_.range_ != color_range::limited && config_.range_ != color_range::full) ||
-            descriptor.strides_[1] <= 0 ||
-            static_cast<std::uint64_t>(descriptor.strides_[1]) < descriptor.width_ ||
-            descriptor.offsets_[1] > descriptor.view_size_bytes_) {
+            !vqec_vision_ai_qcom_fcaln_plane_fits(descriptor.offsets_[1],
+                descriptor.strides_[1], descriptor.width_, descriptor.height_ / 2U,
+                descriptor.view_size_bytes_)) {
             ::munmap(mapping, static_cast<std::size_t>(map_length));
             return {status_code::unsupported, "RGB alignment requires a valid NV12 color policy"};
         }

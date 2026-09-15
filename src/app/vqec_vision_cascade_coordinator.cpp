@@ -10,34 +10,39 @@
 namespace vqec::vision::ai {
 namespace {
 
-// Builds the quantized uint16 NHWC model input from an aligned uint8 RGB patch.
+// Builds the quantized model input tensor from an aligned uint8 RGB patch using the exact
+// spec taken from the loaded graph (name, dims, dtype, quantization).
 status vqec_vision_ai_appl_cscrd_quantize(
-    const alignment_result& _aligned, const alignment_template& _template,
+    const alignment_result& _aligned, const tensor_spec& _target,
     const std::array<float, 3>& _offset, const std::array<float, 3>& _scale,
     float _quant_scale, std::int32_t _quant_zero_point, tensor_blob& _blob) {
     const auto& spec = _aligned.tensor_.spec_;
-    const std::size_t expected =
-        static_cast<std::size_t>(_template.destination_width_) *
-        _template.destination_height_ * 3U;
     if (spec.dtype_ != tensor_element_type::uint8 || spec.dimensions_.size() != 4U ||
-        spec.dimensions_[0] != 1U ||
-        spec.dimensions_[1] != _template.destination_height_ ||
-        spec.dimensions_[2] != _template.destination_width_ || spec.dimensions_[3] != 3U ||
-        _aligned.tensor_.bytes_.size() != expected) {
+        spec.dimensions_[0] != 1U || spec.dimensions_[3] != 3U) {
         return {status_code::unsupported, "aligned tensor is not a uint8 RGB patch"};
+    }
+    const std::uint32_t width = spec.dimensions_[2];
+    const std::uint32_t height = spec.dimensions_[1];
+    const std::size_t expected = static_cast<std::size_t>(width) * height * 3U;
+    if (_aligned.tensor_.bytes_.size() != expected) {
+        return {status_code::unsupported, "aligned tensor byte count is inconsistent"};
+    }
+    if (_target.dtype_ != tensor_element_type::uint16 ||
+        _target.dimensions_.size() != 4U || _target.dimensions_[0] != 1U ||
+        _target.dimensions_[1] != height || _target.dimensions_[2] != width ||
+        _target.dimensions_[3] != 3U) {
+        return {status_code::invalid_argument,
+            "aligned patch does not match the model input spec"};
     }
     std::vector<std::uint16_t> quantized(expected, 0U);
     const auto converted = vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
-        _aligned.tensor_.bytes_.data(), _template.destination_width_,
-        _template.destination_height_, _template.destination_width_ * 3U, _offset, _scale,
+        _aligned.tensor_.bytes_.data(), width, height, width * 3U, _offset, _scale,
         _quant_scale, _quant_zero_point, quantized.data());
     if (converted.code_ != status_code::ok) {
         return converted;
     }
     tensor_blob blob;
-    blob.spec_.dimensions_ = {1U, _template.destination_height_,
-        _template.destination_width_, 3U};
-    blob.spec_.dtype_ = tensor_element_type::uint16;
+    blob.spec_ = _target;
     blob.bytes_.resize(quantized.size() * sizeof(std::uint16_t));
     std::memcpy(blob.bytes_.data(), quantized.data(), blob.bytes_.size());
     _blob = std::move(blob);
@@ -60,9 +65,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
         _config.embedding_graph_ != nullptr || _config.embedding_decoder_ != nullptr;
     if (wants_embedding &&
         (_config.embedding_graph_ == nullptr || _config.embedding_decoder_ == nullptr ||
-         !std::isfinite(_config.quant_scale_) || !(_config.quant_scale_ > 0.0F) ||
-         _config.job_timeout_ns_ == 0 ||
-         _config.job_timeout_ns_ == std::numeric_limits<std::uint64_t>::max())) {
+         !std::isfinite(_config.quant_scale_) || !(_config.quant_scale_ > 0.0F))) {
         return {status_code::invalid_argument, "invalid secondary embedding configuration"};
     }
     alignment_capabilities capabilities;
@@ -76,6 +79,35 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     if (checked.code_ != status_code::ok) {
         return checked;
     }
+    tensor_spec input_spec;
+    if (wants_embedding) {
+        // This coordinator drives a synchronous secondary backend only; an asynchronous
+        // backend must be validated with a state machine that holds pending tasks across
+        // steps, which is not implemented.
+        const auto backend_capabilities =
+            _config.embedding_graph_->vqec_vision_ai_ports_infgr_get_capabilities();
+        if (backend_capabilities.supports_async_ ||
+            backend_capabilities.max_inflight_jobs_ != 1U) {
+            return {status_code::unsupported,
+                "cascade coordinator requires a synchronous single-inflight embedding graph"};
+        }
+        std::vector<tensor_spec> inputs;
+        const auto specs =
+            _config.embedding_graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
+        if (specs.code_ != status_code::ok || inputs.size() != 1U) {
+            return {status_code::unsupported,
+                "embedding graph must expose exactly one input tensor spec"};
+        }
+        input_spec = inputs[0];
+        if (input_spec.dtype_ != tensor_element_type::uint16 ||
+            input_spec.dimensions_.size() != 4U || input_spec.dimensions_[0] != 1U ||
+            input_spec.dimensions_[1] != _config.template_.destination_height_ ||
+            input_spec.dimensions_[2] != _config.template_.destination_width_ ||
+            input_spec.dimensions_[3] != 3U) {
+            return {status_code::invalid_argument,
+                "embedding graph input spec does not match the alignment template"};
+        }
+    }
     aligner_ = _config.aligner_;
     lease_ = _config.lease_;
     embedding_graph_ = _config.embedding_graph_;
@@ -87,7 +119,8 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     quant_scale_ = _config.quant_scale_;
     quant_zero_point_ = _config.quant_zero_point_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
-    job_timeout_ns_ = _config.job_timeout_ns_;
+    embedding_input_spec_ = input_spec;
+    has_embedding_input_spec_ = wants_embedding;
     is_configured_ = true;
     return {};
 }
@@ -126,42 +159,56 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         request.frame_ = key;
         request.landmarks_ = observation.landmarks_;
         raw_frame frame;
-        std::uint64_t ticket = 0;
+        std::uint64_t frame_ticket = 0;
         const auto acquired =
-            lease_->vqec_vision_ai_ports_cflse_acquire(key, frame, ticket);
+            lease_->vqec_vision_ai_ports_cflse_acquire(key, frame, frame_ticket);
         if (acquired.code_ != status_code::ok) {
             ++_report.failed_;
             continue;
         }
         alignment_result result;
+        std::uint64_t align_ticket = 0;
         const auto aligned = aligner_->vqec_vision_ai_ports_imaln_align(
-            request, frame, template_, result, ticket);
-        const bool align_ok = aligned.code_ == status_code::ok;
-        bool task_ok = align_ok;
-        if (align_ok) {
+            request, frame, template_, result, align_ticket);
+        bool task_ok = aligned.code_ == status_code::ok;
+        // The alignment transform is not complete until the backend reports device
+        // completion; a pending transform is a task failure, not a successful crop.
+        if (task_ok) {
+            bool complete = false;
+            if (aligner_->vqec_vision_ai_ports_imaln_poll_completion(align_ticket, complete)
+                    .code_ != status_code::ok ||
+                !complete) {
+                task_ok = false;
+            }
+        }
+        bool pushed_aligned = false;
+        if (task_ok) {
             _aligned.push_back(std::move(result));
             ++accepted;
+            pushed_aligned = true;
         }
         bool pushed_embedding = false;
-        if (align_ok && embed) {
+        if (task_ok && embed) {
             tensor_blob input;
             const auto quantized = vqec_vision_ai_appl_cscrd_quantize(
-                _aligned.back(), template_, normalize_offset_, normalize_scale_,
+                _aligned.back(), embedding_input_spec_, normalize_offset_, normalize_scale_,
                 quant_scale_, quant_zero_point_, input);
             if (quantized.code_ != status_code::ok) {
                 task_ok = false;
             } else {
                 submission_ticket secondary_ticket;
-                const auto submitted = embedding_graph_->vqec_vision_ai_ports_infgr_submit_tensors(
-                    key.source_epoch_, key.frame_id_, key.source_pts_ns_, {input},
-                    _steady_now_ns, secondary_ticket);
+                const auto submitted =
+                    embedding_graph_->vqec_vision_ai_ports_infgr_submit_tensors(
+                        key.source_epoch_, key.frame_id_, key.source_pts_ns_, {input},
+                        _steady_now_ns, secondary_ticket);
                 if (submitted.code_ != status_code::ok) {
                     task_ok = false;
                 } else {
                     tensor_result tensor;
-                    const auto polled = embedding_graph_->vqec_vision_ai_ports_infgr_poll_result(
-                        _steady_now_ns, tensor);
                     embedding_result embedding;
+                    const auto polled =
+                        embedding_graph_->vqec_vision_ai_ports_infgr_poll_result(
+                            _steady_now_ns, tensor);
                     if (polled.code_ == status_code::ok &&
                         embedding_decoder_
                                 ->vqec_vision_ai_ports_embdec_decode(
@@ -176,13 +223,15 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
                 }
             }
         }
+        // Release the frame-retention ticket regardless of downstream success; it is a
+        // different ticket from the alignment-completion ticket above.
         const bool complete_ok =
-            lease_->vqec_vision_ai_ports_cflse_complete(ticket).code_ == status_code::ok;
+            lease_->vqec_vision_ai_ports_cflse_complete(frame_ticket).code_ == status_code::ok;
         if (task_ok && complete_ok) {
             ++_report.accepted_;
         } else {
             ++_report.failed_;
-            if (align_ok) {
+            if (pushed_aligned) {
                 _aligned.pop_back();
                 --accepted;
             }
