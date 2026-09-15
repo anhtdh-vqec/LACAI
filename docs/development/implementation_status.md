@@ -281,5 +281,7 @@ orchestration consumes it; FastCV/QTI affine capability, crop/tensor pool and go
 parity remain M4. Cascade retention slices 1-3a are delivered: the pump retains
 cascade-root frames, `multi_model_session` owns a `cascade_frame_store` and delays FW source
 release until `store.bytes() == 0`, and composition derives `cascade_root_` from the catalog
-`role`/`depends_on` with an optional per-source `cascade` deployment budget. The cascade
-coordinator that creates secondary tasks and the secondary backend remain open.
+`role`/`depends_on` with an optional per-source `cascade` deployment budget. Slice 3b adds the
+standalone `cascade_coordinator` (bounded per-frame task admission over
+`cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation); it is not yet
+wired into the executor/service and the secondary embedding graph remains M5.

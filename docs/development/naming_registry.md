@@ -263,6 +263,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_tensor_contract_test.cpp | tctst | vqec_vision_ai_unit_tctst_ |
 | src/app/vqec_vision_camera_graph_pump.cpp | cgpmp | vqec_vision_ai_appl_cgpmp_ |
 | src/app/vqec_vision_multi_model_pump.cpp | mmump | vqec_vision_ai_appl_mmump_ |
+| src/app/vqec_vision_cascade_coordinator.cpp | cscrd | vqec_vision_ai_appl_cscrd_ |
+| tests/unit/vqec_vision_cascade_coordinator_test.cpp | cctst | vqec_vision_ai_unit_cctst_ |
 | src/app/vqec_vision_multi_model_session.cpp | mmses | vqec_vision_ai_appl_mmses_ |
 | src/app/vqec_vision_camera_session.cpp | camsn | vqec_vision_ai_appl_camsn_ |
 | src/app/vqec_vision_source_session.hpp | srcsn | vqec_vision_ai_appl_srcsn_ |
@@ -383,6 +385,7 @@ modify the repository.
 | src/adapters/reference/vqec_vision_reference_ring_sink.cpp | rring | vqec_vision_ai_refer_rring_ |
 | tests/unit/vqec_vision_reference_output_test.cpp | routt | vqec_vision_ai_unit_routt_ |
 | include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
+| include/vqec/vision/ai/ports/vqec_vision_cascade_frame_lease.hpp | cflse | vqec_vision_ai_ports_cflse_ |
 | include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
 | include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
 | src/adapters/qualcomm/vqec_vision_inference_graph.cpp | ifgr | vqec_vision_ai_qcom_ifgr_ |

@@ -15,6 +15,7 @@ FastCV, Camera Service wire or product-origin types may cross this directory.
 | `vqec_vision_inference_graph.hpp` | Neutral model-graph lifecycle, capability/policy and shared-frame or tensor submission |
 | `vqec_vision_image_processor.hpp` | Turns a borrowed NV12 view into the exact model input tensor |
 | `vqec_vision_image_alignment.hpp` | Landmark-based alignment/crop for secondary (cascade) models, capability-gated |
+| `vqec_vision_cascade_frame_lease.hpp` | Session-owned retained-frame acquire/retire/complete lease for the cascade coordinator |
 | `vqec_vision_tracker.hpp` | Serialized per-source tracking after model decoding |
 | `vqec_vision_feature_processor.hpp` | Serialized per-source feature-algorithm boundary emitting bounded neutral events |
 | `vqec_vision_feature_event_sink.hpp` | Synchronous borrowed-event delivery; retry keeps the same event ID |

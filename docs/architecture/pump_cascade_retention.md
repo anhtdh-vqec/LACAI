@@ -48,6 +48,15 @@ composition factory contract test.
 - The cascade coordinator that turns a decoded primary result into bounded secondary tasks
   (alignment + embedding), and the secondary backend.
 
+Delivered (slice 3b): `cascade_coordinator` (`src/app/vqec_vision_cascade_coordinator.cpp`)
+plus the neutral `cascade_frame_lease_port`. For one decoded primary observation batch it
+admits at most `max_tasks_per_frame_` faces, acquires the exact retained frame per task,
+aligns each through `image_alignment_port`, completes every acquired ticket (including on
+alignment failure) and closes admission once. Per-task failures are counted and isolated.
+Unit test `cascade_coordinator` covers bounded admission, ordering, align failure and
+acquire failure. Not yet wired into the executor/service, and the secondary embedding graph
+is M5.
+
 
 
 ## Current state
