@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "vqec_vision_feature_activation_manager.hpp"
+#include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_reference_graph.hpp"
@@ -48,6 +49,10 @@ public:
         item.box_ = {0.0F, 0.0F, 100.0F, 120.0F, 0xffffffffU, "person"};
         item.confidence_ = 0.9F;
         item.quality_ = observation_quality::high;
+        item.landmarks_.schema_id_ = "face.5pt";
+        item.landmarks_.schema_version_ = "1";
+        item.landmarks_.points_ = {{20.0F, 30.0F}, {80.0F, 30.0F},
+            {50.0F, 55.0F}, {30.0F, 90.0F}, {70.0F, 90.0F}};
         candidate.observations_.push_back(std::move(item));
         _observations = std::move(candidate);
         return {};
@@ -96,6 +101,54 @@ public:
         _tracker = std::make_unique<vqec_vision_ai_ctest_rtexe_tracker>();
         return {};
     }
+};
+
+class vqec_vision_ai_ctest_rtexe_aligner final : public image_alignment_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_imaln_probe_capabilities(
+        alignment_capabilities& _capabilities) const override {
+        _capabilities.supports_similarity_ = true;
+        _capabilities.max_points_ = image_alignment_limits::g_max_points;
+        _capabilities.max_destination_dimension_ =
+            image_alignment_limits::g_max_destination_dimension;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_imaln_validate_template(
+        const alignment_template& _template,
+        const alignment_capabilities& _capabilities) const override {
+        (void)_capabilities;
+        return vqec_vision_ai_core_imaln_validate_template(_template);
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_imaln_align(
+        const alignment_request& _request, const raw_frame& _frame,
+        const alignment_template& _template, alignment_result& _result,
+        std::uint64_t& _completion_ticket) override {
+        (void)_frame;
+        _result = {};
+        _result.tensor_.spec_.dimensions_ = {1U, _template.destination_height_,
+            _template.destination_width_, 3U};
+        _result.tensor_.spec_.dtype_ = tensor_element_type::uint8;
+        _result.tensor_.bytes_.assign(
+            static_cast<std::size_t>(_template.destination_width_) *
+                _template.destination_height_ * 3U,
+            0U);
+        _result.transform_.kind_ = alignment_transform_kind::similarity;
+        _result.transform_.source_width_ = g_width;
+        _result.transform_.source_height_ = g_height;
+        _result.transform_.destination_width_ = _template.destination_width_;
+        _result.transform_.destination_height_ = _template.destination_height_;
+        _result.has_transform_ = true;
+        (void)_request;
+        _completion_ticket = ++next_ticket_;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_imaln_poll_completion(
+        std::uint64_t _completion_ticket, bool& _is_complete) override {
+        _is_complete = _completion_ticket != 0;
+        return {};
+    }
+
+    std::uint64_t next_ticket_{0};
 };
 
 class vqec_vision_ai_ctest_rtexe_feature final : public feature_processor_port {
@@ -240,6 +293,17 @@ model_catalog vqec_vision_ai_ctest_rtexe_make_catalog() {
     catalog.revision_ = 7;
     catalog.catalog_id_ = "models_qcs6490_v1";
     catalog.models_.push_back(vqec_vision_ai_ctest_rtexe_make_model());
+    auto embedding = vqec_vision_ai_ctest_rtexe_make_model();
+    embedding.model_id_ = "embedding";
+    embedding.artifact_ref_ = "embedding.artifact";
+    embedding.output_manifest_ref_ = "embedding.outputs";
+    embedding.decoder_contract_ = "embedding.decoder.v1";
+    embedding.graph_name_ = "embedding.graph";
+    embedding.tensor_width_ = 112;
+    embedding.tensor_height_ = 112;
+    embedding.role_ = model_role::secondary;
+    embedding.depends_on_ = {{"detector", "1.0", "qcs6490"}};
+    catalog.models_.push_back(std::move(embedding));
     return catalog;
 }
 
@@ -257,9 +321,10 @@ deployment_config vqec_vision_ai_ctest_rtexe_make_deployment() {
     source.profile_ = {g_width, g_height, 25, 1};
     source.memory_.max_frame_allocation_bytes_ = 4 * g_mib;
     source.memory_.max_inflight_frames_ = 1;
-    source.memory_.max_tensor_bytes_ = 8 * g_mib;
+    source.memory_.max_tensor_bytes_ = 16 * g_mib;
     source.memory_.max_temporal_bytes_ = g_mib;
     source.model_ids_.push_back("detector");
+    source.cascade_ = {2, 4, 4 * g_mib};
     deployment.sources_.push_back(std::move(source));
     return deployment;
 }
@@ -434,6 +499,22 @@ int main() {
     assert(bundle != nullptr && bundle->vqec_vision_ai_appl_rcfac_get_executor() != nullptr &&
            bundle->vqec_vision_ai_appl_rcfac_get_feature_pipeline(0) != nullptr);
     auto* executor = bundle->vqec_vision_ai_appl_rcfac_get_executor();
+    vqec_vision_ai_ctest_rtexe_aligner aligner;
+    cascade_coordinator coordinator;
+    cascade_coordinator_config cascade_config;
+    cascade_config.aligner_ = &aligner;
+    cascade_config.lease_ = bundle->vqec_vision_ai_appl_rcfac_get_session(0);
+    cascade_config.template_.schema_id_ = "face.5pt";
+    cascade_config.template_.schema_version_ = "1";
+    cascade_config.template_.destination_width_ = 112;
+    cascade_config.template_.destination_height_ = 112;
+    cascade_config.template_.reference_points_ = {{20.0F, 30.0F}, {80.0F, 30.0F},
+        {50.0F, 55.0F}, {30.0F, 90.0F}, {70.0F, 90.0F}};
+    cascade_config.max_tasks_per_frame_ = 4;
+    assert(coordinator.vqec_vision_ai_appl_cscrd_configure(cascade_config).code_ ==
+           status_code::ok);
+    assert(executor->vqec_vision_ai_appl_rtexe_bind_cascade(
+               0, 0, coordinator, 4).code_ == status_code::ok);
     executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     auto* composition = bundle->vqec_vision_ai_appl_rcfac_get_composition();
     assert(composition->vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
@@ -469,6 +550,8 @@ int main() {
             continue;
         }
         assert(taken.source_index_ == 0 && taken.model_slot_ == 0);
+        assert(taken.has_cascade_ && taken.cascade_.accepted_ == 1 &&
+               taken.cascade_.failed_ == 0);
         assert(tracked_by_model[0].observations_.size() == 1);
         assert(tracked_by_model[0].observations_[0].track_id_ == 1);
         tracked_count = tracked_by_model[0].observations_.size();

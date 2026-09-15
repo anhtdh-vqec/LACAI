@@ -77,6 +77,12 @@ production` requires an explicit `--platform` and never falls back: `fake` and `
 are device-free owners, `qualcomm` selects the wired Camera/QNN production owner, and any
 unwired platform name exits non-zero instead of substituting the fixture package set.
 
+For a dependency-activated secondary model, the Qualcomm production service resolves the
+neutral cascade binding, starts its graph before primary activation, configures the
+coordinator from package/graph metadata and binds it to the catalog-derived primary slot.
+Shutdown drains the primary composition and retained tasks before the secondary graph is
+drained and unloaded. Startup or stop failure remains visible as a non-zero service result.
+
 It is built only when the JSON loaders and the reference backend are enabled. The
 development fixture set is not a usecase and must be replaced during integration.
 
@@ -110,7 +116,8 @@ identity and an empty batch so retained-frame admission closes and shutdown cann
 ## Metrics
 
 `vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
-events delivered/denied/failed) plus an experimental routed-result latency accumulator.
+events delivered/denied/failed and cascade accepted/embedded/failed) plus an experimental
+routed-result latency accumulator.
 The current accumulator compares the internal pipeline PTS with executor steady time; it
 is meaningful only when an adapter explicitly maps those domains. The owned QNN graph uses
 an identity anchor instead, so its printed `e2e_*` values must not be interpreted as
@@ -126,4 +133,7 @@ metrics sink/transport remain open.
   and feature-event sink; the reference sink is a development placeholder, not FW
   transport, durability, dedup or retry. No overlay/encoder path is driven yet and the
   encoded sink is not attached.
-- No service threads, signals beyond SIGINT/SIGTERM, or supervision/IPK packaging.
+- Cascade alignment and synchronous QNN execution currently run on the serialized service
+  progress thread. A bounded worker/completion state machine is required before claiming
+  multi-face latency or CPU scalability.
+- No supervision/IPK packaging beyond SIGINT/SIGTERM handling.

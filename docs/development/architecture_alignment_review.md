@@ -1,6 +1,6 @@
 # Architecture alignment review và danh sách vấn đề còn lại
 
-Ngày: 2026-09-15. Code baseline: 88c5a89; documentation baseline tiếp sau 647e975.
+Ngày: 2026-09-15. Cập nhật theo source cascade/runtime hiện tại.
 Phạm vi: Markdown trong docs, root rules/README và module READMEs, đối chiếu source/CMake
 ở các boundary liên quan. Đây là architecture/documentation review, không phải audit mọi
 nhánh code hay một lần benchmark/board qualification mới.
@@ -49,9 +49,9 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 
 | ID | Mức | Vấn đề / evidence | Việc phải làm | Tiêu chí đóng / owner |
 |---|---|---|---|---|
-| A01 | P0 | FR primitives rời nhau; cascade store chưa nối pump | Thực hiện M2–M5 FR plan, secondary typed request + retained frame + alignment + graph | Camera → embedding đúng frame/epoch và drain; AI runtime/BSP |
-| A02 | P0 | image_processor_port chưa có landmark warp/crop destination lifecycle | Thiết kế alignment port/extension, xác minh QTI/FastCV capability, golden parity | Input/crop/tensor chuẩn, real completion; AI/BSP/model |
-| A03 | P0 | Frame store ticket chỉ unique trong instance; caller quyết định complete | Ticket domain/generation, validate budgets, epoch policy, lifecycle misuse tests | Stale callback không giải phóng task mới; runtime |
+| A01 | P0 | FD→exact-frame alignment→EdgeFace đã nối ở source nhưng chưa chạy live/golden end-to-end | Chạy camera với approved golden capture; đối chiếu crop/input/embedding và correlation | Camera → embedding đúng frame/epoch, drain và parity; AI runtime/BSP/model |
+| A02 | P1 | FastCV aligner còn map/copy/allocate ROI và tensor cho từng mặt; QTI color khác neutral golden chưa được quyết định | Golden hóa color/border; pool destination/input/output; profile và chọn offload theo evidence | Input/crop/tensor chuẩn, real completion và copy/CPU budget; AI/BSP/model |
+| A03 | P0 | Cascade execute đồng bộ trên service progress thread; epoch đổi yêu cầu restart graph | Bounded worker/completion state machine, fair admission, stale-result cleanup và graph epoch reconciliation | Multi-face không block camera/output; stop/restart không ACK sớm; runtime |
 | A04 | P0 | Zvec tạo mới collection; revision/record IDs trong RAM | Authoritative store + journal + reopen/rebuild + crash recovery | Restart/delete/replay đúng revision, không stale match; AI/FW |
 | A05 | P0 | Primary decoder JSON/parser/schema chưa có full malformed/golden coverage | Strict numeric/type/unknown-key validation; ABI/catalog cross-check, atomic load failure | Reject invalid package trước activation, golden FD; model/app |
 | A06 | P0 | DMA-BUF retention/reference count không chứng minh hardware completion | Trace input/crop/tensor owners, fence/cache/import and drain protocol | No early ACK/reuse trong native fault tests; BSP/adapter |
@@ -78,8 +78,9 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 ### Source anchors
 
 - A01–A03: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
-  `include/vqec/vision/ai/contracts/vqec_vision_secondary_inference.hpp`,
-  `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/app/vqec_vision_multi_model_pump.cpp`.
+  `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
+  `src/app/vqec_vision_cascade_coordinator.cpp`, `vqec_vision_cascade_graph_session.cpp`,
+  `vqec_vision_runtime_executor.cpp` and `vqec_vision_multi_model_session.cpp`.
 - A04/A16: `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` (fresh collection,
   in-memory revision, fault gate, query allocation and mutex).
 - A05/A09–A12: `src/app/vqec_vision_production_platform.cpp/.hpp` (decoder selection,
@@ -92,9 +93,10 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 
 ## 4. Thứ tự xử lý
 
-1. Đóng correctness/contract gaps của primary FD và retention trước khi thêm worker/crop.
-2. Hoàn thiện cascade/alignment/EdgeFace với golden evidence; gallery recovery dùng synthetic
-   vectors có thể làm độc lập. Theo [FR completion plan](../planning/face_recognition_completion_plan.md).
+1. Chạy live/golden FD-to-embedding và sửa mọi mismatch contract/correlation trước khi
+   publish identity.
+2. Tách cascade khỏi service thread, pool/cắt copy theo profile; gallery recovery dùng
+   synthetic vectors có thể làm độc lập. Theo [FR completion plan](../planning/face_recognition_completion_plan.md).
 3. Nối enrollment/matching/attendance và FW storage/event boundary, sau đó release fault/soak.
 4. Đo performance từ đầu; ưu tiên hotspot thật. Backend factory/multi-source ownership được
    sửa khi mở rộng scope, không che hạn chế bằng docs hoặc flags.
@@ -104,5 +106,5 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 
 Ghi source commit, tests/configuration, evidence location, giới hạn, owner và trạng thái
 `planned / source-delivered / logic-tested / board-smoke / accepted` theo documentation_style.
-`accepted` phải có workload/contract-specific evidence và owner review. Docs update này
-không đóng các mục A01–A25 bằng cách đổi câu chữ; không có source fix hay board run mới.
+`accepted` phải có workload/contract-specific evidence và owner review. Docs chỉ phản ánh
+source đã có; A01–A25 chỉ đóng khi đạt tiêu chí evidence tương ứng.

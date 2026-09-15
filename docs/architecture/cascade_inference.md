@@ -3,9 +3,9 @@
 Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md).
 
 Status: primary decoder selection, typed contracts, retained-frame integration, secondary
-coordinator, FastCV alignment, embedding decoder and production binding are source-delivered.
-Model execution probes pass; secondary graph lifecycle/executor invocation, golden parity,
-gallery recovery and attendance remain open.
+coordinator, FastCV alignment, embedding decoder, production binding, secondary graph
+lifecycle and runtime invocation are source-delivered. Model execution probes pass; live
+FD-to-embedding validation, golden parity, gallery recovery and attendance remain open.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -27,7 +27,7 @@ one retained source frame
   -> primary preprocess -> face detector -> boxes + five landmarks
   -> tracker association
   -> bounded cascade admission per source/frame
-  -> landmark alignment + crop through image_processor_port
+  -> landmark alignment + crop through image_alignment_port
   -> embedding graph
   -> typed embedding result associated with source epoch/frame/track
   -> authorized attendance processor
@@ -46,10 +46,15 @@ owner; eviction is allowed only when no queued, executing or result consumer can
 the pixels. Timeout and cancellation are task states and do not establish device
 completion.
 
-The store has deployment-controlled limits for frames, bytes, faces per frame and maximum
-age. When full, admission drops secondary work according to configured priority and emits
-a metric; it never replaces a live allocation or creates an unbounded backlog. An epoch
-change cancels queued tasks and drains submitted work before releasing the old epoch.
+If primary decoding fails or stop drains a primary result without invoking dependents, the
+runtime retires the exact ticket-correlated retained frame. Already acquired secondary
+tickets continue to hold the frame and byte budget until their real completion is reported.
+
+The store has deployment-controlled limits for frames, bytes and tasks per frame. When
+full, the pump drops the cascade-root set for that frame and reports the reason; it never
+replaces a live allocation or creates an unbounded backlog. Automatic maximum-age eviction
+and cross-epoch restart policy remain orchestration work. An old epoch must drain submitted
+work before its source owner can be released.
 
 Landmarks use a bounded typed pixel-coordinate structure with an explicit point count and
 schema identity. They are not serialized into an opaque observation string. The secondary
@@ -65,8 +70,10 @@ Each catalog model resolves its own package/artifact via the model package regis
 Production supports explicit primary decoder selection and resolves secondary embedding
 graphs through catalog roles and dependency activation. It prepares a neutral graph,
 decoder, alignment and preprocess binding. The standalone neutral `cascade_graph_session`
-owns bounded start/drain/unload without inserting the graph into full-frame cadence; service
-composition and coordinator invocation remain open. Digest/selection validation alone is
+owns bounded start/drain/unload without inserting the graph into full-frame cadence. The
+production service starts that graph before primary activation, configures the coordinator
+from the resolved binding, binds it to the declared primary model slot, then drains the
+primary source before unloading the secondary graph. Digest/selection validation alone is
 not proof of signed authenticity or TOCTOU-safe artifact loading.
 
 The coordinator derives quantization scale and zero point from the running graph's exact
@@ -99,9 +106,9 @@ biometric outputs are never committed to this repository.
 The runtime-reported ABI is now recorded in the in-repo metadata packages
 `manifests/models/scrfd_500m_bnkps/` (input `input_1`, outputs `score_*`/`bbox_*`/`kps_*`)
 and `manifests/models/edgeface_s_gamma_05/` (input `input`, output `embedding`). Their `.so`
-artifacts and any golden data stay outside Git. The SCRFD `decoder.json` is consumed by the
-strict `vqec_vision_decoder_package` loader and is covered by a loader test. Golden parity,
-the M4 alignment path and the M5 embedding decoder remain open.
+artifacts and any golden data stay outside Git. The strict package loader consumes both
+decoder contracts. Golden crop/input/embedding parity and a camera FD-to-embedding run
+remain open.
 
 ## Implementation sequence
 
@@ -112,13 +119,13 @@ the M4 alignment path and the M5 embedding decoder remain open.
 3. **Decoder core delivered:** configurable anchor-distance detector decoder supporting typed
    quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
    inverse source transform and NMS.
-4. Integrate the delivered bounded cascade frame store and extend secondary requests with exact frame
-   retention and alignment input. Test epoch changes, cancellation, overload and drain.
-5. Implement Qualcomm landmark alignment/crop with the available hardware converter
-   behind the neutral image processor boundary; verify tensor parity against golden crops.
-6. Bind the embedding graph as secondary work, normalize embeddings in portable
-   perception code and return them only through an authorization-aware sensitive-data
-   contract.
+4. **Delivered:** integrate the bounded cascade frame store with exact-frame retention,
+   ticket-correlated decode, dependent drain and stop reconciliation.
+5. **Source-delivered:** implement landmark alignment/crop behind the neutral alignment
+   port using the verified Qualcomm FastCV capability. Golden parity remains required.
+6. **Source-delivered:** bind the embedding graph as dependent work and L2-normalize typed
+   embeddings. Sensitive recognition delivery remains blocked on the authorization-aware
+   recognition usecase.
 7. Implement attendance matching and temporal rules separately from model execution:
    gallery revision, threshold/calibration, liveness/quality gate, track-level debounce,
    enter/exit policy and duplicate suppression are configuration, not constants.
@@ -136,7 +143,8 @@ The YOLOv8 decoder now reuses an activation-bounded candidate/order/suppression 
 across decode calls (`yolov8_decoder_limits::g_max_candidates`). Output observation
 landmark/string vectors still allocate under the current batch contract; primary production
 selection exists; pooled output ownership and golden model parity remain required.
-Live FD-to-FR cascade composition remains open.
+Production FD-to-embedding composition is source-delivered. Live target execution and
+golden parity remain open, so this is not yet an accepted FR usecase.
 
 ## Primary decoder package boundary
 
@@ -166,14 +174,15 @@ color_matrix, color_range and channel_order. It declares the secondary model's o
 identity, the L2-normalization floor and the landmark alignment template. Production now
 constructs the dependency-activated QNN graph owner, embedding decoder and FastCV aligner,
 cross-validates their catalog/package color, tensor and alignment contracts, and exposes
-them as a neutral cascade binding. Graph lifecycle and executor invocation remain open.
+them as a neutral cascade binding. The service-owned graph session and runtime executor
+consume that binding without branching on model names.
 
 Source geometry comes from sources assigning this model; all such sources must currently
 have equal dimensions because the production owner holds one decoder per model.
 Tensor geometry and placement come from the model catalog, not decoder.json.
 Unknown explicit kinds fail; this is not a fallback for a failed anchor-distance parse.
-This boundary enables primary FD and validates the production embedding binding; the latter
-still awaits graph lifecycle and executor invocation.
+This boundary enables primary FD and the production embedding cascade. Recognition search,
+identity policy and authorized delivery remain separate later stages.
 
 ## Retained-frame primitive
 
@@ -186,4 +195,5 @@ releasing a replacement store's task, and a zero frame/task/byte budget fails cl
 Completion tickets cannot be replayed within the store lifetime. No automatic timeout or
 epoch eviction exists. Callers retire old keys and drain their jobs explicitly.
 The store must outlive orchestration; destroying it does not cancel submitted hardware,
-whose workers must still own their frame copies. This primitive is not yet pump-integrated.
+whose workers must still own their frame copies. It is owned by `multi_model_session` and
+integrated with the pump, coordinator, result route and drain path.

@@ -11,9 +11,10 @@ Executable là `vqec_ai_vision_applications`. FW đã đồng ý đáp ứng bou
 thay thế kiểm chứng released-FW integration hay nghiệm thu tính năng.
 
 Hiện có production composition và person compatibility flow trên `.48`, FastCV/QNN HTP,
-QTI overlay/encode và ring. Có FD decoder, frame-retention primitive và Zvec real-library
-smoke. FR cascade/attendance, durable gallery recovery, generic backend factory,
-released-FW DMA completion và performance acceptance vẫn chưa hoàn chỉnh.
+QTI overlay/encode và ring. Luồng FD → exact-frame alignment → EdgeFace → typed embedding
+đã được nối ở source qua neutral ports. Live cascade/golden parity, recognition/attendance,
+durable gallery recovery, generic backend factory, released-FW DMA completion và
+performance acceptance vẫn chưa hoàn chỉnh.
 
 Quyết định backend: ADR 0002 xác lập tái sử dụng Qualcomm plugins; ADR 0003 bổ sung owned
 QNN adapter cho capability/dtype cần thiết. Cả hai giữ neutral ports. Ưu tiên tái sử dụng
@@ -49,9 +50,9 @@ FR implementation: [completion plan](../planning/face_recognition_completion_pla
 The diagrams define intended ownership. Current production person composition uses
 multi_source_supervisor/session/pump, private FastCV preprocessing, owned QNN, decoding,
 reference tracking and QTI preview output. The app composition root may include concrete
-adapters; orchestration and neutral contracts must depend only on ports. The secondary
-cascade shown below remains an integration target; its isolated primitives are not a
-running FR pipeline.
+adapters; orchestration and neutral contracts depend only on ports. The secondary cascade
+is source-composed and logic-tested, while live model/golden evidence remains an
+integration target.
 
 Mandatory released preview path (in addition to the feature/event design below).
 The diagram shows one source; runtime repeats the source-owned state for 1..16 admitted

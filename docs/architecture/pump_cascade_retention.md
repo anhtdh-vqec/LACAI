@@ -1,9 +1,10 @@
 # Pump cascade retention and dependent drain (design)
 
-Status: **decided (owner-directed); slice 1 delivered, the rest is not.** The pump now
-borrows a session-owned `cascade_frame_store` and retains/rolls back cascade-root frames per
-frame (unit-tested). The session wiring, cascade coordinator, dependent drain and completion
-drain are not yet implemented.
+Status: **source-delivered through production runtime invocation.** The pump borrows a
+session-owned `cascade_frame_store`, retains or rolls back cascade-root frames per frame,
+and the result route invokes the bounded coordinator using the exact retained identity.
+Unit and contract tests cover retention, completion and dependent drain. Target hardware
+completion and live model parity remain separate acceptance gates.
 
 ## Delivered (slice 1)
 
@@ -33,24 +34,21 @@ drain are not yet implemented.
 - Tests: the `multi_model_source_lifecycle` session test covers missing-budget rejection,
   retain on submit, the stop gate holding the source, and release after retire + complete.
 
-## Not delivered (slice 3+)
+## Delivered (slice 3a)
 
 - Composition wiring: camera/channel from deployment and `cascade_root_` derived from the
   catalog `role`/`depends_on`, plus admission-derived store sizing.
 
-Delivered (slice 3a): the deployment source config has an optional `cascade`
+The deployment source config has an optional `cascade`
 (`frames`/`tasks_per_frame`/`max_bytes`) budget, counted in the resident total and either
 all-zero or fully set; `runtime_composition_factory` derives `cascade_root_` from the
 catalog `role`/`depends_on`, sets camera/channel and the store sizing, and fails composition
 when a cascade root has no source budget. Covered by the deployment validation test and the
 composition factory contract test.
 
-## Remaining
+## Delivered (slice 3b and runtime binding)
 
-- The cascade coordinator that turns a decoded primary result into bounded secondary tasks
-  (alignment + embedding), and the secondary backend.
-
-Delivered (slice 3b): `cascade_coordinator` (`src/app/vqec_vision_cascade_coordinator.cpp`)
+`cascade_coordinator` (`src/app/vqec_vision_cascade_coordinator.cpp`)
 plus the neutral `cascade_frame_lease_port`. For one decoded primary observation batch it
 admits at most `max_tasks_per_frame_` faces, acquires the exact retained frame per task,
 aligns each through `image_alignment_port`, completes every acquired ticket (including on
@@ -60,8 +58,10 @@ decodes the embedding. Per-task failures are counted and isolated. Unit test
 `cascade_coordinator` covers bounded admission, ordering, align failure, acquire failure,
 the align+embedding pipeline and misconfiguration. The coordinator arms the secondary graph
 once with its configured cycle/deadline for the retained source epoch before tensor
-submission; an epoch change requires graph lifecycle restart. It is not yet wired into the
-executor/service; the real EdgeFace graph and golden parity are M5.
+submission; an epoch change requires graph lifecycle restart. `runtime_executor` invokes
+the coordinator only for the dependency root slot, and the production service owns the
+secondary graph lifecycle and binding. Real EdgeFace golden parity and live cascade
+evidence remain M5 acceptance work.
 
 
 
@@ -73,7 +73,8 @@ executor/service; the real EdgeFace graph and golden parity are M5.
   rejected submit; `multi_model_session` exposes the neutral frame-lease port and holds FW
   release until retained work drains.
 - The standalone coordinator implements align + synchronous embedding execution. Production
-  secondary graph lifecycle and executor/service invocation remain open.
+  service composition starts/drains the secondary graph and binds the coordinator to the
+  declared primary slot. Live hardware and model parity remain open.
 
 ## Ownership model
 

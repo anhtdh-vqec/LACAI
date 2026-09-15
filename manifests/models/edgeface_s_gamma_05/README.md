@@ -36,20 +36,25 @@ The tensor ABI matches the `fastcv_aligner` RGB output, the cascade quantization
 the `embedding_decoder` dequantization path. Golden tensor and embedding parity remain
 required for this converted artifact.
 
-## Not usable yet (M4/M5)
+## Integration status (M4/M5)
 
 - `decoder.json` declares the embedding kind (output tensor `embedding`, dimension 512,
-  min norm, 5-point `face.5pt` alignment template to 112×112, RGB/BT.709-limited), but
-  production does not yet prepare an embedding graph/decoder or consume the template; do not
-  bind this model in a production catalog until secondary composition lands.
-- Alignment (5-point similarity transform to 112x112) and uint16 quantization are delivered
-  in the standalone cascade path; production composition still needs to bind them.
+  min norm, 5-point `face.5pt` alignment template to 112×112, RGB/BT.709-limited).
+- The model is a dependency-activated secondary catalog entry. Production prepares its QNN
+  graph, embedding decoder and FastCV alignment adapter, while `cascade_graph_session` owns
+  graph start/drain/unload and the runtime executor invokes the coordinator only for the
+  declared primary dependency.
+- The delivered cascade path performs similarity alignment, RGB8-to-model-input
+  normalization/quantization from validated package and graph metadata, synchronous model
+  submission, embedding decode and exact retained-frame completion.
+- This is source integration, not model acceptance. Golden crop/input/embedding parity and
+  an end-to-end camera run on the target remain required before enabling recognition output.
 - Embeddings are sensitive biometric data. Keep them out of logs, Git and CI artifacts.
 
-## Intended catalog entry (M5, schema v2)
+## Catalog entry (schema v2)
 
-When the embedding decoder lands, this model is a **secondary** catalog entry that depends
-on the SCRFD primary identity (it never joins the full-frame submit mask):
+This model is a **secondary** catalog entry that depends on the SCRFD primary identity. It
+never joins the full-frame submit mask:
 
 ```json
 {

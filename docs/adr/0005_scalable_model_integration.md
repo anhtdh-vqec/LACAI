@@ -1,10 +1,9 @@
 # ADR 0005 — Scalable model integration (packages, roles, alignment)
 
-Status: **accepted for implementation** (owner-directed, 2026-09-15). Gate 1 (catalog
-role/dependency migration), gate 2 (image_alignment_port contract) and gate 5 (status docs)
-are delivered; gates 3–4 (pump retention/drain ownership and completion semantics) are
-decided in [pump cascade retention](../architecture/pump_cascade_retention.md). Items marked
-"still open" below remain un-delivered until committed with tests.
+Status: **accepted; core source integration delivered** (owner-directed, 2026-09-15).
+Catalog roles/dependencies, the alignment port/Qualcomm adapter, pump retention/drain,
+secondary graph lifecycle and metadata-driven runtime invocation are delivered with logic
+tests. Live golden parity, asynchronous scheduling, pooling and backend registry work remain.
 Date: 2026-09-15. Owner: AI APP lead.
 
 ## Context
@@ -12,10 +11,9 @@ Date: 2026-09-15. Owner: AI APP lead.
 The first models are one primary detector (SCRFD) and one secondary embedding model
 (EdgeFace), followed by more detectors, embeddings, pose, OCR and attribute models across
 13+ features. Adding a model must not add a vendor branch or a model-name branch to
-orchestration. Today: the catalog has no role/dependency concept; there is no neutral
-alignment boundary; production still constructs some owners directly; and retention is a
-delivered primitive that is not connected to the pump. This ADR states the intended
-architecture and the work required; it does not claim any of it is delivered.
+orchestration. The catalog, alignment boundary and retained cascade now implement that
+generic path; production still constructs some Qualcomm owners directly and needs live
+model evidence. This ADR defines the accepted architecture and its remaining gates.
 
 ## Decision
 
@@ -32,12 +30,10 @@ architecture and the work required; it does not claim any of it is delivered.
 3. **Alignment is a separate, capability-gated neutral port** with a defined contract
    (below). A vendor processor that cannot honor a declared template fails activation; no
    silent CPU fallback.
-4. **Retention follows role, as target behavior.** The pump retains the exact source frame
+4. **Retention follows role.** The pump retains the exact source frame
    only for catalog models with secondary dependents and releases it only after the last
-   dependent hardware read completes. This is not delivered: the `cascade_frame_store`
-   primitive (exact-key retention, domain-scoped tickets, byte budget) exists and is
-   logic-tested, but it is **not wired into the pump**, and the pump does not yet create or
-   drain secondary tasks.
+   dependent hardware read completes. `cascade_frame_store`, pump/session integration,
+   ticket-correlated coordinator invocation and dependent drain implement this in source.
 5. **Backend selection by registry/capability is a target, not current state.**
    `production_platform` still constructs the QNN engine/FastCV processor directly and
    registers a reference tracker/feature. Capability-checked backend selection and a
@@ -54,9 +50,8 @@ assignment. Version 1 documents are migrated to version 2 with primary roles. Co
 loader, validator, schema, examples and tests (`model_catalog_validation`,
 `model_catalog_loading`) are committed; see `docs/architecture/model_catalog.md`.
 
-Still open: the deeper activation/ownership integration (secondary models never entering the
-full-frame submit mask at runtime) follows from the role field but is pump work tracked under
-section 4.
+Runtime composition activates dependencies without inserting secondary models into the
+full-frame submit mask and derives the cascade-root slot from exact catalog identity.
 
 ## 2. `image_alignment_port` contract
 
@@ -79,31 +74,27 @@ Delivered: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp` an
 - **Errors/timeout**: structural validation and fail-closed capability checks
   (`unsupported`), no silent fallback.
 
-Still open: the Qualcomm FastCV/QTI affine adapter, crop/tensor pool sizing, golden crop
-parity and device-completion evidence.
+The Qualcomm FastCV affine/RGB adapter is delivered and bound through this port. Still open:
+crop/tensor pool sizing, golden crop parity and dependent hardware-completion evidence.
 
 ## 3. Retention and completion semantics (target)
 
 - `cascade_frame_store` is delivered as a primitive: exact camera/channel/epoch/frame/PTS
   keys, byte budget, and completion tickets scoped by store domain so a stale callback
   from a retired store cannot release a replacement store's task. It is logic-tested.
-- Pump integration is target work: retain before primary submit, roll back on a rejected
-  submit, look up the exact frame from the submission ticket (never the latest preview),
-  bound secondary tasks, and drain by dependent graph.
-- The final completion/domain semantics and the ticket owner (which component calls
-  `complete`) must be reviewed with the pump/session owner before implementation.
-- A design for the pump retention/dependent-drain ownership and the `complete(ticket)`
-  owner is decided at
-  [pump cascade retention](../architecture/pump_cascade_retention.md). The pump integration
-  itself is not delivered.
+- Pump/session integration retains before primary submit, rolls back a rejected submit,
+  reconstructs the exact frame from the submission ticket and drains dependent tasks.
+- The cascade coordinator owns acquired task completion; the session owns frame admission,
+  retirement and the source-release gate. Domain-scoped tickets reject stale completion.
+- Detailed ownership and stop ordering are normative in
+  [pump cascade retention](../architecture/pump_cascade_retention.md).
 
 ## 4. Orchestration scope (corrected)
 
-"Orchestration unchanged" is too strong. The correct statement is: **no per-model change**;
-generic orchestration changes are required. `multi_model_pump`/`multi_model_session` must
-gain the ability to distinguish primary from secondary models, retain a frame before a
-primary submit, create bounded secondary tasks from a decoded detection, and drain per
-dependent graph. These changes are metadata-driven and model-agnostic.
+"Orchestration unchanged" is too strong. The correct statement is: **no per-model change**.
+Generic orchestration now distinguishes primary from secondary models, retains a frame
+before primary submit, invokes bounded dependent work from decoded observations and drains
+by dependent graph. These changes are metadata-driven and model-agnostic.
 
 ## 5. Backend and registry status (corrected)
 

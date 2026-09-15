@@ -180,6 +180,7 @@ if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config A
         vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_production_platform
+        vqec_vision_ai_cascade_graph_session
         vqec_vision_ai_runtime_composition_factory
         vqec_vision_ai_reference
         vqec_vision_ai_feature_fanout

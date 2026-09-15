@@ -6,11 +6,13 @@ must not be interpreted as the current missing-feature list.
 
 ## Current summary and evidence authority
 
-At source 88c5a89, expanded eSDK QEMU tests passed 97/97, including real Zvec SDK linking.
+The current cascade/runtime source passes the expanded eSDK QEMU suite (104/104 on
+2026-09-15); later commits must record their own validation rather than inherit this count.
 Native Zvec and retained-frame synthetic tests passed on .48. Person compatibility flow
 has measured 30 AI results/s; approximately 44.5% process CPU remains above the requested
 15–25% target. These are historical measured runs, not a new test run for this docs update.
-Primary anchor-distance selection and frame retention exist; live FR composition, alignment,
+The source now composes primary FD, retained-frame alignment, secondary EdgeFace execution
+and embedding decode without model-name branches. Live FD-to-embedding parity, matching,
 gallery recovery and attendance are unfinished. Generic backend selection, DMA completion,
 released-FW acceptance and allocation/copy optimization remain open.
 See [alignment issues](architecture_alignment_review.md) and [capability matrix](capability_matrix.md).
@@ -42,8 +44,8 @@ mainly to FastCV color/resize, the compatibility NV12-to-QTI render-surface copy
 client-buffer staging. The service also clips decoded edge boxes to the exact preview
 contract and no longer terminates on float rounding at the image boundary. SCRFD and
 EdgeFace execution/tensor probes are recorded in
-[cascade inference](../architecture/cascade_inference.md). The current secondary scheduler
-does not retain source pixels and is not yet sufficient for FD-to-FR composition.
+[cascade inference](../architecture/cascade_inference.md). The legacy secondary scheduler
+does not retain source pixels and is not used by the delivered FD-to-embedding cascade.
 
 ## Historical evidence detail
 
@@ -210,9 +212,9 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
    sessions/perception/feature pipelines and the reference backend runs them end to end,
    while the trusted resolver, real platform owner factories and measured admission remain.
 2. Additional tensor decoders, production tracking/attributes and the commercial
-   features/traffic. The package-configured YOLOv8 decoder is live; typed landmarks and
-   embeddings are contract-delivered, while the anchor-distance face decoder, cascade and
-   attendance package remain open.
+   features/traffic. The package-configured YOLOv8 decoder is live; the anchor-distance
+   face decoder, retained-frame cascade and typed embeddings are source-delivered, while
+   live parity, recognition matching and the attendance package remain open.
 3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop
    and safe ring startup/recovery to complete preview end to end. Feature events can be
    authorized and delivered to a bound sink; bounded durable queue/retry and FW transport
@@ -261,9 +263,9 @@ eSDK QEMU; real-model golden parity is still required.
 
 M0 metadata packages for the face chain are recorded from the board runtime ABI:
 `manifests/models/scrfd_500m_bnkps/` (anchor-distance decoder, catalog/registry examples)
-and `manifests/models/edgeface_s_gamma_05/` (embedding decoder pending M5). The `.so`
-artifacts, thresholds and preprocessing provenance still need the model team's golden
-reference; metadata is not model acceptance.
+and `manifests/models/edgeface_s_gamma_05/` (embedding decoder and alignment contract).
+The `.so` artifacts, thresholds and preprocessing still need golden parity against the
+approved model reference; metadata is not model acceptance.
 
 Model catalog schema v2 adds a required `role` (primary/secondary) and a validated
 `depends_on` of immutable primary identities; schema v1 documents are migrated to primary.
@@ -274,23 +276,26 @@ dependencies without adding secondary models to the full-frame submit mask.
 Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
 domain-scoped completion tickets and byte accounting through drain. The store is wired into
 the pump/session and logic tests pass eSDK QEMU and QCS6490 .48; this is not dependent-device
-completion evidence. Production coordinator invocation remains open.
+completion evidence. The runtime invokes the coordinator with the ticket-reconstructed
+source key and retires the exact frame on decode failure or dependent-free stop drain.
 
 `image_alignment_port` is now a defined, unit-tested contract (template/request/result/
 transform/capabilities with fail-closed capability gating). The FastCV aligner delivers
 board-verified luma geometry and RGB color on `.48`; the generic embedding decoder
 (`embedding_decoder_port`, package-configured output/dimension/min-norm, L2 normalization)
 is delivered and unit-tested. The EdgeFace package supplies the embedding contract and
-alignment template; production secondary graph lifecycle, coordinator wiring and golden
-parity remain M5.
+alignment template; production secondary graph lifecycle and coordinator wiring are
+source-delivered. Golden crop/input/embedding parity remains M5 acceptance work.
 
 Cascade retention slices 1-3a are delivered: the pump retains
 cascade-root frames, `multi_model_session` owns a `cascade_frame_store` and delays FW source
 release until `store.bytes() == 0`, and composition derives `cascade_root_` from the catalog
 `role`/`depends_on` with an optional per-source `cascade` deployment budget. Slice 3b adds the
 standalone `cascade_coordinator` (bounded per-frame task admission over
-`cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation); it is not yet
-wired into the executor/service. The coordinator now also runs the secondary pipeline
+`cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation). The runtime
+executor invokes it only for the catalog-derived dependency root, and the service starts
+and drains the resolved secondary graph outside full-frame cadence. The coordinator runs
+the secondary pipeline
 (quantize aligned RGB to the model input, submit, poll, embedding decode) when a secondary
 graph/decoder are configured, covered by the coordinator unit test with fakes. Review fixes:
 the frame-lease ticket is separate from the alignment ticket; the secondary input blob uses
@@ -302,7 +307,7 @@ converts only the sampled source ROI. A `.48` plugin probe records the offload o
 `roi-batch-*` (hardware ROI crop + tensor batch via ROI meta), `qtivcomposer`, `qtiobjtracker`
 (ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
 verification requirement are in `docs/architecture/image_alignment_port.md`. EdgeFace
-graph lifecycle, executor wiring and golden parity remain M5.
+golden parity, target cascade execution and asynchronous scheduling remain M5 work.
 
 The cascade coordinator arms its secondary graph once per configured source epoch with an
 explicit cycle identity and job timeout. It rejects an epoch change until graph lifecycle
@@ -317,5 +322,6 @@ Production platform preparation now resolves dependency-activated secondary mode
 their QNN backend owner, validates the embedding decoder and alignment template against the
 catalog/package, constructs the FastCV aligner behind `image_alignment_port`, and exposes a
 neutral cascade binding. Detection decoders remain registered only for primary models.
-Secondary graph lifecycle and executor/service invocation are still open; the current
-production cascade owner explicitly supports one active source and fails closed otherwise.
+The service owns secondary graph lifecycle and binds the coordinator to the catalog-derived
+primary slot before primary activation. The current production cascade owner explicitly
+supports one active source and one secondary model per source and fails closed otherwise.

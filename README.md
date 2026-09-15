@@ -20,15 +20,16 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Camera adapter (FW RAW) | Source-delivered | Wire decoder, SOCK_SEQPACKET/SCM_RIGHTS, lease Start/Stop, source lifecycle; chưa có live FW service |
 | Multi-source / multi-model pump | Source-delivered | 1..16 session, cadence, shared-owner fan-out; device-free tested |
 | Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; lifecycle + installed-plugin check pass native trên QCS6490 |
-| QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/YOLOv8n trên HTP V68; output byte-identical với `qnn-net-run`; async/shared/update chưa |
+| QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/EdgeFace/YOLOv8n trên HTP V68; person output byte-identical với `qnn-net-run`; async/shared/update chưa |
 | Perception / feature pipeline | Source-delivered + person smoke | YOLOv8 decoder, IoU tracker, feature pipeline; person detections đã chạy từ camera thật qua QNN HTP |
+| Face cascade | Source-delivered | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding; golden/live FR acceptance chưa |
 | Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow `.48`; released-FW/thermal/latency acceptance chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
-**Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 97/97 passed at source
-`88c5a89`; Zvec real-library and frame-retention tests passed natively on `.48`.
-Person compatibility flow has measured throughput; FR and released-FW acceptance remain
-open. Older native suite counts are historical runs, not counts for current HEAD.
+**Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 104/104 passed for the current
+source; Zvec real-library and frame-retention tests passed natively on `.48` in an earlier
+run. Person compatibility flow has measured throughput; live face-cascade, golden parity
+and released-FW acceptance remain open. Older native suite counts are historical runs.
 See [implementation status](docs/development/implementation_status.md),
 [architecture alignment review](docs/development/architecture_alignment_review.md) and
 [open architecture issues](docs/development/architecture_alignment_review.md).
@@ -47,7 +48,14 @@ See [implementation status](docs/development/implementation_status.md),
                                                         │
                                                         ▼
       perception_result_stage ─► tracking / attributes ─► feature pipeline / fan-out
-                                                        │
+                 │                                      │
+                 └─ cascade root ─► retained frame      │
+                                      │                 │
+                         image_alignment_port            │
+                                      │                 │
+                         secondary inference_graph       │
+                                      │ embedding       │
+                                      └─────────────────┘
                                                         ▼
                                  output_gate ─► overlay + encoded_sink (FW ring)
 ```

@@ -1,7 +1,8 @@
 # Kế hoạch hoàn thiện Face Recognition: SCRFD + EdgeFace + Zvec
 
-Ngày lập: 2026-09-15. Baseline source: `88c5a89`.
-Trạng thái: kế hoạch triển khai và nghiệm thu; checklist chưa đánh dấu là việc còn phải làm.
+Ngày lập: 2026-09-15. Cập nhật theo source hiện tại: 2026-09-15.
+Trạng thái: kế hoạch triển khai và nghiệm thu. Các mục đã đánh dấu chỉ có nghĩa là source
+và logic test tương ứng đã có; gate board/golden/owner review vẫn quyết định nghiệm thu.
 Đích triển khai: QCS6490 / Qualcomm Linux 1.8, board phát triển `.48`.
 
 ## 1. Kết quả phải bàn giao
@@ -28,18 +29,20 @@ không cần sửa orchestration. YOLO person không phải dependency bắt bu�
 
 | Hạng mục | Đã có | Chưa chứng minh/chưa nối |
 |---|---|---|
-| SCRFD-500M-KPS W8A16 | QNN HTP execution; probe input UINT16 NHWC 1×640×640×3, 9 outputs | Accuracy với ảnh thật, package production đầy đủ, pipeline FR live |
-| EdgeFace XXS W8A16 | QNN HTP execution; probe input UINT16 NHWC 1×112×112×3, output 1×512 | Alignment/preprocess parity, embedding decoder và secondary composition |
-| Package registry | Binding riêng theo model/catalog | Role primary/secondary và cascade dependency cần bổ sung/kiểm chứng |
+| SCRFD-500M-KPS W8A16 | QNN HTP probe; package/decoder/catalog binding; production primary selection | Golden accuracy với ảnh thật và pipeline FR live |
+| EdgeFace-S gamma=0.5 W8A16 | QNN HTP probe; package/decoder/alignment contract; production secondary binding | Golden crop/input/embedding parity và pipeline FR live |
+| Package registry | Binding riêng theo immutable model identity; role/dependency activation | Artifact authenticity và TOCTOU-safe trusted open |
 | Anchor-distance decoder | Typed decode, inverse placement, NMS, landmarks; production chọn kind từ package | Golden tensors thật; output batch còn cấp phát; malformed metadata cần test rộng hơn |
-| Frame store | Exact key, owner giữ frame, task tickets, byte budget, retire/drain | Chưa nối vào pump; chưa có completion phần cứng; age/epoch policy do orchestration thực hiện |
-| Secondary scheduler | Queue/priority/request cơ bản; request mang typed landmark set + retention ticket | Transform provenance chưa có; backend execute đang đồng bộ; chưa nối cascade store |
-| Image processor port | Preprocess RAW → tensor | Chưa có boundary alignment với landmarks, transform và destination pool |
+| Frame store | Exact key, owner giữ frame, pump/session wiring, task tickets, byte budget, dependent drain | Completion phần cứng và age/epoch policy mở rộng |
+| Cascade coordinator | Ticket-correlated alignment, synchronous secondary execute/decode, per-task isolation | Async worker/fairness và live target evidence |
+| Image alignment port | Typed landmarks/template/transform/completion; Qualcomm FastCV adapter | Destination pool và golden alignment parity |
 | Zvec | v0.7.0 public ARM64 SDK, mặc định build adapter; real-library tests pass trên `.48` | Chỉ tạo collection mới; revision/record IDs trong RAM; recovery/enrollment chưa có |
-| FR/điểm danh | Hạ tầng contracts/features | Chưa có luồng production hoàn chỉnh |
+| FR/điểm danh | Production FD-to-embedding source composition; feature/event infrastructure | Matching, recognition state, gallery recovery, enrollment và attendance |
 
-Bộ test ghi nhận ở baseline: 97/97 qua eSDK QEMU; test frame-store và Zvec chạy native
-trên board. Đây là bằng chứng logic/index, không phải nghiệm thu nhận diện hay DMA.
+Bộ test eSDK QEMU hiện bao phủ graph lifecycle, runtime cascade invocation, retention/drain
+và Zvec linking; số lượng chính xác nằm trong validation của từng commit. Test frame-store
+và Zvec từng chạy native trên board. Đây là bằng chứng logic/index, không phải nghiệm thu
+nhận diện hay DMA.
 
 Probe lịch sử: SCRFD trung bình 4.405 ms/20 lần; EdgeFace 2.918 ms/50 lần. Input zero
 chỉ chứng minh execution/ABI. Không dùng tổng hai số này để suy ra FPS pipeline.
@@ -86,14 +89,14 @@ full-frame chỉ để làm hai model cùng execute.
 
 ## 5. M0 — Chốt hai model package và golden baseline
 
-- [ ] Kiểm kê artifacts tại thư mục model được giao; ghi SHA-256, QNN export/runtime version,
+- [x] Kiểm kê artifacts tại thư mục model được giao; ghi SHA-256, QNN export/runtime version,
   graph name, input/output ABI và preprocessing provenance. Kiểm tra đúng biến thể model.
-- [ ] Tạo package SCRFD: io_manifest, decoder.json, labels nếu cần, catalog binding và digest.
+- [x] Tạo package SCRFD: io_manifest, decoder.json, labels nếu cần, catalog binding và digest.
   Xác minh thứ tự output, score activation, anchor ordering/offset, stride, distance units,
   layout `[1,N,C]`, landmark ordering, quantization của từng tensor.
-- [ ] Tạo package EdgeFace: output tensor name/dtype/layout/dimensions, normalization,
+- [x] Tạo package EdgeFace: output tensor name/dtype/layout/dimensions, normalization,
   RGB/BGR, pixel range, mean/scale, quantize rounding/saturation và alignment template.
-- [ ] Không suy preprocessing chỉ từ shape hay tên model. So sánh training/export/reference
+- [x] Không suy preprocessing chỉ từ shape hay tên model. So sánh training/export/reference
   pipeline. QNN offset và neutral zero_point phải chuyển đúng dấu.
 - [ ] Tạo bộ golden được phép sử dụng, lưu ngoài Git: không mặt, một/nhiều mặt, nghiêng,
   biên ảnh, sáng/tối, occlusion, nhiều tỷ lệ source. Có expected intermediate tensors.
@@ -108,10 +111,10 @@ Sai contract phải fail activation; artifact digest không được gọi là c
 preprocess, model_metadata + SHA-256) và `manifests/models/edgeface_s_gamma_05/`
 (io_manifest, preprocess, model_metadata + SHA-256; decoder.json để M5). Catalog/registry
 example: `manifests/models/model_catalog.face.example.json`,
-`config/defaults/model_package_registry.face.example.json`. SCRFD `decoder.json` được test
-bằng loader strict. **Còn thiếu:** golden được phép dùng, xác nhận threshold/anchor
-offset/landmark ordering/color/normalization theo reference, alignment template EdgeFace,
-và pin QAIRT runtime. Không coi metadata là nghiệm thu model.
+`config/defaults/model_package_registry.face.example.json`. Cả hai decoder contract được
+load và cross-validate; reference source đã xác nhận anchor offset, landmark ordering,
+color/normalization và alignment template. **Còn thiếu:** golden được phép dùng,
+threshold/accuracy calibration và pin QAIRT runtime. Không coi metadata là nghiệm thu model.
 
 ## 6. M1 — Primary FD chạy đúng thật
 
@@ -141,20 +144,22 @@ Vị trí chính: `src/app/vqec_vision_production_platform.cpp`,
 Vị trí chính: `vqec_vision_secondary_inference.hpp`, `vqec_vision_image_processor.hpp`,
 `vqec_vision_embedding.hpp`, catalog/deployment schemas, scheduler.
 
-- [ ] Thêm role primary/secondary, dependency và preprocess/alignment capability vào catalog.
+- [x] Thêm role primary/secondary, dependency và preprocess/alignment capability vào catalog.
   Secondary models không nằm trong mask gửi full-frame của primary session.
-- [ ] Request typed chứa source slot + full frame key, model slot/revision, track identity
+- [x] Request typed chứa source slot + full frame key, model slot/revision, track identity
   cùng epoch, landmark schema/count/points, ROI, transform provenance, deadline monotonic,
   priority và ticket retention. Không nhét landmarks vào opaque string/JSON.
-- [ ] Chốt dùng port alignment riêng hay mở rộng image processor; contract phải mô tả source
-  coordinates, destination tensor/lease, interpolation/border policy và completion.
-- [ ] Result embedding typed giữ correlation, model/version, normalization và task status;
+- [x] Chốt port alignment riêng; contract mô tả source coordinates, destination tensor,
+  transform, capability và completion.
+- [x] Result embedding typed giữ frame/track correlation, model/version và normalization;
   không dùng payload bytes thiếu layout/meaning cho matching.
+- [ ] Chuẩn hóa task status/error typed cho delivery bất đồng bộ; hiện lỗi task được tổng hợp
+  trong cascade report và không tạo embedding giả.
 - [ ] State machine: queued → submitted → completed → delivered; queued có thể hủy ngay,
   submitted phải drain; stale epoch ngăn publish nhưng vẫn phải hoàn tất cleanup.
-- [ ] Chốt quyền gọi complete(ticket), ownership thread, ticket domain lifetime và ngăn
+- [x] Chốt quyền gọi complete(ticket), ownership thread, ticket domain lifetime và ngăn
   stale completion của store cũ đi vào store mới có số ticket trùng.
-- [ ] Test bad schema, mismatch epoch/model, wrong ticket, duplicated completion, stopped owner.
+- [x] Test bad schema, mismatch epoch/model, wrong ticket, duplicated completion, stopped owner.
 
 **Gate:** lead/owner review contracts và failure semantics trước khi nối hardware.
 
@@ -163,9 +168,9 @@ Vị trí chính: `vqec_vision_secondary_inference.hpp`, `vqec_vision_image_proc
 Vị trí chính: `vqec_vision_multi_model_pump.*`, `vqec_vision_multi_model_session.*`,
 `vqec_vision_cascade_frame_store.hpp`, source session/supervisor.
 
-- [ ] Retain frame trước primary submit cho model có dependency. Primary submit bị reject
+- [x] Retain frame trước primary submit cho model có dependency. Primary submit bị reject
   phải rollback đúng; không để slot giữ mãi khi không có kết quả.
-- [ ] Khi FD result về, lookup đúng source key từ submission ticket; tuyệt đối không lấy
+- [x] Khi FD result về, lookup đúng source key từ submission ticket; tuyệt đối không lấy
   latest preview frame. Match descriptor buffer ID/epoch/PTS và nguồn camera/channel.
 - [ ] Quality/admission tạo tối đa số secondary task cấu hình; mỗi task nhận owner và ticket.
   Giữ slot đến khi primary đã đóng admission và tất cả secondary task đã completion.
@@ -185,14 +190,16 @@ không được trả trước real completion. Native tests với workers giả
 
 ## 9. M4 — Alignment và preprocessing Qualcomm
 
-- [ ] Xác minh 5-point order/template từ EdgeFace reference; cấu hình template/coordinate
-  convention trong package. Reject điểm trùng, suy biến, NaN, mặt quá nhỏ và transform quá mức.
-- [ ] Tính similarity transform trong neutral code hoặc thư viện đã kiểm chứng có license;
-  pixel warp/resize/color conversion triển khai qua adapter Qualcomm có capability phù hợp.
-- [ ] Đánh giá QTI converter/FastCV cho affine warp/crop; ghi API, supported format, execution
-  backend và giới hạn. Nếu không hỗ trợ, chọn adapter khác có evidence; không silent CPU fallback.
-- [ ] Giữ thứ tự warp/resize, RGB conversion, normalization và quantization đúng reference.
-  Padding/border/interpolation phải explicit; landmark clipping không được che transform sai.
+- [x] Xác minh 5-point order/template từ EdgeFace reference và cấu hình template/coordinate
+  convention trong package.
+- [x] Tính similarity transform trong neutral code và thực hiện pixel warp/color qua
+  adapter FastCV Qualcomm có capability đã kiểm chứng.
+- [ ] Kiểm chứng golden cho transform và crop trên dữ liệu model được phép dùng; reject
+  điểm trùng, suy biến, NaN, mặt quá nhỏ và transform quá mức theo policy đã duyệt.
+- [x] Đánh giá QTI converter/FastCV cho affine warp/crop; ghi API, supported format, execution
+  backend và giới hạn. Adapter FastCV được chọn vì QTI plugin không có arbitrary affine.
+- [x] Giữ thứ tự warp/resize, RGB conversion, normalization và quantization đúng reference.
+  Padding/border/interpolation được khai báo tại package/adapter boundary.
 - [ ] Pool crop/tensor theo số in-flight đã admit; cache/import theo allocation identity và
   generation. Không create/destroy pipeline/allocator cho từng khuôn mặt.
 - [ ] Kiểm tra DMA-BUF modifier, stride, cache sync/fence và completion; không gọi là zero-copy
@@ -212,11 +219,11 @@ capability evidence, chưa phải runtime/golden parity hay DSP offload.
 
 ## 10. M5 — EdgeFace secondary và embedding decoder
 
-- [ ] Tạo secondary graph owner riêng; load/prewarm một lần tại activation, không mỗi mặt.
+- [x] Tạo secondary graph owner riêng; load một lần tại activation, không mỗi mặt.
   Giữ đường đồng bộ đúng trước, sau đó chỉ dùng async khi runtime capability được kiểm chứng.
 - [ ] Scheduler không gọi alignment/QNN/search blocking trên camera receive/output thread.
   Bounded worker + completion queue, fair admission và explicit busy handling.
-- [ ] Decode output theo typed tensor reader, dequantize đúng, kiểm finite/dimension, từ chối
+- [x] Decode output theo typed tensor reader, dequantize đúng, kiểm finite/dimension, từ chối
   norm gần zero; L2 normalize và gắn model/version, task, frame/track identity.
 - [ ] Giữ crop/input/output owners qua completion và delivery; reject kết quả stale khi track
   mất, epoch đổi, model version thay hoặc feature bị revoke.
@@ -372,11 +379,14 @@ storage/access/retention riêng ngoài Git; logs và CI artifacts không đượ
 
 ## 18. Bước làm ngay và quản lý tiến độ
 
-1. Hoàn tất M0 package/golden và M1 FD live; sửa các đoạn status cũ trong cascade/ADR đang
-   mô tả phần đã có là chưa có. Không suy status từ checklist lịch sử.
-2. Review M2 contracts, sau đó nối M3 retention vào pump với fault tests trước hardware.
-3. Triển khai M4/M5 để có live embeddings đúng; đồng thời có thể làm M6 bằng synthetic vectors.
-4. Nối M7/M8 rồi M9; benchmark từ đầu và đóng M10 sau workload/acceptance được chốt.
+1. Tạo golden được phép dùng và chạy camera thật qua FD → retained alignment → EdgeFace;
+   lưu tensor/latency evidence mà không log embedding sinh trắc.
+2. Tách cascade execution khỏi service thread bằng bounded worker/completion state machine,
+   rồi đo destination/input/output pooling và DMA/QNN copy hotspots trên board.
+3. Hoàn thiện M6 gallery durable/recovery bằng synthetic vectors, sau đó nối recognition
+   state M8 vào typed embedding results.
+4. Nối enrollment M7 và attendance M9; benchmark từ đầu và đóng M10 sau khi workload cùng
+   acceptance policy được chốt.
 
 Mỗi work item ghi: owner, dependency, commit, tests, board evidence, giới hạn và trạng thái
 `not_started / implementing / source_verified / board_verified / accepted`.

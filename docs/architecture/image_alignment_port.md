@@ -78,25 +78,25 @@ pw, ph, stride)`:
 - Border behavior near the image edge is not yet exercised.
 
 Mapping the neutral source→destination similarity (`dst = M * src + t`) to FastCV:
-`affine = M⁻¹` and `position = M⁻¹ * (patch_center - t)`. This is a smoke-level convention;
-golden crop parity, edge/border behavior, NV12→RGB conversion and DSP offload remain M4.
+`affine = M⁻¹` and `position = M⁻¹ * (patch_center - t)`. Geometry and RGB color paths have
+board smoke evidence; golden crop/input parity, edge policy and DSP offload remain M4.
 
-## Owned FastCV adapter (delivered, single-channel slice)
+## Owned FastCV adapter (delivered)
 
 `fastcv_aligner` (`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`) implements the port:
 it validates the request/template, computes the neutral similarity, maps it to FastCV, maps
-the borrowed source NV12 FD read-only (page-aligned `mmap`) and copies the luma plane into a
-contiguous buffer, warps with `fcvTransformAffineu8_v2`, and returns an owned single-channel
-`uint8` destination tensor plus the transform and a synchronous completion ticket.
+the borrowed source NV12 FD read-only (page-aligned `mmap`), converts the sampled even-aligned
+ROI using the explicit model color contract, warps each channel with FastCV, and returns an
+owned NHWC RGB/BGR `uint8` tensor plus the transform and a synchronous completion ticket.
 
 Board evidence (`.48`, synthetic NV12 memfd, `vqec_vision_fastcv_affine_smoke`): the identity
 warp centered at source (32, 32) produced the expected 8×8 neighborhood with the marker `255`
 exactly at the patch center (`align_rc=0`, `bytes=64`, `complete=1`). This verifies the
 geometry mapping, not color, DSP offload or golden parity.
 
-Still M4: 3-channel RGB conversion and destination color/normalization, crop/tensor pooling,
-golden crop parity, edge/border behavior, and any DSP offload claim. The adapter is built
-only under `VQEC_VISION_AI_ENABLE_FASTCV` and is not yet wired into the cascade coordinator.
+Still M4: crop/tensor pooling, golden crop/input parity, approved edge/border behavior and
+any DSP offload claim. The adapter is built only under `VQEC_VISION_AI_ENABLE_FASTCV` and
+is bound through `image_alignment_port` to the production cascade coordinator.
 
 ### RGB destination (delivered, board-verified color)
 

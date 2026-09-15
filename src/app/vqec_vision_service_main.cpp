@@ -22,6 +22,8 @@
 #include <vector>
 
 #include "vqec_vision_deployment_config.hpp"
+#include "vqec_vision_cascade_coordinator.hpp"
+#include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_fanout.hpp"
@@ -54,11 +56,15 @@ inline constexpr char g_system_library[] = "/usr/lib/libQnnSystem.so";
 inline constexpr std::uint64_t g_output_bytes = 16;
 inline constexpr char g_box_tensor_name[] = "boxes";
 inline constexpr std::uint32_t g_box_elements = 4;
+inline constexpr char g_fw_dmabuf_contract[] = "fw.dmabuf.v1";
+inline constexpr char g_qcom_dmabuf_contract[] = "qcom.dmabuf.v1";
 }  // namespace service_harness
 
 namespace {
 
 volatile std::sig_atomic_t g_stop_requested = 0;
+constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
+constexpr std::uint64_t g_step_interval_ns = 1000000;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
     g_stop_requested = 1;
@@ -72,8 +78,182 @@ std::uint64_t vqec_vision_ai_appl_svcmn_monotonic_ns() noexcept {
             .count());
 }
 
-constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
-constexpr std::uint64_t g_step_interval_ns = 1000000;
+struct service_cascade_owner {
+    production_cascade_binding binding_;
+    const model_catalog_entry* model_{nullptr};
+    std::unique_ptr<cascade_graph_session> graph_session_;
+    std::unique_ptr<cascade_coordinator> coordinator_;
+    std::uint16_t root_model_slot_{g_invalid_model_slot};
+};
+
+status vqec_vision_ai_appl_svcmn_make_source_binding(
+    const source_deployment_config& _source, const model_catalog_entry& _model,
+    source_binding& _binding) {
+    source_color_profile color_profile{source_color_profile::unspecified};
+    if (_model.preprocess_.matrix_ == color_matrix::bt601 &&
+        _model.preprocess_.range_ == color_range::limited) {
+        color_profile = source_color_profile::bt601_limited;
+    } else if (_model.preprocess_.matrix_ == color_matrix::bt709 &&
+               _model.preprocess_.range_ == color_range::limited) {
+        color_profile = source_color_profile::bt709_limited;
+    } else {
+        return {status_code::unsupported,
+            "source binding requires a supported limited-range color profile"};
+    }
+    source_binding candidate;
+    candidate.width_ = _source.profile_.width_;
+    candidate.height_ = _source.profile_.height_;
+    candidate.fps_numerator_ = _source.profile_.fps_numerator_;
+    candidate.fps_denominator_ = _source.profile_.fps_denominator_;
+    candidate.memory_kind_ = source_memory_kind::dmabuf;
+    candidate.layout_ = source_memory_layout::linear_nv12;
+    candidate.sync_mode_ = source_sync_mode::implicit_ready;
+    candidate.color_profile_ = color_profile;
+    candidate.chroma_site_ = source_chroma_site::mpeg2;
+    candidate.fw_memory_contract_ = service_harness::g_fw_dmabuf_contract;
+    candidate.backend_memory_contract_ = service_harness::g_qcom_dmabuf_contract;
+    candidate.preprocess_contract_ = _model.preprocess_contract_;
+    _binding = std::move(candidate);
+    return {};
+}
+
+status vqec_vision_ai_appl_svcmn_prepare_cascade_owners(
+    const deployment_config& _deployment, const model_catalog& _catalog,
+    production_platform& _platform,
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
+    for (std::uint16_t source_slot = 0; source_slot < _deployment.sources_.size();
+         ++source_slot) {
+        const auto& source = _deployment.sources_[source_slot];
+        const model_catalog_entry* secondary = nullptr;
+        for (const auto& model : _catalog.models_) {
+            if (model.role_ != model_role::secondary ||
+                !vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
+                continue;
+            }
+            if (secondary != nullptr) {
+                return {status_code::unsupported,
+                    "one source currently supports one active secondary model"};
+            }
+            secondary = &model;
+        }
+        if (secondary == nullptr) {
+            continue;
+        }
+        if (secondary->depends_on_.size() != 1U) {
+            return {status_code::unsupported,
+                "cascade coordinator currently requires one primary dependency"};
+        }
+        std::uint16_t root_slot = g_invalid_model_slot;
+        for (std::uint16_t model_slot = 0; model_slot < source.model_ids_.size();
+             ++model_slot) {
+            if (source.model_ids_[model_slot] == secondary->depends_on_[0].model_id_) {
+                root_slot = model_slot;
+                break;
+            }
+        }
+        if (root_slot == g_invalid_model_slot) {
+            return {status_code::invalid_argument,
+                "secondary dependency has no primary source slot"};
+        }
+        production_cascade_binding binding;
+        const auto resolved = _platform.vqec_vision_ai_appl_pdplt_cascade_binding(
+            source_slot, secondary->model_id_, binding);
+        if (resolved.code_ != status_code::ok) {
+            return resolved;
+        }
+        cascade_graph_session_config graph_config;
+        graph_config.graph_ = binding.graph_;
+        graph_config.plan_ = binding.plan_;
+        graph_config.outputs_ = binding.outputs_;
+        graph_config.max_output_bytes_ = binding.max_output_bytes_;
+        graph_config.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
+        graph_config.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
+        const auto source_bound = vqec_vision_ai_appl_svcmn_make_source_binding(
+            source, *secondary, graph_config.binding_);
+        if (source_bound.code_ != status_code::ok) {
+            return source_bound;
+        }
+        auto& owner = _owners[source_slot];
+        owner.binding_ = std::move(binding);
+        owner.model_ = secondary;
+        owner.root_model_slot_ = root_slot;
+        owner.graph_session_ =
+            std::make_unique<cascade_graph_session>(std::move(graph_config));
+    }
+    return {};
+}
+
+status vqec_vision_ai_appl_svcmn_start_cascade_graphs(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
+    bool all_running = false;
+    while (!all_running) {
+        all_running = true;
+        const auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        for (auto& owner : _owners) {
+            if (owner.graph_session_ == nullptr ||
+                owner.graph_session_->vqec_vision_ai_appl_cgses_get_state() ==
+                    cascade_graph_session_state::running) {
+                continue;
+            }
+            all_running = false;
+            const auto stepped =
+                owner.graph_session_->vqec_vision_ai_appl_cgses_step(now_ns);
+            if (stepped.code_ != status_code::ok &&
+                stepped.code_ != status_code::pending) {
+                return stepped;
+            }
+        }
+        if (!all_running) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        }
+    }
+    return {};
+}
+
+status vqec_vision_ai_appl_svcmn_stop_cascade_graphs(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
+    auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+    status first_error;
+    for (auto& owner : _owners) {
+        if (owner.graph_session_ == nullptr) {
+            continue;
+        }
+        const auto requested =
+            owner.graph_session_->vqec_vision_ai_appl_cgses_request_stop(now_ns);
+        if (requested.code_ != status_code::ok && first_error.code_ == status_code::ok) {
+            first_error = requested;
+        }
+    }
+    bool all_stopped = false;
+    while (!all_stopped) {
+        all_stopped = true;
+        now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        for (auto& owner : _owners) {
+            if (owner.graph_session_ == nullptr) {
+                continue;
+            }
+            const auto state =
+                owner.graph_session_->vqec_vision_ai_appl_cgses_get_state();
+            if (state == cascade_graph_session_state::stopped ||
+                state == cascade_graph_session_state::faulted) {
+                continue;
+            }
+            all_stopped = false;
+            const auto stepped =
+                owner.graph_session_->vqec_vision_ai_appl_cgses_step(now_ns);
+            if (stepped.code_ != status_code::ok &&
+                stepped.code_ != status_code::pending) {
+                if (first_error.code_ == status_code::ok) {
+                    first_error = stepped;
+                }
+            }
+        }
+        if (!all_stopped) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        }
+    }
+    return first_error;
+}
 
 // --- loading helpers --------------------------------------------------------------------
 
@@ -156,8 +336,8 @@ model_outputs vqec_vision_ai_appl_svcmn_synthetic_outputs(const model_catalog_en
     outputs.artifact_sha256_ = _model.artifact_sha256_;
     outputs.decoder_contract_ = _model.decoder_contract_;
     outputs.max_output_bytes_ = service_harness::g_output_bytes;
-    outputs.outputs_.push_back(
-        {service_harness::g_box_tensor_name, {1, service_harness::g_box_elements}, tensor_element_type::float32, {}});
+    outputs.outputs_.push_back({service_harness::g_box_tensor_name,
+        {1, service_harness::g_box_elements}, tensor_element_type::float32, {}});
     return outputs;
 }
 
@@ -744,6 +924,76 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr, "runtime composition returned no executor\n");
         return 1;
     }
+    std::array<service_cascade_owner, deployment_limits::g_max_sources> cascade_owners;
+    if (use_production_platform) {
+        const auto cascade_prepared = vqec_vision_ai_appl_svcmn_prepare_cascade_owners(
+            deployment, catalog, production, cascade_owners);
+        if (cascade_prepared.code_ != status_code::ok) {
+            std::fprintf(stderr, "cascade preparation failed (%d): %s\n",
+                static_cast<int>(cascade_prepared.code_),
+                cascade_prepared.message_.c_str());
+            return 1;
+        }
+        const auto cascade_started =
+            vqec_vision_ai_appl_svcmn_start_cascade_graphs(cascade_owners);
+        if (cascade_started.code_ != status_code::ok) {
+            std::fprintf(stderr, "cascade graph startup failed (%d): %s\n",
+                static_cast<int>(cascade_started.code_),
+                cascade_started.message_.c_str());
+            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            return 1;
+        }
+        for (std::uint16_t source_slot = 0; source_slot < deployment.sources_.size();
+             ++source_slot) {
+            auto& owner = cascade_owners[source_slot];
+            if (owner.graph_session_ == nullptr) {
+                continue;
+            }
+            auto* source_session =
+                bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
+            if (source_session == nullptr || owner.model_ == nullptr) {
+                std::fprintf(stderr, "cascade source owner is incomplete\n");
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+            cascade_coordinator_config coordinator_config;
+            coordinator_config.aligner_ = owner.binding_.aligner_;
+            coordinator_config.lease_ = source_session;
+            coordinator_config.embedding_graph_ = owner.binding_.graph_;
+            coordinator_config.embedding_decoder_ = owner.binding_.decoder_;
+            coordinator_config.template_ = owner.binding_.alignment_;
+            coordinator_config.normalize_offset_ = owner.binding_.preprocess_.offset_;
+            coordinator_config.normalize_scale_ = owner.binding_.preprocess_.scale_;
+            coordinator_config.cycle_id_ =
+                (static_cast<std::uint64_t>(source_slot) + 1U) *
+                service_harness::g_cycle_id_stride;
+            coordinator_config.job_timeout_ns_ =
+                submission_limits::g_default_job_timeout_ns;
+            coordinator_config.max_tasks_per_frame_ =
+                deployment.sources_[source_slot].cascade_.tasks_per_frame_;
+            owner.coordinator_ = std::make_unique<cascade_coordinator>();
+            const auto coordinator_configured =
+                owner.coordinator_->vqec_vision_ai_appl_cscrd_configure(
+                    coordinator_config);
+            if (coordinator_configured.code_ != status_code::ok) {
+                std::fprintf(stderr, "cascade coordinator configure failed (%d): %s\n",
+                    static_cast<int>(coordinator_configured.code_),
+                    coordinator_configured.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+            const auto cascade_bound = executor->vqec_vision_ai_appl_rtexe_bind_cascade(
+                source_slot, owner.root_model_slot_, *owner.coordinator_,
+                coordinator_config.max_tasks_per_frame_);
+            if (cascade_bound.code_ != status_code::ok) {
+                std::fprintf(stderr, "runtime cascade binding failed (%d): %s\n",
+                    static_cast<int>(cascade_bound.code_),
+                    cascade_bound.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+        }
+    }
     if (has_feature_wiring) {
         executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     }
@@ -752,6 +1002,7 @@ int main(int _argc, char** _argv) {
     if (activated.code_ != status_code::ok) {
         std::fprintf(stderr, "composition activation failed (%d): %s\n",
             static_cast<int>(activated.code_), activated.message_.c_str());
+        (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
         return 1;
     }
 
@@ -803,11 +1054,15 @@ int main(int _argc, char** _argv) {
                             deployment.sources_[taken.source_index_].model_ids_.size()),
                         latest_overlay_observations[taken.source_index_]);
                 }
-                std::printf("routed source=%u model=%u tracked=%zu delivered=%u\n",
+                std::printf("routed source=%u model=%u tracked=%zu delivered=%u "
+                    "cascade_accepted=%u embedded=%u cascade_failed=%u\n",
                     static_cast<unsigned>(taken.source_index_),
                     static_cast<unsigned>(taken.model_slot_),
                     tracked_count,
-                    static_cast<unsigned>(dispatch_report.delivered_));
+                    static_cast<unsigned>(dispatch_report.delivered_),
+                    static_cast<unsigned>(taken.cascade_.accepted_),
+                    static_cast<unsigned>(taken.cascade_.embedded_),
+                    static_cast<unsigned>(taken.cascade_.failed_));
             }
         } else if (stepped.code_ != status_code::pending) {
             if (first_error_code == status_code::ok) {
@@ -865,7 +1120,8 @@ int main(int _argc, char** _argv) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
         runtime_executor_report drain_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
-        if (drain_report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
+        if (drain_report.first_error_code_ != status_code::ok &&
+            first_error_code == status_code::ok) {
             first_error_code = drain_report.first_error_code_;
         }
         if (progressed.code_ != status_code::ok && progressed.code_ != status_code::pending) {
@@ -882,15 +1138,24 @@ int main(int _argc, char** _argv) {
         ++routed_sources;
     }
     const auto metrics = executor->vqec_vision_ai_appl_rtexe_get_metrics();
+    const auto cascade_stopped =
+        vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+    if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
+        first_error_code = cascade_stopped.code_;
+    }
     const auto e2e_avg_us = metrics.end_to_end_samples_ == 0 ? 0ULL :
         metrics.end_to_end_ns_sum_ / (1000ULL * metrics.end_to_end_samples_);
     std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
+        "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
         "e2e_avg_us=%llu e2e_min_us=%llu e2e_max_us=%llu samples=%u\n",
         static_cast<unsigned long long>(metrics.steps_),
         static_cast<unsigned long long>(metrics.results_routed_),
         static_cast<unsigned long long>(metrics.events_delivered_),
         static_cast<unsigned long long>(metrics.events_denied_),
         static_cast<unsigned long long>(metrics.events_failed_),
+        static_cast<unsigned long long>(metrics.cascade_tasks_accepted_),
+        static_cast<unsigned long long>(metrics.cascade_embeddings_),
+        static_cast<unsigned long long>(metrics.cascade_tasks_failed_),
         static_cast<unsigned long long>(e2e_avg_us),
         static_cast<unsigned long long>(metrics.end_to_end_samples_ == 0 ? 0ULL :
             metrics.end_to_end_ns_min_ / 1000ULL),

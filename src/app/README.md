@@ -59,4 +59,6 @@ Primary detector composition accepts explicit anchor_distance packages (see
 docs/architecture/cascade_inference.md) and legacy YOLO packages. A shared decoder requires
 equal source dimensions; decoder placement follows catalog preprocessing placement.
 Production prepares and cross-validates a neutral embedding cascade binding for one active
-source. Secondary graph lifecycle and executor invocation remain pending.
+source. The service owns secondary graph start/drain/unload and binds the coordinator to
+the catalog-derived primary slot before activating that source. Live target parity,
+multi-source secondary ownership and asynchronous cascade scheduling remain pending.

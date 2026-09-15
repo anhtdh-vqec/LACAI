@@ -14,8 +14,8 @@ that point.
 Stop closes new cascade invocation at the caller, requests graph drain, consumes any
 completed result needed to reconcile the graph's submission window, waits for outstanding
 work, unloads, and reports `stopped` only when the graph is empty or unloaded/configured.
-Startup and stop use
-separate monotonic deadlines. A timeout or graph fault with an unsettled backend is reported
+Startup and stop use separate monotonic deadlines. A timeout or graph fault with an
+unsettled backend is reported
 as recovery-required; validation failure while the graph remains empty is not. Neither
 condition authorizes early destruction of a graph that may still own hardware resources.
 
