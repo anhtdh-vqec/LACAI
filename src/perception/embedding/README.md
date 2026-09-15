@@ -17,6 +17,10 @@ Versioned face/body embedding index boundary for recognition and retrieval workf
 - The model-agnostic recognition policy aggregates candidate templates by subject and emits
   configurable known/unknown/ambiguous decisions. Backend failures stay unavailable and are
   never silently converted to unknown.
+- `recognition_session` owns bounded multi-template gallery mutations, revision-CAS
+  enrollment/removal, correlated search and exact-frame label application. It is the
+  neutral seam used by the DBus enrollment adapter and by either the reference or Zvec
+  index backend.
 - Zvec replaces the earlier FAISS plan; vendor code lives in `src/adapters/zvec`.
 - Zvec is a derived optional backend. It is enabled only with an externally supplied,
   version-reviewed C API installation; the collection path is deployment configuration,

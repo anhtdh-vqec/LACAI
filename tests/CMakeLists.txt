@@ -346,6 +346,14 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME recognition_policy
         COMMAND vqec_vision_ai_recognition_policy_test)
+    add_executable(vqec_vision_ai_recognition_session_test
+        unit/vqec_vision_recognition_session_test.cpp)
+    target_link_libraries(vqec_vision_ai_recognition_session_test
+        PRIVATE vqec_vision_ai_embedding)
+    set_target_properties(vqec_vision_ai_recognition_session_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME recognition_session
+        COMMAND vqec_vision_ai_recognition_session_test)
     add_executable(vqec_vision_ai_embedding_decoder_test
         unit/vqec_vision_embedding_decoder_test.cpp)
     target_link_libraries(vqec_vision_ai_embedding_decoder_test

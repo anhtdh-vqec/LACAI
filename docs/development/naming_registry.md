@@ -150,6 +150,12 @@ Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` use
 `tests/unit/vqec_vision_recognition_policy_test.cpp` uses file_id `rcptst`, prefix
 `vqec_vision_ai_unit_rcptst_`; `main` retains the language exception.
 
+Recognition session owner `src/perception/embedding/vqec_vision_recognition_session.cpp`
+uses file_id `rcses`, prefix `vqec_vision_ai_embed_rcses_`. It owns bounded gallery
+template metadata, revision-CAS mutations and recognition label correlation while
+remaining independent of Zvec. Test `tests/unit/vqec_vision_recognition_session_test.cpp`
+uses file_id `rcstst`; `main` retains the language exception.
+
 Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
 declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix
