@@ -109,6 +109,11 @@ deinterleaves to three planar channels and warps each with the verified patch wa
 interleaving to the requested RGB/BGR order. `fastcv_aligner_config` carries
 `output_rgb_`/`matrix_`/`range_`/`order_`; RGB output is `uint8` `[1,H,W,3]`.
 
+Cost control: before conversion the adapter computes the source region the aligned patch
+actually samples (plus an interpolation margin) and converts/warps only that even-aligned
+NV12 ROI, so per-face cost scales with the face, not the frame. Sharing one conversion across
+faces of a frame, a destination crop/tensor pool and any DSP offload remain M4 optimization.
+
 Board `.48` smoke: a uniform BT.601-limited red NV12 aligned to `rgb center=254,0,0`, and the
 luma path produced the expected geometry. This verifies color and geometry for the synthetic
 case; real golden crop parity, per-channel fast paths and any DSP offload remain open, and the

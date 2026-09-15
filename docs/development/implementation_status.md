@@ -290,5 +290,10 @@ standalone `cascade_coordinator` (bounded per-frame task admission over
 `cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation); it is not yet
 wired into the executor/service. The coordinator now also runs the secondary pipeline
 (quantize aligned RGB to the model input, submit, poll, embedding decode) when a secondary
-graph/decoder are configured, covered by the coordinator unit test with fakes. The real
-EdgeFace graph composition, executor wiring and golden parity remain M5.
+graph/decoder are configured, covered by the coordinator unit test with fakes. Review fixes:
+the frame-lease ticket is separate from the alignment ticket; the secondary input blob uses
+the full model input spec (name/dims/dtype/quantization) from the loaded graph; alignment
+completion is polled and a synchronous single-inflight embedding graph is required; and the
+FastCV aligner validates full luma/chroma plane bounds with overflow-safe arithmetic and
+converts only the sampled source ROI. The real EdgeFace graph composition, executor wiring
+and golden parity remain M5.

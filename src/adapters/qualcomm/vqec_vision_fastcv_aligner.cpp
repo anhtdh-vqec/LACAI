@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -130,6 +131,49 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
     const std::size_t patch_pixels = static_cast<std::size_t>(
         _template.destination_width_) * _template.destination_height_;
 
+    // Crop the exact source region the aligned patch samples (plus a small interpolation
+    // margin) so conversion and warp cost scale with the face, not the frame. Coordinates
+    // are snapped to even values for NV12 chroma.
+    const double patch_width = _template.destination_width_;
+    const double patch_height = _template.destination_height_;
+    double min_x = std::numeric_limits<double>::max();
+    double min_y = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double max_y = std::numeric_limits<double>::lowest();
+    const double corners[4][2] = {{0.0, 0.0}, {patch_width, 0.0},
+        {patch_width, patch_height}, {0.0, patch_height}};
+    for (const auto& corner : corners) {
+        const double dx = corner[0] - patch_center_x;
+        const double dy = corner[1] - patch_center_y;
+        const double source_x = position[0] + inv00 * dx + inv01 * dy;
+        const double source_y = position[1] + inv10 * dx + inv11 * dy;
+        min_x = std::min(min_x, source_x);
+        min_y = std::min(min_y, source_y);
+        max_x = std::max(max_x, source_x);
+        max_y = std::max(max_y, source_y);
+    }
+    constexpr double g_roi_margin = 2.0;
+    const double clamped_x0 = std::max(0.0, std::floor(min_x - g_roi_margin));
+    const double clamped_y0 = std::max(0.0, std::floor(min_y - g_roi_margin));
+    const double clamped_x1 = std::min(static_cast<double>(descriptor.width_),
+        std::ceil(max_x + g_roi_margin));
+    const double clamped_y1 = std::min(static_cast<double>(descriptor.height_),
+        std::ceil(max_y + g_roi_margin));
+    const std::uint32_t roi_x0 = static_cast<std::uint32_t>(clamped_x0) & ~1U;
+    const std::uint32_t roi_y0 = static_cast<std::uint32_t>(clamped_y0) & ~1U;
+    const std::uint32_t roi_x1 = std::min(
+        (static_cast<std::uint32_t>(clamped_x1) + 1U) & ~1U, descriptor.width_);
+    const std::uint32_t roi_y1 = std::min(
+        (static_cast<std::uint32_t>(clamped_y1) + 1U) & ~1U, descriptor.height_);
+    if (roi_x1 <= roi_x0 || roi_y1 <= roi_y0) {
+        ::munmap(mapping, static_cast<std::size_t>(map_length));
+        return {status_code::invalid_argument, "alignment source region is empty"};
+    }
+    const std::uint32_t roi_width = roi_x1 - roi_x0;
+    const std::uint32_t roi_height = roi_y1 - roi_y0;
+    alignas(16) float roi_position[2] = {position[0] - static_cast<float>(roi_x0),
+        position[1] - static_cast<float>(roi_y0)};
+
     alignment_result candidate;
     if (config_.output_rgb_) {
         if ((config_.matrix_ != color_matrix::bt601 &&
@@ -141,31 +185,35 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             ::munmap(mapping, static_cast<std::size_t>(map_length));
             return {status_code::unsupported, "RGB alignment requires a valid NV12 color policy"};
         }
-        const std::size_t rgb_stride = static_cast<std::size_t>(descriptor.width_) * 3U;
-        std::vector<std::uint8_t> rgb(rgb_stride * descriptor.height_, 0U);
+        const std::size_t rgb_stride = static_cast<std::size_t>(roi_width) * 3U;
+        std::vector<std::uint8_t> rgb(rgb_stride * roi_height, 0U);
         const std::size_t chroma_offset =
             static_cast<std::size_t>(in_page_offset + descriptor.offsets_[1]);
-        const auto converted = vqec_vision_ai_core_color_convert_nv12_to_rgb(
-            base + luma_offset, static_cast<std::uint32_t>(descriptor.strides_[0]),
-            base + chroma_offset, static_cast<std::uint32_t>(descriptor.strides_[1]),
-            descriptor.width_, descriptor.height_, config_.matrix_, config_.range_,
-            channel_order::rgb, rgb.data(), static_cast<std::uint32_t>(rgb_stride));
+        const std::uint8_t* y_roi = base + luma_offset +
+            static_cast<std::size_t>(roi_y0) * descriptor.strides_[0] + roi_x0;
+        const std::uint8_t* uv_roi = base + chroma_offset +
+            static_cast<std::size_t>(roi_y0 / 2U) * descriptor.strides_[1] + roi_x0;
+        const auto converted = vqec_vision_ai_core_color_convert_nv12_to_rgb(y_roi,
+            static_cast<std::uint32_t>(descriptor.strides_[0]), uv_roi,
+            static_cast<std::uint32_t>(descriptor.strides_[1]), roi_width, roi_height,
+            config_.matrix_, config_.range_, channel_order::rgb, rgb.data(),
+            static_cast<std::uint32_t>(rgb_stride));
         if (converted.code_ != status_code::ok) {
             ::munmap(mapping, static_cast<std::size_t>(map_length));
             return converted;
         }
         // Deinterleave into three planar channels, warp each with the verified patch warp,
-        // then interleave to the requested order. Correct but not the optimized path.
+        // then interleave to the requested order.
         std::array<std::vector<std::uint8_t>, 3> planes;
         for (auto& plane : planes) {
-            plane.assign(static_cast<std::size_t>(descriptor.width_) * descriptor.height_, 0U);
+            plane.assign(static_cast<std::size_t>(roi_width) * roi_height, 0U);
         }
-        for (std::uint32_t row = 0; row < descriptor.height_; ++row) {
+        for (std::uint32_t row = 0; row < roi_height; ++row) {
             const std::uint8_t* source_row = rgb.data() + static_cast<std::size_t>(row) * rgb_stride;
             for (unsigned channel = 0; channel < 3U; ++channel) {
                 std::uint8_t* plane_row = planes[channel].data() +
-                    static_cast<std::size_t>(row) * descriptor.width_;
-                for (std::uint32_t column = 0; column < descriptor.width_; ++column) {
+                    static_cast<std::size_t>(row) * roi_width;
+                for (std::uint32_t column = 0; column < roi_width; ++column) {
                     plane_row[column] =
                         source_row[static_cast<std::size_t>(column) * 3U + channel];
                 }
@@ -174,10 +222,10 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
         std::array<std::vector<std::uint8_t>, 3> patches;
         for (unsigned channel = 0; channel < 3U; ++channel) {
             patches[channel].assign(patch_pixels, 0U);
-            const int warp = fcvTransformAffineu8_v2(planes[channel].data(), descriptor.width_,
-                descriptor.height_, descriptor.width_, position, affine,
-                patches[channel].data(), _template.destination_width_,
-                _template.destination_height_, _template.destination_width_);
+            const int warp = fcvTransformAffineu8_v2(planes[channel].data(), roi_width,
+                roi_height, roi_width, roi_position, affine, patches[channel].data(),
+                _template.destination_width_, _template.destination_height_,
+                _template.destination_width_);
             if (warp != 0) {
                 ::munmap(mapping, static_cast<std::size_t>(map_length));
                 return {status_code::io_error, "FastCV affine warp failed"};
@@ -194,18 +242,17 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             _template.destination_width_, 3U};
         candidate.tensor_.bytes_ = std::move(packed);
     } else {
-        std::vector<std::uint8_t> luma(
-            static_cast<std::size_t>(descriptor.width_) * descriptor.height_, 0U);
-        for (std::uint32_t row = 0; row < descriptor.height_; ++row) {
-            std::memcpy(luma.data() + static_cast<std::size_t>(row) * descriptor.width_,
-                base + luma_offset + static_cast<std::size_t>(row) * descriptor.strides_[0],
-                descriptor.width_);
+        std::vector<std::uint8_t> luma(static_cast<std::size_t>(roi_width) * roi_height, 0U);
+        for (std::uint32_t row = 0; row < roi_height; ++row) {
+            std::memcpy(luma.data() + static_cast<std::size_t>(row) * roi_width,
+                base + luma_offset +
+                    static_cast<std::size_t>(roi_y0 + row) * descriptor.strides_[0] + roi_x0,
+                roi_width);
         }
         std::vector<std::uint8_t> patch(patch_pixels, 0U);
-        const int result = fcvTransformAffineu8_v2(luma.data(), descriptor.width_,
-            descriptor.height_, descriptor.width_, position, affine, patch.data(),
-            _template.destination_width_, _template.destination_height_,
-            _template.destination_width_);
+        const int result = fcvTransformAffineu8_v2(luma.data(), roi_width, roi_height,
+            roi_width, roi_position, affine, patch.data(), _template.destination_width_,
+            _template.destination_height_, _template.destination_width_);
         if (result != 0) {
             ::munmap(mapping, static_cast<std::size_t>(map_length));
             return {status_code::io_error, "FastCV affine warp failed"};
