@@ -1,0 +1,6 @@
+add_library(vqec_vision_ai_zvec_embedding STATIC vqec_vision_zvec_embedding_index.cpp)
+target_include_directories(vqec_vision_ai_zvec_embedding PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_zvec_embedding
+    PUBLIC vqec_vision_ai_core PRIVATE vqec_vision_ai_zvec_external)
+set_target_properties(vqec_vision_ai_zvec_embedding PROPERTIES CXX_EXTENSIONS OFF)

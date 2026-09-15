@@ -655,3 +655,15 @@
             PASS_REGULAR_EXPRESSION "delivered=[1-9][0-9]*"
             FAIL_REGULAR_EXPRESSION "stopped=false;first_error=[1-9]")
     endif()
+
+if(VQEC_VISION_AI_ENABLE_ZVEC)
+    add_executable(vqec_vision_ai_zvec_embedding_index_test
+        unit/vqec_vision_zvec_embedding_index_test.cpp)
+    target_link_libraries(vqec_vision_ai_zvec_embedding_index_test
+        PRIVATE vqec_vision_ai_zvec_embedding)
+    set_target_properties(vqec_vision_ai_zvec_embedding_index_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME zvec_embedding_index_integration
+        COMMAND vqec_vision_ai_zvec_embedding_index_test
+            "${CMAKE_CURRENT_BINARY_DIR}/zvec_synthetic_gallery")
+endif()

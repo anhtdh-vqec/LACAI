@@ -31,6 +31,7 @@ Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp 
 | src/perception/pose | pose |
 | src/perception/embedding | embed |
 | src/perception/ocr | ocr |
+| src/adapters/zvec | zvec |
 | src/adapters/camera | camer |
 | src/adapters/qualcomm | qcom |
 | src/adapters/reference | refer |
@@ -137,6 +138,8 @@ declares interface prefix `vqec_vision_ai_ports_emidx_`. Exact backend
 prefix `vqec_vision_ai_embed_exidx_`. Test
 `tests/unit/vqec_vision_exact_embedding_index_test.cpp` uses file_id `exitst`, prefix
 `vqec_vision_ai_unit_exitst_`; `main` retains the language exception.
+Optional Zvec adapter `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` uses
+file_id `zvidx`, prefix `vqec_vision_ai_zvec_zvidx_`.
 
 Encoder input validation: `src/core/vqec_vision_encoder_contract.cpp`, file_id `encct`,
 prefix `vqec_vision_ai_core_encct_`; declarations in encoder_backend contract header.
@@ -421,3 +424,6 @@ Runtime composition factory registrations (source delivered):
 | src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp | qtvr | vqec_vision_ai_qcom_qtvr_ |
 | src/app/vqec_vision_source_session_worker.cpp | sswrk | vqec_vision_ai_appl_sswrk_ |
 | tests/unit/vqec_vision_source_session_worker_test.cpp | sswtst | vqec_vision_ai_unit_sswtst_ |
+
+Zvec integration test: `tests/unit/vqec_vision_zvec_embedding_index_test.cpp`,
+file_id `zvitst`, prefix `vqec_vision_ai_unit_zvitst_`.
