@@ -103,7 +103,8 @@ status vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
             std::uint16_t* out = output_row + static_cast<std::size_t>(column) * 3U;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 const double real =
-                    static_cast<double>(pixel[channel]) * _scale[channel] + _offset[channel];
+                    (static_cast<double>(pixel[channel]) - _offset[channel]) *
+                    _scale[channel];
                 const double stored =
                     std::round(real / static_cast<double>(_quant_scale)) +
                     static_cast<double>(_quant_zero_point);

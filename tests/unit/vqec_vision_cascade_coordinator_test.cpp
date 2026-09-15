@@ -324,8 +324,9 @@ int main() {
         auto config = make_config(aligner, lease, 2);
         config.embedding_graph_ = &graph;
         config.embedding_decoder_ = &decoder;
-        config.normalize_offset_ = {-0.99609375F, -0.99609375F, -0.99609375F};
-        config.normalize_scale_ = {0.0078125F, 0.0078125F, 0.0078125F};
+        config.normalize_offset_ = {127.5F, 127.5F, 127.5F};
+        config.normalize_scale_ = {
+            1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F};
         config.quant_scale_ = 3.05180438e-05F;
         config.quant_zero_point_ = 32768;
         cascade_coordinator coordinator;
