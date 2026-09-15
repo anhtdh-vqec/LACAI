@@ -144,6 +144,12 @@ prefix `vqec_vision_ai_embed_exidx_`. Test
 Optional Zvec adapter `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` uses
 file_id `zvidx`, prefix `vqec_vision_ai_zvec_zvidx_`.
 
+Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
+Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id
+`rcpol`, prefix `vqec_vision_ai_embed_rcpol_`. Test
+`tests/unit/vqec_vision_recognition_policy_test.cpp` uses file_id `rcptst`, prefix
+`vqec_vision_ai_unit_rcptst_`; `main` retains the language exception.
+
 Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
 declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix
