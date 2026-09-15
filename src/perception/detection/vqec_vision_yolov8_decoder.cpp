@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -21,66 +20,6 @@ struct yolov8_candidate {
     float width_{0};
     float height_{0};
 };
-
-// Reads one typed element as a real value. Quantized integral tensors are dequantized with
-// real = (stored - zero_point) * scale; float32 passes through. Any other combination is
-// rejected by the caller before the loop.
-status vqec_vision_ai_detec_y8dec_element(
-    const tensor_blob& _blob, std::size_t _index, float& _value) {
-    const auto& spec = _blob.spec_;
-    const auto element_bytes = vqec_vision_ai_core_tnctr_element_size(spec.dtype_);
-    if (element_bytes == 0 || (_index + 1U) * element_bytes > _blob.bytes_.size()) {
-        return {status_code::protocol_error, "tensor element index is out of range"};
-    }
-    const auto* base = _blob.bytes_.data() + _index * element_bytes;
-    if (!spec.quantization_.is_quantized_) {
-        if (spec.dtype_ != tensor_element_type::float32) {
-            return {status_code::unsupported, "non-quantized tensor is not float32"};
-        }
-        float value = 0.0F;
-        std::memcpy(&value, base, sizeof(value));
-        _value = value;
-        return {};
-    }
-    float stored = 0.0F;
-    switch (spec.dtype_) {
-        case tensor_element_type::uint8: {
-            std::uint8_t value = 0;
-            std::memcpy(&value, base, sizeof(value));
-            stored = static_cast<float>(value);
-            break;
-        }
-        case tensor_element_type::int8: {
-            std::int8_t value = 0;
-            std::memcpy(&value, base, sizeof(value));
-            stored = static_cast<float>(value);
-            break;
-        }
-        case tensor_element_type::uint16: {
-            std::uint16_t value = 0;
-            std::memcpy(&value, base, sizeof(value));
-            stored = static_cast<float>(value);
-            break;
-        }
-        case tensor_element_type::int16: {
-            std::int16_t value = 0;
-            std::memcpy(&value, base, sizeof(value));
-            stored = static_cast<float>(value);
-            break;
-        }
-        case tensor_element_type::int32: {
-            std::int32_t value = 0;
-            std::memcpy(&value, base, sizeof(value));
-            stored = static_cast<float>(value);
-            break;
-        }
-        default:
-            return {status_code::unsupported, "quantized tensor dtype is unsupported"};
-    }
-    _value = (stored - static_cast<float>(spec.quantization_.zero_point_)) *
-        spec.quantization_.scale_;
-    return {};
-}
 
 float vqec_vision_ai_detec_y8dec_iou(
     const yolov8_candidate& _left, const yolov8_candidate& _right) {
@@ -204,7 +143,7 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
     for (std::size_t anchor = 0; anchor < anchors; ++anchor) {
         for (std::size_t class_index = 0; class_index < config_.class_count_; ++class_index) {
             float confidence = 0.0F;
-            if (vqec_vision_ai_detec_y8dec_element(
+            if (vqec_vision_ai_detec_tnrd_read_scalar(
                     *score, class_index * anchors + anchor, confidence).code_ !=
                 status_code::ok) {
                 return {status_code::unsupported, "YOLOv8 score element is unsupported"};
@@ -216,13 +155,13 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             float centre_y = 0.0F;
             float width = 0.0F;
             float height = 0.0F;
-            if (vqec_vision_ai_detec_y8dec_element(*box, 0U * anchors + anchor, centre_x).code_ !=
+            if (vqec_vision_ai_detec_tnrd_read_scalar(*box, 0U * anchors + anchor, centre_x).code_ !=
                     status_code::ok ||
-                vqec_vision_ai_detec_y8dec_element(*box, 1U * anchors + anchor, centre_y).code_ !=
+                vqec_vision_ai_detec_tnrd_read_scalar(*box, 1U * anchors + anchor, centre_y).code_ !=
                     status_code::ok ||
-                vqec_vision_ai_detec_y8dec_element(*box, 2U * anchors + anchor, width).code_ !=
+                vqec_vision_ai_detec_tnrd_read_scalar(*box, 2U * anchors + anchor, width).code_ !=
                     status_code::ok ||
-                vqec_vision_ai_detec_y8dec_element(*box, 3U * anchors + anchor, height).code_ !=
+                vqec_vision_ai_detec_tnrd_read_scalar(*box, 3U * anchors + anchor, height).code_ !=
                     status_code::ok) {
                 return {status_code::unsupported, "YOLOv8 box element is unsupported"};
             }

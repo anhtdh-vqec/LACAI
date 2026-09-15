@@ -22,6 +22,11 @@ inline constexpr std::size_t g_max_rank = 8;
 [[nodiscard]] status vqec_vision_ai_detec_tnrd_validate_tensor(
     const tensor_blob& _tensor, const tensor_spec& _expected) noexcept;
 
+// Reads one packed little-endian scalar as a real float. Integer values require valid
+// affine quantization; FLOAT16/FLOAT32 must be unquantized. Failure preserves _value.
+[[nodiscard]] status vqec_vision_ai_detec_tnrd_read_scalar(
+    const tensor_blob& _tensor, std::size_t _index, float& _value) noexcept;
+
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_DETEC_TENSOR_READER_HPP

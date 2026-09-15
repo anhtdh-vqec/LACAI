@@ -55,5 +55,30 @@ int main() {
     invalid.spec_.dimensions_ = {1, 1, 1, 1, 1, 1, 1, 1, 1};
     assert(vqec_vision_ai_detec_tnrd_validate_tensor(
                invalid, invalid.spec_).code_ == status_code::invalid_argument);
+
+    tensor_blob quantized;
+    quantized.spec_ = vqec_vision_ai_ctest_trct_spec(
+        "quantized", {2}, tensor_element_type::uint16);
+    quantized.spec_.quantization_ = {true, 0.5F, 10};
+    quantized.bytes_ = {10U, 0U, 14U, 0U};
+    float scalar = -1.0F;
+    assert(vqec_vision_ai_detec_tnrd_read_scalar(quantized, 1, scalar).code_ ==
+        status_code::ok);
+    assert(scalar == 2.0F);
+    const float preserved = scalar;
+    assert(vqec_vision_ai_detec_tnrd_read_scalar(quantized, 2, scalar).code_ ==
+        status_code::protocol_error);
+    assert(scalar == preserved);
+    quantized.spec_.quantization_.is_quantized_ = false;
+    assert(vqec_vision_ai_detec_tnrd_read_scalar(quantized, 0, scalar).code_ ==
+        status_code::invalid_argument);
+
+    tensor_blob half;
+    half.spec_ = vqec_vision_ai_ctest_trct_spec(
+        "half", {1}, tensor_element_type::float16);
+    half.bytes_ = {0x00U, 0x3cU};
+    assert(vqec_vision_ai_detec_tnrd_read_scalar(half, 0, scalar).code_ ==
+        status_code::ok);
+    assert(scalar == 1.0F);
     return 0;
 }

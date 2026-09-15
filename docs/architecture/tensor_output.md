@@ -35,6 +35,15 @@ Sample PTS is preserved as pipeline PTS, not UTC or the original camera timestam
 source correlation remains in the submission ticket. No detection/NMS, feature events or
 license checks occur here.
 
+Portable perception uses one bounded scalar reader for packed integer, FLOAT16 and
+FLOAT32 blobs. Integer tensors require affine quantization and are dequantized using the
+declared scale/zero point; floating tensors reject quantization metadata. Bounds,
+misaligned byte counts and non-finite dequantized results fail without changing the
+caller's output. Raw floating non-finite values remain visible so each model contract can
+apply its declared reject/drop policy.
+Model decoders therefore do not duplicate dtype switches or silently reinterpret UINT16
+outputs as float.
+
 ## Safety
 
 Input is a borrowed completed GstSample; the caller must establish device completion AND
