@@ -1,8 +1,8 @@
-# Pump cascade retention and dependent drain (design proposal)
+# Pump cascade retention and dependent drain (design)
 
-Status: proposed for owner review. This is ADR 0005 gates 3–4. It does not change code by
-itself. The `cascade_frame_store` primitive and `image_alignment_port` contract exist; the
-pump is not integrated and no secondary backend runs.
+Status: **decided (owner-directed)**; implementation is not delivered. The
+`cascade_frame_store` primitive and `image_alignment_port` contract exist; the pump is not
+integrated and no secondary backend runs.
 
 ## Current state
 
@@ -13,7 +13,7 @@ pump is not integrated and no secondary backend runs.
   does not keep pixels after a primary result is taken, so a decoded detection cannot crop.
 - No cascade coordinator or secondary backend exists.
 
-## Proposed ownership
+## Ownership model
 
 - **Store owner**: one `cascade_frame_store` per source session, created at composition
   (activation-sized frames/tasks/bytes) and destroyed only after the session reaches
@@ -42,14 +42,25 @@ pump is not integrated and no secondary backend runs.
 - On failure/timeout: the task is marked faulted and counted; the frame stays charged until
   real completion or an explicit recovery/quarantine decision. No silent release.
 
-## Open decisions for the owner (gate 3)
+## Decisions (owner-directed)
 
-1. Confirm the store is session-owned (proposed) rather than bundle-owned.
-2. Confirm the cascade coordinator is part of the source session serialized step, or a
-   separate bounded worker; this decides which thread calls `complete`.
-3. Confirm admission/drop policy when the store is full (drop lowest priority, emit a
-   metric) and the max age per frame.
-4. Confirm the second-source/second-graph drain ordering with `multi_model_session`.
+1. **Store is session-owned.** One `cascade_frame_store` per source session, sized at
+   composition, destroyed only after `stopped`. Rationale: the session owns the FW source
+   lease and is the unit that must not release FW until every owner drains; bundle- or
+   pump-level placement would couple sources or violate the borrowed-pump model.
+2. **Coordinator runs in the serialized session step, not a separate thread.** The owned
+   QNN engine is synchronous with one inflight job, so concurrency is not yet justified;
+   `source_session_worker` already provides per-source thread isolation when enabled. The
+   `complete(ticket)` call happens on the session's serialized thread after
+   `poll_completion`. Revisit only with measured need.
+3. **Store full: bounded priority drop, never replace a charged frame.** When full, drop the
+   lowest-priority evictable *queued* task and emit a metric; a frame charged by an acquired
+   ticket is never dropped. Configured max age stops new admission and cancels queued tasks;
+   it never releases an acquired frame (completion stays the only release).
+4. **Per-session drain, independent and ordered.** Stop new receives → retire keys (close
+   admission) → cancel queued secondary → drain submitted secondary (complete tickets) →
+   drain primary graphs → require `store.bytes() == 0` → release FW source. Supervisor global
+   stop latches to every session and releases no source until that session reports drained.
 
 ## Non-claims
 

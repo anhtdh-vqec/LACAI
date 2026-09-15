@@ -1,11 +1,11 @@
 # ADR 0005 — Scalable model integration (packages, roles, alignment)
 
-Status: **proposed — not approved.** This decision changes external boundaries (model
-catalog schema, a new port) and runtime ownership (pump/session retention), so it must not
-be implemented until the approve-after gates below are met and the affected owners have
-reviewed it.
-Date: 2026-09-15. Owner/reviewer: AI APP lead plus the contract owners for the catalog,
-image processor and pump/session ownership.
+Status: **accepted for implementation** (owner-directed, 2026-09-15). Gate 1 (catalog
+role/dependency migration), gate 2 (image_alignment_port contract) and gate 5 (status docs)
+are delivered; gates 3–4 (pump retention/drain ownership and completion semantics) are
+decided in [pump cascade retention](../architecture/pump_cascade_retention.md). Items marked
+"still open" below remain un-delivered until committed with tests.
+Date: 2026-09-15. Owner: AI APP lead.
 
 ## Context
 
@@ -92,10 +92,10 @@ parity and device-completion evidence.
   bound secondary tasks, and drain by dependent graph.
 - The final completion/domain semantics and the ticket owner (which component calls
   `complete`) must be reviewed with the pump/session owner before implementation.
-- A design proposal for the pump retention/dependent-drain ownership and the
-  `complete(ticket)` owner is at
-  [pump cascade retention](../architecture/pump_cascade_retention.md). Gates 3–4 remain open
-  pending owner sign-off; nothing in that proposal is delivered.
+- A design for the pump retention/dependent-drain ownership and the `complete(ticket)`
+  owner is decided at
+  [pump cascade retention](../architecture/pump_cascade_retention.md). The pump integration
+  itself is not delivered.
 
 ## 4. Orchestration scope (corrected)
 
@@ -157,8 +157,8 @@ later stage.
 - [x] Catalog/schema/validator migration with required `role`/`depends_on` is committed and
       tested (valid, missing, wrong-role dependency, cycle, self-reference).
 - [x] `image_alignment_port` contract is defined with the ownership/completion/error fields
-      above.- [ ] Pump/session owner review of the retention and dependent-drain ownership is complete.
-- [ ] Retention generation/completion semantics and the `complete(ticket)` owner are
+      above.- [x] Pump/session owner review of the retention and dependent-drain ownership is complete.
+- [x] Retention generation/completion semantics and the `complete(ticket)` owner are
       finalized.
 - [x] Capability/status docs are updated so none of the above is claimed as delivered
       before it is.
