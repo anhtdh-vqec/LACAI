@@ -37,6 +37,15 @@
 #include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
+#include "vqec_vision_exact_embedding_index.hpp"
+#include "vqec_vision_recognition_session.hpp"
+#include "vqec_vision_face_enrollment_controller.hpp"
+#if defined(VQEC_VISION_AI_HAS_ZVEC)
+#include "vqec_vision_zvec_embedding_index.hpp"
+#endif
+#if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
+#include "vqec_vision_face_enrollment_dbus.hpp"
+#endif
 
 using namespace vqec::vision::ai;
 
@@ -50,6 +59,8 @@ inline constexpr std::uint64_t g_cycle_id_stride = 100;
 inline constexpr std::uint64_t g_policy_revision = 1;
 inline constexpr std::uint64_t g_config_revision = 1;
 inline constexpr std::uint64_t g_policy_expiry_ns = 1000000000000000000ULL;
+inline constexpr std::uint64_t g_initial_gallery_revision = 1;
+inline constexpr std::size_t g_fr_max_subjects = recognition_limits::g_max_subjects;
 inline constexpr char g_model_root[] = "/opt/vqec/models/";
 inline constexpr char g_backend_library[] = "/usr/lib/libQnnHtp.so";
 inline constexpr char g_system_library[] = "/usr/lib/libQnnSystem.so";
@@ -365,6 +376,17 @@ struct parsed_arguments {
     std::uint32_t output_surface_count{0};
     std::string output_colorimetry;
     std::string output_interlace_mode;
+    std::string fr_gallery_path;
+    float fr_minimum_similarity{0.0F};
+    float fr_subject_margin{0.0F};
+    std::size_t fr_max_templates{0};
+    std::size_t fr_top_k{0};
+    bool fr_similarity_set{false};
+    bool fr_margin_set{false};
+    bool fr_templates_set{false};
+    bool fr_top_k_set{false};
+    bool enrollment_dbus{false};
+    bool enrollment_dbus_session_bus{false};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -426,6 +448,27 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.output_colorimetry = _argv[++index];
         } else if (option == "--output-interlace-mode" && has_value) {
             _args.output_interlace_mode = _argv[++index];
+        } else if (option == "--fr-gallery-path" && has_value) {
+            _args.fr_gallery_path = _argv[++index];
+        } else if (option == "--fr-min-similarity" && has_value) {
+            _args.fr_minimum_similarity = std::strtof(_argv[++index], nullptr);
+            _args.fr_similarity_set = true;
+        } else if (option == "--fr-subject-margin" && has_value) {
+            _args.fr_subject_margin = std::strtof(_argv[++index], nullptr);
+            _args.fr_margin_set = true;
+        } else if (option == "--fr-max-templates" && has_value) {
+            _args.fr_max_templates = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
+            _args.fr_templates_set = true;
+        } else if (option == "--fr-top-k" && has_value) {
+            _args.fr_top_k = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
+            _args.fr_top_k_set = true;
+        } else if (option == "--enrollment-dbus") {
+            _args.enrollment_dbus = true;
+        } else if (option == "--enrollment-dbus-session") {
+            _args.enrollment_dbus = true;
+            _args.enrollment_dbus_session_bus = true;
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -497,7 +540,10 @@ int main(int _argc, char** _argv) {
             "--output-box-color-rgba <0xRRGGBBAA> "
             "--output-surface-count <count> "
             "--output-colorimetry <gst-colorimetry> "
-            "--output-interlace-mode <gst-interlace-mode>]\n");
+            "--output-interlace-mode <gst-interlace-mode>] "
+            "[--fr-gallery-path <path> --fr-min-similarity <0..1> "
+            "--fr-subject-margin <0..1> --fr-max-templates <n> --fr-top-k <n> "
+            "[--enrollment-dbus|--enrollment-dbus-session]]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -512,6 +558,17 @@ int main(int _argc, char** _argv) {
     }
     if (!args.feature_catalog_path.empty() &&
         !vqec_vision_ai_appl_svcmn_load_feature_catalog(args.feature_catalog_path, features)) {
+        return 1;
+    }
+    const bool has_fr_arguments = !args.fr_gallery_path.empty() || args.fr_similarity_set ||
+        args.fr_margin_set || args.fr_templates_set || args.fr_top_k_set ||
+        args.enrollment_dbus;
+    const bool has_complete_fr_arguments = !args.fr_gallery_path.empty() &&
+        args.fr_similarity_set && args.fr_margin_set && args.fr_templates_set &&
+        args.fr_top_k_set;
+    if (has_fr_arguments && !has_complete_fr_arguments) {
+        std::fprintf(stderr,
+            "FR requires gallery path, similarity, margin, max templates and top-k\n");
         return 1;
     }
     model_package_registry model_packages;
@@ -925,6 +982,13 @@ int main(int _argc, char** _argv) {
         return 1;
     }
     std::array<service_cascade_owner, deployment_limits::g_max_sources> cascade_owners;
+    std::unique_ptr<embedding_index_port> recognition_index;
+    recognition_session recognition;
+    std::unique_ptr<face_enrollment_controller> enrollment_controller;
+#if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
+    std::unique_ptr<face_enrollment_dbus_server> enrollment_dbus;
+#endif
+    bool recognition_enabled = false;
     if (use_production_platform) {
         const auto cascade_prepared = vqec_vision_ai_appl_svcmn_prepare_cascade_owners(
             deployment, catalog, production, cascade_owners);
@@ -994,6 +1058,73 @@ int main(int _argc, char** _argv) {
             }
         }
     }
+    if (has_complete_fr_arguments) {
+        const service_cascade_owner* recognition_owner = nullptr;
+        for (const auto& owner : cascade_owners) {
+            if (owner.model_ != nullptr && owner.binding_.embedding_dimensions_ != 0) {
+                recognition_owner = &owner;
+                break;
+            }
+        }
+        if (recognition_owner == nullptr) {
+            std::fprintf(stderr, "FR configuration requires an active embedding model\n");
+            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            return 1;
+        }
+#if defined(VQEC_VISION_AI_HAS_ZVEC)
+        if (use_production_platform) {
+            recognition_index = std::make_unique<zvec_embedding_index>(args.fr_gallery_path);
+        } else
+#endif
+        {
+            recognition_index = std::make_unique<exact_embedding_index>();
+        }
+        recognition_session_config recognition_config;
+        recognition_config.index_.model_id_ = recognition_owner->binding_.model_id_;
+        recognition_config.index_.model_version_ = recognition_owner->binding_.model_version_;
+        recognition_config.index_.dimensions_ = recognition_owner->binding_.embedding_dimensions_;
+        recognition_config.index_.capacity_ = args.fr_max_templates *
+            service_harness::g_fr_max_subjects;
+        recognition_config.index_.max_results_ = args.fr_top_k;
+        recognition_config.index_.initial_revision_ = service_harness::g_initial_gallery_revision;
+        recognition_config.policy_.minimum_similarity_ = args.fr_minimum_similarity;
+        recognition_config.policy_.minimum_subject_margin_ = args.fr_subject_margin;
+        recognition_config.policy_.max_subjects_ = recognition_limits::g_max_subjects;
+        recognition_config.max_templates_per_subject_ = args.fr_max_templates;
+        recognition_config.search_top_k_ = args.fr_top_k;
+        recognition_config.search_minimum_similarity_ = args.fr_minimum_similarity;
+        const auto recognition_configured = recognition.vqec_vision_ai_embed_rcses_configure(
+            *recognition_index, recognition_config);
+        if (recognition_configured.code_ != status_code::ok) {
+            std::fprintf(stderr, "FR configuration failed (%d): %s\n",
+                static_cast<int>(recognition_configured.code_),
+                recognition_configured.message_.c_str());
+            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            return 1;
+        }
+        enrollment_controller = std::make_unique<face_enrollment_controller>(recognition);
+#if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
+        if (args.enrollment_dbus) {
+            enrollment_dbus = std::make_unique<face_enrollment_dbus_server>();
+            const auto opened = enrollment_dbus->vqec_vision_ai_fwctl_fedbs_open(
+                *enrollment_controller, args.enrollment_dbus_session_bus);
+            if (opened.code_ != status_code::ok) {
+                std::fprintf(stderr, "face enrollment DBus failed (%d): %s\n",
+                    static_cast<int>(opened.code_), opened.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+        }
+#else
+        if (args.enrollment_dbus) {
+            std::fprintf(stderr,
+                "face enrollment DBus was requested but adapter is not built\n");
+            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            return 1;
+        }
+#endif
+        recognition_enabled = true;
+    }
     if (has_feature_wiring) {
         executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     }
@@ -1025,9 +1156,17 @@ int main(int _argc, char** _argv) {
         if (stepped.code_ == status_code::ok) {
             std::array<observation_batch, deployment_limits::g_max_models_per_source> tracked;
             std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> events;
+            std::vector<embedding_result> embeddings;
+            if (recognition_enabled) {
+                embeddings.reserve(observation_limits::g_max_observations);
+            }
             runtime_executor_report taken;
-            if (executor->vqec_vision_ai_appl_rtexe_take_result(
-                    tracked, events, taken).code_ == status_code::ok) {
+            const auto taken_status = recognition_enabled
+                ? executor->vqec_vision_ai_appl_rtexe_take_result_with_embeddings(
+                    tracked, events, embeddings, taken)
+                : executor->vqec_vision_ai_appl_rtexe_take_result(
+                    tracked, events, taken);
+            if (taken_status.code_ == status_code::ok) {
                 routed_source_mask |= 1U << taken.source_index_;
                 feature_dispatch_report dispatch_report;
                 if (taken.has_feature_fanout_ && has_feature_wiring) {
@@ -1041,8 +1180,42 @@ int main(int _argc, char** _argv) {
                             dispatched.message_.c_str());
                     }
                 }
-                const auto tracked_count =
-                    tracked[taken.model_slot_].observations_.size();
+                if (recognition_enabled && !embeddings.empty() &&
+                    taken.source_index_ < deployment_limits::g_max_sources) {
+                    if (enrollment_controller != nullptr) {
+                        face_enrollment_status enrollment_status;
+                        for (const auto& embedding : embeddings) {
+                            const auto accepted = enrollment_controller->
+                                vqec_vision_ai_ports_fenrl_accept_embedding(
+                                    embedding, enrollment_status);
+                            if (accepted.code_ != status_code::ok &&
+                                accepted.code_ != status_code::invalid_argument &&
+                                accepted.code_ != status_code::invalid_state) {
+                                std::fprintf(stderr, "FR enrollment failed (%d): %s\n",
+                                    static_cast<int>(accepted.code_), accepted.message_.c_str());
+                            }
+                        }
+                    }
+                    std::vector<recognition_match_result> recognition_results;
+                    recognition_results.reserve(embeddings.size());
+                    const auto recognized = recognition.vqec_vision_ai_embed_rcses_recognize_batch(
+                        embeddings, recognition_results);
+                    if (recognized.code_ != status_code::ok) {
+                        std::fprintf(stderr, "FR recognition failed (%d): %s\n",
+                            static_cast<int>(recognized.code_), recognized.message_.c_str());
+                    } else {
+                        const auto& owner = cascade_owners[taken.source_index_];
+                        if (owner.root_model_slot_ < deployment_limits::g_max_models_per_source) {
+                            const auto labelled = recognition.vqec_vision_ai_embed_rcses_apply_labels(
+                                recognition_results, tracked[owner.root_model_slot_]);
+                            if (labelled.code_ != status_code::ok) {
+                                std::fprintf(stderr, "FR label correlation failed (%d): %s\n",
+                                    static_cast<int>(labelled.code_), labelled.message_.c_str());
+                            }
+                        }
+                    }
+                }
+                const auto tracked_count = tracked[taken.model_slot_].observations_.size();
                 if (use_production_platform &&
                     taken.source_index_ < deployment_limits::g_max_sources &&
                     taken.model_slot_ < deployment_limits::g_max_models_per_source) {
@@ -1072,6 +1245,11 @@ int main(int _argc, char** _argv) {
                 static_cast<int>(stepped.code_), stepped.message_.c_str());
             break;
         }
+#if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
+        if (enrollment_dbus != nullptr) {
+            enrollment_dbus->vqec_vision_ai_fwctl_fedbs_poll();
+        }
+#endif
         if (use_production_platform) {
             for (std::uint16_t source_slot = 0;
                  source_slot < deployment.sources_.size(); ++source_slot) {

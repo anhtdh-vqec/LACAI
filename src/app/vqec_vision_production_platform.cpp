@@ -41,6 +41,7 @@ struct model_slot_owner {
     std::unique_ptr<fastcv_processor> processor_;
     std::unique_ptr<model_decoder_port> decoder_;
     std::unique_ptr<embedding_decoder> embedding_decoder_;
+    std::size_t embedding_dimensions_{0};
     std::unique_ptr<image_alignment_port> aligner_;
     alignment_template alignment_;
     preprocess_spec preprocess_;
@@ -349,6 +350,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             decoder_config.model_version_ = model.model_version_;
             decoder_config.output_tensor_ = package.embedding_output_tensor_;
             decoder_config.dimension_ = package.embedding_dimension_;
+            owner.embedding_dimensions_ = package.embedding_dimension_;
             decoder_config.min_norm_ = package.min_norm_;
             owner.embedding_decoder_ =
                 std::make_unique<embedding_decoder>(std::move(decoder_config));
@@ -673,6 +675,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_cascade_binding(
                 "cascade model owners are incomplete"};
         }
         production_cascade_binding candidate;
+        candidate.model_id_ = owner.outputs_.model_id_;
+        candidate.model_version_ = owner.outputs_.model_version_;
+        candidate.embedding_dimensions_ = owner.embedding_dimensions_;
         candidate.graph_ = graph;
         candidate.decoder_ = owner.embedding_decoder_.get();
         candidate.aligner_ = owner.aligner_.get();

@@ -185,8 +185,23 @@ if(TARGET vqec_vision_ai_reference AND TARGET vqec_vision_ai_deployment_config A
         vqec_vision_ai_reference
         vqec_vision_ai_feature_fanout
         vqec_vision_ai_feature_runtime
+        vqec_vision_ai_embedding
         vqec_vision_ai_deployment_config
         vqec_vision_ai_model_catalog_config
         vqec_vision_ai_feature_catalog_config)
+    if(TARGET vqec_vision_ai_face_enrollment_dbus)
+        target_link_libraries(vqec_ai_vision_applications PRIVATE
+            vqec_vision_ai_face_enrollment_dbus)
+        target_include_directories(vqec_ai_vision_applications PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>)
+        target_compile_definitions(vqec_ai_vision_applications PRIVATE
+            VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS=1)
+    endif()
+    if(TARGET vqec_vision_ai_zvec_embedding)
+        target_link_libraries(vqec_ai_vision_applications PRIVATE
+            vqec_vision_ai_zvec_embedding)
+        target_compile_definitions(vqec_ai_vision_applications PRIVATE
+            VQEC_VISION_AI_HAS_ZVEC=1)
+    endif()
     set_target_properties(vqec_ai_vision_applications PROPERTIES CXX_EXTENSIONS OFF)
 endif()

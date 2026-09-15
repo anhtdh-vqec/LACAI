@@ -28,6 +28,7 @@ private:
     face_enrollment_begin_request request_;
     face_enrollment_status status_;
     std::uint64_t record_id_{0};
+    std::uint64_t last_accepted_frame_id_{0};
 };
 
 }  // namespace vqec::vision::ai

@@ -36,6 +36,7 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
     status_.expected_samples_ = _request.expected_samples_;
     status_.gallery_revision_ = snapshot.gallery_revision_;
     request_ = _request;
+    last_accepted_frame_id_ = 0;
     _status = status_;
     return {};
 }
@@ -83,6 +84,11 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_accept_embedding(
         return {status_code::invalid_argument,
             "embedding does not belong to the enrollment source or track"};
     }
+    if (_embedding.frame_.frame_id_ == 0 ||
+        _embedding.frame_.frame_id_ == last_accepted_frame_id_) {
+        return {status_code::invalid_argument,
+            "face enrollment requires one sample from each source frame"};
+    }
     const auto added = session_.vqec_vision_ai_embed_rcses_add_template(
         status_.subject_ref_, _embedding, status_.gallery_revision_, record_id_,
         status_.gallery_revision_);
@@ -93,6 +99,7 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_accept_embedding(
         return added;
     }
     ++status_.accepted_samples_;
+    last_accepted_frame_id_ = _embedding.frame_.frame_id_;
     if (status_.accepted_samples_ == status_.expected_samples_) {
         status_.state_ = face_enrollment_state::completed;
     }

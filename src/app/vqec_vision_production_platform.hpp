@@ -63,6 +63,9 @@ struct production_platform_config {
 // Borrowed neutral ports and package metadata for one dependency-activated cascade model.
 // The caller owns graph lifecycle and keeps the platform alive until the graph is drained.
 struct production_cascade_binding {
+    std::string model_id_;
+    std::string model_version_;
+    std::size_t embedding_dimensions_{0};
     inference_graph_port* graph_{nullptr};
     embedding_decoder_port* decoder_{nullptr};
     image_alignment_port* aligner_{nullptr};
