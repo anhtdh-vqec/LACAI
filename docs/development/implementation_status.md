@@ -239,6 +239,13 @@ assigned source/catalog; shared models with unequal source geometry are rejected
 The schema is config/schemas/anchor_distance_decoder.schema.json. Live primary FD and
 secondary FR still require model-package deployment/golden acceptance.
 
+`decoder.json` now loads through the strict `vqec_vision_decoder_package` loader for both
+YOLO and anchor-distance packages: every policy field is required (the YOLO defaults of
+0.25/0.45/class_count 1/`boxes_out`/`conf_out` are gone), unknown/duplicate keys, wrong
+types, out-of-range values and cross-stage tensor-name reuse are rejected, and the package
+contract must equal the catalog contract. The loader unit test covers these cases under
+eSDK QEMU; real-model golden parity is still required.
+
 Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
 unique completion tickets and byte accounting through drain. Logic tests pass eSDK QEMU
 and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integration remains open.

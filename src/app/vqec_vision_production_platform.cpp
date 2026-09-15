@@ -18,6 +18,7 @@
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
+#include "vqec_vision_decoder_package.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
@@ -25,31 +26,6 @@ namespace vqec::vision::ai {
 namespace {
 
 using nlohmann::json;
-
-inline constexpr char g_labels_key[] = "labels";
-inline constexpr char g_labels_ref_key[] = "labels_ref";
-
-// decoder.json primary decoder protocol; see cascade_inference.md.
-inline constexpr char g_decoder_kind[] = "kind";
-inline constexpr char g_decoder_anchor_distance[] = "anchor_distance";
-inline constexpr char g_decoder_yolov8[] = "yolov8";
-inline constexpr char g_decoder_decoder_contract[] = "decoder_contract";
-inline constexpr char g_decoder_class_id[] = "class_id";
-inline constexpr char g_decoder_landmark_schema_id[] = "landmark_schema_id";
-inline constexpr char g_decoder_landmark_schema_version[] = "landmark_schema_version";
-inline constexpr char g_decoder_landmark_count[] = "landmark_count";
-inline constexpr char g_decoder_anchor_offset_cells[] = "anchor_offset_cells";
-inline constexpr char g_decoder_confidence_threshold[] = "confidence_threshold";
-inline constexpr char g_decoder_iou_threshold[] = "iou_threshold";
-inline constexpr char g_decoder_max_candidates[] = "max_candidates";
-inline constexpr char g_decoder_stages[] = "stages";
-inline constexpr char g_decoder_score_tensor[] = "score_tensor";
-inline constexpr char g_decoder_box_tensor[] = "box_tensor";
-inline constexpr char g_decoder_landmark_tensor[] = "landmark_tensor";
-inline constexpr char g_decoder_stride[] = "stride";
-inline constexpr char g_decoder_grid_width[] = "grid_width";
-inline constexpr char g_decoder_grid_height[] = "grid_height";
-inline constexpr char g_decoder_anchors_per_cell[] = "anchors_per_cell";
 
 struct model_slot_owner {
     std::string model_id_;
@@ -69,24 +45,13 @@ json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
     return json::parse(stream);
 }
 
+// Resolves package class labels from the validated decoder package: inline labels or a
+// single package-local file. Label text limits are owned by the preview contract.
 std::vector<std::string> vqec_vision_ai_appl_pdplt_load_labels(
-    const json& _decoder, const std::string& _package_dir,
-    std::size_t _class_count) {
-    const bool has_inline = _decoder.contains(g_labels_key);
-    const bool has_reference = _decoder.contains(g_labels_ref_key);
-    if (has_inline && has_reference) {
-        throw std::runtime_error("decoder declares both inline and referenced labels");
-    }
-    std::vector<std::string> labels;
-    if (has_inline) {
-        labels = _decoder[g_labels_key].get<std::vector<std::string>>();
-    } else if (has_reference) {
-        const auto reference = _decoder[g_labels_ref_key].get<std::string>();
-        if (reference.empty() || reference == "." || reference == ".." ||
-            reference.find_first_of("/\\") != std::string::npos) {
-            throw std::runtime_error("decoder label reference is not a package filename");
-        }
-        std::ifstream stream(_package_dir + "/" + reference);
+    const decoder_package& _package, const std::string& _package_dir) {
+    std::vector<std::string> labels = _package.labels_;
+    if (labels.empty() && !_package.labels_ref_.empty()) {
+        std::ifstream stream(_package_dir + "/" + _package.labels_ref_);
         if (!stream.is_open()) {
             throw std::runtime_error("cannot open decoder label file");
         }
@@ -98,7 +63,7 @@ std::vector<std::string> vqec_vision_ai_appl_pdplt_load_labels(
             labels.push_back(std::move(label));
         }
     }
-    if (!labels.empty() && labels.size() != _class_count) {
+    if (!labels.empty() && labels.size() != _package.class_count_) {
         throw std::runtime_error("decoder label count differs from class count");
     }
     for (std::size_t index = 0; index < labels.size(); ++index) {
@@ -283,8 +248,21 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         }
         const json io_manifest =
             vqec_vision_ai_appl_pdplt_load(binding->package_dir_ + "/io_manifest.json");
-        const json decoder_json =
-            vqec_vision_ai_appl_pdplt_load(binding->package_dir_ + "/decoder.json");
+        std::ifstream decoder_stream(binding->package_dir_ + "/decoder.json");
+        if (!decoder_stream.is_open()) {
+            return {status_code::io_error, "cannot open decoder package"};
+        }
+        decoder_package package;
+        const auto decoder_loaded =
+            vqec_vision_ai_mreg_dcpkg_load(decoder_stream, package);
+        if (decoder_loaded.code_ != status_code::ok) {
+            return decoder_loaded;
+        }
+        // The package contract must match the catalog identity for every kind. A mismatch
+        // fails activation instead of decoding with an unintended model contract.
+        if (package.decoder_contract_ != model.decoder_contract_) {
+            return {status_code::invalid_argument, "decoder package contract mismatch"};
+        }
         model_slot_owner owner;
         owner.model_id_ = model.model_id_;
         owner.paths_.model_id_ = model.model_id_;
@@ -322,43 +300,28 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             owner.outputs_.max_output_bytes_ += vqec_vision_ai_core_tnctr_shape_bytes(output);
         }
 
-        const auto kind = decoder_json.value(g_decoder_kind, std::string{g_decoder_yolov8});
-        if (kind == g_decoder_anchor_distance) {
-            if (decoder_json.at(g_decoder_decoder_contract).get<std::string>() !=
-                    model.decoder_contract_) {
-                return {status_code::invalid_argument, "decoder package contract mismatch"};
-            }
+        if (package.kind_ == decoder_package_kind::anchor_distance) {
             anchor_distance_decoder_config config;
             config.source_width_ = model_source->profile_.width_;
             config.source_height_ = model_source->profile_.height_;
             config.tensor_width_ = model.tensor_width_;
             config.tensor_height_ = model.tensor_height_;
             config.placement_ = model.placement_;
-            config.class_id_ = decoder_json.at(g_decoder_class_id).get<std::string>();
-            config.landmark_schema_id_ = decoder_json.at(g_decoder_landmark_schema_id).get<std::string>();
-            config.landmark_schema_version_ = decoder_json.at(g_decoder_landmark_schema_version).get<std::string>();
-            config.landmark_count_ = decoder_json.at(g_decoder_landmark_count).get<std::size_t>();
-            config.anchor_offset_cells_ = decoder_json.at(g_decoder_anchor_offset_cells).get<float>();
-            config.confidence_threshold_ = decoder_json.at(g_decoder_confidence_threshold).get<float>();
-            config.iou_threshold_ = decoder_json.at(g_decoder_iou_threshold).get<float>();
-            config.max_candidates_ = decoder_json.at(g_decoder_max_candidates).get<std::size_t>();
-            const auto& stages = decoder_json.at(g_decoder_stages);
-            if (!stages.is_array() || stages.empty() ||
-                stages.size() > anchor_distance_decoder_limits::g_max_stages) {
-                return {status_code::invalid_argument, "decoder stages are invalid"};
-            }
-            for (const auto& stage : stages) {
-                config.stages_.push_back({
-                    stage.at(g_decoder_score_tensor).get<std::string>(),
-                    stage.at(g_decoder_box_tensor).get<std::string>(),
-                    stage.at(g_decoder_landmark_tensor).get<std::string>(),
-                    stage.at(g_decoder_stride).get<std::uint32_t>(),
-                    stage.at(g_decoder_grid_width).get<std::uint32_t>(),
-                    stage.at(g_decoder_grid_height).get<std::uint32_t>(),
-                    stage.at(g_decoder_anchors_per_cell).get<std::uint32_t>()});
+            config.class_id_ = package.class_id_;
+            config.landmark_schema_id_ = package.landmark_schema_id_;
+            config.landmark_schema_version_ = package.landmark_schema_version_;
+            config.landmark_count_ = package.landmark_count_;
+            config.anchor_offset_cells_ = package.anchor_offset_cells_;
+            config.confidence_threshold_ = package.confidence_threshold_;
+            config.iou_threshold_ = package.iou_threshold_;
+            config.max_candidates_ = package.max_candidates_;
+            for (const auto& stage : package.stages_) {
+                config.stages_.push_back({stage.score_tensor_, stage.box_tensor_,
+                    stage.landmark_tensor_, stage.stride_, stage.grid_width_,
+                    stage.grid_height_, stage.anchors_per_cell_});
             }
             owner.decoder_ = std::make_unique<anchor_distance_decoder>(std::move(config));
-        } else if (kind == g_decoder_yolov8) {
+        } else {
             yolov8_decoder_config decoder_config;
             decoder_config.source_width_ = model_source->profile_.width_;
             decoder_config.source_height_ = model_source->profile_.height_;
@@ -367,17 +330,14 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             decoder_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
                 declared_input.dimensions_[1] : 0;
             decoder_config.placement_ = model.placement_;
-            decoder_config.box_tensor_ = decoder_json.value("box_tensor", std::string{"boxes_out"});
-            decoder_config.score_tensor_ = decoder_json.value("score_tensor", std::string{"conf_out"});
-            decoder_config.class_count_ = decoder_json.value("class_count", std::size_t{1});
-            decoder_config.confidence_threshold_ =
-                decoder_json.value("confidence_threshold", 0.25F);
-            decoder_config.iou_threshold_ = decoder_json.value("iou_threshold", 0.45F);
+            decoder_config.box_tensor_ = package.box_tensor_;
+            decoder_config.score_tensor_ = package.score_tensor_;
+            decoder_config.class_count_ = package.class_count_;
+            decoder_config.confidence_threshold_ = package.confidence_threshold_;
+            decoder_config.iou_threshold_ = package.iou_threshold_;
             decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
-                decoder_json, binding->package_dir_, decoder_config.class_count_);
+                package, binding->package_dir_);
             owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
-        } else {
-            return {status_code::unsupported, "unknown decoder package kind"};
         }
         const auto decoder_status =
             owner.decoder_->vqec_vision_ai_cntr_mddec_validate(owner.outputs_);

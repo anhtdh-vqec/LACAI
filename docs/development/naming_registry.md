@@ -224,6 +224,9 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_model_package.cpp | mpkg | vqec_vision_ai_core_mpkg_ |
 | src/core/vqec_vision_model_package_registry.cpp | mprgy | vqec_vision_ai_core_mprgy_ |
 | src/runtime/model_registry/vqec_vision_model_package_registry.cpp | mprld | vqec_vision_ai_mreg_mprld_ |
+| include/vqec/vision/ai/contracts/vqec_vision_decoder_package.hpp | dcpkg | (contract data only; no functions) |
+| src/runtime/model_registry/vqec_vision_decoder_package.cpp | dcpkg | vqec_vision_ai_mreg_dcpkg_ |
+| tests/unit/vqec_vision_decoder_package_test.cpp | dctst | vqec_vision_ai_unit_dctst_ |
 | tests/unit/vqec_vision_preprocess_spec_test.cpp | ppst | vqec_vision_ai_unit_ppst_ |
 | tests/unit/vqec_vision_model_io_manifest_test.cpp | iomtst | vqec_vision_ai_unit_iomtst_ |
 | tests/unit/vqec_vision_model_package_test.cpp | mpktst | vqec_vision_ai_unit_mpktst_ |

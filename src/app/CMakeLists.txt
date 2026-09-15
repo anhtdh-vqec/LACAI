@@ -138,6 +138,10 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
         target_link_libraries(vqec_vision_ai_production_platform PUBLIC
             vqec_vision_ai_qtiv_renderer)
     endif()
+    if(TARGET vqec_vision_ai_decoder_package)
+        target_link_libraries(vqec_vision_ai_production_platform PUBLIC
+            vqec_vision_ai_decoder_package)
+    endif()
     set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 

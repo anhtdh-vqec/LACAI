@@ -54,6 +54,18 @@ if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
     endif()
 endif()
 
+# Strict decoder package loader. Shared by the production platform and available whenever a
+# JSON library is present; it has no vendor or perception dependency.
+if(TARGET nlohmann_json::nlohmann_json)
+    add_library(vqec_vision_ai_decoder_package STATIC
+        model_registry/vqec_vision_decoder_package.cpp)
+    target_include_directories(vqec_vision_ai_decoder_package PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/model_registry>)
+    target_link_libraries(vqec_vision_ai_decoder_package
+        PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
+    set_target_properties(vqec_vision_ai_decoder_package PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 if(VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG)
     add_library(vqec_vision_ai_deployment_config STATIC
         lifecycle/vqec_vision_deployment_config.cpp)

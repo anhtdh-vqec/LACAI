@@ -119,20 +119,31 @@ Output observation strings/landmark vectors still allocate under the current bat
 primary production selection exists; pooled output ownership and golden model parity remain required.
 Live FD-to-FR cascade composition remains open.
 
-## Primary anchor-distance package boundary
+## Primary decoder package boundary
 
-A primary detector package may set decoder.json kind to "anchor_distance".
-Its decoder_contract must exactly match the catalog. Required keys are class_id,
+`decoder.json` is parsed by the strict loader `vqec_vision_decoder_package` into the neutral
+`decoder_package` contract. Every policy field the runtime consumes is required; unknown
+keys, wrong types, out-of-range values, duplicate keys and malformed JSON fail the load.
+No model-specific default is supplied for any field, and the package `decoder_contract`
+must equal the catalog contract for every kind. Companion schemas are
+`config/schemas/yolov8_decoder.schema.json` and
+`config/schemas/anchor_distance_decoder.schema.json`.
+
+An anchor-distance package sets kind to "anchor_distance". Required keys are class_id,
 landmark_schema_id, landmark_schema_version, landmark_count, anchor_offset_cells,
 confidence_threshold, iou_threshold, max_candidates and stages. Each stage requires
 score_tensor, box_tensor, landmark_tensor, stride, grid_width, grid_height and
-anchors_per_cell. No model-specific default is supplied for these fields.
+anchors_per_cell, and no tensor name may repeat across stages.
+
+A YOLO package omits kind or sets "yolov8". Required keys are decoder_contract,
+class_count, confidence_threshold, iou_threshold, box_tensor and score_tensor; inline
+labels and labels_ref are mutually exclusive. Informational metadata (strides, grids,
+anchors, box layout metadata) is shape-checked but not consumed by the runtime.
 
 Source geometry comes from sources assigning this model; all such sources must currently
 have equal dimensions because the production owner holds one decoder per model.
 Tensor geometry and placement come from the model catalog, not decoder.json.
-Unknown explicit kinds fail. Packages without kind retain the existing YOLO compatibility
-format; this is not a fallback for a failed anchor-distance parse.
+Unknown explicit kinds fail; this is not a fallback for a failed anchor-distance parse.
 This boundary enables primary FD; embedding models must still await secondary composition.
 
 ## Retained-frame primitive

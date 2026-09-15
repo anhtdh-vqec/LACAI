@@ -12,6 +12,8 @@ Configuration and control validation schemas with bounded fields and version/rev
 | `model_catalog.schema.json` | Model-team handoff; C++ loader adds rate/identity/normalization/memory checks |
 | `model_package_registry.schema.json` | Exact per-model deployment binding to package metadata and artifact paths |
 | `feature_catalog.schema.json` | Usecase integration metadata independent of commercial activation |
+| `yolov8_decoder.schema.json` | Primary YOLOv8 decoder package; all policy fields required, unknown keys rejected |
+| `anchor_distance_decoder.schema.json` | Primary anchor-distance (SCRFD-style) decoder package with landmarks |
 
 ## Limits and next work
 

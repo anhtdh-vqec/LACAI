@@ -263,6 +263,16 @@
         add_test(NAME model_package_registry_loading
             COMMAND vqec_vision_ai_model_package_registry_test)
     endif()
+    if(TARGET vqec_vision_ai_decoder_package)
+        add_executable(vqec_vision_ai_decoder_package_test
+            unit/vqec_vision_decoder_package_test.cpp)
+        target_link_libraries(vqec_vision_ai_decoder_package_test
+            PRIVATE vqec_vision_ai_decoder_package)
+        set_target_properties(vqec_vision_ai_decoder_package_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME decoder_package_loading
+            COMMAND vqec_vision_ai_decoder_package_test)
+    endif()
     add_executable(vqec_vision_ai_deployment_config_test
         unit/vqec_vision_deployment_config_test.cpp)
     target_link_libraries(vqec_vision_ai_deployment_config_test PRIVATE vqec_vision_ai_core)
