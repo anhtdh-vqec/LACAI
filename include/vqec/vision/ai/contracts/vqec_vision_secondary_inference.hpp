@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
@@ -43,6 +44,15 @@ struct secondary_inference_request {
     // 0 means no deadline.
     std::uint64_t deadline_ns_{0};
     secondary_priority priority_{secondary_priority::normal};
+    // Cascade retention binding. When true the task needs the exact source frame and must
+    // carry the cascade_frame_store ticket that keeps its owner alive until the last
+    // hardware read completes. Timeout, cancel and FD close are not completion.
+    bool requires_retained_frame_{false};
+    std::uint64_t retention_ticket_{0};
+    // Typed landmarks for alignment. The schema identifies the point order; the count and
+    // coordinates are validated. Landmarks are never parsed from an opaque text payload.
+    bool has_landmarks_{false};
+    observation_landmarks landmarks_{};
 };
 
 struct secondary_inference_result {

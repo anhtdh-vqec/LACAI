@@ -51,11 +51,13 @@ age. When full, admission drops secondary work according to configured priority 
 a metric; it never replaces a live allocation or creates an unbounded backlog. An epoch
 change cancels queued tasks and drains submitted work before releasing the old epoch.
 
-Landmarks use a fixed-capacity, typed pixel-coordinate structure with an explicit point
-count and transform provenance. They are not serialized into an opaque observation string.
-The secondary request binds the landmark set, ROI, source key, model slot and optional
-track ID. The alignment adapter returns the exact tensor transform so downstream evidence
-can be mapped back to the source frame.
+Landmarks use a bounded typed pixel-coordinate structure with an explicit point count and
+schema identity. They are not serialized into an opaque observation string. The secondary
+request now binds the landmark set (`has_landmarks_` + `observation_landmarks`), ROI, source
+key, model slot, optional track ID and, when the task needs the exact pixels, a cascade
+retention binding (`requires_retained_frame_` + `retention_ticket_`). The alignment adapter
+returns the exact tensor transform so downstream evidence can be mapped back to the source
+frame. Transform provenance is still contract-only; the alignment adapter is not implemented.
 
 ## Model-package and graph composition
 

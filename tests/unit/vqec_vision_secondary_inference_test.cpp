@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include "vqec_vision_secondary_inference_scheduler.hpp"
@@ -73,6 +74,13 @@ int main() {
         auto no_roi = make_request(2, 0, 1);
         no_roi.has_roi_ = false;
         check(scheduler.vqec_vision_ai_sched_secsd_submit(no_roi).code_ == status_code::ok);
+        auto with_landmarks = make_request(4, 0, 1);
+        with_landmarks.has_landmarks_ = true;
+        with_landmarks.landmarks_.schema_id_ = "scrfd.landmark";
+        with_landmarks.landmarks_.schema_version_ = "1";
+        with_landmarks.landmarks_.points_ = {{1.0F, 2.0F}, {3.0F, 4.0F}};
+        check(scheduler.vqec_vision_ai_sched_secsd_submit(with_landmarks).code_ ==
+              status_code::ok);
         auto bad_roi = make_request(3, 0, 1);
         bad_roi.roi_.width_ = 0.0F;
         check(scheduler.vqec_vision_ai_sched_secsd_submit(bad_roi).code_ ==
@@ -158,6 +166,28 @@ int main() {
         check(scheduler.vqec_vision_ai_sched_secsd_get_snapshot().cancelled_total_ == 2);
         check(scheduler.vqec_vision_ai_sched_secsd_step(4, result).code_ ==
               status_code::pending);
+    }
+
+    // Retention binding and typed landmarks are validated, never inferred.
+    {
+        auto retained = make_request(10, 0, 1);
+        retained.requires_retained_frame_ = true;
+        check(vqec_vision_ai_core_secin_validate_request(retained).code_ ==
+              status_code::invalid_argument);
+        retained.retention_ticket_ = 7;
+        check(vqec_vision_ai_core_secin_validate_request(retained).code_ == status_code::ok);
+
+        auto landmarks = make_request(11, 0, 1);
+        landmarks.has_landmarks_ = true;
+        check(vqec_vision_ai_core_secin_validate_request(landmarks).code_ ==
+              status_code::invalid_argument);
+        landmarks.landmarks_.schema_id_ = "scrfd.landmark";
+        landmarks.landmarks_.schema_version_ = "1";
+        landmarks.landmarks_.points_ = {{1.0F, 2.0F}, {3.0F, 4.0F}};
+        check(vqec_vision_ai_core_secin_validate_request(landmarks).code_ == status_code::ok);
+        landmarks.landmarks_.points_[1].x_ = std::numeric_limits<float>::infinity();
+        check(vqec_vision_ai_core_secin_validate_request(landmarks).code_ ==
+              status_code::invalid_argument);
     }
 
     std::cout << "secondary inference failures: " << failures << '\n';

@@ -33,7 +33,7 @@ không cần sửa orchestration. YOLO person không phải dependency bắt bu�
 | Package registry | Binding riêng theo model/catalog | Role primary/secondary và cascade dependency cần bổ sung/kiểm chứng |
 | Anchor-distance decoder | Typed decode, inverse placement, NMS, landmarks; production chọn kind từ package | Golden tensors thật; output batch còn cấp phát; malformed metadata cần test rộng hơn |
 | Frame store | Exact key, owner giữ frame, task tickets, byte budget, retire/drain | Chưa nối vào pump; chưa có completion phần cứng; age/epoch policy do orchestration thực hiện |
-| Secondary scheduler | Queue/priority/request cơ bản | Request chưa mang typed landmarks/retention binding; backend execute đang đồng bộ |
+| Secondary scheduler | Queue/priority/request cơ bản; request mang typed landmark set + retention ticket | Transform provenance chưa có; backend execute đang đồng bộ; chưa nối cascade store |
 | Image processor port | Preprocess RAW → tensor | Chưa có boundary alignment với landmarks, transform và destination pool |
 | Zvec | v0.7.0 public ARM64 SDK, mặc định build adapter; real-library tests pass trên `.48` | Chỉ tạo collection mới; revision/record IDs trong RAM; recovery/enrollment chưa có |
 | FR/điểm danh | Hạ tầng contracts/features | Chưa có luồng production hoàn chỉnh |
