@@ -162,6 +162,11 @@ controller `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp`
 file_id `fenrc`, prefix `vqec_vision_ai_embed_fenrc_`; DBus adapters must remain behind
 this port.
 
+DBus server `src/adapters/fw_control/vqec_vision_face_enrollment_dbus.cpp` uses file_id
+`fedbs`, prefix `vqec_vision_ai_fwctl_fedbs_`. Its private-bus integration test
+`tests/unit/vqec_vision_face_enrollment_dbus_test.cpp` uses file_id `fdbst`, prefix
+`vqec_vision_ai_unit_fdbst_`; GIO callback signatures and `main` retain external spelling.
+
 Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
 declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix

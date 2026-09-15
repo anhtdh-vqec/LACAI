@@ -15,11 +15,18 @@ inline constexpr char g_begin_method[] = "BeginEnrollment";
 inline constexpr char g_cancel_method[] = "CancelEnrollment";
 inline constexpr char g_remove_method[] = "RemoveSubject";
 inline constexpr char g_status_method[] = "GetEnrollmentStatus";
-inline constexpr char g_begin_signature[] = "(sssuututu)";
+inline constexpr char g_begin_signature[] = "(sssuutut)";
 inline constexpr char g_cancel_signature[] = "(s)";
 inline constexpr char g_remove_signature[] = "(st)";
 inline constexpr char g_status_signature[] = "(s)";
 }
+
+struct face_enrollment_dbus_config {
+    std::string trusted_peer_bus_name_;
+    int rpc_timeout_ms_{0};
+    std::size_t max_callbacks_per_poll_{0};
+    bool use_session_bus_{false};
+};
 
 class face_enrollment_dbus_server final {
 public:
@@ -30,7 +37,7 @@ public:
         const face_enrollment_dbus_server& _other) = delete;
 
     [[nodiscard]] status vqec_vision_ai_fwctl_fedbs_open(
-        face_enrollment_port& _port, bool _use_session_bus);
+        face_enrollment_port& _port, const face_enrollment_dbus_config& _config);
     // Run a bounded number of pending callbacks from the caller-owned main context.
     // The runtime owner remains serialized because callbacks execute synchronously.
     void vqec_vision_ai_fwctl_fedbs_poll() noexcept;

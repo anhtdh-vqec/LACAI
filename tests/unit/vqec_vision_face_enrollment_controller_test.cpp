@@ -31,7 +31,7 @@ int main() {
     recognition_session_config session_config;
     session_config.index_ = {g_model_id, g_model_version, 3, 8, 4,
         embedding_metric::cosine_similarity, 1};
-    session_config.policy_ = {0.8F, 0.05F, 2};
+    session_config.policy_ = {0.8F, 0.05F, 4};
     session_config.max_templates_per_subject_ = 3;
     session_config.search_top_k_ = 4;
     session_config.search_minimum_similarity_ = -1.0F;

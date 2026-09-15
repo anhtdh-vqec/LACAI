@@ -387,6 +387,9 @@ struct parsed_arguments {
     bool fr_top_k_set{false};
     bool enrollment_dbus{false};
     bool enrollment_dbus_session_bus{false};
+    std::string enrollment_peer_name;
+    int enrollment_rpc_timeout_ms{0};
+    std::size_t enrollment_callbacks_per_poll{0};
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -469,6 +472,14 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
         } else if (option == "--enrollment-dbus-session") {
             _args.enrollment_dbus = true;
             _args.enrollment_dbus_session_bus = true;
+        } else if (option == "--enrollment-peer-name" && has_value) {
+            _args.enrollment_peer_name = _argv[++index];
+        } else if (option == "--enrollment-rpc-timeout-ms" && has_value) {
+            _args.enrollment_rpc_timeout_ms = static_cast<int>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--enrollment-callbacks-per-poll" && has_value) {
+            _args.enrollment_callbacks_per_poll = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -1106,8 +1117,13 @@ int main(int _argc, char** _argv) {
 #if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
         if (args.enrollment_dbus) {
             enrollment_dbus = std::make_unique<face_enrollment_dbus_server>();
+            face_enrollment_dbus_config dbus_config;
+            dbus_config.trusted_peer_bus_name_ = args.enrollment_peer_name;
+            dbus_config.rpc_timeout_ms_ = args.enrollment_rpc_timeout_ms;
+            dbus_config.max_callbacks_per_poll_ = args.enrollment_callbacks_per_poll;
+            dbus_config.use_session_bus_ = args.enrollment_dbus_session_bus;
             const auto opened = enrollment_dbus->vqec_vision_ai_fwctl_fedbs_open(
-                *enrollment_controller, args.enrollment_dbus_session_bus);
+                *enrollment_controller, dbus_config);
             if (opened.code_ != status_code::ok) {
                 std::fprintf(stderr, "face enrollment DBus failed (%d): %s\n",
                     static_cast<int>(opened.code_), opened.message_.c_str());
@@ -1184,16 +1200,19 @@ int main(int _argc, char** _argv) {
                     taken.source_index_ < deployment_limits::g_max_sources) {
                     if (enrollment_controller != nullptr) {
                         face_enrollment_status enrollment_status;
-                        for (const auto& embedding : embeddings) {
-                            const auto accepted = enrollment_controller->
-                                vqec_vision_ai_ports_fenrl_accept_embedding(
-                                    embedding, enrollment_status);
-                            if (accepted.code_ != status_code::ok &&
-                                accepted.code_ != status_code::invalid_argument &&
-                                accepted.code_ != status_code::invalid_state) {
-                                std::fprintf(stderr, "FR enrollment failed (%d): %s\n",
-                                    static_cast<int>(accepted.code_), accepted.message_.c_str());
-                            }
+                        const auto root_slot = cascade_owners[taken.source_index_].root_model_slot_;
+                        const auto face_count = root_slot < tracked.size()
+                            ? tracked[root_slot].observations_.size() : 0;
+                        const auto accepted = enrollment_controller->
+                            vqec_vision_ai_ports_fenrl_accept_batch(
+                                deployment.sources_[taken.source_index_].source_id_,
+                                embeddings, face_count, enrollment_status);
+                        if (accepted.code_ != status_code::ok &&
+                            accepted.code_ != status_code::pending &&
+                            accepted.code_ != status_code::invalid_argument &&
+                            accepted.code_ != status_code::invalid_state) {
+                            std::fprintf(stderr, "FR enrollment failed (%d): %s\n",
+                                static_cast<int>(accepted.code_), accepted.message_.c_str());
                         }
                     }
                     std::vector<recognition_match_result> recognition_results;

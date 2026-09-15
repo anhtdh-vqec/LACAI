@@ -42,7 +42,7 @@ int main() {
     recognition_session_config config;
     config.index_ = {g_model_id, g_model_version, g_dimensions, g_gallery_capacity,
         g_max_results, embedding_metric::cosine_similarity, 1};
-    config.policy_ = {g_policy_similarity, g_policy_margin, 2};
+    config.policy_ = {g_policy_similarity, g_policy_margin, g_max_results};
     config.max_templates_per_subject_ = g_max_templates_per_subject;
     config.search_top_k_ = g_max_results;
     config.search_minimum_similarity_ = g_search_similarity;

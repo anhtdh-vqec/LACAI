@@ -30,7 +30,7 @@ status recognition_session::vqec_vision_ai_embed_rcses_configure(
         _config.max_templates_per_subject_ > _config.index_.capacity_ ||
         _config.search_top_k_ == 0 ||
         _config.search_top_k_ > _config.index_.max_results_ ||
-        _config.search_top_k_ < _config.policy_.max_subjects_ ||
+        _config.search_top_k_ > _config.policy_.max_subjects_ ||
         !std::isfinite(_config.search_minimum_similarity_) ||
         _config.search_minimum_similarity_ < -1.0F ||
         _config.search_minimum_similarity_ > _config.policy_.minimum_similarity_) {
@@ -40,12 +40,13 @@ status recognition_session::vqec_vision_ai_embed_rcses_configure(
     try {
         std::vector<template_metadata> metadata;
         metadata.reserve(_config.index_.capacity_);
+        recognition_session_config candidate_config = _config;
         const auto configured = _index.vqec_vision_ai_ports_emidx_configure(_config.index_);
         if (configured.code_ != status_code::ok) {
             return configured;
         }
         index_ = &_index;
-        config_ = _config;
+        config_ = std::move(candidate_config);
         templates_ = std::move(metadata);
         next_record_id_ = 1;
         is_configured_ = true;
@@ -68,7 +69,11 @@ status recognition_session::vqec_vision_ai_embed_rcses_add_template(
             revision, _expected_revision)) {
         return {status_code::invalid_state, "recognition gallery revision conflict"};
     }
-    if (!vqec_vision_ai_cntr_ident_is_valid(
+    if (revision == 0 || revision >= UINT64_MAX - 1U) {
+        return {status_code::invalid_state, "recognition revision space is exhausted"};
+    }
+    if (vqec_vision_ai_core_embct_validate_result(_embedding, _embedding.frame_).code_ !=
+            status_code::ok || !vqec_vision_ai_cntr_ident_is_valid(
             _subject_ref, embedding_index_limits::g_max_subject_ref_bytes) ||
         _embedding.model_id_ != config_.index_.model_id_ ||
         _embedding.model_version_ != config_.index_.model_version_ ||
@@ -90,24 +95,23 @@ status recognition_session::vqec_vision_ai_embed_rcses_add_template(
     const std::uint64_t candidate_record_id = next_record_id_;
     const std::uint64_t candidate_revision = revision + 1U;
     embedding_gallery_record record;
-    record.record_id_ = candidate_record_id;
-    record.subject_ref_ = _subject_ref;
-    record.values_ = _embedding.values_;
+    template_metadata metadata;
+    try {
+        record = {candidate_record_id, _subject_ref, _embedding.values_};
+        metadata = {candidate_record_id, _subject_ref};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted, "recognition template allocation failed"};
+    }
     const auto added = index_->vqec_vision_ai_ports_emidx_upsert(
         record, revision, candidate_revision);
     if (added.code_ != status_code::ok) {
+        if (index_->vqec_vision_ai_ports_emidx_revision() != revision) {
+            is_faulted_ = true;
+        }
         return added;
     }
-    // Metadata capacity was reserved before index configuration, so this append cannot
-    // allocate. Any unexpected exception faults the owner because index rollback is not
-    // available through the neutral interface.
-    try {
-        templates_.push_back({candidate_record_id, _subject_ref});
-    } catch (const std::bad_alloc&) {
-        is_faulted_ = true;
-        return {status_code::resource_exhausted,
-            "recognition metadata update failed after index mutation"};
-    }
+    // Both string and vector capacity are prepared before mutation; move cannot allocate.
+    templates_.push_back(std::move(metadata));
     next_record_id_ = candidate_record_id + 1U;
     _record_id = candidate_record_id;
     _new_revision = candidate_revision;
@@ -126,6 +130,13 @@ status recognition_session::vqec_vision_ai_embed_rcses_remove_subject(
     if (!vqec_vision_ai_embed_rcses_valid_revision_change(
             revision, _expected_revision)) {
         return {status_code::invalid_state, "recognition gallery revision conflict"};
+    }
+    const auto count = static_cast<std::uint64_t>(std::count_if(
+        templates_.begin(), templates_.end(), [&_subject_ref](const template_metadata& _item) {
+            return _item.subject_ref_ == _subject_ref;
+        }));
+    if (revision == 0 || count >= UINT64_MAX - revision) {
+        return {status_code::invalid_state, "recognition revision space is exhausted"};
     }
     bool removed_any = false;
     for (auto item = templates_.begin(); item != templates_.end();) {

@@ -56,6 +56,9 @@ public:
     // consumes at most one embedding per frame and never retains pixel buffers.
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_accept_embedding(
         const embedding_result& _embedding, face_enrollment_status& _status) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_accept_batch(
+        const std::string& _source_id, const std::vector<embedding_result>& _embeddings,
+        std::size_t _eligible_face_count, face_enrollment_status& _status) = 0;
 };
 
 }  // namespace vqec::vision::ai

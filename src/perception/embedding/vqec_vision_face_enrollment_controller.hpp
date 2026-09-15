@@ -22,6 +22,9 @@ public:
         const std::string& _request_id, face_enrollment_status& _status) const override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_accept_embedding(
         const embedding_result& _embedding, face_enrollment_status& _status) override;
+    [[nodiscard]] status vqec_vision_ai_ports_fenrl_accept_batch(
+        const std::string& _source_id, const std::vector<embedding_result>& _embeddings,
+        std::size_t _eligible_face_count, face_enrollment_status& _status) override;
 
 private:
     recognition_session& session_;
@@ -29,6 +32,9 @@ private:
     face_enrollment_status status_;
     std::uint64_t record_id_{0};
     std::uint64_t last_accepted_frame_id_{0};
+    std::uint64_t last_accepted_pts_ns_{0};
+    std::uint64_t accepted_epoch_{0};
+    std::uint64_t selected_track_id_{0};
 };
 
 }  // namespace vqec::vision::ai

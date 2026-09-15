@@ -33,6 +33,24 @@ returning identities, vectors or biometric data.
 
 ## Invariants
 
+The source adapter supplies the logical source ID and eligible-face count with each
+completed embedding batch. Automatic selection requires exactly one eligible face,
+then pins its track and source epoch for the request. Duplicate/backward frames are
+rejected; a source epoch change fails the request. Retry with the same request ID and
+payload returns the recorded status without enrolling again. Conflicting payloads with
+the same ID are rejected. The current controller retains one request receipt; older
+receipts need the durable store before restart-safe retries can be claimed.
+
+DBus v1 uses bus `com.vqec.Lacai`, object `/com/vqec/Lacai/FaceEnrollment`, interface
+`com.vqec.Lacai.FaceEnrollment1`. Begin input is `(sssuutut)` and status output is
+`(ssuuuti)`; remove input/output are `(st)` / `(ti)`. Wire state/error codes must be
+mapped explicitly by the adapter rather than exposing C++ enum ordinal values.
+The adapter resolves a configured trusted FW bus name to its unique sender at startup.
+All four methods require that exact sender; FW reconnection requires rebinding/restart.
+No caller-supplied identity field grants authorization. RPC timeout and callback budget
+are mandatory validated deployment settings. This authenticates the configured peer;
+feature entitlement and output-name authorization remain separate gates.
+
 - request IDs and subject/source references are bounded UTF-8 identifiers; commands are
   idempotent only when the same request ID and immutable payload are repeated;
 - every accepted embedding matches camera/channel, source epoch and model identity,
