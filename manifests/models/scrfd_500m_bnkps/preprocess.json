@@ -6,7 +6,7 @@
   "color_range": "limited",
   "resize": "letterbox",
   "interpolation": "bilinear",
-  "placement": "centre",
+  "placement": "top_left",
   "pad_value": [0.0, 0.0, 0.0],
   "channel_order": "rgb",
   "normalization": {
@@ -16,10 +16,10 @@
   },
   "coordinates": "tensor_pixels_xywh",
   "notes": {
-    "normalization": "(pixel - 127.5) / 128.0, the standard SCRFD reference. The uint16 input quantization (zero_point 32768, scale 3.03988327e-05) spans about [-0.996, 0.996], which is consistent. Confirm against golden.",
+    "normalization": "(pixel - 127.5) / 128.0, as used by the upstream SCRFD inference reference. The uint16 input quantization (zero_point 32768, scale 3.03988327e-05) spans about [-0.996, 0.996]. Golden tensor parity remains required.",
     "color_matrix": "BT.709 limited is assumed from an HD FW NV12 source. Confirm against golden; a BT.601 source must not use BT.709 coefficients.",
     "channel_order": "RGB is assumed. Confirm against golden.",
-    "pad_value": "0.0 letterbox fill is assumed. Confirm against golden.",
+    "pad_value": "The upstream SCRFD inference reference resizes with preserved aspect ratio and copies the resized image at (0,0) into a zero-filled tensor canvas. Golden tensor parity remains required.",
     "coordinates": "The decoder consumes stride-unit distances and applies the inverse letterbox; the tensor-space convention is not a decoder.json coordinate field for this kind."
   }
 }

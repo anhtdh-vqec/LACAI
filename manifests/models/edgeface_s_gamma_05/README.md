@@ -1,4 +1,4 @@
-# EdgeFace-S (gamma 0.05) embedding package (M0)
+# EdgeFace-S (gamma=0.5, artifact token `gamma_05`) embedding package (M0)
 
 Neutral metadata for the secondary face embedding model. The `.so` artifact stays outside
 Git; this directory holds only metadata and (later) small privacy-safe golden references.
@@ -29,20 +29,21 @@ board path `/var/roothome/ai_app_dsp/models/libedgeface_s_gamma_05_w8a16_ada_w8a
   3.05180438e-05` (input zero_point `32768`).
 - Output: uint16 UFXP16, 512 dimensions, `float_embedding = (q - 12899) * 4.08594024e-05`
   (zero_point `12899`, scale `4.08594024e-05`).
-- Offline JPEG/PNG path: BGR/RGB image -> RGB -> letterbox 640x640 -> float normalization ->
-  quantize to uint16 by scale/zero_point.
+- The EdgeFace reference preprocessing is `ToTensor()` followed by
+  `Normalize(mean=0.5, std=0.5)`, equivalent to `pixel / 127.5 - 1.0` for an RGB8 pixel.
 
-These match the recorded ABI and the `fastcv_aligner` RGB + quantize and the
-`embedding_decoder` dequantize paths.
+The tensor ABI matches the `fastcv_aligner` RGB output, the cascade quantization path and
+the `embedding_decoder` dequantization path. Golden tensor and embedding parity remain
+required for this converted artifact.
 
 ## Not usable yet (M4/M5)
 
-- `decoder.json` now declares the embedding kind (output tensor `embedding`, dimension 512,
+- `decoder.json` declares the embedding kind (output tensor `embedding`, dimension 512,
   min norm, 5-point `face.5pt` alignment template to 112×112, RGB/BT.709-limited), but
   production does not yet prepare an embedding graph/decoder or consume the template; do not
   bind this model in a production catalog until secondary composition lands.
-- Alignment (5-point similarity transform to 112x112) is delivered in
-  `fastcv_aligner`; the aligned RGB must still be quantized to this model's uint16 input.
+- Alignment (5-point similarity transform to 112x112) and uint16 quantization are delivered
+  in the standalone cascade path; production composition still needs to bind them.
 - Embeddings are sensitive biometric data. Keep them out of logs, Git and CI artifacts.
 
 ## Intended catalog entry (M5, schema v2)

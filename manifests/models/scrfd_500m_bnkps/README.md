@@ -29,9 +29,11 @@ board path `/opt/anhtdh/models/libscrfd_500m_bnkps_w8a16.so` (QAIRT 2.43.0).
 
 - Golden decode parity on real tensors (input tensor, raw scores/bboxes/kps and expected
   detections) is not available yet; this package is metadata only.
-- Thresholds (confidence `0.5`, NMS IoU `0.4`), `anchor_offset_cells` `0.5`, score
-  activation/sigmoid, landmark ordering (eye/nose/mouth) and preprocess color/normalization
-  are assumed from the SCRFD reference and must be confirmed against golden.
+- The upstream SCRFD inference reference establishes top-left zero padding,
+  `anchor_offset_cells` `0.0`, two anchors per cell, stride-scaled bbox/keypoint distances,
+  and `(pixel - 127.5) / 128.0` normalization. Score semantics, landmark ordering,
+  thresholds (confidence `0.5`, NMS IoU `0.4`) and exact tensor parity still require golden
+  confirmation for this converted artifact.
 - `max_candidates` is set to the decoder ceiling `4096`; the overflow policy for crowded
   scenes (fault vs bounded top-score selection) is still open (M1).
 - The model binary stays outside Git. A digest match is not artifact authentication.

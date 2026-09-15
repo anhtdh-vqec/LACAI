@@ -11,13 +11,13 @@
   "channel_order": "rgb",
   "normalization": {
     "formula": "offset_scale",
-    "offset": [-0.99609375, -0.99609375, -0.99609375],
-    "scale": [0.0078125, 0.0078125, 0.0078125]
+    "offset": [-1.0, -1.0, -1.0],
+    "scale": [0.00784313725490196, 0.00784313725490196, 0.00784313725490196]
   },
   "coordinates": "tensor_pixels_xywh",
   "notes": {
     "alignment": "The crop is produced by the M4 landmark similarity transform to 112x112, not a plain centre crop; this spec only declares the color and normalization of the aligned tensor. The alignment template and destination size are owned by the EdgeFace package.",
-    "normalization": "(pixel - 127.5) / 128.0 assumed; confirm against the EdgeFace reference. The uint16 quantization (zero_point 32768, scale 3.05180438e-05) spans about [-1,1].",
+    "normalization": "pixel / 127.5 - 1.0, equivalent to the upstream EdgeFace ToTensor plus Normalize(mean=0.5, std=0.5) pipeline. Golden tensor parity remains required for this converted artifact.",
     "color_matrix": "BT.709 limited assumed; confirm against golden.",
     "channel_order": "RGB assumed; confirm against golden."
   }

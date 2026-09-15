@@ -35,8 +35,9 @@ signature verification.
 Confirmed by the model team: the camera FW RAW source is **NV12 / BT.709 limited** and the
 model tensor is **RGB uint16 NHWC**. EdgeFace input quantization is
 `q = round(normalized / input_scale) + 32768` and its output dequantization is
-`float_embedding = (q - 12899) * 4.08594024e-05`. Offline JPEG/PNG input follows
-BGR/RGB -> RGB -> letterbox 640x640 -> float normalization -> quantize by scale/zero_point.
+`float_embedding = (q - 12899) * 4.08594024e-05`. For EdgeFace, the model reference
+normalizes aligned RGB as `pixel / 127.5 - 1.0` before
+quantization. Exact parity for the converted artifact still needs privacy-safe golden data.
 
 ### SCRFD-500M-KPS (`manifests/models/scrfd_500m_bnkps/`)
 
@@ -48,23 +49,23 @@ BGR/RGB -> RGB -> letterbox 640x640 -> float normalization -> quantize by scale/
 | Outputs | 9 tensors `score_{8,16,32}`, `bbox_{8,16,32}`, `kps_{8,16,32}` with per-tensor scale/zp in `io_manifest.json` | observed | confirm names/quantization |
 | Score semantics | probability (assumed sigmoid already applied) | **assumed** | golden score vs reference |
 | Bbox format | left/top/right/bottom distances in **stride units** | **assumed** | golden bbox vs reference |
-| Anchor ordering / offset | 2 anchors/cell, centre offset `0.5` | **assumed** | golden decode vs reference |
+| Anchor ordering / offset | 2 anchors/cell, offset `0.0` | confirmed from upstream reference | golden decode vs converted artifact |
 | Grids / strides | 80×80@8, 40×40@16, 20×20@32 | observed (counts) | confirm grid order |
 | Landmarks | 5 points × (x,y) in stride units; order eye/nose/mouth | **assumed** | confirm point order vs reference |
 | Thresholds | confidence `0.5`, NMS IoU `0.4`, per-class | **assumed** | calibrate on golden |
-| Preprocess | NV12, BT.709 limited, RGB, letterbox, bilinear, pad `0`, `(x-127.5)/128` | color matrix/range confirmed; rest assumed | golden input tensor parity |
+| Preprocess | NV12, BT.709 limited, RGB, aspect-preserving top-left placement, bilinear, pad `0`, `(x-127.5)/128` | placement/normalization from upstream reference; source color confirmed | golden input tensor parity |
 | Overflow | `max_candidates = 4096` (decoder ceiling) | open policy | decide fault vs top-score truncation |
 
-### EdgeFace-S gamma 0.05 (`manifests/models/edgeface_s_gamma_05/`)
+### EdgeFace-S gamma=0.5 (`gamma_05` artifact token; `manifests/models/edgeface_s_gamma_05/`)
 
 | Field | Current value | Status | How to verify |
 |---|---|---|---|
 | Artifact SHA-256 / bytes | `6faf62d1…4815` / 4725832 | observed on `.48` | confirm same revision delivered |
 | Input | `input` `[1,112,112,3]` NHWC uint16, scale `3.05180438e-05`, zp `32768` | confirmed by model team | `q = round(normalized / input_scale) + 32768` |
 | Output | `embedding` `[1,512]` uint16, scale `4.08594024e-05`, zp `12899` | confirmed by model team | `float_embedding = (q - 12899) * 4.08594024e-05` |
-| Normalization | `(x-127.5)/128` (assumed) | **assumed** | golden input tensor parity |
-| Alignment template | 5-point reference points, 112×112 destination, similarity transform | **open (M4)** | model team provides template; verify warp parity |
-| Embedding postprocess | L2 normalization, finite/dimension checks, model-version binding | **open (M5)** | golden embedding parity and norm |
+| Normalization | `x/127.5 - 1.0` | confirmed from upstream reference | golden input tensor parity for converted artifact |
+| Alignment template | 5-point reference points, 112×112 destination, similarity transform | implemented; golden parity open | verify warp parity against permitted-use reference |
+| Embedding postprocess | L2 normalization, finite/dimension checks, model-version binding | implemented; golden parity open | golden embedding parity and norm |
 | Golden | aligned crop, input tensor, raw embedding, normalized embedding | missing | permitted-use references |
 
 ## Definition of done for a model

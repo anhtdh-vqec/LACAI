@@ -18,7 +18,7 @@
         "height": 640,
         "dtype": "uint16",
         "channel_order": "rgb",
-        "placement": "centre",
+        "placement": "top_left",
         "mean": [0, 0, 0],
         "sigma": [1, 1, 1]
       },
