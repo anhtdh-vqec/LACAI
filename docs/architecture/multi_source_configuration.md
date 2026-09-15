@@ -148,6 +148,11 @@ a versioned output registry/ring contract, `preview_output_ref` must resolve to 
 identity; unsupported or duplicate outputs fail closed. Headless inference sources set
 `preview_surface_count` to zero and use an empty preview reference.
 
+The production platform enforces this: a configured `output_ring_id` requires exactly one
+deployment source, and a multi-source deployment fails `prepare` with `unsupported` before
+any acquisition. Multi-source inference runs headless (`output_ring_id` empty). A future
+versioned per-source output registry is required to map more than one source to preview.
+
 See also [Camera Service contract](../contracts/camera_service.md),
 [model integration](../contracts/model_integration.md), and
 [FW ring sink](fw_ring_sink.md).

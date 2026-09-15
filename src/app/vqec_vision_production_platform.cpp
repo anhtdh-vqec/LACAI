@@ -389,6 +389,13 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
     feature_params.event_schema_version_ = impl.config_.event_schema_version_;
     impl.feature_factory_ = platform_feature_factory{feature_params};
     if (!impl.config_.output_ring_id_.empty()) {
+        // Released FW exposes fixed cam0 single-writer rings and there is no versioned
+        // per-source output registry yet, so one ring can only carry one source. Reject
+        // multi-source preview before any acquisition instead of interleaving sources.
+        if (_deployment.sources_.size() != 1U) {
+            return {status_code::unsupported,
+                "preview ring output requires exactly one deployment source"};
+        }
         impl.renderer_ = std::make_unique<qtiv_renderer>();
         qtiv_renderer_config renderer_config;
         renderer_config.ring_id_ = impl.config_.output_ring_id_;

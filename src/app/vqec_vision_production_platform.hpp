@@ -46,7 +46,9 @@ struct production_platform_config {
     std::string event_schema_id_{"reference.zone"};
     std::string event_schema_version_{"1"};
     std::string consumer_id_prefix_{"lacai_ai"};
-    // AI-owned encoded output. Empty disables rendering.
+    // AI-owned encoded output. Empty disables rendering. A non-empty ring configures a
+    // single-source preview; a multi-source deployment is rejected until FW provides a
+    // versioned per-source output registry.
     std::string output_ring_id_;
     std::uint32_t output_bitrate_bps_{0};
     std::uint32_t output_keyframe_interval_frames_{0};
