@@ -164,6 +164,12 @@ Factory and property probing report availability and mutability from the target 
 registry without choosing a fallback backend; deployment policy remains responsible for
 selecting an admitted path.
 
+The SDK loader now selects the first QNN interface provider whose core API version matches
+the headers the adapter was compiled against (major equal, minor not older) instead of
+assuming `providers[0]` is compatible; an incompatible set returns `unsupported`. The
+QCS6490 board smoke re-verified SCRFD composition and execution on HTP after the change
+(`vqec_vision_ai_qnn_engine_smoke`, 9 outputs, exit 0).
+
 ## Build and test inventory
 
 - CMake declares portable core, camera wire/control, orchestration, cadence, admission,

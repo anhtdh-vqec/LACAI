@@ -51,12 +51,32 @@ status qnn_sdk_libraries::vqec_vision_ai_qcom_sdkld_open(
     const QnnInterface_t** providers = nullptr;
     std::uint32_t provider_count = 0;
     if (get_providers(&providers, &provider_count) != QNN_SUCCESS || providers == nullptr ||
-        provider_count == 0 || providers[0] == nullptr ||
-        providers[0]->providerName == nullptr) {
+        provider_count == 0) {
         vqec_vision_ai_qcom_sdkld_close();
-        return {status_code::unsupported, "QNN backend returned no usable interface provider"};
+        return {status_code::unsupported, "QNN backend returned no interface provider"};
     }
-    implementation_->provider_ = providers[0];
+    // Select the first provider whose core API version is compatible with the headers this
+    // adapter was compiled against. providers[0] is not assumed compatible: a provider from
+    // a different QNN version can expose a different interface layout that would be
+    // misinterpreted when its function pointers are called.
+    const QnnInterface_t* selected = nullptr;
+    for (std::uint32_t index = 0; index < provider_count; ++index) {
+        const QnnInterface_t* candidate = providers[index];
+        if (candidate == nullptr) {
+            continue;
+        }
+        const auto& core = candidate->apiVersion.coreApiVersion;
+        if (core.major == QNN_API_VERSION_MAJOR && core.minor >= QNN_API_VERSION_MINOR) {
+            selected = candidate;
+            break;
+        }
+    }
+    if (selected == nullptr) {
+        vqec_vision_ai_qcom_sdkld_close();
+        return {status_code::unsupported,
+            "QNN backend exposes no provider compatible with the compiled API version"};
+    }
+    implementation_->provider_ = selected;
     return {};
 }
 
