@@ -13,6 +13,7 @@ namespace vqec::vision::ai {
 namespace embedding_index_limits {
 inline constexpr std::size_t g_max_subject_ref_bytes = 128;
 inline constexpr std::size_t g_max_results = 64;
+inline constexpr float g_similarity_tolerance = 0.001F;
 }  // namespace embedding_index_limits
 
 enum class embedding_metric { cosine_similarity };
@@ -35,6 +36,9 @@ struct embedding_gallery_record {
 
 struct embedding_match {
     std::uint64_t record_id_{0};
+    // Opaque gallery identity. Display names and other personal data stay behind the
+    // separately authorized identity metadata boundary.
+    std::string subject_ref_;
     float similarity_{0.0F};
 };
 

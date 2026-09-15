@@ -1,10 +1,12 @@
 #include "vqec_vision_zvec_embedding_index.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <charconv>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <string>
 #include <utility>
 
@@ -315,6 +317,10 @@ status zvec_embedding_index::vqec_vision_ai_ports_emidx_search(
     if (error == ZVEC_OK) {
         error = zvec_vector_query_set_include_doc_id(query, true);
     }
+    const char* output_fields[] = {g_subject_ref_field};
+    if (error == ZVEC_OK) {
+        error = zvec_vector_query_set_output_fields(query, output_fields, 1U);
+    }
     zvec_doc_t** documents = nullptr;
     std::size_t document_count = 0;
     if (error == ZVEC_OK) {
@@ -325,30 +331,72 @@ status zvec_embedding_index::vqec_vision_ai_ports_emidx_search(
         zvec_docs_free(documents, document_count);
         return vqec_vision_ai_zvec_zvidx_map_error(error, "Zvec gallery search failed");
     }
+    std::array<embedding_match, embedding_index_limits::g_max_results> matches{};
+    std::size_t match_count = 0;
+    try {
+        for (std::size_t index = 0; index < document_count && index < _top_k; ++index) {
+            // Zvec v0.7.0 COSINE returns distance (1 - cosine similarity).
+            const float raw_score = 1.0F - zvec_doc_get_score(documents[index]);
+            const char* key = zvec_doc_get_pk_pointer(documents[index]);
+            if (key == nullptr || !std::isfinite(raw_score) ||
+                raw_score < -1.0F - embedding_index_limits::g_similarity_tolerance ||
+                raw_score > 1.0F + embedding_index_limits::g_similarity_tolerance) {
+                zvec_docs_free(documents, document_count);
+                return {status_code::protocol_error,
+                    "Zvec returned an invalid cosine similarity"};
+            }
+            const float score = std::clamp(raw_score, -1.0F, 1.0F);
+            if (score < _minimum_similarity) {
+                continue;
+            }
+            std::uint64_t record_id = 0;
+            const auto key_end = key + std::strlen(key);
+            const auto parsed = std::from_chars(key, key_end, record_id);
+            const void* subject_value = nullptr;
+            std::size_t subject_size = 0;
+            const auto subject_error = zvec_doc_get_field_value_pointer(
+                documents[index], g_subject_ref_field, ZVEC_DATA_TYPE_STRING,
+                &subject_value, &subject_size);
+            const auto* subject_bytes = static_cast<const char*>(subject_value);
+            std::string subject_ref = subject_bytes == nullptr
+                ? std::string{}
+                : std::string(subject_bytes, subject_size);
+            const bool duplicate_record = std::any_of(
+                matches.begin(), matches.begin() + match_count,
+                [record_id](const embedding_match& _match) {
+                    return _match.record_id_ == record_id;
+                });
+            if (parsed.ec != std::errc{} || parsed.ptr != key_end || record_id == 0 ||
+                !vqec_vision_ai_zvec_zvidx_contains(record_ids_, record_id) ||
+                subject_error != ZVEC_OK ||
+                !vqec_vision_ai_cntr_ident_is_valid(
+                    subject_ref, embedding_index_limits::g_max_subject_ref_bytes) ||
+                duplicate_record) {
+                zvec_docs_free(documents, document_count);
+                return {status_code::protocol_error,
+                    "Zvec returned invalid candidate metadata"};
+            }
+            matches[match_count++] = {record_id, std::move(subject_ref), score};
+        }
+    } catch (const std::bad_alloc&) {
+        zvec_docs_free(documents, document_count);
+        return {status_code::resource_exhausted,
+            "Zvec candidate metadata allocation failed"};
+    }
+    zvec_docs_free(documents, document_count);
+    std::sort(matches.begin(), matches.begin() + match_count,
+        [](const embedding_match& _left, const embedding_match& _right) {
+            return _left.similarity_ > _right.similarity_ ||
+                (_left.similarity_ == _right.similarity_ &&
+                    _left.record_id_ < _right.record_id_);
+        });
     _result.frame_ = _query.frame_;
     _result.track_id_ = _query.track_id_;
     _result.gallery_revision_ = revision_;
     _result.matches_.clear();
-    for (std::size_t index = 0; index < document_count && index < _top_k; ++index) {
-        // Zvec v0.7.0 COSINE returns distance (1 - cosine similarity).
-        const float score = 1.0F - zvec_doc_get_score(documents[index]);
-        const char* key = zvec_doc_get_pk_pointer(documents[index]);
-        if (key == nullptr || !std::isfinite(score) || score < _minimum_similarity) {
-            continue;
-        }
-        std::uint64_t record_id = 0;
-        const auto key_end = key + std::strlen(key);
-        const auto parsed = std::from_chars(key, key_end, record_id);
-        if (parsed.ec != std::errc{} || parsed.ptr != key_end || record_id == 0 ||
-            !vqec_vision_ai_zvec_zvidx_contains(record_ids_, record_id)) {
-            zvec_docs_free(documents, document_count);
-            _result.matches_.clear();
-            return {status_code::protocol_error,
-                "Zvec returned an invalid record identity"};
-        }
-        _result.matches_.push_back({record_id, score});
+    for (std::size_t index = 0; index < match_count; ++index) {
+        _result.matches_.push_back(std::move(matches[index]));
     }
-    zvec_docs_free(documents, document_count);
     return {};
 }
 

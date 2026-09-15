@@ -12,6 +12,8 @@ Versioned face/body embedding index boundary for recognition and retrieval workf
 - FR identity candidates are separate from visual attributes and local track IDs.
 - Search pins the exact gallery revision and embedding model version; mutations use
   compare-and-swap revisions.
+- Search candidates include their opaque `subject_ref` alongside `record_id` and similarity;
+  consumers may aggregate templates by subject without treating a record ID as identity.
 - Zvec replaces the earlier FAISS plan; vendor code lives in `src/adapters/zvec`.
 - Zvec is a derived optional backend. It is enabled only with an externally supplied,
   version-reviewed C API installation; the collection path is deployment configuration,

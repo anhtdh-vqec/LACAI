@@ -48,6 +48,7 @@ int main(int _argc, char** _argv) {
             check(result.matches_.size() == 1);
             if (result.matches_.size() == 1) {
                 check(result.matches_[0].record_id_ == 1);
+                check(result.matches_[0].subject_ref_ == "synthetic_a");
                 check(result.matches_[0].similarity_ > 0.99F);
             }
             check(index.vqec_vision_ai_ports_emidx_search(

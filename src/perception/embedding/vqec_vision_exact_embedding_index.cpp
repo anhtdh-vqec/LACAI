@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <new>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
@@ -146,15 +147,17 @@ status exact_embedding_index::vqec_vision_ai_ports_emidx_search(
     }
     std::array<embedding_match, embedding_index_limits::g_max_results> matches{};
     std::size_t match_count = 0;
-    for (const auto& record : records_) {
+    try {
+        for (const auto& record : records_) {
             double similarity = 0.0;
             for (std::size_t dimension = 0; dimension < config_.dimensions_; ++dimension) {
                 similarity += static_cast<double>(_query.values_[dimension]) *
                     record.values_[dimension];
             }
-            const float score = static_cast<float>(similarity);
+            const float score = std::clamp(static_cast<float>(similarity), -1.0F, 1.0F);
             if (score >= _minimum_similarity) {
-                const embedding_match current{record.record_id_, score};
+                const embedding_match current{
+                    record.record_id_, record.subject_ref_, score};
                 if (match_count < _top_k) {
                     matches[match_count++] = current;
                 } else {
@@ -172,6 +175,10 @@ status exact_embedding_index::vqec_vision_ai_ports_emidx_search(
                     }
                 }
             }
+        }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "embedding search candidate allocation failed"};
     }
     std::sort(matches.begin(), matches.begin() + match_count,
             [](const embedding_match& _left, const embedding_match& _right) {
@@ -185,7 +192,7 @@ status exact_embedding_index::vqec_vision_ai_ports_emidx_search(
     _result.matches_.clear();
     const auto result_count = std::min(match_count, _top_k);
     for (std::size_t index = 0; index < result_count; ++index) {
-        _result.matches_.push_back(matches[index]);
+        _result.matches_.push_back(std::move(matches[index]));
     }
     return {};
 }

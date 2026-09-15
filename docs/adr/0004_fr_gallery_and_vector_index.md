@@ -23,8 +23,10 @@ derived accelerator and is never the sole stored identity record.
 
 All mutations use compare-and-swap gallery revisions. Search requests pin the required
 revision and exact embedding model identity. An index with a different revision or model
-version fails closed instead of returning stale candidates. Subject references are opaque
-bounded identifiers; names, biometric vectors and credentials are not logged.
+version fails closed instead of returning stale candidates. Search candidates carry the
+opaque bounded `subject_ref` stored with each record so matching can aggregate templates
+without guessing identity from record IDs. Names, biometric vectors and credentials are
+not logged.
 
 `embedding_index_port` is vendor-neutral. The delivered exact cosine backend establishes
 the contract and is suitable only within an admitted bounded gallery. Zvec stays under

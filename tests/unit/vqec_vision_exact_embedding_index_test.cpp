@@ -38,7 +38,10 @@ int main() {
     check(index.vqec_vision_ai_ports_emidx_search(
               query, 12, 2, 0.0F, result).code_ == status_code::ok);
     check(result.gallery_revision_ == 12 && result.matches_.size() == 2 &&
-        result.matches_[0].record_id_ == 1 && result.matches_[1].record_id_ == 2);
+        result.matches_[0].record_id_ == 1 &&
+        result.matches_[0].subject_ref_ == "subject_a" &&
+        result.matches_[1].record_id_ == 2 &&
+        result.matches_[1].subject_ref_ == "subject_b");
     const auto preserved = result;
     check(index.vqec_vision_ai_ports_emidx_search(
               query, 11, 2, 0.0F, result).code_ == status_code::invalid_state);
