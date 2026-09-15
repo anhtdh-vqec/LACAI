@@ -3,7 +3,9 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
+#include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_application_composition.hpp"
 #include "vqec_vision_multi_model_feature_pipeline.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
@@ -15,6 +17,7 @@ struct runtime_executor_report {
     std::uint16_t source_index_{g_invalid_source_index};
     std::uint16_t model_slot_{g_invalid_model_slot};
     feature_fanout_report features_;
+    cascade_coordinator_report cascade_;
     // Revisions captured when the result was produced, not re-read at dispatch time, so a
     // queued event cannot be relabelled under a newer policy/catalog/deployment.
     std::uint64_t captured_policy_revision_{0};
@@ -23,6 +26,7 @@ struct runtime_executor_report {
     status_code first_error_code_{status_code::ok};
     bool has_tracked_{false};
     bool has_feature_fanout_{false};
+    bool has_cascade_{false};
 };
 
 // Device-free telemetry surface for the executor. Counters are cumulative for the life of
@@ -34,6 +38,9 @@ struct runtime_executor_metrics {
     std::uint64_t events_delivered_{0};
     std::uint64_t events_denied_{0};
     std::uint64_t events_failed_{0};
+    std::uint64_t cascade_tasks_accepted_{0};
+    std::uint64_t cascade_embeddings_{0};
+    std::uint64_t cascade_tasks_failed_{0};
     // Routed-result latency from the pipeline PTS to the step that routed it.
     std::uint64_t end_to_end_ns_sum_{0};
     std::uint64_t end_to_end_ns_max_{0};
@@ -60,6 +67,10 @@ public:
     runtime_executor(application_composition& _composition,
         const std::array<multi_model_feature_pipeline*, deployment_limits::g_max_sources>&
             _pipelines,
+        const std::array<std::uint16_t, deployment_limits::g_max_sources>&
+            _cascade_root_slots,
+        const std::array<std::uint32_t, deployment_limits::g_max_sources>& _camera_ids,
+        const std::array<std::uint32_t, deployment_limits::g_max_sources>& _channel_ids,
         std::uint16_t _source_count) noexcept;
     runtime_executor(const runtime_executor& _other) = delete;
     runtime_executor& operator=(const runtime_executor& _other) = delete;
@@ -79,6 +90,11 @@ public:
     // gate; taking a result is not itself permission to publish. Both are borrowed.
     void vqec_vision_ai_appl_rtexe_bind_event_delivery(
         output_gate& _gate, feature_event_sink_port& _sink) noexcept;
+    // Binds the configured coordinator required by the catalog-derived cascade root.
+    // Call before the first step. One coordinator is owned by the caller per source.
+    [[nodiscard]] status vqec_vision_ai_appl_rtexe_bind_cascade(
+        std::uint16_t _source_index, std::uint16_t _model_slot,
+        cascade_coordinator& _coordinator, std::size_t _max_results);
     // _policy_revision must be the revision captured with the result, never a freshly
     // read one. Only stages selected by _success_mask are dispatched.
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_dispatch_events(
@@ -97,11 +113,18 @@ private:
     application_composition& composition_;
     std::array<multi_model_feature_pipeline*, deployment_limits::g_max_sources>
         pipelines_{};
+    std::array<cascade_coordinator*, deployment_limits::g_max_sources>
+        cascade_coordinators_{};
+    std::array<std::uint16_t, deployment_limits::g_max_sources> cascade_root_slots_{};
+    std::array<std::uint32_t, deployment_limits::g_max_sources> camera_ids_{};
+    std::array<std::uint32_t, deployment_limits::g_max_sources> channel_ids_{};
     std::array<observation_batch, deployment_limits::g_max_models_per_source>
         pending_tracked_{};
     std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>
         pending_events_{};
     runtime_executor_report pending_report_;
+    std::vector<alignment_result> cascade_aligned_;
+    std::vector<embedding_result> cascade_embeddings_;
     output_gate* delivery_gate_{nullptr};
     feature_event_sink_port* delivery_sink_{nullptr};
     std::uint16_t source_count_{0};

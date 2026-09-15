@@ -2,6 +2,7 @@
 #include "vqec_vision_feature_event_dispatch.hpp"
 
 #include <limits>
+#include <new>
 #include <utility>
 
 namespace vqec::vision::ai {
@@ -9,8 +10,14 @@ namespace vqec::vision::ai {
 runtime_executor::runtime_executor(application_composition& _composition,
     const std::array<multi_model_feature_pipeline*, deployment_limits::g_max_sources>&
         _pipelines,
+    const std::array<std::uint16_t, deployment_limits::g_max_sources>&
+        _cascade_root_slots,
+    const std::array<std::uint32_t, deployment_limits::g_max_sources>& _camera_ids,
+    const std::array<std::uint32_t, deployment_limits::g_max_sources>& _channel_ids,
     std::uint16_t _source_count) noexcept
-    : composition_(_composition), pipelines_(_pipelines), source_count_(_source_count) {}
+    : composition_(_composition), pipelines_(_pipelines),
+      cascade_root_slots_(_cascade_root_slots), camera_ids_(_camera_ids),
+      channel_ids_(_channel_ids), source_count_(_source_count) {}
 
 status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     std::uint64_t _steady_now_ns, runtime_executor_report& _report) {
@@ -20,10 +27,17 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         return {status_code::invalid_argument, "executor requires monotonic steady time"};
     }
     last_now_ns_ = _steady_now_ns;
-    ++metrics_.steps_;
     if (has_pending_) {
         return {status_code::pending, "consume the routed result before progress"};
     }
+    for (std::uint16_t source = 0; source < source_count_; ++source) {
+        if (cascade_root_slots_[source] != g_invalid_model_slot &&
+            cascade_coordinators_[source] == nullptr) {
+            return {status_code::invalid_state,
+                "catalog cascade root has no bound coordinator"};
+        }
+    }
+    ++metrics_.steps_;
     const auto stepped = composition_.vqec_vision_ai_cntr_acomp_step(_steady_now_ns);
 
     tensor_result result;
@@ -52,7 +66,26 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         vqec_vision_ai_appl_mmfpl_process_result(
             result, pump_report, _steady_now_ns, pending_tracked_, pending_events_,
             pipeline_report);
+    const auto cascade_root_slot = cascade_root_slots_[source_index];
+    auto* cascade = cascade_coordinators_[source_index];
     if (!pipeline_report.result_.has_tracked_) {
+        // A failed primary decode still closes admission for the exact retained frame.
+        // Otherwise the source could never drain after one malformed model result.
+        if (cascade != nullptr &&
+            pump_report.result_model_slot_ == cascade_root_slot) {
+            observation_batch empty;
+            empty.frame_ = {camera_ids_[source_index], channel_ids_[source_index],
+                pump_report.result_ticket_.source_epoch_,
+                pump_report.result_ticket_.source_frame_id_,
+                pump_report.result_ticket_.source_pts_ns_};
+            cascade_coordinator_report discarded_report;
+            const auto retired = cascade->vqec_vision_ai_appl_cscrd_process(
+                _steady_now_ns, empty, cascade_aligned_, cascade_embeddings_,
+                discarded_report);
+            if (retired.code_ != status_code::ok) {
+                return retired;
+            }
+        }
         // The decode/track layer failed, so there is no valid routed output and nothing
         // is retained. Surface the original routing error.
         return processed;
@@ -62,6 +95,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     // record the first feature error instead of discarding healthy work.
     const auto composition_snapshot =
         composition_.vqec_vision_ai_cntr_acomp_get_snapshot();
+    pending_report_ = {};
     pending_report_.source_index_ = source_index;
     pending_report_.model_slot_ = pipeline_report.result_.model_slot_;
     pending_report_.features_ = pipeline_report.features_;
@@ -71,6 +105,19 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         delivery_gate_->vqec_vision_ai_core_otgat_get_revision() : 0;
     pending_report_.has_tracked_ = true;
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
+    if (cascade != nullptr && pipeline_report.result_.model_slot_ == cascade_root_slot) {
+        const auto cascaded = cascade->vqec_vision_ai_appl_cscrd_process(
+            _steady_now_ns, pending_tracked_[cascade_root_slot], cascade_aligned_,
+            cascade_embeddings_, pending_report_.cascade_);
+        pending_report_.has_cascade_ = true;
+        metrics_.cascade_tasks_accepted_ += pending_report_.cascade_.accepted_;
+        metrics_.cascade_embeddings_ += pending_report_.cascade_.embedded_;
+        metrics_.cascade_tasks_failed_ += pending_report_.cascade_.failed_;
+        if (cascaded.code_ != status_code::ok &&
+            pending_report_.first_error_code_ == status_code::ok) {
+            pending_report_.first_error_code_ = cascaded.code_;
+        }
+    }
     if (result.pipeline_pts_ns_ != 0 && _steady_now_ns >= result.pipeline_pts_ns_) {
         const auto latency = _steady_now_ns - result.pipeline_pts_ns_;
         metrics_.end_to_end_ns_sum_ += latency;
@@ -80,7 +127,9 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
             latency < metrics_.end_to_end_ns_min_ ? latency : metrics_.end_to_end_ns_min_;
         ++metrics_.end_to_end_samples_;
     }
-    pending_report_.first_error_code_ = processed.code_;
+    if (pending_report_.first_error_code_ == status_code::ok) {
+        pending_report_.first_error_code_ = processed.code_;
+    }
     has_pending_ = true;
     ++metrics_.results_routed_;
     _report = pending_report_;
@@ -89,6 +138,8 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
 
 void runtime_executor::vqec_vision_ai_appl_rtexe_discard_pending() noexcept {
     has_pending_ = false;
+    cascade_aligned_.clear();
+    cascade_embeddings_.clear();
 }
 
 status runtime_executor::vqec_vision_ai_appl_rtexe_take_result(
@@ -102,6 +153,8 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_take_result(
     _events = std::move(pending_events_);
     _report = pending_report_;
     has_pending_ = false;
+    cascade_aligned_.clear();
+    cascade_embeddings_.clear();
     return {};
 }
 
@@ -119,6 +172,29 @@ void runtime_executor::vqec_vision_ai_appl_rtexe_bind_event_delivery(
     output_gate& _gate, feature_event_sink_port& _sink) noexcept {
     delivery_gate_ = &_gate;
     delivery_sink_ = &_sink;
+}
+
+status runtime_executor::vqec_vision_ai_appl_rtexe_bind_cascade(
+    std::uint16_t _source_index, std::uint16_t _model_slot,
+    cascade_coordinator& _coordinator, std::size_t _max_results) {
+    if (_source_index >= source_count_ ||
+        cascade_root_slots_[_source_index] == g_invalid_model_slot ||
+        cascade_root_slots_[_source_index] != _model_slot ||
+        cascade_coordinators_[_source_index] != nullptr ||
+        !_coordinator.vqec_vision_ai_appl_cscrd_is_configured() ||
+        _max_results == 0 || _max_results > image_alignment_limits::g_max_points ||
+        metrics_.steps_ != 0) {
+        return {status_code::invalid_argument, "invalid runtime cascade binding"};
+    }
+    try {
+        cascade_aligned_.reserve(_max_results);
+        cascade_embeddings_.reserve(_max_results);
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "runtime cascade result reservation failed"};
+    }
+    cascade_coordinators_[_source_index] = &_coordinator;
+    return {};
 }
 
 status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(

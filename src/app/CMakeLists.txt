@@ -117,6 +117,7 @@ target_include_directories(vqec_vision_ai_runtime_executor PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs>)
 target_link_libraries(vqec_vision_ai_runtime_executor
     PUBLIC vqec_vision_ai_application_composition
+    vqec_vision_ai_cascade_coordinator
     vqec_vision_ai_multi_model_feature_pipeline
     vqec_vision_ai_feature_event_dispatch)
 set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS OFF)

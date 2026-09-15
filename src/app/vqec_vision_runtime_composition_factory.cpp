@@ -288,11 +288,18 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             deployment_limits::g_max_sources> perception_activations{};
         std::array<inference_graph_port*, g_max_runtime_graphs> graphs{};
         std::array<std::uint64_t, g_max_runtime_graphs> cycles{};
+        std::array<std::uint16_t, deployment_limits::g_max_sources>
+            cascade_root_slots{};
+        std::array<std::uint32_t, deployment_limits::g_max_sources> camera_ids{};
+        std::array<std::uint32_t, deployment_limits::g_max_sources> channel_ids{};
+        cascade_root_slots.fill(g_invalid_model_slot);
         std::size_t registered_graphs = 0;
 
         for (std::uint16_t source_slot = 0;
              source_slot < _activation.source_count_; ++source_slot) {
             const auto& source = _deployment.sources_[source_slot];
+            camera_ids[source_slot] = source.camera_id_;
+            channel_ids[source_slot] = source.channel_id_;
             const auto& admitted_source = admission.sources_[source_slot];
             const auto& source_activation = _activation.sources_[source_slot];
             if (admitted_source.deployment_index_ != source_slot ||
@@ -356,6 +363,13 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
                 if (is_cascade_root && source.cascade_.max_bytes_ == 0) {
                     return {status_code::invalid_argument,
                         "cascade-root model requires a source cascade budget"};
+                }
+                if (is_cascade_root) {
+                    if (cascade_root_slots[source_slot] != g_invalid_model_slot) {
+                        return {status_code::unsupported,
+                            "one source currently supports one cascade root"};
+                    }
+                    cascade_root_slots[source_slot] = model_slot;
                 }
             }
         }
@@ -434,7 +448,9 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             pipeline_ptrs[source_slot] = candidate->pipelines_[source_slot].get();
         }
         candidate->executor_ = std::make_unique<runtime_executor>(
-            *candidate->composition_, pipeline_ptrs, candidate->source_count_);
+            *candidate->composition_, pipeline_ptrs, cascade_root_slots,
+            camera_ids, channel_ids,
+            candidate->source_count_);
 
         _bundle = std::move(candidate);
         return {};

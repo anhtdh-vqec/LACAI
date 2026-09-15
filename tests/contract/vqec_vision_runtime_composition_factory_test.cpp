@@ -468,6 +468,10 @@ int main() {
         std::unique_ptr<runtime_composition_bundle> cascade_bundle;
         assert(vqec_vision_ai_appl_rcfac_create_bundle(cascade_deployment, cascade_catalog,
                    activation, decoders, trackers, cascade_bundle).code_ == status_code::ok);
+        runtime_executor_report cascade_report;
+        assert(cascade_bundle->vqec_vision_ai_appl_rcfac_get_executor()
+                   ->vqec_vision_ai_appl_rtexe_step(0, cascade_report).code_ ==
+               status_code::invalid_state);
         auto* cascade_session = cascade_bundle->vqec_vision_ai_appl_rcfac_get_session(0);
         assert(cascade_session != nullptr);
         tensor_result cascade_result;
