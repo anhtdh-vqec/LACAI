@@ -155,6 +155,15 @@ The exact `engine-param` grammar and whether `qtivtransform`/`qtivcomposer` acce
 arbitrary transform matrix must be verified with a board pipeline before use; no offload
 claim is made here.
 
+Board experiment (`.48`): `gst-launch-1.0 videotestsrc ... ! qtivtransform crop="<100,100,
+200,200>" destination="<0,0,112,112>" ! video/x-raw,width=112,height=112 ! fakesink` exited
+0 for both `engine=fcv` and `engine=gles` (gles initialises an offscreen EGL display
+headless). An arbitrary `engine-param` string was accepted without error, but the plugin
+strings expose no `affine`/`matrix`/`perspective` support and it reports only
+resize/colorspace/flip/90-180-rotate, so **arbitrary-angle affine is not proven**. The
+verified offload is therefore axis-aligned ROI crop + NV12->RGB + resize on FastCV/GPU; the
+residual rotation stays on FastCV until a board pipeline proves an affine-capable path.
+
 ## See also
 
 - [ADR 0005](../adr/0005_scalable_model_integration.md),
