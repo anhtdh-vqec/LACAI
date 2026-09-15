@@ -1,6 +1,8 @@
 # Per-source session worker
 
-Status: device-free source delivered and tested; not yet wired into the supervisor.
+Status: device-free source delivered and tested. The supervisor async mode drives sessions
+through it and is unit-tested; application composition does not enable that mode on the
+running service path yet.
 
 `source_session_worker` runs one serialized `source_session_port` on its own thread so a
 blocking backend call inside a session step (for example a synchronous `graphExecute`)
@@ -34,6 +36,9 @@ QEMU.
 
 ## Remaining
 
-- Wiring: the supervisor must drive sessions through these workers (request step/poll
-  completion) instead of calling `step` directly, and treat a full worker as backpressure.
-  Until then the module is tested but not on the running path.
+- The supervisor async path (`mssup_activate` with `use_session_workers_`) drives sessions
+  through these workers and is covered by
+  `tests/unit/vqec_vision_multi_source_supervisor_async_test.cpp`. `application_composition`
+  and the service harness do not enable it yet, so the running service still calls session
+  steps directly on the control thread.
+- Automatic restart/backoff and epoch replacement remain open.

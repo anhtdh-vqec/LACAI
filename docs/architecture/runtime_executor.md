@@ -61,21 +61,21 @@ lifecycle only: no accuracy, zero-copy, DMA completion or performance claim foll
 
 ## Service harness
 
-`vqec_vision_applications` (source `src/app/vqec_vision_service_main.cpp`) is the
+`vqec_ai_vision_applications` (source `src/app/vqec_vision_service_main.cpp`) is the
 composition root for the required external executable. It loads a validated deployment
-and model catalog (and optional feature catalog), builds reference platform owners for
-every deployment source/model slot, registers a built-in development fixture package set
-(a no-op decoder/tracker/feature), optionally activates `single_model` features, then
-runs and drains the executor loop until `--steps` or SIGINT/SIGTERM.
+and model catalog (and optional feature catalog), builds platform owners for every
+deployment source/model slot, registers the platform's decoder/tracker/feature package
+set, optionally activates `single_model` features, then runs and drains the executor loop
+until `--steps` or SIGINT/SIGTERM.
 
 The loop advances on the real `std::chrono::steady_clock`; a wall-clock step is never a
 fabricated counter. The first error is latched and reflected in the process exit status,
 and a result still pending at stop is consumed during drain.
 
-`--mode harness` (default) is the development harness described above. `--mode
-production` deliberately fails closed with a non-zero status because no Camera/Qualcomm
-platform owner or real package factory registration is wired yet; it never substitutes
-the fixture package set or reference owners for real model contracts.
+`--mode harness` (default) selects the device-free fake platform implicitly. `--mode
+production` requires an explicit `--platform` and never falls back: `fake` and `reference`
+are device-free owners, `qualcomm` selects the wired Camera/QNN production owner, and any
+unwired platform name exits non-zero instead of substituting the fixture package set.
 
 It is built only when the JSON loaders and the reference backend are enabled. The
 development fixture set is not a usecase and must be replaced during integration.
