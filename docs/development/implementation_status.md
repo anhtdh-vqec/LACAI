@@ -170,6 +170,13 @@ assuming `providers[0]` is compatible; an incompatible set returns `unsupported`
 QCS6490 board smoke re-verified SCRFD composition and execution on HTP after the change
 (`vqec_vision_ai_qnn_engine_smoke`, 9 outputs, exit 0).
 
+The production platform now builds each model backend through `qnn_backend_bundle`
+(`vqec_vision_ai_qcom_bfact_create`) instead of constructing `qnn_engine` directly, so the
+engine open, capability probe and execution-policy validation happen before a graph
+binding is handed to orchestration. `vqec_vision_model_runner` uses the same factory; the
+board run of the YOLOv8n-person package through it passed preprocess, QNN execute and
+decode (exit 0). FastCV preprocessing selection is still a direct adapter construction.
+
 ## Build and test inventory
 
 - CMake declares portable core, camera wire/control, orchestration, cadence, admission,

@@ -26,7 +26,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "vqec_vision_qnn_engine.hpp"
+#include "vqec_vision_backend_factory.hpp"
 #include "vqec_vision_reference_processor.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
@@ -205,21 +205,30 @@ int main(int _argc, char** _argv) {
             return 1;
         }
 
-        qnn_engine engine;
-        const auto opened = engine.vqec_vision_ai_qcom_qneng_open(
-            options.backend_library, options.system_library, inference_execution_policy{});
-        if (opened.code_ != status_code::ok) {
-            std::fprintf(stderr, "engine open failed: %s\n", opened.message_.c_str());
+        // Exercise the same capability-checked backend selection production uses: the
+        // factory opens the engine, probes adapter capabilities and validates the default
+        // execution policy before returning the engine/graph bundle.
+        resolved_model_paths paths;
+        paths.model_id_ = io_manifest.value("model_id", std::string{"model"});
+        paths.model_path_ = options.model_library;
+        paths.backend_path_ = options.backend_library;
+        paths.system_path_ = options.system_library;
+        std::unique_ptr<qnn_backend_bundle> backend;
+        const auto created =
+            vqec_vision_ai_qcom_bfact_create(paths, inference_execution_policy{}, backend);
+        if (created.code_ != status_code::ok) {
+            std::fprintf(stderr, "backend factory failed: %s\n", created.message_.c_str());
             return 1;
         }
-        const auto prepared = engine.vqec_vision_ai_qcom_qneng_prepare(options.model_library);
+        auto* engine = backend->vqec_vision_ai_qcom_bfact_get_engine();
+        const auto prepared = engine->vqec_vision_ai_qcom_qneng_prepare(options.model_library);
         if (prepared.code_ != status_code::ok) {
             std::fprintf(stderr, "engine prepare failed: %s\n", prepared.message_.c_str());
             return 1;
         }
         std::vector<tensor_spec> actual_inputs;
         std::vector<tensor_spec> actual_outputs;
-        if (engine.vqec_vision_ai_qcom_qneng_get_tensors(actual_inputs, actual_outputs).code_ !=
+        if (engine->vqec_vision_ai_qcom_qneng_get_tensors(actual_inputs, actual_outputs).code_ !=
                 status_code::ok ||
             actual_inputs.size() != 1) {
             std::fprintf(stderr, "engine tensor metadata is unavailable\n");
@@ -304,7 +313,7 @@ int main(int _argc, char** _argv) {
         }
 
         std::vector<tensor_blob> output_blobs;
-        const auto executed = engine.vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
+        const auto executed = engine->vqec_vision_ai_qcom_qneng_execute(input_blobs, output_blobs);
         if (executed.code_ != status_code::ok) {
             std::fprintf(stderr, "QNN execute failed: %s\n", executed.message_.c_str());
             return 1;

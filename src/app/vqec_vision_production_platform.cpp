@@ -8,10 +8,9 @@
 #include <nlohmann/json.hpp>
 
 #include "vqec_vision_dbus_rpc.hpp"
+#include "vqec_vision_backend_factory.hpp"
 #include "vqec_vision_fastcv_processor.hpp"
-#include "vqec_vision_qnn_engine.hpp"
 #include "vqec_vision_qtiv_renderer.hpp"
-#include "vqec_vision_qnn_inference_graph.hpp"
 #include "vqec_vision_raw_source_resolver.hpp"
 #include "vqec_vision_reference_feature.hpp"
 #include "vqec_vision_reference_tracker.hpp"
@@ -31,8 +30,7 @@ struct model_slot_owner {
     std::string model_id_;
     resolved_model_paths paths_;
     model_outputs outputs_;
-    std::unique_ptr<qnn_engine> engine_;
-    std::unique_ptr<qnn_inference_graph> graph_;
+    std::unique_ptr<qnn_backend_bundle> backend_;
     std::unique_ptr<fastcv_processor> processor_;
     std::unique_ptr<model_decoder_port> decoder_;
 };
@@ -272,12 +270,14 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         owner.paths_.backend_path_ = impl.config_.backend_library_;
         owner.paths_.system_path_ = impl.config_.system_library_;
 
-        owner.engine_ = std::make_unique<qnn_engine>();
-        const auto opened = owner.engine_->vqec_vision_ai_qcom_qneng_open(
-            impl.config_.backend_library_, impl.config_.system_library_,
-            inference_execution_policy{});
-        if (opened.code_ != status_code::ok) {
-            return opened;
+        // Capability-checked backend selection: the factory opens the engine, probes the
+        // adapter capabilities, validates the requested execution policy against them and
+        // only then constructs the graph binding. An unsupported policy fails closed here
+        // instead of being discovered at execute time.
+        const auto created = vqec_vision_ai_qcom_bfact_create(
+            owner.paths_, inference_execution_policy{}, owner.backend_);
+        if (created.code_ != status_code::ok) {
+            return created;
         }
         // Declared package metadata. The graph validates it against the composed QNN
         // graph during activation; the platform must not prepare the engine here because
@@ -344,7 +344,6 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         if (decoder_status.code_ != status_code::ok) {
             return decoder_status;
         }
-        owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
         owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
             max_frame_allocation_bytes,
             impl.config_.preprocess_output_timeout_ns_});
@@ -498,7 +497,8 @@ inference_graph_port* production_platform::vqec_vision_ai_appl_pdplt_graph(
     }
     for (auto& owner : implementation_->models_) {
         if (owner.model_id_ == _model_id) {
-            return owner.graph_.get();
+            return owner.backend_ != nullptr ?
+                owner.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
         }
     }
     return nullptr;
