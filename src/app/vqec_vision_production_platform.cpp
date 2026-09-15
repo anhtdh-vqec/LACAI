@@ -1,5 +1,6 @@
 #include "vqec_vision_production_platform.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <utility>
 #include <vector>
@@ -16,12 +17,16 @@
 #include "vqec_vision_reference_tracker.hpp"
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {
 
 using nlohmann::json;
+
+inline constexpr char g_labels_key[] = "labels";
+inline constexpr char g_labels_ref_key[] = "labels_ref";
 
 struct model_slot_owner {
     std::string model_id_;
@@ -39,6 +44,54 @@ json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
         throw std::runtime_error("cannot open package file: " + _path);
     }
     return json::parse(stream);
+}
+
+std::vector<std::string> vqec_vision_ai_appl_pdplt_load_labels(
+    const json& _decoder, const std::string& _package_dir,
+    std::size_t _class_count) {
+    const bool has_inline = _decoder.contains(g_labels_key);
+    const bool has_reference = _decoder.contains(g_labels_ref_key);
+    if (has_inline && has_reference) {
+        throw std::runtime_error("decoder declares both inline and referenced labels");
+    }
+    std::vector<std::string> labels;
+    if (has_inline) {
+        labels = _decoder[g_labels_key].get<std::vector<std::string>>();
+    } else if (has_reference) {
+        const auto reference = _decoder[g_labels_ref_key].get<std::string>();
+        if (reference.empty() || reference == "." || reference == ".." ||
+            reference.find_first_of("/\\") != std::string::npos) {
+            throw std::runtime_error("decoder label reference is not a package filename");
+        }
+        std::ifstream stream(_package_dir + "/" + reference);
+        if (!stream.is_open()) {
+            throw std::runtime_error("cannot open decoder label file");
+        }
+        std::string label;
+        while (std::getline(stream, label)) {
+            if (!label.empty() && label.back() == '\r') {
+                label.pop_back();
+            }
+            labels.push_back(std::move(label));
+        }
+    }
+    if (!labels.empty() && labels.size() != _class_count) {
+        throw std::runtime_error("decoder label count differs from class count");
+    }
+    for (std::size_t index = 0; index < labels.size(); ++index) {
+        const auto& label = labels[index];
+        const bool is_printable = std::all_of(label.begin(), label.end(), [](char _value) {
+            const auto value = static_cast<unsigned char>(_value);
+            return value >= preview_limits::g_min_label_character &&
+                value <= preview_limits::g_max_label_character;
+        });
+        if (label.empty() || label.size() > preview_limits::g_max_label_bytes ||
+            !is_printable || std::find(labels.begin(), labels.begin() + index, label) !=
+                labels.begin() + index) {
+            throw std::runtime_error("decoder label file contains an invalid label");
+        }
+    }
+    return labels;
 }
 
 tensor_element_type vqec_vision_ai_appl_pdplt_dtype(const std::string& _name) {
@@ -226,9 +279,8 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         decoder_config.confidence_threshold_ =
             decoder_json.value("confidence_threshold", 0.25F);
         decoder_config.iou_threshold_ = decoder_json.value("iou_threshold", 0.45F);
-        if (decoder_json.contains("labels")) {
-            decoder_config.class_names_ = decoder_json["labels"].get<std::vector<std::string>>();
-        }
+        decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
+            decoder_json, impl.config_.package_dir_, decoder_config.class_count_);
         owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
         owner.graph_ = std::make_unique<qnn_inference_graph>(*owner.engine_);
         owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{

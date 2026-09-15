@@ -389,7 +389,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     }
     for (const auto& item : _observations.observations_) {
         GstVideoRegionOfInterestMeta* roi = gst_buffer_add_video_region_of_interest_meta(
-            buffer, item.class_id_.c_str(),
+            buffer, item.box_.label_.c_str(),
             static_cast<guint>(item.box_.x_), static_cast<guint>(item.box_.y_),
             static_cast<guint>(item.box_.width_), static_cast<guint>(item.box_.height_));
         if (roi == nullptr) {
