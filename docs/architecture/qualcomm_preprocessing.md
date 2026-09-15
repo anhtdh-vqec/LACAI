@@ -73,6 +73,13 @@ rate. They do not yet provide percentile latency from released-FW capture to rin
 thermal/soak qualification, model accuracy, real camera DMA-BUF import, or multi-model
 capacity. The compatibility camera copies QMMF pixels into memfd before the LACAI boundary.
 
+A later steady-state sample after label and geometry fixes measured 44.5% process CPU and
+exactly 30.0 encoded frames/s over five seconds. This remains outside the requested
+15–25% CPU range. The standalone HTP probes measured SCRFD at 4.405 ms average over 20
+executions and EdgeFace at 2.918 ms average over 50 executions, so adding model-specific
+CPU postprocess or running all secondary crops without admission would work against the
+CPU target. See [cascade inference](cascade_inference.md).
+
 ## Next optimization gates
 
 1. Pin a released-FW timestamp clock and report capture-to-result and capture-to-ring

@@ -1,4 +1,4 @@
-# Implementation status — 2026-09-14
+# Implementation status — 2026-09-15
 
 Current source inventory, checked against `src/`, public headers, test sources and
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
@@ -21,6 +21,16 @@ Qualcomm production owner now also runs the live person path through compatibili
 camera/RTSP services on `.48`; visual inspection confirmed correct color and visible boxes.
 Board evidence and limits are in [QCS6490 target](../testing/qsc6490_board.md). Accuracy,
 async/shared memory, released-FW DMA completion, zero-copy and performance remain unqualified.
+
+2026-09-15 live update: the production person path sustains 30 AI results/s and 30 encoded
+frames/s with package labels rendered as `person`. FastCV preprocessing and QNN HTP are
+active. Steady process CPU measured about 44.5%; profiling attributes the remaining cost
+mainly to FastCV color/resize, the compatibility NV12-to-QTI render-surface copy and QNN
+client-buffer staging. The service also clips decoded edge boxes to the exact preview
+contract and no longer terminates on float rounding at the image boundary. SCRFD and
+EdgeFace execution/tensor probes are recorded in
+[cascade inference](../architecture/cascade_inference.md). The current secondary scheduler
+does not retain source pixels and is not yet sufficient for FD-to-FR composition.
 
 ## Evidence level
 
@@ -67,7 +77,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 |---|---|---|
 | `src/core/`, `include/vqec/vision/ai/contracts/` | Status, explicit frame/tensor metadata, inference/source-binding validation, source-frame-correlated submission ledger, observation/feature-event validation, output policy, preview and encoder contracts | Concrete decoder/tracker/feature algorithms; device completion evidence |
 | `include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp` | Neutral model-decoder port keeps model output identity and expected frame key at the tensor-to-observation boundary; contract test source is registered in CMake | Concrete detector decoders, model-specific geometry/NMS and tensor-to-observation implementation |
-| `src/perception/detection/vqec_vision_model_decode_stage.cpp` | Transactional portable decoder stage validates decoded observations, geometry binding and exception containment before publication | Concrete detector geometry/NMS semantics and model implementations |
+| `src/perception/detection/vqec_vision_model_decode_stage.cpp` | Transactional portable decoder stage validates decoded observations, geometry binding and exception containment before publication; the package-configured YOLOv8 decoder is live on QCS6490 | Anchor-distance/landmark decoder and additional model contracts |
 | `src/perception/detection/vqec_vision_model_decoder_registry.cpp` | Bounded activation-time mapping from catalog decoder contracts to non-owning decoder ports; validates output-manifest identity through the selected decoder | Trusted decoder loading, lifecycle ownership and concrete model implementations |
 | `src/perception/detection/vqec_vision_tensor_reader.cpp` | Bounded tensor lookup and manifest shape/value-count validation for model decoders | Model-specific tensor semantics and postprocess |
 | `include/vqec/vision/ai/ports/vqec_vision_tracker.hpp`, `src/perception/tracking/vqec_vision_tracker_registry.cpp` | Neutral serialized tracker port plus bounded activation-time factory registry with distinct per-source/model owners | Concrete association/tracking implementation |
@@ -86,7 +96,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
-| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.48` | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, thermal qualification and BSP recovery |
+| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.48`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
 | `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute and an `inference_graph_port` binding with tensor submission; a factory builds the owned engine+graph bundle from resolved paths and fails closed on an unsupported policy; compiles against vendored QAIRT with the eSDK compiler | Async/shared-memory/LoRA execution wiring, production composition/service selection and board qualification |
 | `src/app/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |

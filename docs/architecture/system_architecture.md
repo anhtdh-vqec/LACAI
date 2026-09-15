@@ -101,6 +101,10 @@ FW config + entitlement --> feature manager --> dependency graph + admission
 Health / effective state / metrics -------------------------------> FW
 ```
 
+Dependent ROI models use the bounded design in
+[cascade inference](cascade_inference.md). They retain the exact source frame through
+secondary completion and do not enter the full-frame multi-model cadence fan-out.
+
 Release FW RAW frame lease sau khi TẤT CẢ image jobs đọc frame đó hoàn tất.
 Inference thường dùng tensor AI-owned, không giữ RAW frame lease.
 Temporal windows giữ crop/tensor nhỏ có budget, không giữ một dãy frame 4K.
