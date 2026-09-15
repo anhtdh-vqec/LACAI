@@ -196,6 +196,10 @@ void vqec_vision_ai_unit_mctst_check_roles_and_dependencies() {
     }
     auto cascade_deployment = vqec_vision_ai_unit_mctst_make_deployment();
     cascade_deployment.sources_[0].model_ids_ = {"person_detector"};
+    if (!vqec_vision_ai_core_mdcat_source_activates_model(
+            cascade_deployment.sources_[0], catalog.models_[1])) {
+        throw std::runtime_error("secondary dependency activation was not resolved");
+    }
     if (vqec_vision_ai_core_mdcat_validate_deployment_models(
             cascade_deployment, catalog, bytes).code_ != status_code::ok ||
         bytes != 64U * g_mib) {
@@ -205,6 +209,19 @@ void vqec_vision_ai_unit_mctst_check_roles_and_dependencies() {
     if (vqec_vision_ai_core_mdcat_validate_deployment_models(
             cascade_deployment, catalog, bytes).code_ != status_code::resource_exhausted) {
         throw std::runtime_error("secondary tensor budget was not enforced");
+    }
+    auto secondary_paths = resolved_model_paths{};
+    secondary_paths.model_id_ = catalog.models_[1].model_id_;
+    secondary_paths.target_id_ = catalog.models_[1].target_id_;
+    secondary_paths.artifact_ref_ = catalog.models_[1].artifact_ref_;
+    secondary_paths.model_path_ = "/opt/vqec/models/face_embedding.so";
+    secondary_paths.backend_path_ = "/usr/lib/libQnnHtp.so";
+    secondary_paths.system_path_ = "/usr/lib/libQnnSystem.so";
+    inference_plan secondary_plan;
+    if (vqec_vision_ai_core_mdcat_compose_inference_plan(
+            cascade_deployment.sources_[0], catalog.models_[1], secondary_paths,
+            secondary_plan).code_ != status_code::ok) {
+        throw std::runtime_error("secondary dependency inference plan was not composed");
     }
     auto missing = catalog;
     missing.models_[1].depends_on_.clear();

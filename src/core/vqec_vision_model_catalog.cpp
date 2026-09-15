@@ -201,7 +201,7 @@ bool vqec_vision_ai_core_mdcat_source_assigns_model(
         _source.model_ids_.end();
 }
 
-bool vqec_vision_ai_core_mdcat_source_activates_model(
+bool vqec_vision_ai_core_mdcat_source_activates_model_impl(
     const source_deployment_config& _source, const model_catalog_entry& _model) noexcept {
     if (_model.role_ == model_role::primary) {
         return vqec_vision_ai_core_mdcat_source_assigns_model(_source, _model.model_id_);
@@ -215,6 +215,11 @@ bool vqec_vision_ai_core_mdcat_source_activates_model(
 }
 
 }  // namespace
+
+bool vqec_vision_ai_core_mdcat_source_activates_model(
+    const source_deployment_config& _source, const model_catalog_entry& _model) noexcept {
+    return vqec_vision_ai_core_mdcat_source_activates_model_impl(_source, _model);
+}
 
 status vqec_vision_ai_core_mdcat_validate_catalog(
     const model_catalog& _catalog, std::uint64_t& _declared_resident_bytes) {
@@ -402,13 +407,8 @@ status vqec_vision_ai_core_mdcat_validate_model_outputs(
 status vqec_vision_ai_core_mdcat_compose_inference_plan(
     const source_deployment_config& _source, const model_catalog_entry& _model,
     const resolved_model_paths& _paths, inference_plan& _plan) {
-    bool is_assigned = false;
-    for (const auto& model_id : _source.model_ids_) {
-        if (model_id == _model.model_id_) {
-            is_assigned = true;
-            break;
-        }
-    }
+    const bool is_assigned =
+        vqec_vision_ai_core_mdcat_source_activates_model(_source, _model);
     const auto valid_model = vqec_vision_ai_core_mdcat_validate_entry(_model);
     if (valid_model.code_ != status_code::ok) {
         return valid_model;

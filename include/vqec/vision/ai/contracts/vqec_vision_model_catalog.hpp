@@ -111,12 +111,19 @@ struct resolved_model_paths {
 [[nodiscard]] status vqec_vision_ai_core_mdcat_validate_deployment_models(
     const deployment_config& _deployment, const model_catalog& _catalog,
     std::uint64_t& _required_model_resident_bytes);
+
+// True when a source directly assigns a primary model, or assigns every immutable primary
+// dependency of a secondary model. This is the single activation rule shared by admission
+// and platform composition; it never adds a secondary model to the full-frame submit mask.
+[[nodiscard]] bool vqec_vision_ai_core_mdcat_source_activates_model(
+    const source_deployment_config& _source, const model_catalog_entry& _model) noexcept;
 [[nodiscard]] status vqec_vision_ai_core_mdcat_validate_model_outputs(
     const model_catalog_entry& _model, const std::string& _resolved_manifest_ref,
     const model_outputs& _outputs, std::uint64_t& _required_output_bytes);
 
 // Builds the current single-image Qualcomm plan from three distinct authorities:
 // source profile/budget, Model-team catalog entry, and trusted platform path resolver.
+// A secondary model is eligible when the source activates all of its dependencies.
 // Failure preserves _plan.
 [[nodiscard]] status vqec_vision_ai_core_mdcat_compose_inference_plan(
     const source_deployment_config& _source, const model_catalog_entry& _model,
