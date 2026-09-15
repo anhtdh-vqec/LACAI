@@ -92,6 +92,10 @@ parity and device-completion evidence.
   bound secondary tasks, and drain by dependent graph.
 - The final completion/domain semantics and the ticket owner (which component calls
   `complete`) must be reviewed with the pump/session owner before implementation.
+- A design proposal for the pump retention/dependent-drain ownership and the
+  `complete(ticket)` owner is at
+  [pump cascade retention](../architecture/pump_cascade_retention.md). Gates 3–4 remain open
+  pending owner sign-off; nothing in that proposal is delivered.
 
 ## 4. Orchestration scope (corrected)
 
@@ -156,5 +160,5 @@ later stage.
       above.- [ ] Pump/session owner review of the retention and dependent-drain ownership is complete.
 - [ ] Retention generation/completion semantics and the `complete(ticket)` owner are
       finalized.
-- [ ] Capability/status docs are updated so none of the above is claimed as delivered
+- [x] Capability/status docs are updated so none of the above is claimed as delivered
       before it is.
