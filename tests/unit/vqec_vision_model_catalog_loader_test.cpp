@@ -16,6 +16,11 @@ constexpr char g_valid_catalog[] = R"({
 "output_manifest_ref":"person_detector_outputs_v1",
 "decoder_contract":"person_detector.decoder.v1",
 "preprocess_contract":"nv12_rgb_letterbox_v1","graph_name":"person_detector_graph",
+"preprocess":{"source_format":"nv12","color_matrix":"bt709","color_range":"limited",
+"resize":"letterbox","interpolation":"bilinear","placement":"top_left",
+"pad_value":[0,0,0],"channel_order":"rgb",
+"normalization":{"formula":"offset_scale","offset":[127.5,127.5,127.5],
+"scale":[0.0078125,0.0078125,0.0078125]},"coordinates":"tensor_pixels_xywh"},
 "input":{"width":640,"height":640,"dtype":"uint8","channel_order":"rgb",
 "placement":"centre","mean":[0,0,0],"sigma":[1,1,1]},
 "inference_cadence":{"numerator":10,"denominator":1},
@@ -162,6 +167,19 @@ void vqec_vision_ai_unit_mltst_check_loader() {
             "\"schema_version\":1", "\"schema_version\":2"),
         status_code::invalid_argument);
     vqec_vision_ai_unit_mltst_require_v2_load(g_valid_catalog_v2, status_code::ok);
+    {
+        std::istringstream stream(g_valid_catalog);
+        model_catalog catalog;
+        std::uint64_t resident_bytes = 0;
+        const auto loaded =
+            vqec_vision_ai_mreg_mdcat_load_catalog(stream, catalog, resident_bytes);
+        if (loaded.code_ != status_code::ok || catalog.models_.size() != 1U ||
+            catalog.models_[0].preprocess_.placement_ != image_placement::top_left ||
+            catalog.models_[0].preprocess_.offset_[0] != 127.5F ||
+            catalog.models_[0].preprocess_.scale_[0] != 0.0078125F) {
+            throw std::runtime_error("authoritative preprocess was not loaded exactly");
+        }
+    }
     vqec_vision_ai_unit_mltst_require_v2_load(
         g_valid_catalog_v2_secondary, status_code::ok);
     // A primary model must not declare dependencies.
@@ -196,6 +214,16 @@ void vqec_vision_ai_unit_mltst_check_loader() {
     vqec_vision_ai_unit_mltst_require_load(
         vqec_vision_ai_unit_mltst_replace(
             "\"dtype\":\"uint8\"", "\"dtype\":\"bfloat16\""),
+        status_code::invalid_argument);
+    // An authoritative preprocess is closed and complete: no missing or unknown policy.
+    vqec_vision_ai_unit_mltst_require_load(
+        vqec_vision_ai_unit_mltst_replace(
+            "\"placement\":\"top_left\",", ""),
+        status_code::invalid_argument);
+    vqec_vision_ai_unit_mltst_require_load(
+        vqec_vision_ai_unit_mltst_replace(
+            "\"coordinates\":\"tensor_pixels_xywh\"",
+            "\"coordinates\":\"tensor_pixels_xywh\",\"extra\":1"),
         status_code::invalid_argument);
     vqec_vision_ai_unit_mltst_require_load(
         std::string(g_valid_catalog) + std::string(

@@ -91,6 +91,45 @@
         "target_id": { "$ref": "#/$defs/identifier" }
       }
     },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formula", "offset", "scale"],
+      "properties": {
+        "formula": { "enum": ["offset_scale", "mean_std", "none"] },
+        "offset": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "number" }
+        },
+        "scale": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "number", "not": { "const": 0 } }
+        }
+      }
+    },
+    "preprocess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_format", "color_matrix", "color_range", "resize",
+        "interpolation", "placement", "pad_value", "channel_order", "normalization",
+        "coordinates"],
+      "properties": {
+        "source_format": { "enum": ["nv12", "rgb888", "bgr888", "rgba8888"] },
+        "color_matrix": { "enum": ["bt601", "bt709", "bt2020"] },
+        "color_range": { "enum": ["limited", "full"] },
+        "resize": { "enum": ["stretch", "letterbox", "crop"] },
+        "interpolation": { "enum": ["nearest", "bilinear", "area"] },
+        "placement": { "enum": ["top_left", "centre", "stretch"] },
+        "pad_value": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "number", "minimum": 0, "maximum": 255 }
+        },
+        "channel_order": { "enum": ["rgb", "bgr"] },
+        "normalization": { "$ref": "#/$defs/normalization" },
+        "coordinates": { "enum": ["tensor_pixels_xywh", "tensor_pixels_xyxy",
+          "normalized_xywh", "normalized_xyxy"] }
+      }
+    },
     "model": {
       "type": "object",
       "additionalProperties": false,
@@ -109,6 +148,7 @@
         "decoder_contract": { "$ref": "#/$defs/identifier" },
         "preprocess_contract": { "$ref": "#/$defs/identifier" },
         "graph_name": { "$ref": "#/$defs/identifier" },
+        "preprocess": { "$ref": "#/$defs/preprocess" },
         "input": { "$ref": "#/$defs/input" },
         "inference_cadence": { "$ref": "#/$defs/rate" },
         "source_constraints": { "$ref": "#/$defs/source_constraints" },
