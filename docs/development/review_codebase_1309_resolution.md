@@ -1,5 +1,9 @@
 # Resolution log — codebase review 2026-09-13
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](implementation_status.md);
+current priorities are in [alignment review](architecture_alignment_review.md).
+
 Source review: [review_codebase_1309.md](review_codebase_1309.md). This log records the
 disposition of every section. A section is `fixed` only when source, tests and docs are in
 the tree and the eSDK configurations run; `planned` means the change needs a board vertical

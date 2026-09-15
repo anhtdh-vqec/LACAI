@@ -44,3 +44,23 @@ unbuilt source as a completed module.
 - No secrets, credentials, model binaries or private SDK paths in prose.
 - Keep lines within 100 columns where practical.
 - Update the README in the same change as the source or contract it describes.
+
+## Authority and status (2026-09-15 normalization)
+
+1. User-approved project rules govern workflow. AGENTS.md records persistent constraints.
+2. system_architecture.md defines current layer/ownership direction. Contracts define exact
+   boundaries; a proposal is not a released protocol. Changing boundaries requires review.
+3. ADRs record decisions and explicit supersession; ADR 0003 extends 0002, ADR 0004 governs FR.
+4. implementation_status.md and capability_matrix.md own current delivery/evidence claims.
+5. Architecture/module docs describe their scoped mechanism. Plans describe unfinished work.
+6. Dated testing/research/review reports retain historical evidence; newer source does not
+   retroactively change the test count or qualification of an earlier run.
+
+Use: planned, source-delivered, logic-tested (eSDK/QEMU), board-smoke (specific native test),
+accepted (specified workload/contract with review). Never equate these levels. Compatibility
+FW runs are not released-FW acceptance. Pure helper limitations apply to that helper, not
+necessarily to the whole product. No blanket label can replace a checked source finding.
+
+The complete docs inventory lives in ../README.md. All document changes check links and
+state whether code/board tests were run. Source changes update owners/status once, link
+other documents to them, and avoid appending a contradictory current-state paragraph.

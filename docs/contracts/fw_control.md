@@ -13,9 +13,9 @@ methods and signed-grant provisioning must not be assumed present in released FW
 | Team | Deliverable |
 |---|---|
 | FW BSP | board/image/sysroot/SDK + memory/import/sync/reset sample, capability limits |
-| FW software | camera transport, service supervision, config, provisioning, install/update, event/evidence/gallery/search |
+| FW software | camera transport, service supervision, config, provisioning, install/update, event/evidence persistence, protected storage/key provisioning |
 | AI Model | full model package + golden + quality report |
-| AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics + app IPK |
+| AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics, FR enrollment/matching/index semantics + app IPK |
 
 BSP kit phải pin header và runtime binaries đồng bộ, device dependencies,
 permissions, allocator/cache/fence API, SDK threading rules, test model, profiler,

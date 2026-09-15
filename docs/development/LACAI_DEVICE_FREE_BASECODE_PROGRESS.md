@@ -1,5 +1,9 @@
 # Device-free basecode progress
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](implementation_status.md);
+current priorities are in [alignment review](architecture_alignment_review.md).
+
 Tracks [LACAI_DEVICE_FREE_BASECODE_PLAN.md](LACAI_DEVICE_FREE_BASECODE_PLAN.md). `done`
 means source, tests and docs are in the tree and both eSDK QEMU configurations run; `module`
 means the device-free unit is delivered but not yet wired onto the production path;

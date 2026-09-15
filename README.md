@@ -2,12 +2,12 @@
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Target QCS6490](https://img.shields.io/badge/target-QCS6490%20%2F%20Qualcomm%20Linux%201.8-blue)
-![Tests](https://img.shields.io/badge/logic%20tests-91%20passing%20(QEMU)-green)
-![Status](https://img.shields.io/badge/status-base--ready-yellow)
+![Tests](https://img.shields.io/badge/logic%20tests-see%20evidence-blue)
+![Status](https://img.shields.io/badge/status-integration%20in%20progress-yellow)
 
 Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
 AI Box, chạy inference/feature đa model và sản xuất overlay + H264 vào FW ring. FW giữ
-sensor/ISP/RTSP/UI/recording; AI APP chỉ sở hữu perception và preview overlay/encode.
+sensor/ISP/RTSP/UI/recording; AI APP sở hữu runtime, perception/usecase, FR matching/index và preview overlay/encode.
 
 Tài liệu trạng thái nguồn sự thật: [implementation status](docs/development/implementation_status.md).
 Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
@@ -25,15 +25,13 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow `.48`; released-FW/thermal/latency acceptance chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
-**Bằng chứng logic:** cấu hình default (mọi option OFF) **71/71** test và cấu hình mở rộng
-(Camera, GIO D-Bus, GStreamer bridge, Qualcomm, JSON, digest, QNN engine) **91/91** test
-chạy 100% dưới eSDK QEMU.
-**Bằng chứng board (2026-09-14, QCS6490):** 82/82 test binary pass native;
-`qnn-platform-validator` DSP unit test pass (Hexagon V68); owned QNN engine execute SCRFD/YOLOv8n
-trên HTP với parity byte-identical. Qualcomm production person flow trên `.48` cho ảnh đúng màu,
-bbox nhìn thấy được và RTSP late join qua compatibility FW services. Chi tiết: [qsc6490_board](docs/testing/qsc6490_board.md),
-[qnn board runbook](docs/testing/qnn_board_validation.md),
-[capability matrix](docs/development/capability_matrix.md).
+**Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 97/97 passed at source
+`88c5a89`; Zvec real-library and frame-retention tests passed natively on `.48`.
+Person compatibility flow has measured throughput; FR and released-FW acceptance remain
+open. Older native suite counts are historical runs, not counts for current HEAD.
+See [implementation status](docs/development/implementation_status.md),
+[architecture alignment review](docs/development/architecture_alignment_review.md) and
+[open architecture issues](docs/development/architecture_alignment_review.md).
 
 ## Kiến trúc tổng quan
 
@@ -54,7 +52,8 @@ bbox nhìn thấy được và RTSP late join qua compatibility FW services. Chi
                                  output_gate ─► overlay + encoded_sink (FW ring)
 ```
 
-Application chỉ phụ thuộc neutral ports; vendor/QNN/GStreamer chỉ nằm trong `src/adapters/`.
+Orchestration phụ thuộc neutral ports. Composition root ghép concrete adapters; vendor
+implementation và SDK types giữ trong adapters, không đưa vào neutral contracts/runtime.
 Xem [system architecture](docs/architecture/system_architecture.md) và
 [runtime composition factory](docs/architecture/runtime_composition_factory.md).
 
@@ -82,13 +81,17 @@ Bắt buộc dùng toolchain eSDK; host compiler không được coi là bằng 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
 
-# Cấu hình default (mọi adapter OFF)
+# Logic-only profile (explicitly disables Zvec; not the default product build)
 cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+  -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
 cmake --build build-esdk-neutral -j4
 ctest --test-dir build-esdk-neutral --output-on-failure
 
-# Cấu hình mở rộng (Camera, D-Bus, GStreamer, Qualcomm, JSON, digest, QNN engine)
+# Cấu hình mở rộng; Zvec enabled by default, acquire pinned public SDK once
+bash tools/vqec_vision_prepare_zvec.sh
+# Skip bootstrap when third_party/zvec/sdk already exists.
+# Camera, D-Bus, GStreamer, Qualcomm, JSON, digest, QNN engine
 cmake -S . -B build-esdk-full -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
   -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
@@ -104,7 +107,8 @@ ctest --test-dir build-esdk-full --output-on-failure
 Kiểm tra cấu trúc filename/include (read-only):
 
 ```bash
-powershell -NoProfile -File tools/vqec_vision_check_source_layout.ps1
+bash tools/vqec_vision_check_source_layout.sh
+# PowerShell alternative: tools/vqec_vision_check_source_layout.ps1
 ```
 
 Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và

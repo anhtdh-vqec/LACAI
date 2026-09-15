@@ -1,5 +1,9 @@
 # Kế hoạch thực thi 12 tuần — team 3–4 người
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](../development/implementation_status.md);
+current priorities are in [alignment review](../development/architecture_alignment_review.md).
+
 Tính từ kick-off, không tự coi ngày tài liệu là ngày bắt đầu dự án.
 Đầu ra: release v1 trên một Qualcomm target, các feature đạt gate và workload
 được công bố; không đồng nghĩa production cả 13 bài trên bốn SoC.
@@ -27,7 +31,7 @@ Mỗi critical module có ít nhất hai người hiểu, tránh single owner DM
 - C: nhận person model kit, golden format và baseline dataset cho 13 feature.
 - D: target-scoped CMake/host-cross profiles, format/static checks, naming registry
   checker, replay harness + fake backend + CI setup.
-- Deliver: host skeleton build, fake frame -> output, agreed naming/ownership,
+- Deliver: eSDK skeleton build, fake frame -> output, agreed naming/ownership,
   SDK/model dependencies có owner/date, source tree không vendor leakage.
 - Gate: chưa ký memory sync/RAW profile thì đánh dấu integration risk, không
   tuyên bố board path ready.
@@ -65,7 +69,8 @@ Mỗi critical module có ít nhất hai người hiểu, tránh single owner DM
 ## P4 — tuần 9–10: wave 3 + beta
 
 - C: action/smoking/weapons temporal integration nếu kits đã đạt M0–M4;
-  FR/blacklist/retrieval phối hợp gallery/search FW service.
+  FR/blacklist/retrieval dùng AI-owned gallery/index semantics và FW protected storage
+  theo ADR 0004; milestone lịch sử cần đối chiếu FR completion plan.
 - A/B: mixed workload resource policies, quality-aware crop scheduling, faults.
 - D: integration matrix, permissions, config/model ABI incompatibility tests.
 - Second-platform contract PoC chỉ khi core đúng tiến độ và có SDK.
@@ -89,7 +94,7 @@ known limitations, operator runbook, rollback set và signed acceptance reports.
 | end W2 | camera memory/control contract + person full model kit | FW/BSP + Model |
 | W3 | actual RAW4K input + config/event/license schema | FW |
 | before W7 | PPE/object/face/attribute qualified kits | Model |
-| before W9 | temporal smoking/action/weapon kits; gallery/search/evidence | Model + FW |
+| before W9 | temporal smoking/action/weapon kits; protected gallery storage/evidence | Model + FW |
 | end W10 | freeze image/SDK/model versions | all teams |
 
 Late dependency -> replan feature release, không vay toàn bộ 2 tuần hardening.

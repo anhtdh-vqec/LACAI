@@ -48,9 +48,9 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
     model binaries, biometric data, or private SDK libraries.
 11. After each coherent LACAI source implementation step is complete, inspect the
     worktree, run the applicable checks, create a focused commit containing only
-    task-owned changes, and push it to the current branch's configured upstream
-    (`@{upstream}`). If no upstream is configured or push fails, report the exact
-    blocker and do not describe the step as synchronized. Never stage or commit
+    task-owned changes. Current user instruction: the user handles pushes; do not push
+    unless explicitly requested again. Never describe a local commit as synchronized.
+    Never stage or commit
     unrelated user changes, secrets, model binaries, biometric data or private SDKs.
 12. All LACAI C++ builds, tests and CMake configuration must use the approved eSDK
     toolchain rooted at `/home/a/Workspace/eSDK`. Do not configure or report a host
@@ -88,7 +88,8 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
   Private GstMemory wrapping now retains the owner on root memory;
   read docs/architecture/dmabuf_memory_bridge.md before changing memory lifetime.
   No live hardware completion validation. Reference service harness and CI workflow exist;
-  production platform composition and evidence of configured CI runners remain open.
+  production person compatibility composition exists; released-FW acceptance and
+  evidence of configured CI runners remain open.
   src/app/camera_graph_pump now wires bounded receive/submit/result progress. Read
   docs/architecture/camera_graph_pump.md before modifying supervisor/stop ownership.
   src/app/camera_session coordinates one acquisition through start/drain/release;

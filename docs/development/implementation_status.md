@@ -4,6 +4,19 @@ Current source inventory, checked against `src/`, public headers, test sources a
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
 must not be interpreted as the current missing-feature list.
 
+## Current summary and evidence authority
+
+At source 88c5a89, expanded eSDK QEMU tests passed 97/97, including real Zvec SDK linking.
+Native Zvec and retained-frame synthetic tests passed on .48. Person compatibility flow
+has measured 30 AI results/s; approximately 44.5% process CPU remains above the requested
+15–25% target. These are historical measured runs, not a new test run for this docs update.
+Primary anchor-distance selection and frame retention exist; live FR composition, alignment,
+gallery recovery and attendance are unfinished. Generic backend selection, DMA completion,
+released-FW acceptance and allocation/copy optimization remain open.
+See [alignment issues](architecture_alignment_review.md) and [capability matrix](capability_matrix.md).
+
+## Dated evidence history (not the current capability list)
+
 2026-09-12 update (model-agnostic optimization S01/S04/S08): `qneng_probe_capabilities`
 now advertises only implemented operations (synchronous single job with graph-native
 output; async, shared/registered memory, artifact update and multi-model domains report
@@ -32,7 +45,7 @@ EdgeFace execution/tensor probes are recorded in
 [cascade inference](../architecture/cascade_inference.md). The current secondary scheduler
 does not retain source pixels and is not yet sufficient for FD-to-FR composition.
 
-## Evidence level
+## Historical evidence detail
 
 Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
 current tree cross-compiled all configured targets to 100% with the eSDK AArch64 compiler,

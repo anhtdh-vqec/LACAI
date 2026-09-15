@@ -1,5 +1,9 @@
 # LACAI — Device-Free Basecode Completion & Optimization Plan
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](implementation_status.md);
+current priorities are in [alignment review](architecture_alignment_review.md).
+
 > Scope: các việc có thể hoàn thành **không cần QCS6490 device thật**, nhằm đưa LACAI tới trạng thái basecode v1 sạch, ổn định, testable và sẵn sàng cho hardware qualification sau này.
 >
 > Không bao gồm: HTP throughput thật, thermal, DMA hardware-completion proof, camera sensor/CamX qualification, hardware encoder performance, multi-camera performance trên silicon.

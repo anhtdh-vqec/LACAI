@@ -1,5 +1,9 @@
 # Model Integration plan — M0 → M4 (YOLOv8n-person first)
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](../development/implementation_status.md);
+current priorities are in [alignment review](../development/architecture_alignment_review.md).
+
 Status: proposed backlog to follow. The device-free basecode is frozen at the architecture
 level; this plan adds model packages, not runtime redesign. Reference:
 [device-free basecode plan](../development/LACAI_DEVICE_FREE_BASECODE_PLAN.md) (done) and

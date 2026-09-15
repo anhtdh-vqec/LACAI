@@ -1,6 +1,6 @@
 # ADR 0002 — Qualcomm plugin-backed adapter
 
-Date: 2026-09-06. Status: implementation direction based on latest user instruction.
+Date: 2026-09-06. Status: plugin reuse decision retained; direct QNN extension governed by ADR 0003.
 Owner/reviewer: AI APP lead (user); production validation remains pending.
 
 ## Context
@@ -18,7 +18,8 @@ audit optional transitive dependencies of the installed plugin binary at packagi
 
 ADR 0001 direct-SDK preference and blueprint section 8 restriction on starting
 code without SDK are superseded for this plugin path. Direct SDK remains optional
-for model capabilities the plugin cannot provide; it is not implemented now.
+for model capabilities the plugin cannot provide. It is now source-delivered and
+board-smoke-tested under [ADR 0003](0003_owned_qnn_engine.md).
 
 ## Current implementation note — 2026-09-09
 
@@ -48,4 +49,4 @@ values are plugin coefficients, not automatic conversion from arbitrary mean/std
 Wrapper float32 output and first-graph behavior are acknowledged, not relabeled
 as native multi-dtype/multi-graph support. No output subset/reordering in this slice.
 Successful NULL linking is not successful model loading or inference.
-No build/test execution requested; source checks only in this turn.
+The initial slice used source checks only; current evidence belongs to implementation_status.md.

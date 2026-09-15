@@ -1,47 +1,31 @@
 # Capability matrix
 
-Truthful capability state. A capability is only called **supported** or **qualified** in
-prose when the matching column is yes. "Implemented" is source in the tree; "Device-free
-tested" is exercised by an eSDK QEMU test; "QCS6490 qualified" requires measured board
-evidence. Update this table with any change that moves a row.
+Snapshot 2026-09-15, source baseline 88c5a89. Board smoke khác product acceptance.
+Số test/configuration nằm ở [implementation status](implementation_status.md); không suy
+capability từ SDK/plugin đã cài. Quy tắc evidence: [documentation style](documentation_style.md).
 
-| Capability | Implemented | Device-free tested | QCS6490 qualified |
-|---|---:|---:|---:|
-| Static single-image model (via catalog + manifest validation) | yes | yes | no |
-| Multi-input / dynamic-shape / stateful model | no (rejected at activation) | yes (rejection) | no |
-| Capability/policy admission (fail-closed) | yes | yes | no |
-| Synchronous QNN client-buffer execution | yes | compiled + unit fixtures | **yes** (SCRFD/YOLOv8n compose+execute on HTP; byte-identical to qnn-net-run) |
-| Async QNN execution | no | no | no |
-| Shared/registered memory (QnnMem) | contract only | no | no |
-| Artifact/LoRA update | contract only | no | no |
-| Multi-model execution domain | no (single graph) | yes (rejection) | no |
-| DMA-BUF camera frame input (protocol/decoder) | yes | yes (socket fixture) | no |
-| Frame release dispatcher (bounded retry) | yes | yes | no |
-| Hardware DMA completion semantics | no | no | no |
-| Bounded non-blocking inference worker | yes | yes | no (not yet wired to the pump) |
-| Per-source session worker (isolated executor) | yes | yes | no (not yet wired to the supervisor) |
-| Pump QoS mailbox (latest_wins/replace_pending) | yes | yes | no (pump not board-run with a real model) |
-| Executor metrics line | yes | yes | n/a |
-| Tensor pool (bounded, double-release detection) | yes | yes | no (not yet wired) |
-| Reference CPU preprocess (preprocess oracle) | yes | yes (conformance suite) | n/a (CPU) |
-| Qualcomm image processor / FastCV path | no | no | no |
-| Reference IoU tracker | yes | yes | no |
-| Reference ROI/dwell/line/count feature processor | yes | yes | no |
-| Fake encoder + bounded ring sink | yes | yes | no |
-| Secondary/ROI inference contract + scheduler | yes | yes | no |
-| Production composition with fake platform | yes | yes (E2E smoke) | no |
-| Overlay/renderer/hardware H264 encode | helpers only | metadata only | no |
-| FW ring integration | wrapper source | no | no |
-| Recovery backoff controller | yes | yes | no (reconnect loop not wired) |
-| Metrics/tracing channel | partial counters | worker/pool/supervisor snapshots | no |
-| Wire decoder fuzzing | yes | host Clang libFuzzer, crash-free | no |
+| Capability | Source / logic | Native evidence | Chưa nghiệm thu |
+|---|---|---|---|
+| Static single-image catalog/manifest | Implemented, tested | Model-specific probes | Generic model accuracy |
+| Dynamic/multi-input/stateful/batch | Rejected where unsupported | None | Implementation/capacity |
+| Synchronous owned QNN | Implemented, tested | SCRFD/YOLO execution + parity; EdgeFace probe | End-to-end FR accuracy |
+| Async/shared/registered QNN, LoRA | Contract/unsupported | None | Lifecycle + performance |
+| Multiple independent models | Session/pump source | Individual model probes | Shared execution domain and live cascade |
+| Plugin graph lifecycle | Implemented + logic tests | Installed-plugin/lifecycle smoke | Full model/BSP matrix |
+| FastCV preprocessing | Implemented | Person 30 AI results/s compatibility run | FR alignment, released-FW zero-copy |
+| Camera lease/wire | Implemented + socket fixtures | Compatibility input | Released FW DMA/cache/fence semantics |
+| Worker/pool/QoS helpers | Implemented + logic tests | Scope-specific evidence only | Whole production integration/soak |
+| IoU tracker/reference feature | Implemented + logic tests | Person composition uses reference tracker | Identity continuity and real feature quality |
+| Primary anchor-distance FD | Core + production kind selection | Decoder synthetic test | Golden real-model/live FD acceptance |
+| Secondary scheduler | Contract + logic tests | None for live FR | Typed alignment + async completion composition |
+| Cascade frame store | Primitive + logic tests | Native synthetic lifetime/ticket test | Pump integration + hardware completion |
+| Zvec index | C API adapter, default build | Real library synthetic search/mutation test | Durable gallery/recovery/load benchmark |
+| QTI overlay/H264/ring | Production compatibility path | Person 30 encoded FPS | Released FW conformance and generic output ports |
+| FD→FR→attendance | Partial primitives | Not end-to-end | Enrollment, matching, recovery, events |
+| Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |
+| Performance target | Person sample CPU about 44.5% | Historical measured sample | Requested CPU 15–25%, FR workload and thermal |
+| Recovery/metrics helpers | Partial source | No release soak | BSP reset, durable control, complete stage metrics |
+| Fuzzing tools | Source exists | No new run in this review | eSDK-compatible instrumentation and recorded runs |
 
-## Rules
-
-- A green host/QEMU test is not device, BSP, DMA, model-accuracy or performance evidence.
-- "Zero-copy", "hardware acceleration" and "board compatibility" require board evidence.
-- Installed, entitled, desired, supported, admitted and running are separate states.
-
-See [implementation status](implementation_status.md),
-[eSDK configuration matrix](../testing/esdk_configuration_matrix.md) and
-[device-free basecode progress](LACAI_DEVICE_FREE_BASECODE_PROGRESS.md).
+AI Camera/Box share the intended RAW boundary; this does not prove every FW origin has
+been integrated. Zvec SDK execution is CPU/index evidence, not Adreno acceleration.

@@ -1,5 +1,9 @@
 Mình đã đi sâu vào các đường critical path của repo: `frame_source`, DMA-BUF/GStreamer bridge, Qualcomm plugin graph, owned-QNN engine, multi-model pump/session, multi-source supervisor, runtime composition, feature pipeline, output preparation, CMake, ADR và implementation status. Kết luận của mình là:
 
+Scope: dated planning/review record. Current delivery is governed by
+[implementation status](implementation_status.md);
+current priorities are in [alignment review](architecture_alignment_review.md).
+
 > **LACAI đang có nền kiến trúc tốt hơn khá nhiều so với một prototype AI camera thông thường, đặc biệt ở ownership/lifecycle/fail-closed. Nhưng hiện tại nó là một “production-oriented architecture skeleton” hơn là một production AI runtime.**
 >
 > Rủi ro lớn nhất bây giờ không phải code xấu, mà là **architecture đang đi trước hardware vertical slice quá xa**.

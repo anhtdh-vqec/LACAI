@@ -25,8 +25,8 @@
 - [ ] Không ghi username/password/token hoặc credential URL vào repo, log, commit hay
       remote; push dùng credential helper/SSH agent/secret store của môi trường.
 - [ ] Sau mỗi bước source hoàn chỉnh: kiểm tra `git status`, chỉ stage thay đổi thuộc
-      bước này, tạo focused commit và push lên tracking upstream (`@{upstream}`).
-      Nếu thiếu upstream hoặc push lỗi, ghi rõ blocker và chưa coi bước đã đồng bộ.
+      bước này và tạo focused commit. Theo chỉ đạo hiện tại, người dùng tự push;
+      chỉ push khi được yêu cầu lại, không coi local commit là đã đồng bộ.
 - [ ] Không stage/commit thay đổi không thuộc task, secrets, model binaries, biometric
       data hoặc private SDK libraries.
 

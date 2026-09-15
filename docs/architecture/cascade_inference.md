@@ -2,9 +2,9 @@
 
 Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md).
 
-Status: contract and composition design; model execution probes plus neutral typed
-landmark/embedding contracts are complete, while decoder production, frame retention and
-secondary preprocessing remain open.
+Status: primary decoder production selection, typed contracts and retained-frame primitive
+are source-delivered. Model execution probes pass; secondary alignment/graph composition,
+gallery recovery and attendance remain open. The primitive is not yet connected to the pump.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -59,11 +59,10 @@ can be mapped back to the source frame.
 
 ## Model-package and graph composition
 
-Every model slot resolves its own authenticated package directory, model artifact and
-decoder contract. The current Qualcomm production owner accepts one package/library pair
-and reuses it for all catalog entries; that compatibility path must be replaced before a
-multi-model FD/FR deployment is valid. Resolution is keyed by immutable catalog identity
-and artifact reference, with containment and digest checks before graph creation.
+Each catalog model resolves its own package/artifact via the model package registry.
+Production supports explicit primary decoder selection. Catalog role/dependency handling
+for secondary embedding graphs remains open. Digest/selection validation alone is not
+proof of signed authenticity or TOCTOU-safe artifact loading.
 
 Continuous primary graphs remain in `multi_model_session`. Secondary graphs are owned by
 one cascade execution domain and invoked only from admitted primary results. They do not
@@ -96,7 +95,7 @@ biometric outputs are never committed to this repository.
 3. **Decoder core delivered:** configurable anchor-distance detector decoder supporting typed
    quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
    inverse source transform and NMS.
-4. Add the bounded cascade frame store and extend secondary requests with exact frame
+4. Integrate the delivered bounded cascade frame store and extend secondary requests with exact frame
    retention and alignment input. Test epoch changes, cancellation, overload and drain.
 5. Implement Qualcomm landmark alignment/crop with the available hardware converter
    behind the neutral image processor boundary; verify tensor parity against golden crops.
@@ -117,8 +116,8 @@ alone is not a completed attendance usecase.
 The anchor-distance core uses activation-reserved candidate storage and fixed suppression
 storage, with deterministic score ties, finite-value checks and transactional publication.
 Output observation strings/landmark vectors still allocate under the current batch contract;
-production package parsing, pooled output ownership and golden model parity remain required.
-The core is not yet registered by production_platform for a live FD-to-FR cascade.
+primary production selection exists; pooled output ownership and golden model parity remain required.
+Live FD-to-FR cascade composition remains open.
 
 ## Primary anchor-distance package boundary
 

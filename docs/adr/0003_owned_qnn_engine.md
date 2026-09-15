@@ -1,7 +1,7 @@
 # ADR 0003 — LACAI-owned QNN engine behind a neutral execution policy
 
 Date: 2026-09-12. Status: accepted implementation direction. Owner/reviewer: AI APP lead.
-Board qualification remains pending.
+Synchronous execution has board evidence; async/shared/update and product qualification remain pending.
 
 ## Context
 

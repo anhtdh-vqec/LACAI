@@ -2,7 +2,7 @@
 
 Per-source tracking state, association and ID continuity with explicit source-epoch resets.
 
-- **Status:** source-delivered port + registry + coordinator — concrete association missing
+- **Status:** source-delivered port + registry + coordinator — reference IoU implementation exists; production quality qualification remains
 - **Naming registry:** `track` (`trkst`, `trreg`)
 - **Depends on:** neutral `tracker_port`, decoded observation batches
 - **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`
@@ -23,7 +23,7 @@ Per-source tracking state, association and ID continuity with explicit source-ep
 
 ## Limits and next work
 
-- Concrete association/tracking implementation and replay qualification remain pending.
+- Reference IoU association exists in adapters/reference; replay/ID-switch qualification remains pending.
 - An ambiguous update failure faults that epoch; only a successful later-epoch reset resumes.
 - Composition owns authenticating the binding and selecting the contract.
 

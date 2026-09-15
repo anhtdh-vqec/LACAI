@@ -241,7 +241,8 @@ External callbacks dùng context object; không dùng global để tìm instance
 
 - CMake target-scoped compile options/includes/libs; không global link_directories.
 - Không kéo header từ sibling repo bằng ../../; contract SDK/version là dependency.
-- Vendor library chỉ adapter target; host build không cần vendor SDK.
+- Vendor library chỉ adapter target; logic-only eSDK profile không cần vendor SDK.
+  Không configure/build C++ bằng host compiler.
 - Pin toolchain/sysroot/compiler/runtime; không download dependency ngầm khi build.
 - Warnings as errors trên source tự viết trong CI; third-party tách scope.
 - Chọn -Wall -Wextra -Wpedantic và kiểm tra conversion theo compiler/toolchain.

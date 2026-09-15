@@ -30,13 +30,10 @@ bounded identifiers; names, biometric vectors and credentials are not logged.
 the contract and is suitable only within an admitted bounded gallery. Zvec stays under
 `src/adapters/zvec`; perception and FR depend only on the neutral port.
 
-The implementation also provides an optional Zvec C API adapter. Zvec is selected only
-when an externally supplied, version-reviewed installation is present and the deployment
-path is validated. Its collection is a derived index: it is not the authoritative
-encrypted gallery and must fail closed on a revision or embedding-model mismatch.
-The current adapter creates a fresh collection only; an existing collection is rejected
-because its gallery revision cannot be authenticated by the index alone. Journaled
-recovery is required before restart reuse is enabled.
+Zvec v0.7.0 is enabled by default; its pinned public ARM64 SDK is acquired under
+third_party/zvec/sdk. The adapter uses the C API behind embedding_index_port. Existing
+collections are rejected because revision/record bookkeeping is currently in memory;
+journaled authoritative-store recovery is required before restart reuse is enabled.
 
 ## Consequences
 
@@ -62,14 +59,7 @@ C API query/document allocation and blocking vendor calls still require a bounde
 and measured allocation/latency budgets before production activation. The optional source
 is not yet an end-to-end FR persistence implementation.
 
-Validation for this source step: eSDK AArch64 syntax checks pass against the reviewed
-v0.7.0 header, including the optional synthetic integration test. The eSDK full suite
-passes 95/95 with Zvec disabled. No libzvec was found in the eSDK or temporary dependency
-area; therefore linking and the Zvec integration test have NOT run. The optional test
-checks same/orthogonal/opposite vectors, threshold conversion, revision rejection and
-delete visibility when an approved target library is supplied.
-
-## Real-library validation (supersedes the missing-library note above)
+## Real-library validation
 
 The pinned public Linux ARM64 v0.7.0 SDK is now acquired under third_party/zvec/sdk
 using the checksum-verified bootstrap. CMake enables the adapter by default and links
