@@ -142,6 +142,12 @@ prefix `vqec_vision_ai_embed_exidx_`. Test
 Optional Zvec adapter `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` uses
 file_id `zvidx`, prefix `vqec_vision_ai_zvec_zvidx_`.
 
+Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
+declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
+`src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix
+`vqec_vision_ai_embed_embdd_`. Test `tests/unit/vqec_vision_embedding_decoder_test.cpp` uses
+file_id `edtst`, prefix `vqec_vision_ai_unit_edtst_`.
+
 Encoder input validation: `src/core/vqec_vision_encoder_contract.cpp`, file_id `encct`,
 prefix `vqec_vision_ai_core_encct_`; declarations in encoder_backend contract header.
 Test `tests/unit/vqec_vision_encoder_contract_test.cpp`, file_id `ectst`, prefix

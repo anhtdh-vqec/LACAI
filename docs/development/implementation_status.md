@@ -276,9 +276,13 @@ QEMU and QCS6490 .48; this is not hardware-completion evidence. Pump/crop integr
 remains open.
 
 `image_alignment_port` is now a defined, unit-tested contract (template/request/result/
-transform/capabilities with fail-closed capability gating). No backend implements it and no
-orchestration consumes it; FastCV/QTI affine capability, crop/tensor pool and golden crop
-parity remain M4. Cascade retention slices 1-3a are delivered: the pump retains
+transform/capabilities with fail-closed capability gating). The FastCV aligner delivers
+board-verified luma geometry and RGB color on `.48`; the generic embedding decoder
+(`embedding_decoder_port`, package-configured output/dimension/min-norm, L2 normalization)
+is delivered and unit-tested. Real EdgeFace packages, the secondary graph, alignment
+template metadata and the coordinator wiring into the service remain M5.
+
+Cascade retention slices 1-3a are delivered: the pump retains
 cascade-root frames, `multi_model_session` owns a `cascade_frame_store` and delays FW source
 release until `store.bytes() == 0`, and composition derives `cascade_root_` from the catalog
 `role`/`depends_on` with an optional per-source `cascade` deployment budget. Slice 3b adds the

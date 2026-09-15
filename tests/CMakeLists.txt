@@ -330,6 +330,14 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME exact_embedding_index
         COMMAND vqec_vision_ai_exact_embedding_index_test)
+    add_executable(vqec_vision_ai_embedding_decoder_test
+        unit/vqec_vision_embedding_decoder_test.cpp)
+    target_link_libraries(vqec_vision_ai_embedding_decoder_test
+        PRIVATE vqec_vision_ai_embedding_decoder)
+    set_target_properties(vqec_vision_ai_embedding_decoder_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME embedding_decoder
+        COMMAND vqec_vision_ai_embedding_decoder_test)
     add_executable(vqec_vision_ai_encoder_contract_test
         unit/vqec_vision_encoder_contract_test.cpp)
     target_link_libraries(vqec_vision_ai_encoder_contract_test PRIVATE vqec_vision_ai_core)

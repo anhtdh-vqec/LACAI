@@ -33,3 +33,11 @@ target_include_directories(vqec_vision_ai_embedding PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/embedding>)
 target_link_libraries(vqec_vision_ai_embedding PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_embedding PROPERTIES CXX_EXTENSIONS OFF)
+
+add_library(vqec_vision_ai_embedding_decoder STATIC
+    embedding/vqec_vision_embedding_decoder.cpp)
+target_include_directories(vqec_vision_ai_embedding_decoder PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/embedding>)
+target_link_libraries(vqec_vision_ai_embedding_decoder
+    PUBLIC vqec_vision_ai_core vqec_vision_ai_detection)
+set_target_properties(vqec_vision_ai_embedding_decoder PROPERTIES CXX_EXTENSIONS OFF)
