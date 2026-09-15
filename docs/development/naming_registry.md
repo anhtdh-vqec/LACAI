@@ -222,6 +222,9 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_secondary_inference.cpp | secin | vqec_vision_ai_core_secin_ |
 | include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
 | src/core/vqec_vision_image_alignment.cpp | imaln | vqec_vision_ai_core_imaln_ |
+| include/vqec/vision/ai/contracts/vqec_vision_color.hpp | color | (contract declaration; implemented in core) |
+| src/core/vqec_vision_color.cpp | color | vqec_vision_ai_core_color_ |
+| tests/unit/vqec_vision_color_test.cpp | coltst | vqec_vision_ai_unit_coltst_ |
 | include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp | imaln | vqec_vision_ai_ports_imaln_ |
 | tests/unit/vqec_vision_image_alignment_test.cpp | imtst | vqec_vision_ai_unit_imtst_ |
 | src/core/vqec_vision_preprocess_spec.cpp | ppspc | vqec_vision_ai_core_ppspc_ |

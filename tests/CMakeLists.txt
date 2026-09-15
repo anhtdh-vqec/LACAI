@@ -314,6 +314,10 @@
     set_target_properties(vqec_vision_ai_image_alignment_test
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME image_alignment_contract COMMAND vqec_vision_ai_image_alignment_test)
+    add_executable(vqec_vision_ai_color_test unit/vqec_vision_color_test.cpp)
+    target_link_libraries(vqec_vision_ai_color_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_color_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME color_conversion COMMAND vqec_vision_ai_color_test)
     add_executable(vqec_vision_ai_embedding_test unit/vqec_vision_embedding_test.cpp)
     target_link_libraries(vqec_vision_ai_embedding_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_embedding_test PROPERTIES CXX_EXTENSIONS OFF)
