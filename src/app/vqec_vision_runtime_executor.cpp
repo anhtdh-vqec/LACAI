@@ -146,11 +146,22 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_take_result(
     std::array<observation_batch, deployment_limits::g_max_models_per_source>& _tracked,
     std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>& _events,
     runtime_executor_report& _report) {
+    std::vector<embedding_result> discarded_embeddings;
+    return vqec_vision_ai_appl_rtexe_take_result_with_embeddings(
+        _tracked, _events, discarded_embeddings, _report);
+}
+
+status runtime_executor::vqec_vision_ai_appl_rtexe_take_result_with_embeddings(
+    std::array<observation_batch, deployment_limits::g_max_models_per_source>& _tracked,
+    std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>& _events,
+    std::vector<embedding_result>& _embeddings, runtime_executor_report& _report) {
+    _embeddings.clear();
     if (!has_pending_) {
         return {status_code::pending, "executor has no routed result"};
     }
     _tracked = std::move(pending_tracked_);
     _events = std::move(pending_events_);
+    _embeddings = std::move(cascade_embeddings_);
     _report = pending_report_;
     has_pending_ = false;
     cascade_aligned_.clear();

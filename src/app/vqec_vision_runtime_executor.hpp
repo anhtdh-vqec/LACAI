@@ -81,6 +81,12 @@ public:
         std::array<observation_batch, deployment_limits::g_max_models_per_source>& _tracked,
         std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>& _events,
         runtime_executor_report& _report);
+    // Variant used by the recognition owner. Embeddings are moved out exactly once with
+    // the correlated tracked observations; callers must keep them behind their policy gate.
+    [[nodiscard]] status vqec_vision_ai_appl_rtexe_take_result_with_embeddings(
+        std::array<observation_batch, deployment_limits::g_max_models_per_source>& _tracked,
+        std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>& _events,
+        std::vector<embedding_result>& _embeddings, runtime_executor_report& _report);
     // Explicitly drop the retained routed result during drain. The recorded error stays
     // available in the report returned by step/take; no output is published.
     void vqec_vision_ai_appl_rtexe_discard_pending() noexcept;
