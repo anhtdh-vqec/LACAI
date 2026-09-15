@@ -18,12 +18,14 @@ identity. The policy groups the returned templates by opaque subject reference a
 emits `known`, `unknown` or `ambiguous`; backend failures remain errors. Label
 application requires the exact frame identity and gallery revision, then matches the
 embedding track ID to the tracked observation. It writes only the opaque subject
-reference into `overlay_box::label_`; resolving a display name and authorizing that
-attribute are downstream output responsibilities.
+reference into `overlay_box::label_`; the service authorizes the configured identity
+attribute through `output_gate` before this label reaches the production renderer.
+Resolving a human display name remains an output metadata responsibility.
 
 This owner is the runtime seam for DBus enrollment. A control adapter should call
 `add_template` only after the live cascade has supplied an accepted embedding for the
 requested source/track, and must keep request identity, peer authorization, quality
 policy and durable gallery storage outside this class. The current implementation is
-an in-process owner; durable encrypted persistence and the DBus adapter remain tracked
-work in the face-recognition completion plan.
+an in-process owner. The optional GIO DBus adapter maps the FW control contract and
+authenticates the configured peer; durable encrypted persistence, peer-name provisioning
+and display-name metadata remain tracked work in the face-recognition completion plan.
