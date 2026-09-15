@@ -46,6 +46,24 @@ Port: `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`.
   non-finite reference points, mismatched landmark schema/count, and invalid frame identity
   or deadline.
 
+## FastCV capability evidence (QCS6490, Qualcomm Linux 1.8)
+
+Checked against the board `.48` and the approved eSDK sysroot (qcom-fastcv-binaries 1.8.5):
+
+- The QTI `qtivtransform` plugin exposes `crop`/`destination` rectangles, resize, flip and
+  90° rotate only; it has no arbitrary-angle landmark affine.
+- FastCV headers (`/usr/include/fastcv/fastcv.h`) document affine/perspective warp, and the
+  sysroot library `usr/lib/libfastcvopt.so.1.8.0` **exports** the API (4692 `T` symbols),
+  including `fcvTransformAffineu8_v2` (warps a patch centered at `position` with a 2×2
+  affine), `fcv3ChannelTransformAffineClippedBCu8` (3-channel affine with border),
+  `fcvGeomAffineFitf32` and `fcvGetPerspectiveTransformf32`.
+
+Conclusion: the M4 alignment adapter should be an owned FastCV adapter that computes the
+similarity transform in neutral code and calls the FastCV affine warp (with FastCV color
+conversion), not the QTI plugin. This is capability evidence only — it does not prove
+runtime execution, DSP offload, crop/tensor pool ownership or golden crop parity, all of
+which remain M4.
+
 ## Not claimed
 
 Defining this contract does not prove FastCV/QTI affine capability, crop/tensor pool

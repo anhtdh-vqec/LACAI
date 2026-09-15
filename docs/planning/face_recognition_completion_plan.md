@@ -203,6 +203,13 @@ không được trả trước real completion. Native tests với workers giả
 **Gate:** crop/tensor parity và đo latency/CPU/copies trên board; không reuse destination
 khi HTP còn đọc. Input 112×112 chỉ thuộc package EdgeFace hiện tại.
 
+**Tiến độ M4 capability (2026-09-15):** đã kiểm chứng trên `.48` + eSDK sysroot —
+`qtivtransform` chỉ có crop/destination/resize/flip/rotate 90° (không affine tuỳ ý); FastCV
+`libfastcvopt.so.1.8.0` export affine warp (`fcvTransformAffineu8_v2`,
+`fcv3ChannelTransformAffineClippedBCu8`, `fcvGeomAffineFitf32`, `fcvGetPerspectiveTransformf32`).
+Kết luận: adapter alignment nên là owned FastCV (không dùng QTI plugin affine). Đây là
+capability evidence, chưa phải runtime/golden parity hay DSP offload.
+
 ## 10. M5 — EdgeFace secondary và embedding decoder
 
 - [ ] Tạo secondary graph owner riêng; load/prewarm một lần tại activation, không mỗi mặt.
