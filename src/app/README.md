@@ -24,6 +24,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `vqec_vision_camera_session.cpp` | One-model validate/start/drain/release lifecycle with RPC reconciliation |
 | `vqec_vision_multi_model_pump.cpp` | Receive once, update the bounded preview mailbox, cadence-select, share owner and submit per binding |
 | `vqec_vision_multi_model_session.cpp` | Preflight all graphs, one FW acquisition, partial-start rollback, all-graph drain |
+| `vqec_vision_cascade_graph_session.cpp` | Starts, drains and unloads one secondary tensor graph outside full-frame cadence |
 | `vqec_vision_multi_source_supervisor.cpp` | Bind 1..16 borrowed sessions, round-robin progress, per-source fault isolation, latched stop |
 | `vqec_vision_perception_result_stage.cpp` | Correlate tensor PTS with retained source identity, decode + track transactionally |
 | `vqec_vision_multi_model_result_router.cpp` | Select a stage by immutable model slot, keep independent per-slot progress |

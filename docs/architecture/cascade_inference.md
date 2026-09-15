@@ -64,9 +64,10 @@ source frame. Golden crop/tensor parity remains required.
 Each catalog model resolves its own package/artifact via the model package registry.
 Production supports explicit primary decoder selection and resolves secondary embedding
 graphs through catalog roles and dependency activation. It prepares a neutral graph,
-decoder, alignment and preprocess binding; the service has not yet started or invoked that
-graph. Digest/selection validation alone is not proof of signed authenticity or TOCTOU-safe
-artifact loading.
+decoder, alignment and preprocess binding. The standalone neutral `cascade_graph_session`
+owns bounded start/drain/unload without inserting the graph into full-frame cadence; service
+composition and coordinator invocation remain open. Digest/selection validation alone is
+not proof of signed authenticity or TOCTOU-safe artifact loading.
 
 Continuous primary graphs remain in `multi_model_session`. Secondary graphs are owned by
 one cascade execution domain and invoked only from admitted primary results. They do not
