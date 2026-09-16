@@ -1,5 +1,18 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-02 update: the owned QNN engine now supports a defined reload
+path. `release_model()` frees graphs, context, model library, output workspace and
+registered buffers while keeping the backend/device open, and `qnn_inference_graph::unload`
+calls it, so `release_model` + `prepare` can compose a new model library on the same engine.
+`prepare` rejects any non-v2 tensor description; `execute` re-checks `tensor.version`
+before touching the v2 union. The local ABI mirror of `qnn_model_graph_info` now carries
+`static_assert` field-offset guards. The ION-registered output path is documented as
+DMA-write plus one bounded copy into the neutral blob, not end-to-end zero-copy.
+Board evidence on `.98`: `qnn_engine_smoke --reload-cycles` reloaded YOLOv8n-person
+(2 outputs) and SCRFD (9 outputs) and executed again with unchanged tensor identity;
+a live compatibility run through the canonical v5 ring published H.264 1920x1080 30/1
+(167 frames in 6 s) with `cascade_failed=0`. eSDK/QEMU suite passes 121/121.
+
 2026-09-16 throughput/lifetime update: production can select an explicit HTP
 `low_latency` vote and persistent per-model workers while keeping orchestration behind
 neutral ports. NV12 color conversion and RGB8-to-UFIXED16 quantization use byte-exact

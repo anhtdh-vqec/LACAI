@@ -222,6 +222,12 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_unload() {
         state_ != inference_graph_state::ready) {
         return {status_code::invalid_state, "QNN graph cannot unload in this state"};
     }
+    // Release the model-scoped engine state so the same engine can prepare another model.
+    // The engine stays open (backend/device); only graphs, context and the model library go.
+    engine_.vqec_vision_ai_qcom_qneng_release_model();
+    input_specs_.clear();
+    engine_outputs_.clear();
+    binding_ = {};
     is_window_configured_ = false;
     is_prepared_ = false;
     state_ = inference_graph_state::configured;

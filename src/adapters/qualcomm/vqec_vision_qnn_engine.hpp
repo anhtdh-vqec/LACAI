@@ -49,6 +49,12 @@ public:
     [[nodiscard]] status vqec_vision_ai_qcom_qneng_get_tensors(
         std::vector<tensor_spec>& _inputs, std::vector<tensor_spec>& _outputs) const;
 
+    // Releases the prepared model (graphs, context, model library, output workspace and any
+    // registered buffers) while keeping the backend/device open, so a new model library can
+    // be prepared afterwards. Safe to call when no model is prepared. This is the supported
+    // reload path: release_model, then prepare with the next model library.
+    void vqec_vision_ai_qcom_qneng_release_model() noexcept;
+
     // Synchronous client-buffer execution. Every input blob must match the graph input
     // dtype and packed byte count; outputs are allocated and returned in graph order.
     [[nodiscard]] status vqec_vision_ai_qcom_qneng_execute(

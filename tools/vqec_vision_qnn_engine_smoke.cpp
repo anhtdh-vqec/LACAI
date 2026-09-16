@@ -62,6 +62,7 @@ int main(int _argc, char** _argv) {
     std::string input_file;
     std::string output_dir;
     int iterations = 1;
+    int reload_cycles = 0;
     for (int index = 1; index < _argc; ++index) {
         const std::string option = _argv[index];
         const bool has_value = index + 1 < _argc;
@@ -77,6 +78,8 @@ int main(int _argc, char** _argv) {
             output_dir = _argv[++index];
         } else if (option == "--iterations" && has_value) {
             iterations = std::atoi(_argv[++index]);
+        } else if (option == "--reload-cycles" && has_value) {
+            reload_cycles = std::atoi(_argv[++index]);
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return 2;
@@ -184,6 +187,35 @@ int main(int _argc, char** _argv) {
         static_cast<unsigned long long>(total_us / static_cast<std::uint64_t>(iterations)),
         static_cast<unsigned long long>(worst_us));
     std::printf("execute ok outputs=%zu\n", output_blobs.size());
+    // Reload evidence: release the prepared model and prepare the same library again on the
+    // same open engine. This exercises the release_model path that keeps backend/device open.
+    for (int cycle = 0; cycle < reload_cycles; ++cycle) {
+        engine.vqec_vision_ai_qcom_qneng_release_model();
+        const auto reprepared = engine.vqec_vision_ai_qcom_qneng_prepare(model_library);
+        if (reprepared.code_ != status_code::ok) {
+            std::fprintf(stderr, "reload prepare failed on cycle %d (%d): %s\n", cycle,
+                static_cast<int>(reprepared.code_), reprepared.message_.c_str());
+            return 1;
+        }
+        std::vector<tensor_spec> reload_inputs;
+        std::vector<tensor_spec> reload_outputs;
+        const auto reload_tensors =
+            engine.vqec_vision_ai_qcom_qneng_get_tensors(reload_inputs, reload_outputs);
+        if (reload_tensors.code_ != status_code::ok ||
+            reload_inputs.size() != inputs.size() || reload_outputs.size() != outputs.size()) {
+            std::fprintf(stderr, "reload tensor identity changed on cycle %d\n", cycle);
+            return 1;
+        }
+        std::vector<tensor_blob> reload_results;
+        const auto reloaded = engine.vqec_vision_ai_qcom_qneng_execute(
+            input_blobs, reload_results);
+        if (reloaded.code_ != status_code::ok) {
+            std::fprintf(stderr, "reload execute failed on cycle %d (%d): %s\n", cycle,
+                static_cast<int>(reloaded.code_), reloaded.message_.c_str());
+            return 1;
+        }
+        std::printf("reload cycle=%d ok outputs=%zu\n", cycle, reload_results.size());
+    }
     for (const auto& blob : output_blobs) {
         std::printf("output_bytes name=%s bytes=%zu\n", blob.spec_.name_.c_str(),
             blob.bytes_.size());

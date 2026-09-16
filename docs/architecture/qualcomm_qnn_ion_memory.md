@@ -1,11 +1,30 @@
-# Qualcomm QNN Zero-Copy ION Memory Architecture
+# Qualcomm QNN ION-registered output memory
+
+## Accuracy note (2026-09-16)
+
+This adapter avoids the two original costs: per-frame output heap churn (preallocated
+`output_workspace_`) and driver-side staging/pinning of raw client pointers (ION
+registration). It is **not end-to-end zero-copy**. The HTP writes into registered physical
+pages, but `execute()` then copies each output into the neutral `tensor_blob` the caller
+receives, because the neutral output contract owns its bytes:
+
+```cpp
+std::memcpy(_outputs[index].bytes_.data(), source, bytes);  // qnn_engine.cpp execute()
+```
+
+So the remaining per-frame copies are: HTP DMA into ION (no CPU), then one bounded
+`memcpy` per output tensor into the neutral blob. When no `memhandler` output is used, the
+source is the preallocated `output_workspace_` instead. A future zero-copy path requires a
+neutral owner/view contract for borrowed device output; it does not exist today. Treat
+"zero-copy" claims as limited to the input/pinning side and the output allocation side.
 
 ## Purpose
 
-This document specifies the zero-copy and zero-allocation memory architecture for the LACAI
-Qualcomm QNN engine adapter (`src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`). It adopts
-the proven zero-copy hardware binding principles from `ai_app` while maintaining LACAI's
-strict hexagonal architecture and clean boundary contracts.
+This document specifies the ION-registered output and preallocated-workspace memory
+architecture for the LACAI Qualcomm QNN engine adapter
+(`src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`). It adopts the hardware memory
+binding principles from `ai_app` while maintaining LACAI's strict hexagonal architecture
+and clean boundary contracts.
 
 ## Motivation & Bottleneck Analysis
 
@@ -31,7 +50,7 @@ If `libcdsprpc.so` or the required symbols are absent (e.g. host cross-compilati
 emulation), the engine gracefully falls back to heap-backed preallocated workspaces without
 failing engine startup.
 
-### 2. Zero-Copy `MEMHANDLE` Registration
+### 2. ION `MEMHANDLE` registration (not end-to-end zero-copy)
 
 During `prepare()` after graph finalization:
 1. For each output tensor, an aligned ION buffer is allocated via `rpcmem_alloc`.
@@ -44,7 +63,9 @@ During `prepare()` after graph finalization:
    tensor.v2.memHandle = handle;
    ```
 5. During execution (`execute()`), the HTP writes inference results directly into the
-   registered physical pages via DMA without CPU data copy or CPU involvement.
+   registered physical pages via DMA without driver-side CPU staging. `execute()` then
+   copies those bytes into the neutral output blob (one bounded `memcpy` per tensor), so
+   this is DMA-write + neutral-owned copy, not caller-visible zero-copy.
 
 ### 3. Pre-allocated Output Workspace
 

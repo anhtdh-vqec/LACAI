@@ -1,5 +1,6 @@
 #include "vqec_vision_qnn_engine.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -106,7 +107,10 @@ tensor_spec vqec_vision_ai_qcom_qneng_make_spec(const Qnn_Tensor_t& _tensor) {
 
 // ABI mirror of the QNN sample-app wrapper structures used by generated model libraries.
 // The layout must match the model library built by qnn-model-lib-generator; we declare it
-// locally instead of including the restricted SDK example header.
+// locally instead of including the restricted SDK example header. The static assertions
+// below pin the field order/offsets against this translation unit's own layout so an
+// accidental edit or compiler packing change cannot silently desync the ABI. A mismatch
+// with the actual model library still needs a board compose/execute check.
 struct qnn_model_graph_config_info {
     char* graphName;
     const QnnGraph_Config_t** graphConfigs;
@@ -120,6 +124,20 @@ struct qnn_model_graph_info {
     Qnn_Tensor_t* outputTensors;
     std::uint32_t numOutputTensors;
 };
+
+static_assert(offsetof(qnn_model_graph_info, graph) == 0,
+    "QNN model graph ABI: graph must be the first field");
+static_assert(offsetof(qnn_model_graph_info, graphName) == sizeof(void*),
+    "QNN model graph ABI: graphName must follow the graph handle");
+static_assert(offsetof(qnn_model_graph_info, inputTensors) == 2U * sizeof(void*),
+    "QNN model graph ABI: inputTensors must follow graphName");
+static_assert(offsetof(qnn_model_graph_info, numInputTensors) == 3U * sizeof(void*),
+    "QNN model graph ABI: numInputTensors must follow inputTensors");
+static_assert(offsetof(qnn_model_graph_info, outputTensors) > offsetof(
+    qnn_model_graph_info, numInputTensors),
+    "QNN model graph ABI: outputTensors must follow the input count");
+static_assert(offsetof(qnn_model_graph_config_info, graphConfigs) == sizeof(void*),
+    "QNN model graph config ABI: graphConfigs must follow graphName");
 
 using model_error_t = std::int32_t;
 using compose_graphs_fn = model_error_t (*)(
@@ -395,6 +413,8 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         return {status_code::invalid_argument, "model library path is required"};
     }
     auto& impl = *implementation_;
+    // A prepared model must be released explicitly first. This keeps reload a two-step
+    // contract (release_model then prepare) instead of silently discarding a live model.
     if (impl.is_prepared_) {
         return {status_code::invalid_state, "QNN engine already has a prepared model"};
     }
@@ -447,7 +467,15 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
     impl.output_specs_.clear();
     impl.input_specs_.reserve(graph->numInputTensors);
     impl.output_specs_.reserve(graph->numOutputTensors);
+    // Reject a non-v2 tensor description here so execute never reads tensor.v2 on a
+    // structure the vendor did not populate at version 2.
     for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
+        if (graph->inputTensors[index].version != QNN_TENSOR_VERSION_2) {
+            impl.input_specs_.clear();
+            impl.output_specs_.clear();
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "model input tensor version is not v2"};
+        }
         const auto spec = vqec_vision_ai_qcom_qneng_make_spec(graph->inputTensors[index]);
         if (spec.dtype_ == tensor_element_type::unknown ||
             vqec_vision_ai_core_tnctr_shape_bytes(spec) == 0) {
@@ -459,6 +487,12 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         impl.input_specs_.push_back(spec);
     }
     for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+        if (graph->outputTensors[index].version != QNN_TENSOR_VERSION_2) {
+            impl.input_specs_.clear();
+            impl.output_specs_.clear();
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "model output tensor version is not v2"};
+        }
         const auto spec = vqec_vision_ai_qcom_qneng_make_spec(graph->outputTensors[index]);
         if (spec.dtype_ == tensor_element_type::unknown ||
             vqec_vision_ai_core_tnctr_shape_bytes(spec) == 0) {
@@ -581,6 +615,11 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     }
     for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
         auto& tensor = graph->inputTensors[index];
+        // Defense in depth: prepare rejected non-v2 tensors, so this only fires if the graph
+        // metadata changed after prepare. Never reinterpret a version-1 union as v2.
+        if (tensor.version != QNN_TENSOR_VERSION_2) {
+            return {status_code::unsupported, "model input tensor version changed to non-v2"};
+        }
         tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
         tensor.v2.clientBuf.data = const_cast<std::uint8_t*>(_inputs[index].bytes_.data());
         tensor.v2.clientBuf.dataSize = _inputs[index].bytes_.size();
@@ -588,6 +627,10 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     if (!impl.has_memhandle_output_) {
         for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
             auto& tensor = graph->outputTensors[index];
+            if (tensor.version != QNN_TENSOR_VERSION_2) {
+                return {status_code::unsupported,
+                    "model output tensor version changed to non-v2"};
+            }
             tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
             tensor.v2.clientBuf.data = impl.output_workspace_[index].bytes_.data();
             tensor.v2.clientBuf.dataSize = impl.output_workspace_[index].bytes_.size();
@@ -616,7 +659,7 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     return {};
 }
 
-void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
+void qnn_engine::vqec_vision_ai_qcom_qneng_release_model() noexcept {
     if (implementation_ == nullptr) {
         return;
     }
@@ -642,6 +685,8 @@ void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
     }
     impl.has_memhandle_output_ = false;
     impl.output_workspace_.clear();
+    impl.input_specs_.clear();
+    impl.output_specs_.clear();
     if (impl.graphs_ != nullptr && impl.free_graphs_ != nullptr) {
         (void)impl.free_graphs_(&impl.graphs_, impl.graph_count_);
     }
@@ -658,6 +703,15 @@ void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
     }
     impl.context_ = nullptr;
     impl.is_prepared_ = false;
+}
+
+void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
+    if (implementation_ == nullptr) {
+        return;
+    }
+    auto& impl = *implementation_;
+    // Release the model-vscoped state first; the remaining teardown is backend/device.
+    vqec_vision_ai_qcom_qneng_release_model();
     if (impl.has_power_client_ && impl.perf_ != nullptr) {
         (void)impl.perf_->destroyPowerConfigId(impl.power_client_id_);
     }
