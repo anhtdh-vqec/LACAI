@@ -57,6 +57,11 @@ the running adapter because the backend may have committed despite returning an 
 Reconfiguration of that instance is prohibited; recovery rebuilds a fresh collection.
 No existing collection is deleted automatically.
 
+The neutral `face_gallery_store_port` now defines a complete validated snapshot and
+durable atomic replacement under revision CAS. This fixes the authority and recovery
+boundary without selecting a key source or treating Zvec as durable authority. The FW
+protected-storage adapter, index-generation rebuild/publish owner and crash tests remain.
+
 C API query/document allocation and blocking vendor calls still require a bounded worker
 and measured allocation/latency budgets before production activation. The optional source
 is not yet an end-to-end FR persistence implementation.

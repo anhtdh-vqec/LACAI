@@ -156,6 +156,13 @@ Embedding contract: `include/vqec/vision/ai/contracts/vqec_vision_embedding.hpp`
 `vqec_vision_ai_core_embct_`. Test `tests/unit/vqec_vision_embedding_test.cpp`, file_id
 `embtst`; main retains the language exception.
 
+Authoritative face-gallery contract
+`include/vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp` and validator
+`src/core/vqec_vision_face_gallery.cpp` use file_id `fgalr`, prefix
+`vqec_vision_ai_core_fgalr_`. Protected-store port
+`include/vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp` uses file_id `fgstr`,
+prefix `vqec_vision_ai_ports_fgstr_`. Validator test uses file_id `fgalt`.
+
 Embedding index port: `include/vqec/vision/ai/ports/vqec_vision_embedding_index.hpp`
 declares interface prefix `vqec_vision_ai_ports_emidx_`. Exact backend
 `src/perception/embedding/vqec_vision_exact_embedding_index.cpp` uses file_id `exidx`,

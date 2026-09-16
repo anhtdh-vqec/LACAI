@@ -27,6 +27,9 @@ Versioned face/body embedding index boundary for recognition and retrieval workf
   never a source-tree default. Search remains pinned to the in-memory gallery revision and
   embedding model identity. Existing collections are rejected until a journaled recovery
   handshake supplies the authoritative revision; this prevents stale matches after restart.
+- The authoritative face-gallery snapshot and protected-store port now define bounded
+  model/preprocess identity plus atomic revision CAS; the FW encrypted adapter and Zvec
+  rebuild/publish owner remain open.
 - Blacklist/attendance still require durable encrypted gallery storage, enrollment,
   calibrated thresholds and temporal policy.
 - Per-attribute entitlement/privacy and purge/retain policy are FW-owned.

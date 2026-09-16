@@ -10,6 +10,7 @@ add_library(vqec_vision_ai_core STATIC
     vqec_vision_encoder_window.cpp vqec_vision_preview_pool.cpp
     vqec_vision_encoded_output.cpp vqec_vision_output_generation.cpp
     vqec_vision_encoder_contract.cpp vqec_vision_observation.cpp vqec_vision_embedding.cpp
+    vqec_vision_face_gallery.cpp
     vqec_vision_deployment_config.cpp vqec_vision_model_catalog.cpp
     vqec_vision_usecase_activation.cpp
     vqec_vision_feature_event.cpp vqec_vision_feature_catalog.cpp

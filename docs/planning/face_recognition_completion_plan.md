@@ -243,6 +243,8 @@ storage boundary; Zvec là index dẫn xuất, không phải nguồn duy nhất 
 
 - [ ] Schema lưu subject ID opaque, record ID, embedding model/version/preprocess revision,
   vector dimension/metric, template quality, gallery revision, timestamps và deletion state.
+  Neutral snapshot/CAS contract now covers identity, model/preprocess revision, dimension,
+  normalized vectors and multi-template bounds; quality/time/deletion migration fields remain.
 - [ ] Chốt protected/encrypted storage với FW: key provisioning, permissions, quota, backup,
   retention/purge và schema migration. Không tự nhúng khóa hay đường dẫn deployment.
 - [ ] Transaction/journal: validate + CAS → durable authoritative commit → cập nhật Zvec →

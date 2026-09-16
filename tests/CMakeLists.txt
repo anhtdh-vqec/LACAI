@@ -364,6 +364,12 @@
     target_link_libraries(vqec_vision_ai_embedding_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_embedding_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME embedding_contract COMMAND vqec_vision_ai_embedding_test)
+
+    add_executable(vqec_vision_ai_face_gallery_test
+        unit/vqec_vision_face_gallery_test.cpp)
+    target_link_libraries(vqec_vision_ai_face_gallery_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_face_gallery_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME face_gallery_contract COMMAND vqec_vision_ai_face_gallery_test)
     add_executable(vqec_vision_ai_exact_embedding_index_test
         unit/vqec_vision_exact_embedding_index_test.cpp)
     target_link_libraries(vqec_vision_ai_exact_embedding_index_test
