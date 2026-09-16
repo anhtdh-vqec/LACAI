@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <unistd.h>
 
@@ -21,7 +22,7 @@ int main() {
     // The eSDK QEMU image may omit encoder plugins; the target board test exercises decode.
     if (gst_element_factory_find("videotestsrc") == nullptr ||
         gst_element_factory_find("jpegenc") == nullptr) {
-        qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
+        qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale", "", "",
                                                   fixture_bytes, fixture_timeout_ms});
         face_enrollment_image image;
         const face_enrollment_image_request invalid{fixture_path, 1, 1, 1, fixture_width + 1,
@@ -57,7 +58,7 @@ int main() {
         // Cross SDK QEMU may expose the target registry cache but cannot execute the
         // target plugin scanner. Keep request validation evidence in that environment;
         // native target CI exercises the decode assertions below.
-        qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
+        qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale", "", "",
                                                   fixture_bytes, fixture_timeout_ms});
         face_enrollment_image image;
         const face_enrollment_image_request invalid{fixture_path, 1, 1, 1, fixture_width + 1,
@@ -66,13 +67,12 @@ int main() {
         return source.vqec_vision_ai_ports_feimg_load(invalid, image).code_ ==
             status_code::invalid_argument ? 0 : 3;
     }
-    qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
+    qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale", "", "",
                                               fixture_bytes, fixture_timeout_ms});
     face_enrollment_image image;
     const face_enrollment_image_request request{
         fixture_path, 1, 1, 1, fixture_width, fixture_height};
     const auto loaded = source.vqec_vision_ai_ports_feimg_load(request, image);
-    std::remove(fixture_path);
     if (loaded.code_ != status_code::ok || !image.nv12_ || image.nv12_->size() != fixture_bytes ||
         image.frame_.descriptor_.offsets_[1] != fixture_width * fixture_height ||
         !image.frame_.owner_) {
@@ -96,5 +96,27 @@ int main() {
     invalid.width_ += 1;
     if (source.vqec_vision_ai_ports_feimg_load(invalid, image).code_ != status_code::invalid_argument ||
         image.nv12_ != retained) return 6;
+    constexpr auto dmabuf_smoke_variable = "VQEC_VISION_AI_REQUIRE_ENROLLMENT_DMABUF";
+    constexpr std::uint32_t dmabuf_width = 64;
+    constexpr std::uint32_t dmabuf_height = 64;
+    constexpr std::uint64_t dmabuf_allocation_limit = 1024U * 1024U;
+    if (std::getenv(dmabuf_smoke_variable) != nullptr) {
+        qcom_face_enrollment_image_source dmabuf_source(
+            {"jpegdec", "videoconvert", "videoscale", "qtivtransform", "fcv",
+             dmabuf_allocation_limit, fixture_timeout_ms, true});
+        face_enrollment_image dmabuf_image;
+        const face_enrollment_image_request dmabuf_request{
+            fixture_path, 2, 2, 2, dmabuf_width, dmabuf_height};
+        const auto dmabuf_loaded = dmabuf_source.vqec_vision_ai_ports_feimg_load(
+            dmabuf_request, dmabuf_image);
+        if (dmabuf_loaded.code_ != status_code::ok ||
+            dmabuf_image.frame_.native_handle_ < 0 || !dmabuf_image.frame_.owner_ ||
+            dmabuf_image.nv12_) {
+            std::cerr << dmabuf_loaded.message_ << '\n';
+            std::remove(fixture_path);
+            return 7;
+        }
+    }
+    std::remove(fixture_path);
     return 0;
 }

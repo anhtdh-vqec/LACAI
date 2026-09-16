@@ -6,10 +6,10 @@ for turning that path into one bounded NV12 image. The caller supplies the immut
 buffer and source epoch identity, so the source does not invent frame identifiers.
 
 The Qualcomm adapter owns a short lived GStreamer graph (`filesrc` + JPEG decoder +
-`videoscale` + `videoconvert` + NV12 caps + appsink), validates the configured output
+`videoscale` + `videoconvert` + optional vendor output transform + NV12 caps + appsink), validates the configured output
 byte bound, and returns an immutable shared image. GStreamer and Qualcomm types remain
-inside the adapter. In production mode the output caps require `memory:GBM`, the adapter
-verifies that the resulting memory is DMA-BUF backed and exposes its FD through neutral
+inside the adapter. In production mode the selected converter must allocate importable
+memory; the adapter verifies that the resulting memory is DMA-BUF backed and exposes its FD through neutral
 `raw_frame`; retaining the sample owner keeps the FD valid. Portable/reference mode can
 instead return packed CPU NV12.
 
@@ -23,3 +23,8 @@ required before enabling non-empty paths in the enrollment controller. Hardware 
 decode has not been established, and the converter/allocator path still needs board
 measurement. This source step does not claim end-to-end zero-copy or file enrollment
 acceptance.
+
+On QCS6490 `.98`, the production selection `qtivtransform engine=fcv` after the explicit
+I420-to-NV12 conversion produced a validated DMA-BUF. `memory:GBM` is not forced in caps
+because the installed plugin pad template does not advertise that feature; the adapter
+checks the actual returned GstMemory and fails closed when it is not DMA-BUF backed.

@@ -21,13 +21,13 @@ constexpr auto g_caps_property = "caps";
 constexpr auto g_raw_video_media = "video/x-raw";
 constexpr auto g_format_field = "format";
 constexpr auto g_nv12_format = "NV12";
-constexpr auto g_gbm_memory_feature = "memory:GBM";
 constexpr auto g_width_field = "width";
 constexpr auto g_height_field = "height";
 constexpr auto g_emit_signals_property = "emit-signals";
 constexpr auto g_sync_property = "sync";
 constexpr auto g_max_buffers_property = "max-buffers";
 constexpr auto g_drop_property = "drop";
+constexpr auto g_engine_property = "engine";
 constexpr unsigned g_nv12_plane_count = 2;
 constexpr unsigned g_single_image_buffer_count = 1;
 
@@ -41,6 +41,28 @@ struct sample_owner {
 
 void vqec_vision_ai_qcom_feimg_initialize_gst() {
     gst_init(nullptr, nullptr);
+}
+
+status vqec_vision_ai_qcom_feimg_set_enum(
+    GObject* _object, const char* _property, const std::string& _nick) {
+    const auto* specification = g_object_class_find_property(
+        G_OBJECT_GET_CLASS(_object), _property);
+    if (specification == nullptr || !G_IS_PARAM_SPEC_ENUM(specification) ||
+        (specification->flags & G_PARAM_WRITABLE) == 0) {
+        return {status_code::incompatible_plugin, "image transform enum property is absent"};
+    }
+    auto* values = static_cast<GEnumClass*>(
+        g_type_class_ref(G_PARAM_SPEC_VALUE_TYPE(specification)));
+    const auto* selected = values == nullptr ? nullptr :
+        g_enum_get_value_by_nick(values, _nick.c_str());
+    if (selected == nullptr) {
+        if (values != nullptr) g_type_class_unref(values);
+        return {status_code::incompatible_plugin, "image transform enum value is absent"};
+    }
+    const int value = selected->value;
+    g_type_class_unref(values);
+    g_object_set(_object, _property, value, nullptr);
+    return {};
 }
 }
 
@@ -57,7 +79,9 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
         _request.source_pts_ns_ == std::numeric_limits<std::uint64_t>::max() ||
         config_.max_image_bytes_ == 0 ||
         config_.timeout_ms_ == 0 || config_.jpeg_decoder_factory_.empty() ||
-        config_.converter_factory_.empty() || config_.scaler_factory_.empty()) {
+        config_.converter_factory_.empty() || config_.scaler_factory_.empty() ||
+        (config_.require_dmabuf_ && (config_.output_transform_factory_.empty() ||
+            config_.output_transform_engine_.empty()))) {
         return {status_code::invalid_argument, "invalid image source request"};
     }
     const auto pixels = static_cast<std::uint64_t>(_request.width_) * _request.height_;
@@ -77,29 +101,49 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     GstElement* decoder = gst_element_factory_make(config_.jpeg_decoder_factory_.c_str(), nullptr);
     GstElement* converter = gst_element_factory_make(config_.converter_factory_.c_str(), nullptr);
     GstElement* scaler = gst_element_factory_make(config_.scaler_factory_.c_str(), nullptr);
+    GstElement* output_transform = config_.output_transform_factory_.empty() ? nullptr :
+        gst_element_factory_make(config_.output_transform_factory_.c_str(), nullptr);
     GstElement* caps_filter = gst_element_factory_make(g_caps_filter_factory, nullptr);
     GstElement* sink = gst_element_factory_make(g_app_sink_factory, nullptr);
     if (pipeline == nullptr || source == nullptr || decoder == nullptr || converter == nullptr || scaler == nullptr ||
-        caps_filter == nullptr || sink == nullptr) {
-        for (auto* element : {source, decoder, converter, scaler, caps_filter, sink}) {
+        caps_filter == nullptr || sink == nullptr ||
+        (!config_.output_transform_factory_.empty() && output_transform == nullptr)) {
+        for (auto* element : {source, decoder, converter, scaler, output_transform, caps_filter, sink}) {
             if (element != nullptr) gst_object_unref(element);
         }
         if (pipeline != nullptr) gst_object_unref(pipeline);
         return {status_code::missing_plugin, "JPEG image decode elements are unavailable"};
     }
     g_object_set(source, g_location_property, _request.image_path_.c_str(), nullptr);
+    if (output_transform != nullptr && !config_.output_transform_engine_.empty()) {
+        const auto selected = vqec_vision_ai_qcom_feimg_set_enum(
+            G_OBJECT(output_transform), g_engine_property, config_.output_transform_engine_);
+        if (selected.code_ != status_code::ok) {
+            for (auto* element : {source, decoder, converter, scaler, output_transform,
+                                  caps_filter, sink}) gst_object_unref(element);
+            gst_object_unref(pipeline);
+            return selected;
+        }
+    }
     GstCaps* caps = gst_caps_new_simple(g_raw_video_media, g_format_field, G_TYPE_STRING, g_nv12_format,
                                         g_width_field, G_TYPE_INT, static_cast<int>(_request.width_),
                                         g_height_field, G_TYPE_INT, static_cast<int>(_request.height_), nullptr);
-    if (config_.require_dmabuf_) {
-        gst_caps_set_features(caps, 0, gst_caps_features_new(g_gbm_memory_feature, nullptr));
-    }
     g_object_set(caps_filter, g_caps_property, caps, nullptr);
     gst_caps_unref(caps);
     g_object_set(sink, g_emit_signals_property, FALSE, g_sync_property, FALSE,
                  g_max_buffers_property, g_single_image_buffer_count, g_drop_property, TRUE, nullptr);
-    gst_bin_add_many(GST_BIN(pipeline), source, decoder, scaler, converter, caps_filter, sink, nullptr);
-    if (!gst_element_link_many(source, decoder, scaler, converter, caps_filter, sink, nullptr)) {
+    if (output_transform == nullptr) {
+        gst_bin_add_many(GST_BIN(pipeline), source, decoder, scaler, converter,
+                         caps_filter, sink, nullptr);
+    } else {
+        gst_bin_add_many(GST_BIN(pipeline), source, decoder, scaler, converter,
+                         output_transform, caps_filter, sink, nullptr);
+    }
+    const bool linked = output_transform == nullptr ?
+        gst_element_link_many(source, decoder, scaler, converter, caps_filter, sink, nullptr) :
+        gst_element_link_many(source, decoder, scaler, converter, output_transform,
+                              caps_filter, sink, nullptr);
+    if (!linked) {
         gst_object_unref(pipeline);
         return {status_code::graph_link_failed, "JPEG image decode graph cannot be linked"};
     }

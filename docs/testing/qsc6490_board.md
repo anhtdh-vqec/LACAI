@@ -99,6 +99,17 @@ load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
 
+## 2026-09-16 enrollment image source on `.98`
+
+After the target allocation moved to `192.168.138.98`, the eSDK-built POSIX path
+authorizer and JPEG image-source tests passed natively. The opt-in production smoke ran
+`jpegdec -> videoscale -> videoconvert -> qtivtransform engine=fcv -> appsink`; the adapter
+verified the returned memory was DMA-BUF backed, validated its plane/allocation bounds and
+retained the Gst sample owner through the neutral `raw_frame`. The first probe exposed an
+invalid `memory:GBM` caps assumption and the second exposed the missing I420-to-NV12
+conversion; the recorded passing run includes both fixes. This is native allocator/import
+evidence for one synthetic image, not end-to-end FD/FR performance or zero-copy proof.
+
 ## 2026-09-16 FR cascade run
 
 The board was reachable at `.99` using the approved test account. The production binary
