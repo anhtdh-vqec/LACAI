@@ -13,6 +13,13 @@ memory; the adapter verifies that the resulting memory is DMA-BUF backed and exp
 `raw_frame`; retaining the sample owner keeps the FD valid. Portable/reference mode can
 instead return packed CPU NV12.
 
+The current FastCV landmark aligner reads NV12 through a CPU-mappable FD, while the GBM
+DMA-BUF returned by `qtivtransform` on QCS6490 is not directly `mmap`-able. For the cold
+enrollment path only, the adapter maps that Gst buffer through its allocator and writes one
+tightly packed retained memfd as `alignment_frame_`. SCRFD still consumes the DMA-BUF;
+alignment consumes the packed frame with identical identity and geometry. This is one
+explicit full-frame copy per enrollment request, outside the live camera hot path.
+
 The adapter validates and enables the standard `videoscale` `add-borders` property.
 Portrait and other non-matching aspect ratios are centered on the requested deployment
 canvas instead of being stretched, preserving face geometry before detector preprocess.

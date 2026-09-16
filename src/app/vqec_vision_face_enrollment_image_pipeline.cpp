@@ -88,8 +88,10 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         }));
     std::vector<embedding_result> embeddings;
     std::size_t failed_tasks = 0;
+    const raw_frame& alignment_frame = image.alignment_frame_.owner_ ?
+        image.alignment_frame_ : image.frame_;
     result = config_.cascade_->vqec_vision_ai_ports_ficas_run(
-        image.frame_, detections, _steady_now_ns, embeddings, failed_tasks);
+        alignment_frame, detections, _steady_now_ns, embeddings, failed_tasks);
     if (result.code_ != status_code::ok) {
         (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
         return result;

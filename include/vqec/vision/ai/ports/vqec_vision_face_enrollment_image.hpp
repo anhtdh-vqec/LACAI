@@ -22,9 +22,12 @@ struct face_enrollment_image_request {
 };
 
 struct face_enrollment_image {
-    // Production adapters return an importable native frame. The optional packed copy is
-    // for portable/reference adapters and contract tests; hot Qualcomm paths leave it null.
+    // Production adapters return an importable native frame for detector preprocessing.
+    // When that allocation cannot be CPU-mapped through the neutral FD contract, the
+    // adapter may also return a tightly packed retained frame for landmark alignment.
     raw_frame frame_;
+    raw_frame alignment_frame_;
+    // Optional packed bytes for portable/reference adapters and contract tests.
     std::shared_ptr<const std::vector<std::uint8_t>> nv12_;
 };
 

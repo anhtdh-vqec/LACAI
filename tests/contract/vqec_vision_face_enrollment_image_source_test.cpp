@@ -111,6 +111,10 @@ int main() {
             dmabuf_request, dmabuf_image);
         if (dmabuf_loaded.code_ != status_code::ok ||
             dmabuf_image.frame_.native_handle_ < 0 || !dmabuf_image.frame_.owner_ ||
+            dmabuf_image.alignment_frame_.native_handle_ < 0 ||
+            !dmabuf_image.alignment_frame_.owner_ ||
+            dmabuf_image.alignment_frame_.descriptor_.view_size_bytes_ !=
+                dmabuf_width * dmabuf_height * 3U / 2U ||
             dmabuf_image.nv12_) {
             std::cerr << dmabuf_loaded.message_ << '\n';
             std::remove(fixture_path);

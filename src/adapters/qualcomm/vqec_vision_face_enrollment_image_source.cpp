@@ -1,9 +1,13 @@
 #include "vqec_vision_face_enrollment_image_source.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <limits>
 #include <mutex>
 #include <utility>
+
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <gst/app/gstappsink.h>
 #include <gst/allocators/gstdmabuf.h>
@@ -37,6 +41,7 @@ constexpr auto g_add_borders_property = "add-borders";
 constexpr unsigned g_nv12_plane_count = 2;
 constexpr unsigned g_single_image_buffer_count = 1;
 constexpr std::uint32_t g_opaque_black_rgba = 0x000000ffU;
+constexpr char g_alignment_memfd_name[] = "lacai_enrollment_alignment";
 
 struct sample_owner {
     explicit sample_owner(GstSample* _sample) noexcept : sample_(_sample) {}
@@ -45,6 +50,33 @@ struct sample_owner {
     }
     GstSample* sample_{nullptr};
 };
+
+struct fd_owner {
+    explicit fd_owner(int _fd) noexcept : fd_(_fd) {}
+    ~fd_owner() noexcept {
+        if (fd_ >= 0) {
+            ::close(fd_);
+        }
+    }
+    int fd_{-1};
+};
+
+status vqec_vision_ai_qcom_feimg_write_all(
+    int _fd, const std::uint8_t* _data, std::size_t _size, std::uint64_t _offset) {
+    std::size_t written = 0;
+    while (written < _size) {
+        const auto result = ::pwrite(_fd, _data + written, _size - written,
+            static_cast<off_t>(_offset + written));
+        if (result < 0 && errno == EINTR) {
+            continue;
+        }
+        if (result <= 0) {
+            return {status_code::io_error, "cannot write enrollment alignment frame"};
+        }
+        written += static_cast<std::size_t>(result);
+    }
+    return {};
+}
 
 void vqec_vision_ai_qcom_feimg_initialize_gst() {
     gst_init(nullptr, nullptr);
@@ -109,6 +141,66 @@ status vqec_vision_ai_qcom_feimg_set_full_destination(
     g_object_set_property(_object, g_destination_property, &destination);
     g_value_unset(&destination);
     g_object_set(_object, g_background_property, g_opaque_black_rgba, nullptr);
+    return {};
+}
+
+status vqec_vision_ai_qcom_feimg_make_alignment_frame(
+    GstBuffer* _buffer, const GstVideoInfo& _info,
+    const face_enrollment_image_request& _request, raw_frame& _frame) {
+    const std::uint64_t pixels =
+        static_cast<std::uint64_t>(_request.width_) * _request.height_;
+    const std::uint64_t packed_bytes = pixels + pixels / 2U;
+    if (packed_bytes > static_cast<std::uint64_t>(std::numeric_limits<off_t>::max())) {
+        return {status_code::resource_exhausted,
+            "enrollment alignment frame exceeds file offset range"};
+    }
+    const int fd = ::memfd_create(g_alignment_memfd_name, MFD_CLOEXEC);
+    if (fd < 0 || ::ftruncate(fd, static_cast<off_t>(packed_bytes)) != 0) {
+        if (fd >= 0) {
+            ::close(fd);
+        }
+        return {status_code::io_error, "cannot allocate enrollment alignment frame"};
+    }
+    auto owner = std::make_shared<fd_owner>(fd);
+    GstVideoFrame mapped{};
+    if (!gst_video_frame_map(&mapped, &_info, _buffer, GST_MAP_READ)) {
+        return {status_code::io_error, "cannot map decoded DMA-BUF through GStreamer"};
+    }
+    status copied;
+    std::uint64_t destination_offset = 0;
+    for (unsigned plane = 0; plane < g_nv12_plane_count; ++plane) {
+        const auto rows = plane == 0 ? _request.height_ : _request.height_ / 2U;
+        const auto* data = static_cast<const std::uint8_t*>(
+            GST_VIDEO_FRAME_PLANE_DATA(&mapped, plane));
+        const auto stride = GST_VIDEO_FRAME_PLANE_STRIDE(&mapped, plane);
+        for (std::uint32_t row = 0;
+             row < rows && copied.code_ == status_code::ok; ++row) {
+            copied = vqec_vision_ai_qcom_feimg_write_all(fd,
+                data + static_cast<std::ptrdiff_t>(row) * stride,
+                _request.width_, destination_offset);
+            destination_offset += _request.width_;
+        }
+    }
+    gst_video_frame_unmap(&mapped);
+    if (copied.code_ != status_code::ok || destination_offset != packed_bytes) {
+        return copied.code_ != status_code::ok ? copied :
+            status{status_code::protocol_error,
+                "enrollment alignment frame copy is incomplete"};
+    }
+    raw_frame candidate;
+    candidate.descriptor_.buffer_id_ = _request.buffer_id_;
+    candidate.descriptor_.session_epoch_ = _request.session_epoch_;
+    candidate.descriptor_.width_ = _request.width_;
+    candidate.descriptor_.height_ = _request.height_;
+    candidate.descriptor_.offsets_ = {0U, static_cast<std::uint32_t>(pixels)};
+    candidate.descriptor_.strides_ = {static_cast<std::int32_t>(_request.width_),
+        static_cast<std::int32_t>(_request.width_)};
+    candidate.descriptor_.pts_ns_ = _request.source_pts_ns_;
+    candidate.descriptor_.view_size_bytes_ = packed_bytes;
+    candidate.descriptor_.allocation_size_bytes_ = packed_bytes;
+    candidate.native_handle_ = fd;
+    candidate.owner_ = std::move(owner);
+    _frame = std::move(candidate);
     return {};
 }
 }
@@ -294,6 +386,14 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
         descriptor.memory_offset_bytes_ = memory_offset;
         descriptor.allocation_size_bytes_ = allocation_size;
         candidate.frame_.native_handle_ = native_fd;
+        const auto alignment = vqec_vision_ai_qcom_feimg_make_alignment_frame(
+            buffer, info, _request, candidate.alignment_frame_);
+        if (alignment.code_ != status_code::ok) {
+            gst_sample_unref(sample);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+            return alignment;
+        }
         candidate.frame_.owner_ = std::make_shared<sample_owner>(sample);
     } else {
         GstVideoFrame mapped_frame{};
