@@ -213,8 +213,11 @@ status cascade_coordinator::vqec_vision_ai_ports_ficas_run(
     cascade_coordinator_report report;
     const auto result = vqec_vision_ai_appl_cscrd_process_frame(
         _steady_now_ns, _frame, _detections, aligned, _embeddings, report);
-    if (result.code_ == status_code::ok) _failed_tasks = report.failed_;
-    return result;
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
+    _failed_tasks = report.failed_;
+    return report.failed_ == 0 ? status{} : last_task_error_;
 }
 
 status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
@@ -224,6 +227,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
     _aligned.clear();
     _embeddings.clear();
     _report = {};
+    last_task_error_ = {};
     if (!is_configured_) {
         return {status_code::invalid_state, "cascade coordinator is not configured"};
     }
@@ -256,6 +260,9 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
         const auto acquired =
             _lease.vqec_vision_ai_ports_cflse_acquire(key, frame, frame_ticket);
         if (acquired.code_ != status_code::ok) {
+            if (last_task_error_.code_ == status_code::ok) {
+                last_task_error_ = acquired;
+            }
             ++_report.failed_;
             continue;
         }
@@ -264,14 +271,22 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
         const auto aligned = aligner_->vqec_vision_ai_ports_imaln_align(
             request, frame, template_, result, align_ticket);
         bool task_ok = aligned.code_ == status_code::ok;
+        if (!task_ok && last_task_error_.code_ == status_code::ok) {
+            last_task_error_ = aligned;
+        }
         // The alignment transform is not complete until the backend reports device
         // completion; a pending transform is a task failure, not a successful crop.
         if (task_ok) {
             bool complete = false;
-            if (aligner_->vqec_vision_ai_ports_imaln_poll_completion(align_ticket, complete)
-                    .code_ != status_code::ok ||
-                !complete) {
+            const auto completion =
+                aligner_->vqec_vision_ai_ports_imaln_poll_completion(align_ticket, complete);
+            if (completion.code_ != status_code::ok || !complete) {
                 task_ok = false;
+                if (last_task_error_.code_ == status_code::ok) {
+                    last_task_error_ = completion.code_ != status_code::ok ? completion :
+                        status{status_code::protocol_error,
+                            "alignment completion was not signalled"};
+                }
             }
         }
         bool pushed_aligned = false;
@@ -290,6 +305,9 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                     armed_source_epoch_ = key.source_epoch_;
                 } else {
                     task_ok = false;
+                    if (last_task_error_.code_ == status_code::ok) {
+                        last_task_error_ = armed;
+                    }
                 }
             }
             tensor_blob input;
@@ -299,6 +317,9 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                     input);
                 if (quantized.code_ != status_code::ok) {
                     task_ok = false;
+                    if (last_task_error_.code_ == status_code::ok) {
+                        last_task_error_ = quantized;
+                    }
                 }
             }
             if (task_ok) {
@@ -309,22 +330,27 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                         _steady_now_ns, secondary_ticket);
                 if (submitted.code_ != status_code::ok) {
                     task_ok = false;
+                    if (last_task_error_.code_ == status_code::ok) {
+                        last_task_error_ = submitted;
+                    }
                 } else {
                     tensor_result tensor;
                     embedding_result embedding;
                     const auto polled =
                         embedding_graph_->vqec_vision_ai_ports_infgr_poll_result(
                             _steady_now_ns, tensor);
-                    if (polled.code_ == status_code::ok &&
-                        embedding_decoder_
-                                ->vqec_vision_ai_ports_embdec_decode(
-                                    tensor, key, observation.track_id_, embedding)
-                                .code_ == status_code::ok) {
+                    const auto decoded = polled.code_ == status_code::ok ?
+                        embedding_decoder_->vqec_vision_ai_ports_embdec_decode(
+                            tensor, key, observation.track_id_, embedding) : polled;
+                    if (decoded.code_ == status_code::ok) {
                         _embeddings.push_back(std::move(embedding));
                         ++_report.embedded_;
                         pushed_embedding = true;
                     } else {
                         task_ok = false;
+                        if (last_task_error_.code_ == status_code::ok) {
+                            last_task_error_ = decoded;
+                        }
                     }
                 }
             }
@@ -336,6 +362,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
         if (task_ok && complete_ok) {
             ++_report.accepted_;
         } else {
+            if (!complete_ok && last_task_error_.code_ == status_code::ok) {
+                last_task_error_ = {status_code::invalid_state,
+                    "cascade frame lease completion failed"};
+            }
             ++_report.failed_;
             if (pushed_aligned) {
                 _aligned.pop_back();
@@ -349,6 +379,9 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
     }
     const auto retired = _lease.vqec_vision_ai_ports_cflse_retire(key);
     if (retired.code_ != status_code::ok && retired.code_ != status_code::invalid_state) {
+        if (last_task_error_.code_ == status_code::ok) {
+            last_task_error_ = retired;
+        }
         ++_report.failed_;
     }
     return {};

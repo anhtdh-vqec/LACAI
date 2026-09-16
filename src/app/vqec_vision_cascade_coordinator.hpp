@@ -90,6 +90,7 @@ private:
     std::size_t max_tasks_per_frame_{0};
     // Full model input spec taken from the loaded graph (name, dims, dtype, quantization).
     tensor_spec embedding_input_spec_{};
+    status last_task_error_{};
     bool has_embedding_input_spec_{false};
     bool is_configured_{false};
 };
