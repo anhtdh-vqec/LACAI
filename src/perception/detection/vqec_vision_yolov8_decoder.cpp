@@ -134,15 +134,26 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
     const float stretch_y = static_cast<float>(config_.tensor_height_) /
         static_cast<float>(config_.source_height_);
 
+    const bool is_float32 = score->spec_.dtype_ == tensor_element_type::float32 &&
+        box->spec_.dtype_ == tensor_element_type::float32;
+    const float* score_f32 = is_float32 ?
+        reinterpret_cast<const float*>(score->bytes_.data()) : nullptr;
+    const float* box_f32 = is_float32 ?
+        reinterpret_cast<const float*>(box->bytes_.data()) : nullptr;
+
     auto& candidates = candidates_;
     candidates.clear();
     for (std::size_t anchor = 0; anchor < anchors; ++anchor) {
         for (std::size_t class_index = 0; class_index < config_.class_count_; ++class_index) {
             float confidence = 0.0F;
-            if (vqec_vision_ai_detec_tnrd_read_scalar(
-                    *score, class_index * anchors + anchor, confidence).code_ !=
-                status_code::ok) {
-                return {status_code::unsupported, "YOLOv8 score element is unsupported"};
+            if (is_float32) {
+                confidence = score_f32[class_index * anchors + anchor];
+            } else {
+                if (vqec_vision_ai_detec_tnrd_read_scalar(
+                        *score, class_index * anchors + anchor, confidence).code_ !=
+                    status_code::ok) {
+                    return {status_code::unsupported, "YOLOv8 score element is unsupported"};
+                }
             }
             if (!(confidence >= config_.confidence_threshold_)) {
                 continue;  // also drops NaN
@@ -151,15 +162,22 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             float centre_y = 0.0F;
             float width = 0.0F;
             float height = 0.0F;
-            if (vqec_vision_ai_detec_tnrd_read_scalar(*box, 0U * anchors + anchor, centre_x).code_ !=
-                    status_code::ok ||
-                vqec_vision_ai_detec_tnrd_read_scalar(*box, 1U * anchors + anchor, centre_y).code_ !=
-                    status_code::ok ||
-                vqec_vision_ai_detec_tnrd_read_scalar(*box, 2U * anchors + anchor, width).code_ !=
-                    status_code::ok ||
-                vqec_vision_ai_detec_tnrd_read_scalar(*box, 3U * anchors + anchor, height).code_ !=
-                    status_code::ok) {
-                return {status_code::unsupported, "YOLOv8 box element is unsupported"};
+            if (is_float32) {
+                centre_x = box_f32[0U * anchors + anchor];
+                centre_y = box_f32[1U * anchors + anchor];
+                width = box_f32[2U * anchors + anchor];
+                height = box_f32[3U * anchors + anchor];
+            } else {
+                if (vqec_vision_ai_detec_tnrd_read_scalar(*box, 0U * anchors + anchor, centre_x).code_ !=
+                        status_code::ok ||
+                    vqec_vision_ai_detec_tnrd_read_scalar(*box, 1U * anchors + anchor, centre_y).code_ !=
+                        status_code::ok ||
+                    vqec_vision_ai_detec_tnrd_read_scalar(*box, 2U * anchors + anchor, width).code_ !=
+                        status_code::ok ||
+                    vqec_vision_ai_detec_tnrd_read_scalar(*box, 3U * anchors + anchor, height).code_ !=
+                        status_code::ok) {
+                    return {status_code::unsupported, "YOLOv8 box element is unsupported"};
+                }
             }
             const float source_cx = config_.placement_ == image_placement::stretch ?
                 centre_x / stretch_x : (centre_x - pad_left) / scale;

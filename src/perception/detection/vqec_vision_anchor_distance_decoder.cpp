@@ -192,11 +192,25 @@ status anchor_distance_decoder::vqec_vision_ai_cntr_mddec_decode(
                 landmarks->spec_, anchors, config_.landmark_count_ * 2U)) {
             return {status_code::unsupported, "anchor-distance result shape is invalid"};
         }
+        const bool is_float32 = score->spec_.dtype_ == tensor_element_type::float32 &&
+            box->spec_.dtype_ == tensor_element_type::float32 &&
+            landmarks->spec_.dtype_ == tensor_element_type::float32;
+        const float* score_f32 = is_float32 ?
+            reinterpret_cast<const float*>(score->bytes_.data()) : nullptr;
+        const float* box_f32 = is_float32 ?
+            reinterpret_cast<const float*>(box->bytes_.data()) : nullptr;
+        const float* landmarks_f32 = is_float32 ?
+            reinterpret_cast<const float*>(landmarks->bytes_.data()) : nullptr;
+
         for (std::size_t anchor = 0; anchor < anchors; ++anchor) {
             float confidence = 0.0F;
-            if (vqec_vision_ai_detec_tnrd_read_scalar(
-                    *score, anchor, confidence).code_ != status_code::ok) {
-                return {status_code::protocol_error, "cannot read anchor score"};
+            if (is_float32) {
+                confidence = score_f32[anchor];
+            } else {
+                if (vqec_vision_ai_detec_tnrd_read_scalar(
+                        *score, anchor, confidence).code_ != status_code::ok) {
+                    return {status_code::protocol_error, "cannot read anchor score"};
+                }
             }
             if (!std::isfinite(confidence) || confidence < 0.0F || confidence > 1.0F) {
                 return {status_code::protocol_error, "anchor score is not a probability"};
@@ -217,10 +231,14 @@ status anchor_distance_decoder::vqec_vision_ai_cntr_mddec_decode(
                     config_.anchor_offset_cells_) * stage.stride_;
             std::array<float, 4> distance{};
             for (std::size_t component = 0; component < distance.size(); ++component) {
-                if (vqec_vision_ai_detec_tnrd_read_scalar(
-                        *box, anchor * distance.size() + component,
-                        distance[component]).code_ != status_code::ok) {
-                    return {status_code::protocol_error, "cannot read anchor box"};
+                if (is_float32) {
+                    distance[component] = box_f32[anchor * distance.size() + component];
+                } else {
+                    if (vqec_vision_ai_detec_tnrd_read_scalar(
+                            *box, anchor * distance.size() + component,
+                            distance[component]).code_ != status_code::ok) {
+                        return {status_code::protocol_error, "cannot read anchor box"};
+                    }
                 }
                 distance[component] *= stage.stride_;
                 if (!std::isfinite(distance[component]) || distance[component] < 0.0F) {
@@ -256,13 +274,18 @@ status anchor_distance_decoder::vqec_vision_ai_cntr_mddec_decode(
             for (std::size_t point = 0; point < config_.landmark_count_; ++point) {
                 float offset_x = 0.0F;
                 float offset_y = 0.0F;
-                if (vqec_vision_ai_detec_tnrd_read_scalar(
-                        *landmarks, anchor * config_.landmark_count_ * 2U + point * 2U,
-                        offset_x).code_ != status_code::ok ||
-                    vqec_vision_ai_detec_tnrd_read_scalar(
-                        *landmarks, anchor * config_.landmark_count_ * 2U + point * 2U + 1U,
-                        offset_y).code_ != status_code::ok) {
-                    return {status_code::protocol_error, "cannot read anchor landmark"};
+                if (is_float32) {
+                    offset_x = landmarks_f32[anchor * config_.landmark_count_ * 2U + point * 2U];
+                    offset_y = landmarks_f32[anchor * config_.landmark_count_ * 2U + point * 2U + 1U];
+                } else {
+                    if (vqec_vision_ai_detec_tnrd_read_scalar(
+                            *landmarks, anchor * config_.landmark_count_ * 2U + point * 2U,
+                            offset_x).code_ != status_code::ok ||
+                        vqec_vision_ai_detec_tnrd_read_scalar(
+                            *landmarks, anchor * config_.landmark_count_ * 2U + point * 2U + 1U,
+                            offset_y).code_ != status_code::ok) {
+                        return {status_code::protocol_error, "cannot read anchor landmark"};
+                    }
                 }
                 if (!std::isfinite(offset_x) || !std::isfinite(offset_y)) {
                     return {status_code::protocol_error, "anchor landmark is not finite"};
