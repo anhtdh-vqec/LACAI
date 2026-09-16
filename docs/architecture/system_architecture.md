@@ -114,6 +114,12 @@ compatible and admitted gates; only that filtered deployment may load vendor gra
 [usecase activation](usecase_activation.md) and the
 [FW contract](../contracts/fw_usecase_control.md).
 
+The desired-plan manager and D-Bus v1 transport are now separated from runtime ownership:
+the adapter can change only `desired`, while trusted gates remain in AI APP. Startup
+pre-load filtering is wired. Live generation replacement remains an explicit boundary;
+the executable must not report a D-Bus plan as running until old submissions drain and the
+complete candidate generation is published.
+
 Dependent ROI models use the bounded design in
 [cascade inference](cascade_inference.md). They retain the exact source frame through
 secondary completion and do not enter the full-frame multi-model cadence fan-out.

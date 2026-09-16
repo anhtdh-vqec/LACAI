@@ -17,8 +17,8 @@ non-empty result is passed through deployment and model-catalog validation befor
 
 The resolver is transactional: malformed, incomplete or duplicate snapshots leave its
 output objects unchanged. It does not authenticate catalogs or entitlements, measure
-hardware capacity, own D-Bus, load models or mutate a live runtime. Those belong to the
-trusted control adapter, admission provider and generation owner. Dynamic disable remains
+hardware capacity, load models or mutate a live runtime. Those belong to the trusted
+provisioning boundary, admission provider and generation owner. Dynamic disable remains
 incomplete until that owner blocks output, stops submissions, drains backend completion
 and destroys the obsolete generation.
 
@@ -30,9 +30,26 @@ EdgeFace; an all-disabled snapshot stays in the idle service loop without openin
 packages or acquiring the camera. The document's gate booleans are trusted inputs from the
 provisioning/admission boundary, not self-asserted D-Bus authority.
 
-Live D-Bus changes still require the generation owner specified by the FW contract. The
-startup loader proves pre-load filtering and safe idle behavior; it does not claim dynamic
-drain/unload is delivered.
+`vqec_vision_usecase_control_manager` owns the serialized desired-plan cold path. It:
+
+- preserves installed, entitled, supported, compatible and admitted gates from the
+  trusted startup snapshot while permitting FW to replace only `desired`;
+- rejects unknown/duplicate associations, stale revisions and conflicting idempotency-key
+  reuse before producing a candidate;
+- composes a complete immutable effective deployment, preserves shared roots and retains
+  a bounded receipt history;
+- distinguishes the active generation from a candidate, reporting old work as running or
+  draining and new work as loading until the runtime owner publishes it.
+
+`vqec_vision_usecase_control_dbus` implements the exact v1 wire methods behind the neutral
+port. It resolves a configured FW peer to one unique D-Bus sender, bounds request bytes and
+callback progress, and never accepts entitlement/admission fields from the caller. Bus
+name and object path are installation configuration.
+
+The service still composes only its startup generation. Live D-Bus acceptance is therefore
+not wired into the executable until a generation owner can stop submission, drain all
+backend completion, construct the full candidate and atomically publish or reject it. The
+manager and adapter do not claim that dynamic drain/unload is delivered.
 
 See [FW usecase activation](../contracts/fw_usecase_control.md) for the wire contract and
 lifecycle requirements.

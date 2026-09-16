@@ -13,6 +13,8 @@ option(VQEC_VISION_AI_ENABLE_CAMERA "Enable Linux legacy camera FD receiver" OFF
 option(VQEC_VISION_AI_ENABLE_CAMERA_DBUS "Enable Camera Service GIO D-Bus transport" OFF)
 option(VQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS
     "Enable AI-owned face enrollment GIO D-Bus control adapter" OFF)
+option(VQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS
+    "Enable AI-owned usecase-control GIO D-Bus adapter" OFF)
 option(VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE "Enable Linux FD to GstMemory bridge" OFF)
 option(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST "Enable bounded JSON output manifest loading" OFF)
 option(VQEC_VISION_AI_ENABLE_MODEL_CATALOG "Enable bounded JSON model catalog loading" OFF)

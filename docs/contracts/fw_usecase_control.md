@@ -1,6 +1,8 @@
 # FW usecase activation contract
 
-Status: normative AI APP boundary; transport implementation and FW integration are pending.
+Status: normative AI APP boundary. The bounded D-Bus v1 adapter and neutral desired-plan
+manager are source-delivered; live service generation drain/recomposition and FW product
+integration remain pending.
 
 ## Purpose
 
@@ -42,6 +44,11 @@ effective consumer exists. Hiding overlay or dropping events alone is not a vali
 The deployed bus name and object root are installation configuration. The versioned
 interface is `com.vqec.AiVision.UsecaseControl1`; examples use object
 `/com/vqec/AiVision/UsecaseControl`.
+
+AI APP resolves the configured FW well-known name to its unique sender when binding the
+adapter and rejects calls from any other sender. Service bus name, object path, RPC timeout,
+callback budget and system/session bus selection are deployment inputs; none are selected
+from model identity.
 
 ### `ApplyDesiredPlan`
 

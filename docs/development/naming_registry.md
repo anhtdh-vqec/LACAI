@@ -137,6 +137,14 @@ Strict startup usecase snapshot loader
 `tests/unit/vqec_vision_usecase_config_test.cpp` uses file_id `ucftst`, prefix
 `vqec_vision_ai_unit_ucftst_`; `main` retains the language exception.
 
+Usecase-control port
+`include/vqec/vision/ai/ports/vqec_vision_usecase_control.hpp` uses file_id `ucctl` and
+interface prefix `vqec_vision_ai_ports_ucctl_`. Serialized manager
+`src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp` uses file_id `ucmgr`,
+prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus v1 adapter
+`src/adapters/fw_control/vqec_vision_usecase_control_dbus.cpp` uses file_id `ucdbs`, prefix
+`vqec_vision_ai_fwctl_ucdbs_`; its private-bus wire test uses file_id `ucdtst`.
+
 Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
 file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation
 `src/core/vqec_vision_observation.cpp`, file_id `obval`, prefix `vqec_vision_ai_core_obval_`.

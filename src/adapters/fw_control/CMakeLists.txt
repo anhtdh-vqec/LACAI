@@ -19,3 +19,15 @@ if(VQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS)
         vqec_vision_ai_embedding PRIVATE PkgConfig::face_enrollment_gio)
     set_target_properties(vqec_vision_ai_face_enrollment_dbus PROPERTIES CXX_EXTENSIONS OFF)
 endif()
+
+if(VQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(usecase_control_gio REQUIRED IMPORTED_TARGET gio-2.0)
+    add_library(vqec_vision_ai_usecase_control_dbus STATIC
+        vqec_vision_usecase_control_dbus.cpp)
+    target_include_directories(vqec_vision_ai_usecase_control_dbus PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+    target_link_libraries(vqec_vision_ai_usecase_control_dbus PUBLIC
+        vqec_vision_ai_core PkgConfig::usecase_control_gio)
+    set_target_properties(vqec_vision_ai_usecase_control_dbus PROPERTIES CXX_EXTENSIONS OFF)
+endif()

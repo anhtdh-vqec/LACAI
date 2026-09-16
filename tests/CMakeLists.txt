@@ -284,6 +284,26 @@
         set_target_properties(vqec_vision_ai_usecase_config_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME usecase_config_loading COMMAND vqec_vision_ai_usecase_config_test)
     endif()
+    if(TARGET vqec_vision_ai_usecase_control)
+        add_executable(vqec_vision_ai_usecase_control_manager_test
+            unit/vqec_vision_usecase_control_manager_test.cpp)
+        target_link_libraries(vqec_vision_ai_usecase_control_manager_test
+            PRIVATE vqec_vision_ai_usecase_control)
+        set_target_properties(vqec_vision_ai_usecase_control_manager_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME usecase_control_manager
+            COMMAND vqec_vision_ai_usecase_control_manager_test)
+    endif()
+    if(TARGET vqec_vision_ai_usecase_control_dbus)
+        add_executable(vqec_vision_ai_usecase_control_dbus_test
+            unit/vqec_vision_usecase_control_dbus_test.cpp)
+        target_link_libraries(vqec_vision_ai_usecase_control_dbus_test PRIVATE
+            vqec_vision_ai_usecase_control_dbus)
+        set_target_properties(vqec_vision_ai_usecase_control_dbus_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME usecase_control_dbus_wire
+            COMMAND vqec_vision_ai_usecase_control_dbus_test)
+    endif()
     if(TARGET vqec_vision_ai_model_catalog_config)
         add_executable(vqec_vision_ai_model_catalog_loader_test
             unit/vqec_vision_model_catalog_loader_test.cpp)

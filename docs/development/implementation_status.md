@@ -165,7 +165,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/lifecycle/vqec_vision_deployment_config.cpp` | Optional strict bounded deployment JSON loader; schemas/examples; pure deployment validation in core | Authenticated configuration activation and service lifecycle |
 | `src/runtime/model_registry/` | Optional model catalog/output manifest/package-registry loaders and bounded OpenSSL SHA-256 stream comparison; the package registry gives every catalog model an exact package/artifact binding | Signature verification, trusted immutable path opening and decoder lookup |
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
-| `src/core/vqec_vision_usecase_activation.cpp`, `src/runtime/feature_manager/vqec_vision_usecase_config.cpp` | Transactional pre-load usecase gate composition plus strict authenticated-startup snapshot parsing; service filters before package/graph preparation, preserves shared roots and idles without camera/model load when no usecase is ready | D-Bus adapter, signed entitlement verification and live runtime-generation drain/recomposition |
+| `src/core/vqec_vision_usecase_activation.cpp`, `src/runtime/feature_manager/vqec_vision_usecase_config.cpp`, `vqec_vision_usecase_control_manager.cpp`, `src/adapters/fw_control/vqec_vision_usecase_control_dbus.cpp` | Transactional pre-load gate composition, strict authenticated-startup parsing, bounded CAS/idempotent desired-plan ownership and exact D-Bus v1 adapter; service startup filters before graph preparation, preserves shared roots and idles without camera/model load | Signed entitlement verification and service-owned live runtime-generation output block, drain, rebuild and atomic publish |
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
@@ -276,9 +276,10 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
    and safe ring startup/recovery to complete preview end to end. Feature events can be
    authorized and delivered to a bound sink; bounded durable queue/retry and FW transport
    remain.
-4. Full feature/entitlement manager and legacy AI D-Bus compatibility server. A service
-   harness now exists, but process supervision, packaging/update integration,
-   observability and the compatibility server remain.
+4. Signed entitlement provisioning, live runtime-generation replacement and the legacy
+   AI D-Bus compatibility server. Desired-plan CAS/idempotency and the usecase D-Bus v1
+   adapter are source-delivered, but the service must still drain/rebuild/publish live;
+   process supervision, packaging/update integration and observability remain.
 5. Automatic source/BSP recovery, live DMA/SDK fault and golden tests, performance/soak
    coverage and release workload qualification.
 
