@@ -6,7 +6,7 @@ Status: primary decoder selection, typed contracts, retained-frame integration, 
 coordinator, FastCV alignment, embedding decoder, production binding, secondary graph
 lifecycle and runtime invocation are source-delivered. Model execution probes and a live
 compatibility FD-to-embedding smoke on `.99` pass; golden parity, post-fix multi-face,
-released-FW, gallery recovery and attendance validation remain open.
+released-FW, protected-gallery device recovery and attendance validation remain open.
 
 ## Why the current full-frame fan-out is insufficient
 

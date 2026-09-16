@@ -13,8 +13,8 @@ record IDs, and removes every template for a subject in a serialized sequence. I
 backend mutation succeeds but the owner cannot update its metadata, the session faults
 instead of pretending that the gallery is consistent.
 
-For a production gallery, `configure_persistent` loads one complete snapshot from the FW
-protected-store port, validates model/version/preprocess identity and rebuilds a fresh
+For a production gallery, `configure_persistent` loads one complete snapshot from the
+AI-owned protected-store port, validates model/version/preprocess identity and rebuilds a fresh
 derived index at the exact durable revision before accepting searches. Enrollment and
 subject removal first perform a durable snapshot CAS, then update the index. An index
 failure after durable commit faults the session; restart recovery replays the authoritative
@@ -35,6 +35,7 @@ This owner is the runtime seam for DBus enrollment. A control adapter should cal
 requested source/track, and must keep request identity, peer authorization, quality
 policy and durable gallery storage outside this class. The current implementation is
 an in-process owner. The optional GIO DBus adapter maps the FW control contract and
-authenticates the configured peer; the neutral protected-store contract is now defined,
-while its FW encrypted implementation, key provisioning and display-name metadata remain
-tracked work in the face-recognition completion plan.
+authenticates the configured peer. The AI-owned AES-256-GCM POSIX adapter implements
+bounded authenticated persistence, private file ownership/modes, revision CAS and atomic
+rename. Its filesystem key provider is not hardware-bound; hardware key qualification and
+display-name metadata remain tracked work in the face-recognition completion plan.

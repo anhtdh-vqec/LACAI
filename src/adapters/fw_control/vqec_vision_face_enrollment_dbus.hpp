@@ -15,10 +15,12 @@ inline constexpr char g_begin_method[] = "BeginEnrollment";
 inline constexpr char g_cancel_method[] = "CancelEnrollment";
 inline constexpr char g_remove_method[] = "RemoveSubject";
 inline constexpr char g_status_method[] = "GetEnrollmentStatus";
+inline constexpr char g_gallery_status_method[] = "GetGalleryStatus";
 inline constexpr char g_begin_signature[] = "(ssssuutut)";
 inline constexpr char g_cancel_signature[] = "(s)";
 inline constexpr char g_remove_signature[] = "(st)";
 inline constexpr char g_status_signature[] = "(s)";
+inline constexpr char g_gallery_status_signature[] = "()";
 }
 
 struct face_enrollment_dbus_config {

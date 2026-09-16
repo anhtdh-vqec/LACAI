@@ -210,7 +210,8 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_deployment_config
         vqec_vision_ai_model_catalog_config
         vqec_vision_ai_feature_catalog_config
-        vqec_vision_ai_usecase_config)
+        vqec_vision_ai_usecase_config
+        vqec_vision_ai_encrypted_gallery_store)
     if(TARGET vqec_vision_ai_face_enrollment_dbus)
         target_link_libraries(vqec_ai_vision_applications PRIVATE
             vqec_vision_ai_face_enrollment_dbus)

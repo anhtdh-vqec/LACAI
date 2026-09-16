@@ -59,6 +59,39 @@ int main(int _argc, char** _argv) {
             check(result.matches_.empty());
         }
     }
+    {
+        zvec_embedding_index rebuilt(_argv[1],
+            zvec_existing_collection_policy::rebuild);
+        embedding_index_config config;
+        config.model_id_ = "synthetic_embedding";
+        config.model_version_ = "1";
+        config.dimensions_ = 2;
+        config.capacity_ = 3;
+        config.max_results_ = 3;
+        config.initial_revision_ = 9;
+        const auto rebuilt_status =
+            rebuilt.vqec_vision_ai_ports_emidx_configure(config);
+        if (rebuilt_status.code_ != status_code::ok) {
+            std::cerr << "Zvec rebuild configure failed: "
+                      << rebuilt_status.message_ << '\n';
+        }
+        check(rebuilt_status.code_ == status_code::ok);
+        embedding_result query;
+        query.model_id_ = config.model_id_;
+        query.model_version_ = config.model_version_;
+        query.values_ = {1.0F, 0.0F};
+        query.is_l2_normalized_ = true;
+        embedding_search_result result;
+        result.matches_.reserve(config.max_results_);
+        const auto search_status = rebuilt.vqec_vision_ai_ports_emidx_search(
+            query, 9, 1, -1.0F, result);
+        if (search_status.code_ != status_code::ok) {
+            std::cerr << "Zvec rebuilt search failed: "
+                      << search_status.message_ << '\n';
+        }
+        check(search_status.code_ == status_code::ok);
+        check(result.matches_.empty());
+    }
     // This directory was absent before this test and contains only synthetic records.
     std::filesystem::remove_all(_argv[1]);
     std::cout << "Zvec integration failures: " << failures << '\n';

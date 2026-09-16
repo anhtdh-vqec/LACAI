@@ -27,6 +27,7 @@ constexpr char g_introspection_xml[] =
     "<method name='CancelEnrollment'><arg type='s' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
     "<method name='RemoveSubject'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
     "<method name='GetEnrollmentStatus'><arg type='s' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
+    "<method name='GetGalleryStatus'><arg type='t' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='b' direction='out'/><arg type='b' direction='out'/></method>"
     "</interface></node>";
 
 struct error_owner {
@@ -155,6 +156,20 @@ void vqec_vision_ai_fwctl_fedbs_method_call(
             return;
         }
         g_dbus_method_invocation_return_value(_invocation, g_variant_new("(ti)", new_revision, 0));
+        return;
+    } else if (g_strcmp0(_method_name,
+                   face_enrollment_dbus_protocol::g_gallery_status_method) == 0) {
+        face_gallery_status gallery_status;
+        result = port->vqec_vision_ai_ports_fenrl_get_gallery_status(gallery_status);
+        if (vqec_vision_ai_fwctl_fedbs_status_reply(
+                result, _invocation).code_ != status_code::ok) {
+            return;
+        }
+        g_dbus_method_invocation_return_value(_invocation,
+            g_variant_new("(tuubb)", gallery_status.gallery_revision_,
+                static_cast<guint>(gallery_status.subject_count_),
+                static_cast<guint>(gallery_status.template_count_),
+                gallery_status.is_available_, gallery_status.is_faulted_));
         return;
     } else if (g_strcmp0(_method_name, face_enrollment_dbus_protocol::g_status_method) == 0) {
         const gchar* request_id = nullptr;

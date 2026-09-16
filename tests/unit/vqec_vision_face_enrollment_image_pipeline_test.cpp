@@ -36,6 +36,11 @@ public:
         _status = status_;
         return {};
     }
+    status vqec_vision_ai_ports_fenrl_get_gallery_status(
+        face_gallery_status& _status) const override {
+        _status = {status_.gallery_revision_, 1, status_.accepted_samples_, true, false};
+        return {};
+    }
     status vqec_vision_ai_ports_fenrl_fail(
         const std::string&, status_code _error, face_enrollment_status& _status) override {
         status_.state_ = face_enrollment_state::failed;

@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unistd.h>
 
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
@@ -45,6 +46,7 @@
 #include "vqec_vision_single_image_inference.hpp"
 #include "vqec_vision_image_path_authorizer.hpp"
 #include "vqec_vision_face_enrollment_image_source.hpp"
+#include "vqec_vision_encrypted_face_gallery_store.hpp"
 #if defined(VQEC_VISION_AI_HAS_ZVEC)
 #include "vqec_vision_zvec_embedding_index.hpp"
 #endif
@@ -488,6 +490,13 @@ struct parsed_arguments {
     std::string output_colorimetry;
     std::string output_interlace_mode;
     std::string fr_gallery_path;
+    std::string fr_protected_directory;
+    std::string fr_gallery_file_name;
+    std::string fr_key_file_name;
+    std::string fr_lock_file_name;
+    std::string fr_gallery_id;
+    std::uint64_t fr_preprocess_revision{0};
+    std::size_t fr_store_max_bytes{0};
     float fr_minimum_similarity{0.0F};
     float fr_subject_margin{0.0F};
     std::size_t fr_max_templates{0};
@@ -576,6 +585,21 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.output_interlace_mode = _argv[++index];
         } else if (option == "--fr-gallery-path" && has_value) {
             _args.fr_gallery_path = _argv[++index];
+        } else if (option == "--fr-protected-directory" && has_value) {
+            _args.fr_protected_directory = _argv[++index];
+        } else if (option == "--fr-gallery-file" && has_value) {
+            _args.fr_gallery_file_name = _argv[++index];
+        } else if (option == "--fr-key-file" && has_value) {
+            _args.fr_key_file_name = _argv[++index];
+        } else if (option == "--fr-lock-file" && has_value) {
+            _args.fr_lock_file_name = _argv[++index];
+        } else if (option == "--fr-gallery-id" && has_value) {
+            _args.fr_gallery_id = _argv[++index];
+        } else if (option == "--fr-preprocess-revision" && has_value) {
+            _args.fr_preprocess_revision = std::strtoull(_argv[++index], nullptr, 10);
+        } else if (option == "--fr-store-max-bytes" && has_value) {
+            _args.fr_store_max_bytes = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
         } else if (option == "--fr-min-similarity" && has_value) {
             _args.fr_minimum_similarity = std::strtof(_argv[++index], nullptr);
             _args.fr_similarity_set = true;
@@ -697,7 +721,11 @@ int main(int _argc, char** _argv) {
             "--output-surface-count <count> "
             "--output-colorimetry <gst-colorimetry> "
             "--output-interlace-mode <gst-interlace-mode>] "
-            "[--fr-gallery-path <path> --fr-min-similarity <0..1> "
+            "[--fr-gallery-path <derived-zvec-path> "
+            "--fr-protected-directory <absolute-dir> --fr-gallery-file <name> "
+            "--fr-key-file <name> --fr-lock-file <name> --fr-gallery-id <id> "
+            "--fr-preprocess-revision <n> --fr-store-max-bytes <bytes> "
+            "--fr-min-similarity <0..1> "
             "--fr-subject-margin <0..1> --fr-max-templates <n> --fr-top-k <n> "
             "--fr-feature-id <id> --fr-identity-attribute <id> "
             "[--enrollment-dbus|--enrollment-dbus-session "
@@ -759,18 +787,27 @@ int main(int _argc, char** _argv) {
             return 0;
         }
     }
-    const bool has_fr_arguments = !args.fr_gallery_path.empty() || args.fr_similarity_set ||
+    const bool has_fr_arguments = !args.fr_gallery_path.empty() ||
+        !args.fr_protected_directory.empty() || !args.fr_gallery_file_name.empty() ||
+        !args.fr_key_file_name.empty() || !args.fr_lock_file_name.empty() ||
+        !args.fr_gallery_id.empty() || args.fr_preprocess_revision != 0 ||
+        args.fr_store_max_bytes != 0 || args.fr_similarity_set ||
         args.fr_margin_set || args.fr_templates_set || args.fr_top_k_set ||
         !args.fr_feature_id.empty() || !args.fr_identity_attribute.empty() ||
         args.enrollment_dbus;
     const bool has_complete_fr_arguments = !args.fr_gallery_path.empty() &&
+        !args.fr_protected_directory.empty() && !args.fr_gallery_file_name.empty() &&
+        !args.fr_key_file_name.empty() && !args.fr_lock_file_name.empty() &&
+        !args.fr_gallery_id.empty() && args.fr_preprocess_revision != 0 &&
+        args.fr_store_max_bytes != 0 &&
         args.fr_similarity_set && args.fr_margin_set && args.fr_templates_set &&
         args.fr_top_k_set && !args.fr_feature_id.empty() &&
         !args.fr_identity_attribute.empty();
     if (has_fr_arguments && !has_complete_fr_arguments) {
         std::fprintf(stderr,
-            "FR requires gallery path, similarity, margin, max templates, top-k, feature id "
-            "and identity attribute\n");
+            "FR requires derived index path, protected-store directory/files, gallery "
+            "identity/preprocess revision/quota, similarity, margin, max templates, "
+            "top-k, feature id and identity attribute\n");
         return 1;
     }
     bool has_active_secondary_model = false;
@@ -1249,6 +1286,7 @@ int main(int _argc, char** _argv) {
     }
     std::array<service_cascade_owner, deployment_limits::g_max_sources> cascade_owners;
     std::unique_ptr<embedding_index_port> recognition_index;
+    std::unique_ptr<face_gallery_store_port> recognition_store;
     recognition_session recognition;
     std::unique_ptr<face_enrollment_controller> enrollment_controller;
     std::unique_ptr<production_offline_model> enrollment_detector_model;
@@ -1359,7 +1397,8 @@ int main(int _argc, char** _argv) {
         }
 #if defined(VQEC_VISION_AI_HAS_ZVEC)
         if (use_production_platform) {
-            recognition_index = std::make_unique<zvec_embedding_index>(args.fr_gallery_path);
+            recognition_index = std::make_unique<zvec_embedding_index>(
+                args.fr_gallery_path, zvec_existing_collection_policy::rebuild);
         } else
 #endif
         {
@@ -1369,6 +1408,12 @@ int main(int _argc, char** _argv) {
         recognition_config.index_.model_id_ = recognition_owner->binding_.model_id_;
         recognition_config.index_.model_version_ = recognition_owner->binding_.model_version_;
         recognition_config.index_.dimensions_ = recognition_owner->binding_.embedding_dimensions_;
+        if (args.fr_max_templates > face_gallery_limits::g_max_records /
+                service_harness::g_fr_max_subjects) {
+            std::fprintf(stderr, "FR gallery capacity overflows the supported bound\n");
+            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            return 1;
+        }
         recognition_config.index_.capacity_ = args.fr_max_templates *
             service_harness::g_fr_max_subjects;
         recognition_config.index_.max_results_ = args.fr_top_k;
@@ -1379,8 +1424,26 @@ int main(int _argc, char** _argv) {
         recognition_config.max_templates_per_subject_ = args.fr_max_templates;
         recognition_config.search_top_k_ = args.fr_top_k;
         recognition_config.search_minimum_similarity_ = args.fr_minimum_similarity;
-        const auto recognition_configured = recognition.vqec_vision_ai_embed_rcses_configure(
-            *recognition_index, recognition_config);
+        encrypted_face_gallery_store_config store_config;
+        store_config.directory_path_ = args.fr_protected_directory;
+        store_config.gallery_file_name_ = args.fr_gallery_file_name;
+        store_config.key_file_name_ = args.fr_key_file_name;
+        store_config.lock_file_name_ = args.fr_lock_file_name;
+        store_config.expected_owner_uid_ = static_cast<std::uint32_t>(::geteuid());
+        store_config.max_serialized_bytes_ = args.fr_store_max_bytes;
+        recognition_store = std::make_unique<encrypted_face_gallery_store>(
+            std::move(store_config));
+        face_gallery_config gallery_config;
+        gallery_config.gallery_id_ = args.fr_gallery_id;
+        gallery_config.model_id_ = recognition_owner->binding_.model_id_;
+        gallery_config.model_version_ = recognition_owner->binding_.model_version_;
+        gallery_config.preprocess_revision_ = args.fr_preprocess_revision;
+        gallery_config.dimensions_ = recognition_owner->binding_.embedding_dimensions_;
+        gallery_config.capacity_ = recognition_config.index_.capacity_;
+        gallery_config.max_templates_per_subject_ = args.fr_max_templates;
+        const auto recognition_configured =
+            recognition.vqec_vision_ai_embed_rcses_configure_persistent(
+                *recognition_index, *recognition_store, recognition_config, gallery_config);
         if (recognition_configured.code_ != status_code::ok) {
             std::fprintf(stderr, "FR configuration failed (%d): %s\n",
                 static_cast<int>(recognition_configured.code_),

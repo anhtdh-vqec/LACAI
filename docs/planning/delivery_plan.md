@@ -69,7 +69,7 @@ Mỗi critical module có ít nhất hai người hiểu, tránh single owner DM
 ## P4 — tuần 9–10: wave 3 + beta
 
 - C: action/smoking/weapons temporal integration nếu kits đã đạt M0–M4;
-  FR/blacklist/retrieval dùng AI-owned gallery/index semantics và FW protected storage
+  FR/blacklist/retrieval dùng AI-owned protected gallery/key/index semantics
   theo ADR 0004; milestone lịch sử cần đối chiếu FR completion plan.
 - A/B: mixed workload resource policies, quality-aware crop scheduling, faults.
 - D: integration matrix, permissions, config/model ABI incompatibility tests.

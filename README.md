@@ -7,7 +7,8 @@
 
 Workspace C++17 của team AI APP: nhận 1..16 luồng FW RAW NV12/FD trên AI Camera và
 AI Box, chạy inference/feature đa model và sản xuất overlay + H264 vào FW ring. FW giữ
-sensor/ISP/RTSP/UI/recording; AI APP sở hữu runtime, perception/usecase, FR matching/index và preview overlay/encode.
+sensor/ISP/RTSP/UI/recording; AI APP sở hữu runtime, perception/usecase, toàn bộ protected
+FR gallery/key/matching/index và preview overlay/encode.
 
 Tài liệu trạng thái nguồn sự thật: [implementation status](docs/development/implementation_status.md).
 Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).

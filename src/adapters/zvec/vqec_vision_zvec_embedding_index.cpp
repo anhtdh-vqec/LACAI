@@ -75,7 +75,23 @@ bool vqec_vision_ai_zvec_zvidx_contains(
 
 status vqec_vision_ai_zvec_zvidx_create_collection(
     const std::string& _path, std::size_t _dimensions,
+    zvec_existing_collection_policy _existing_policy,
     zvec_collection_t*& _collection) noexcept {
+    if (_existing_policy == zvec_existing_collection_policy::rebuild) {
+        zvec_collection_t* existing = nullptr;
+        const auto opened = zvec_collection_open(_path.c_str(), nullptr, &existing);
+        if (opened == ZVEC_OK) {
+            const auto destroyed = zvec_collection_destroy(existing);
+            if (destroyed != ZVEC_OK) {
+                (void)zvec_collection_close(existing);
+                return vqec_vision_ai_zvec_zvidx_map_error(
+                    destroyed, "Zvec derived collection destruction failed");
+            }
+        } else if (opened != ZVEC_ERROR_NOT_FOUND) {
+            return vqec_vision_ai_zvec_zvidx_map_error(
+                opened, "Zvec derived collection inspection failed");
+        }
+    }
     zvec_collection_schema_t* schema =
         zvec_collection_schema_create(g_collection_name);
     if (schema == nullptr) {
@@ -148,8 +164,9 @@ status vqec_vision_ai_zvec_zvidx_validate_query(
 
 }  // namespace
 
-zvec_embedding_index::zvec_embedding_index(std::string _collection_path)
-    : collection_path_(std::move(_collection_path)) {}
+zvec_embedding_index::zvec_embedding_index(std::string _collection_path,
+    zvec_existing_collection_policy _existing_policy)
+    : collection_path_(std::move(_collection_path)), existing_policy_(_existing_policy) {}
 
 zvec_embedding_index::~zvec_embedding_index() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -182,7 +199,7 @@ status zvec_embedding_index::vqec_vision_ai_ports_emidx_configure(
     config_ = _config;
     record_ids_.reserve(_config.capacity_);
     const auto create_status = vqec_vision_ai_zvec_zvidx_create_collection(
-        collection_path_, _config.dimensions_, collection_);
+        collection_path_, _config.dimensions_, existing_policy_, collection_);
     if (create_status.code_ != status_code::ok) {
         // The revision is not persisted by this adapter. Reusing an old collection
         // without an authoritative revision handshake would permit stale matches.

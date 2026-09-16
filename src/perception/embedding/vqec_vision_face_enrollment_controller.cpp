@@ -116,6 +116,19 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_get_status(
     return {};
 }
 
+status face_enrollment_controller::vqec_vision_ai_ports_fenrl_get_gallery_status(
+    face_gallery_status& _status) const {
+    const auto snapshot = session_.vqec_vision_ai_embed_rcses_get_snapshot();
+    face_gallery_status result;
+    result.gallery_revision_ = snapshot.gallery_revision_;
+    result.subject_count_ = snapshot.subject_count_;
+    result.template_count_ = snapshot.template_count_;
+    result.is_available_ = snapshot.is_configured_ && !snapshot.is_faulted_;
+    result.is_faulted_ = snapshot.is_faulted_;
+    _status = result;
+    return {};
+}
+
 status face_enrollment_controller::vqec_vision_ai_ports_fenrl_fail(
     const std::string& _request_id, status_code _error,
     face_enrollment_status& _status) {

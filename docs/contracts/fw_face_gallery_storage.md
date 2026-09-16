@@ -1,19 +1,27 @@
-# FW protected storage contract for face gallery
+# AI-owned protected face-gallery contract
 
-Status: AI-side neutral contract delivered; FW protected-storage adapter, key provisioning
-and crash/recovery acceptance remain pending.
+Status: accepted ownership; AI encrypted-store adapter and restart recovery are delivered.
+Hardware-backed key qualification and power-loss/device acceptance remain pending.
 
 ## Ownership
 
-AI APP owns gallery schema validation, opaque subject/template semantics, revision CAS,
-model compatibility, Zvec rebuild and recognition policy. FW owns protected storage,
-device-bound key provisioning, file/service permissions, quota, backup and retention.
-Neither side treats a Zvec collection as the authoritative gallery.
+AI APP owns the complete protected gallery: schema, encryption/authentication, key
+lifecycle, file permissions, quota bounds, atomic replacement, recovery, opaque
+subject/template semantics, revision CAS, model compatibility, Zvec rebuild and
+recognition policy. Neither side treats a Zvec collection as the authoritative gallery.
 
-FW exposes protected storage through an adapter implementing `face_gallery_store_port`.
-The interface receives no raw remote path or key. Deployment selects the store binding;
-normal enrollment D-Bus requests contain an authorized image path and identity metadata,
-not a gallery database path or encryption secret.
+FW never opens the gallery, supplies a gallery database path or receives a gallery key.
+FW sends authorized enrollment/remove commands and may supervise the AI process. The AI
+deployment supplies a trusted local directory; its basename, quota and gallery identity
+are validated startup configuration. Normal enrollment D-Bus requests contain an
+authorized source-image path and identity metadata, never a database path or secret.
+
+The current AI adapter creates a random AES-256 key, stores it as a mode-0600 AI-owned
+file inside a mode-0700 AI-owned directory, and encrypts/authenticates snapshots with
+AES-256-GCM and a fresh nonce. This provides process-account/filesystem isolation and
+tamper detection. It is not evidence of a hardware-bound key. A future Qualcomm
+TEE/keystore provider replaces only the adapter's key provider; FW does not become the
+gallery owner.
 
 ## Snapshot
 
@@ -29,17 +37,20 @@ index use. Biometric vectors and subject data must not enter logs or diagnostic 
 ## Atomicity and recovery
 
 `replace(config, expected_revision, replacement)` is a durable atomic compare-and-swap.
-Success means the complete replacement survives power loss; a stale expected revision
-changes nothing. A replacement revision is strictly greater; one atomic operation may
-advance once per affected template so the derived index can reach the identical revision.
-The adapter authenticates/decrypts on load and fails closed on missing,
-truncated, corrupt, wrong-device or wrong-key data.
+Success means the complete replacement has been written, fsynced and renamed in the same
+directory; a stale expected revision changes nothing. A replacement revision is strictly
+greater; one atomic operation may advance once per affected template so the derived index
+can reach the identical revision.
+The adapter creates a missing first snapshot, then authenticates/decrypts every existing
+snapshot and fails closed on truncation, corruption, unsafe ownership/mode or wrong key.
 
 After durable commit, AI APP synchronizes a derived Zvec generation to the same revision.
-Search is unavailable while revisions differ. On restart AI APP loads the authoritative
-snapshot, builds a separate index generation, verifies record count/identity, then
-publishes it atomically. Failure never deletes the durable snapshot and never falls back
-to an unverified old collection.
+Search is unavailable while revisions differ. During serialized startup AI APP loads the
+authoritative snapshot, destroys only the disposable existing Zvec collection under
+explicit rebuild policy, creates an empty collection, replays all records and verifies the
+final revision before exposing recognition. Failure never deletes or rolls back the
+durable snapshot and never falls back to an unverified old collection. Atomic generation
+replacement for concurrent online rebuild remains a later requirement.
 
 ## Acceptance
 
@@ -48,4 +59,5 @@ to an unverified old collection.
 - crash before/after durable rename and during index rebuild;
 - reject stale CAS, corrupt ciphertext, wrong model/preprocess revision and quota overflow;
 - demonstrate that logs, D-Bus replies and diagnostics contain no embedding or key;
-- measure load, commit, rebuild and query latency at admitted gallery capacity.
+- measure load, commit, rebuild and query latency at admitted gallery capacity;
+- qualify a hardware-backed key provider before claiming device-bound protection.

@@ -11,10 +11,10 @@ Executable là `vqec_ai_vision_applications`. FW đã đồng ý đáp ứng bou
 thay thế kiểm chứng released-FW integration hay nghiệm thu tính năng.
 
 Hiện có production composition và historical compatibility evidence; current board
-validation target là `.98`. FastCV/QNN HTP,
+validation target là `.98` khi board được phân bổ. FastCV/QNN HTP,
 QTI overlay/encode và ring. Luồng FD → exact-frame alignment → EdgeFace → typed embedding
 đã được nối ở source qua neutral ports. Live cascade/golden parity, recognition/attendance,
-durable gallery recovery, generic backend factory, released-FW DMA completion và
+hardware-backed gallery key qualification, generic backend factory, released-FW DMA completion và
 performance acceptance vẫn chưa hoàn chỉnh.
 
 Quyết định backend: ADR 0002 xác lập tái sử dụng Qualcomm plugins; ADR 0003 bổ sung owned
@@ -22,9 +22,9 @@ QNN adapter cho capability/dtype cần thiết. Cả hai giữ neutral ports. Ư
 vendor implementation đã kiểm chứng; không bắt buộc mọi công đoạn phải dùng plugin khi
 SDK adapter có lý do và bằng chứng. Production hiện ghép FastCV + owned QNN trực tiếp;
 backend selection hoàn toàn theo capability/config vẫn là mục tiêu chưa hoàn tất.
-ADR 0004 chọn Zvec cho index FR, AI sở hữu matching/gallery semantics, FW cung cấp
-protected storage/provisioning. Đây là thay đổi có chủ đích so với đề xuất gallery/search
-thuộc FW ban đầu; giao thức storage cụ thể vẫn cần owner review.
+ADR 0004 chọn Zvec cho index FR. AI sở hữu matching, protected gallery, encryption,
+key lifecycle và recovery; FW chỉ gửi lệnh enrollment/remove đã authorize. Đây là thay
+đổi ownership có chủ đích so với đề xuất gallery/search thuộc FW ban đầu.
 
 Normative FW baseline: [FW release compatibility](../contracts/fw_release_compatibility.md).
 Deployment: [multi-source configuration](multi_source_configuration.md).
@@ -37,10 +37,9 @@ FR implementation: [completion plan](../planning/face_recognition_completion_pla
 - AI Model bàn giao model integration package, không chỉ binary.
 - AI APP sở hữu scheduler, model integration, perception, feature rules, lifecycle,
   entitlement enforcement, output schema và đo hiệu năng.
-- FW software sở hữu installation/supervision, config endpoint, key provisioning,
-  evidence storage/upload, protected storage/key provisioning và retention.
-  AI APP sở hữu enrollment/matching/index synchronization qua neutral storage/index ports;
-  FW cung cấp transport/UI và storage policy theo contract đã version hóa.
+- FW software sở hữu installation/supervision, config endpoint và evidence storage/upload.
+  AI APP sở hữu enrollment, matching, protected gallery, key lifecycle và index
+  synchronization qua neutral storage/index ports; FW cung cấp transport/UI.
 - BSP sở hữu driver/ISP/SDK, memory interoperability, cache/fence/reset contracts.
 - Không OpenCV. QNN/FastCV/GStreamer chỉ trong adapter hoặc benchmark tools.
 - Một process ai service ở v1; phân module theo dependency, không chia process theo bài.
@@ -208,7 +207,7 @@ benchmark board.
 
 Live tracks có thể lossy; alarm bounded durable delivery retry + dedup;
 counter checkpoint/window; heatmap bucket; AI FR sở hữu gallery/search semantics,
-Zvec sau embedding_index_port và persistence qua FW protected-storage boundary.
+Zvec sau embedding_index_port và persistence qua AI-owned protected-store adapter.
 Alarm chứa event_id, source/epoch/timestamp, feature/config/model versions,
 track refs, geometry, evidence request id; không tự copy video encode trong feature.
 

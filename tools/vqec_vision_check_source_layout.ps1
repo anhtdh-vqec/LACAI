@@ -13,7 +13,8 @@ $issues = [System.Collections.Generic.List[string]]::new()
 # These are the project include roots exported by current CMake targets. Checking
 # existence across this set is NOT proof of target-specific transitive visibility.
 $include_roots = @('include', 'src', 'src/app', 'src/core', 'src/adapters/camera',
-    'src/adapters/qualcomm', 'src/adapters/fw_output', 'src/adapters/fw_control', 'src/outputs',
+    'src/adapters/qualcomm', 'src/adapters/fw_output', 'src/adapters/fw_control',
+    'src/adapters/storage', 'src/outputs',
     'src/runtime/model_registry', 'src/runtime/feature_manager',
     'src/runtime/scheduler', 'src/runtime/admission', 'src/runtime/lifecycle',
     'src/perception/detection', 'src/perception/tracking',

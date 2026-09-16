@@ -42,6 +42,14 @@ struct face_enrollment_status {
     status_code last_error_{status_code::ok};
 };
 
+struct face_gallery_status {
+    std::uint64_t gallery_revision_{0};
+    std::size_t subject_count_{0};
+    std::size_t template_count_{0};
+    bool is_available_{false};
+    bool is_faulted_{false};
+};
+
 class face_enrollment_port {
 public:
     virtual ~face_enrollment_port() = default;
@@ -63,6 +71,8 @@ public:
         std::uint64_t& _new_gallery_revision) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_get_status(
         const std::string& _request_id, face_enrollment_status& _status) const = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_get_gallery_status(
+        face_gallery_status& _status) const = 0;
     // Internal orchestration terminal transition; never exposed as a FW mutation method.
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_fail(
         const std::string& _request_id, status_code _error,

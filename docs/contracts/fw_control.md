@@ -15,9 +15,13 @@ methods and signed-grant provisioning must not be assumed present in released FW
 | Team | Deliverable |
 |---|---|
 | FW BSP | board/image/sysroot/SDK + memory/import/sync/reset sample, capability limits |
-| FW software | camera transport, service supervision, config, provisioning, install/update, event/evidence persistence, protected storage/key provisioning |
+| FW software | camera transport, service supervision, config, provisioning, install/update, event/evidence persistence |
 | AI Model | full model package + golden + quality report |
-| AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics, FR enrollment/matching/index semantics + app IPK |
+| AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics, FR enrollment/matching and all protected gallery/key/index persistence + app IPK |
+
+FW must not open, copy, back up or mutate the face gallery and must not provision or
+receive its encryption key. FW enrollment/remove methods pass bounded identity metadata
+and an authorized image path; AI APP validates the request and commits its own gallery.
 
 BSP kit phải pin header và runtime binaries đồng bộ, device dependencies,
 permissions, allocator/cache/fence API, SDK threading rules, test model, profiler,

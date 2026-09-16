@@ -16,10 +16,11 @@ the inference backend; Zvec search has no measured Adreno acceleration evidence.
 ## Decision
 
 The FR usecase owns embedding validation, model/version compatibility, gallery revision,
-index synchronization, search semantics, calibrated match policy and attendance temporal
-logic. Durable encrypted identity/gallery persistence remains behind a neutral storage
-port and the FW-owned protected-storage integration boundary. The Zvec collection is a
-derived accelerator and is never the sole stored identity record.
+index synchronization, search semantics, calibrated match policy, attendance temporal
+logic and all durable protected-gallery persistence. Encryption, authentication, key
+lifecycle, file permissions and recovery remain behind the neutral storage port but are
+implemented and operated by AI APP. FW only invokes authorized enrollment/remove control.
+The Zvec collection is a derived accelerator and is never the sole stored identity record.
 
 All mutations use compare-and-swap gallery revisions. Search requests pin the required
 revision and exact embedding model identity. An index with a different revision or model
@@ -34,16 +35,16 @@ the contract and is suitable only within an admitted bounded gallery. Zvec stays
 
 Zvec v0.7.0 is enabled by default; its pinned public ARM64 SDK is acquired under
 third_party/zvec/sdk. The adapter uses the C API behind embedding_index_port. Existing
-collections are rejected because revision/record bookkeeping is currently in memory;
-journaled authoritative-store recovery is required before restart reuse is enabled.
+collections are never trusted as authority. After authenticating the durable snapshot,
+AI APP rebuilds an empty Zvec generation to the exact durable revision.
 
 ## Consequences
 
 Other vector-index adapters can implement the same neutral port.
 QCS6490 remains portable and correct, while its gallery capacity/latency must be measured
 before choosing exact CPU search or another Qualcomm-supported accelerator. Durable store
-commit and derived-index update need a journaled recovery protocol before enrollment is
-production-ready.
+commit precedes derived-index update. A failed index update faults the session; restart
+authenticates the store and rebuilds instead of rolling durable state back.
 Zvec provides an in-process ARM64-capable candidate backend, but this repository does not
 vendor its source or claim QCS6490 performance/availability without a target build and
 measurement.
@@ -55,12 +56,15 @@ The v0.7.0 cosine result is a distance: convert it to similarity with
 `1 - distance` before applying the neutral threshold. Failed mutations invalidate
 the running adapter because the backend may have committed despite returning an error.
 Reconfiguration of that instance is prohibited; recovery rebuilds a fresh collection.
-No existing collection is deleted automatically.
+An existing Zvec collection may be destroyed only by explicit rebuild policy after the
+authoritative snapshot has loaded and validated. The encrypted snapshot is never deleted
+as part of index recovery.
 
-The neutral `face_gallery_store_port` now defines a complete validated snapshot and
-durable atomic replacement under revision CAS. This fixes the authority and recovery
-boundary without selecting a key source or treating Zvec as durable authority. The FW
-protected-storage adapter, index-generation rebuild/publish owner and crash tests remain.
+The neutral `face_gallery_store_port` defines a complete validated snapshot and durable
+atomic replacement under revision CAS. The AI-owned POSIX adapter uses AES-256-GCM,
+private owner-only files, interprocess locking, same-directory fsync+rename and bounded
+binary decoding. Its current filesystem key is not hardware-bound; Qualcomm keystore/TEE
+qualification and power-cut testing remain release gates.
 
 C API query/document allocation and blocking vendor calls still require a bounded worker
 and measured allocation/latency budgets before production activation. The optional source
@@ -71,6 +75,7 @@ is not yet an end-to-end FR persistence implementation.
 The pinned public Linux ARM64 v0.7.0 SDK is now acquired under third_party/zvec/sdk
 using the checksum-verified bootstrap. CMake enables the adapter by default and links
 libzvec_c_api.so. On 2026-09-15 the eSDK-built integration executable passed both QEMU
-and native QCS6490 .48 execution (zero failed checks). Existing collection recovery,
-authoritative encrypted enrollment and live FD-to-FR composition remain open.
+and native QCS6490 .48 execution (zero failed checks). That historical run predates
+durable recovery. Current encrypted-store and restart logic is eSDK/QEMU evidence only
+until an authorized board is available.
 The upstream library is a release binary; only LACAI was compiled with the eSDK.

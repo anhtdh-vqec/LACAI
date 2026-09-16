@@ -304,6 +304,19 @@
         add_test(NAME usecase_control_dbus_wire
             COMMAND vqec_vision_ai_usecase_control_dbus_test)
     endif()
+    if(TARGET vqec_vision_ai_face_enrollment_dbus)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(face_enrollment_dbus_test_gio REQUIRED IMPORTED_TARGET gio-2.0)
+        add_executable(vqec_vision_ai_face_enrollment_dbus_test
+            unit/vqec_vision_face_enrollment_dbus_test.cpp)
+        target_link_libraries(vqec_vision_ai_face_enrollment_dbus_test PRIVATE
+            vqec_vision_ai_face_enrollment_dbus
+            PkgConfig::face_enrollment_dbus_test_gio)
+        set_target_properties(vqec_vision_ai_face_enrollment_dbus_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME face_enrollment_dbus_wire
+            COMMAND vqec_vision_ai_face_enrollment_dbus_test)
+    endif()
     if(TARGET vqec_vision_ai_model_catalog_config)
         add_executable(vqec_vision_ai_model_catalog_loader_test
             unit/vqec_vision_model_catalog_loader_test.cpp)
@@ -403,6 +416,14 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME recognition_persistence
         COMMAND vqec_vision_ai_recognition_persistence_test)
+    add_executable(vqec_vision_ai_encrypted_face_gallery_store_test
+        unit/vqec_vision_encrypted_face_gallery_store_test.cpp)
+    target_link_libraries(vqec_vision_ai_encrypted_face_gallery_store_test
+        PRIVATE vqec_vision_ai_encrypted_gallery_store vqec_vision_ai_embedding)
+    set_target_properties(vqec_vision_ai_encrypted_face_gallery_store_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME encrypted_face_gallery_store
+        COMMAND vqec_vision_ai_encrypted_face_gallery_store_test)
     add_executable(vqec_vision_ai_face_enrollment_controller_test
         unit/vqec_vision_face_enrollment_controller_test.cpp)
     target_link_libraries(vqec_vision_ai_face_enrollment_controller_test

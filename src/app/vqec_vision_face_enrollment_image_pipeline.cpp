@@ -25,18 +25,17 @@ status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_begin(
     if (!is_configured_) {
         return {status_code::invalid_state, "enrollment image pipeline is not configured"};
     }
-    if (!_request.image_path_.empty() &&
-        (_request.expected_samples_ != 1 || _request.target_track_id_ != 0)) {
+    if (_request.image_path_.empty() || _request.expected_samples_ != 1 ||
+        _request.target_track_id_ != 0) {
         return {status_code::invalid_argument,
-            "one enrollment image requires one automatically selected face sample"};
+            "FW enrollment requires one image and one automatically selected face sample"};
     }
     if (has_pending_ && _request.request_id_ != pending_.request_id_) {
         return {status_code::resource_exhausted, "enrollment image pipeline already has a job"};
     }
-    const auto begun = _request.image_path_.empty() ?
-        config_.controller_->vqec_vision_ai_ports_fenrl_begin(_request, _status) :
-        config_.controller_->vqec_vision_ai_ports_fenrl_begin_image(_request, _status);
-    if (begun.code_ != status_code::ok || _request.image_path_.empty() || has_pending_) {
+    const auto begun = config_.controller_->vqec_vision_ai_ports_fenrl_begin_image(
+        _request, _status);
+    if (begun.code_ != status_code::ok || has_pending_) {
         return begun;
     }
     pending_ = _request;
@@ -175,6 +174,14 @@ status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_get_status(
     const std::string& _request_id, face_enrollment_status& _status) const {
     if (!is_configured_) return {status_code::invalid_state, "pipeline is not configured"};
     return config_.controller_->vqec_vision_ai_ports_fenrl_get_status(_request_id, _status);
+}
+
+status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_get_gallery_status(
+    face_gallery_status& _status) const {
+    if (!is_configured_ || config_.controller_ == nullptr) {
+        return {status_code::invalid_state, "face enrollment image pipeline is unavailable"};
+    }
+    return config_.controller_->vqec_vision_ai_ports_fenrl_get_gallery_status(_status);
 }
 
 status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_fail(

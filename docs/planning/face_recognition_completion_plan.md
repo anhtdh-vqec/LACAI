@@ -37,8 +37,8 @@ không cần sửa orchestration. YOLO person không phải dependency bắt bu�
 | Frame store | Exact key, owner giữ frame, pump/session wiring, task tickets, byte budget, dependent drain | Completion phần cứng và age/epoch policy mở rộng |
 | Cascade coordinator | Ticket-correlated alignment, synchronous secondary execute/decode, per-task isolation; compatibility live smoke `.98` | Async worker/fairness, post-fix multi-face và released-FW evidence |
 | Image alignment port | Typed landmarks/template/transform/completion; Qualcomm FastCV adapter | Destination pool và golden alignment parity |
-| Zvec | v0.7.0 public ARM64 SDK, mặc định build adapter; real-library tests pass trên `.48` | Chỉ tạo collection mới; revision/record IDs trong RAM; recovery/enrollment chưa có |
-| FR/điểm danh | Production FD-to-embedding source composition; feature/event infrastructure | Matching, recognition state, gallery recovery, enrollment và attendance |
+| Zvec | v0.7.0 public ARM64 SDK; explicit derived-index rebuild from authenticated gallery passes eSDK/QEMU | Worker/performance/capacity/thermal and current-board qualification |
+| FR/điểm danh | Persistent matching, image-path enrollment/remove/status D-Bus, live labels and protected-gallery restart recovery | Calibration, durable request receipts, temporal attendance/events and release qualification |
 
 Bộ test eSDK QEMU hiện bao phủ graph lifecycle, runtime cascade invocation, retention/drain
 và Zvec linking; số lượng chính xác nằm trong validation của từng commit. Test frame-store
@@ -241,17 +241,17 @@ Vị trí chính: `src/adapters/zvec/`, `embedding_index_port`; bổ sung storag
 Theo [ADR 0004](../adr/0004_fr_gallery_and_vector_index.md), authoritative gallery nằm sau
 storage boundary; Zvec là index dẫn xuất, không phải nguồn duy nhất của identity data.
 
-- [ ] Schema lưu subject ID opaque, record ID, embedding model/version/preprocess revision,
-  vector dimension/metric, template quality, gallery revision, timestamps và deletion state.
-  Neutral snapshot/CAS contract now covers identity, model/preprocess revision, dimension,
-  normalized vectors and multi-template bounds; quality/time/deletion migration fields remain.
-- [ ] Chốt protected/encrypted storage với FW: key provisioning, permissions, quota, backup,
-  retention/purge và schema migration. Không tự nhúng khóa hay đường dẫn deployment.
-- [ ] Transaction/journal: validate + CAS → durable authoritative commit → cập nhật Zvec →
+- [x] Schema v1 lưu subject ID opaque, record ID, embedding model/version/preprocess
+  revision, vector dimension, gallery revision, normalized vectors và multi-template bounds.
+- [ ] Schema migration cho template quality, timestamps và deletion/tombstone state.
+- [x] AI sở hữu protected/encrypted store, key lifecycle, permissions và quota bound;
+  không nhúng khóa hay đường dẫn deployment. Filesystem key chưa hardware-bound; backup,
+  retention/purge và schema migration còn mở.
+- [x] Transaction: validate + CAS → durable authoritative commit → cập nhật Zvec →
   publish indexed revision. Search chỉ chạy revision đã đồng bộ. Crash giữa từng bước phải
   replay idempotent hoặc rebuild; không tự gắn revision mới cho collection cũ.
-- [ ] Metadata durable cho index: schema/model fingerprint, revision, build status; open
-  collection chỉ sau handshake. Thiếu/sai/corrupt thì unavailable/rebuild, không stale match.
+- [x] Model/preprocess/dimension/revision authority nằm trong encrypted snapshot; index chỉ
+  được rebuild sau load/authenticate. Thiếu/sai/corrupt thì unavailable, không stale match.
 - [ ] Rebuild sang collection tạm, kiểm số records/parity rồi chuyển generation an toàn;
   queries đang chạy giữ generation cũ đến completion. Không xóa gallery người dùng tự động.
 - [ ] Đưa query/upsert/delete vào owner worker có queue bounded. Hiện adapter giữ mutex khi
@@ -260,30 +260,41 @@ storage boundary; Zvec là index dẫn xuất, không phải nguồn duy nhất 
   build/search parameters là config có validation. ANN phải đo recall và tác động FR accuracy.
 - [ ] Validate returned IDs, finite/range/order của similarity, number of results, stable ties;
   không publish batch một phần khi backend lỗi. Cosine similarity = 1 − Zvec cosine distance.
-- [ ] Fault injection: disk full, permission denied, torn write, corrupt metadata, writer crash,
+- [ ] Fault injection: disk full, permission denied, torn write, writer crash,
   repeated mutation, incompatible model, concurrent search/delete và failed index mutation.
 - [ ] Review redistribution licenses/dependency notices của public SDK; pin/hash và khả năng
   thay artifact theo vendor. Không tuyên bố Zvec GPU/Adreno acceleration từ test hiện có.
+
+**Tiến độ M6 (2026-09-16):** AES-256-GCM store, private file validation, interprocess
+locking, disk CAS, atomic rename, tamper rejection và restart rebuild đã pass eSDK/QEMU.
+Zvec existing collection is destroyed only under explicit rebuild policy after the
+authoritative snapshot validates. Power-cut, temporary generation publication,
+hardware-backed key and device performance remain open.
 
 **Gate:** enroll/update/delete tồn tại đúng sau restart; crash không tạo match stale hoặc
 identity mồ côi; không search khi revision mismatch. Có backup/restore/rebuild procedure.
 
 ## 12. M7 — Enrollment và control API
 
-- [ ] Define FW API request/result cho create subject, enroll sample, replace/remove template,
+- [x] Define FW API request/result cho enroll ảnh, remove subject, query request/gallery status,
   delete subject, query status và rebuild; schema version, authorization, idempotency key,
   expected revision, timeout và error taxonomy.
-- [ ] Enrollment online dùng cùng alignment/embedding pipeline như recognition. Với ảnh
-  upload, thêm input adapter và validation riêng; không tự coi upload là camera frame.
+- [x] Enrollment từ path ảnh đã authorize dùng cùng detector/alignment/embedding contracts;
+  input adapter riêng không coi file upload là camera frame.
 - [ ] Chọn đúng subject/session được authorize; reject nhiều mặt không xác định, chất lượng
   kém hoặc sample không đạt policy. Không tự enroll unknown visitor.
 - [ ] Số mẫu/người, diversity, duplicate sample/duplicate subject handling và quality threshold
   phải cấu hình/calibrate. Tổng hợp centroid chỉ khi đã đánh giá accuracy so với multi-template.
-- [ ] Bound template count, gallery size, request size và rate; công bố progress/error rõ.
+- [x] Bound template count, gallery size, wire/image size, callback budget và progress/error.
 - [ ] Delete phải invalidate index, caches và pending results, đồng thời thực thi purge theo
   storage policy. Test retry enrollment sau mất mạng không tạo bản ghi lặp.
 
 **Gate:** quản trị gallery được end-to-end qua FW API, không cần sửa file tay trên board.
+
+**Tiến độ M7 (2026-09-16):** DBus v1 supports required image-path enrollment, cancel,
+remove, request status and gallery revision/count/health. Multiple images for one person
+use separate idempotent requests with one shared `subject_ref`. Request receipts remain
+in memory, so restart-safe command deduplication and full authorization/rate policy remain.
 
 ## 13. M8 — Matching và trạng thái nhận diện
 

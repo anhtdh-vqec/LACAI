@@ -23,6 +23,8 @@ public:
         std::uint64_t& _new_gallery_revision) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_get_status(
         const std::string& _request_id, face_enrollment_status& _status) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_fenrl_get_gallery_status(
+        face_gallery_status& _status) const override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_fail(
         const std::string& _request_id, status_code _error,
         face_enrollment_status& _status) override;

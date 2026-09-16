@@ -5,19 +5,20 @@ the runtime consumes the `face_enrollment_port` and does not depend on GIO or wi
 
 FW invokes enrollment only after authenticating the caller and authorizing the source.
 Requests contain opaque `subject_ref` values. AI never accepts a display name as an
-identity and never receives raw pixels or biometric vectors over DBus. The live cascade
-captures embeddings from the requested source and optional tracked face; this keeps
-enrollment on the same alignment and model-version path as recognition.
+identity and never receives raw pixels or biometric vectors over DBus. FW supplies an
+authorized local image path; the person is not required to stand in front of the camera.
+AI decodes that retained file and runs the same detector/alignment/embedding contracts as
+live recognition.
 
 ## Operations
 
 `BeginEnrollment(request_id, subject_ref, image_path, source_id, camera_id, channel_id,
 target_track_id, expected_samples, expected_gallery_revision)` starts one bounded
-request. `image_path` is the FW-authorized local path for file enrollment; when it is
-empty, `target_track_id=0` means the AI adapter must accept a sample only when the
-frame has one eligible face; a frame with multiple eligible embeddings is rejected as
-ambiguous. `expected_samples` allows several templates for one subject and is bounded
-by the validated deployment policy.
+request. `image_path` is the required FW-authorized local path. Version 1 requires
+`target_track_id=0`, `expected_samples=1` and exactly one eligible face in each image;
+a file with zero or multiple eligible faces is rejected. Multiple faces for one person
+are enrolled through separate idempotent requests sharing the same `subject_ref` and
+advancing the gallery revision after each accepted image.
 
 `CancelEnrollment(request_id)` transitions a collecting request to cancelled. Samples
 already committed remain gallery records; FW can remove the subject with a revision CAS
@@ -29,8 +30,8 @@ failure is reported; callers must reconcile status before retrying.
 
 `GetEnrollmentStatus(request_id)` returns state, accepted/expected sample counts,
 gallery revision and a typed last-error code. AI emits progress only after the mutation
-has succeeded. `GetGalleryStatus()` returns the current revision and health, without
-returning identities, vectors or biometric data.
+has succeeded. `GetGalleryStatus()` returns revision, subject count, template count,
+availability and fault state, without returning identities, vectors or biometric data.
 
 ## Invariants
 
@@ -44,10 +45,11 @@ receipts need the durable store before restart-safe retries can be claimed.
 
 DBus v1 uses bus `com.vqec.Lacai`, object `/com/vqec/Lacai/FaceEnrollment`, interface
 `com.vqec.Lacai.FaceEnrollment1`. Begin input is `(ssssuutut)` and status output is
-`(ssuuuti)`; remove input/output are `(st)` / `(ti)`. Wire state/error codes must be
+`(ssuuuti)`; remove input/output are `(st)` / `(ti)` and gallery status output is
+`(tuubb)`. Wire state/error codes must be
 mapped explicitly by the adapter rather than exposing C++ enum ordinal values.
 The adapter resolves a configured trusted FW bus name to its unique sender at startup.
-All four methods require that exact sender; FW reconnection requires rebinding/restart.
+All five methods require that exact sender; FW reconnection requires rebinding/restart.
 No caller-supplied identity field grants authorization. RPC timeout and callback budget
 are mandatory validated deployment settings. This authenticates the configured peer;
 feature entitlement and output-name authorization remain separate gates. The service
@@ -72,8 +74,8 @@ The controller implements the bounded lifecycle and revision checks in-process. 
 optional GIO D-Bus adapter implements the concrete object/interface and authenticates the
 configured FW peer at startup. In Qualcomm production mode the service resolves a
 non-empty path through configured roots, decodes it to an owned DMA-BUF frame and executes
-dedicated SCRFD/EdgeFace graphs outside the D-Bus callback. Durable encrypted storage and
-peer-name provisioning remain platform integration work.
+dedicated SCRFD/EdgeFace graphs outside the D-Bus callback. The AI-owned encrypted store
+is wired into production composition; peer-name provisioning remains deployment work.
 
 The delivered [image pipeline](../architecture/face_enrollment_image_pipeline.md) defines
 bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. Its

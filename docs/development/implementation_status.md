@@ -6,6 +6,18 @@ must not be interpreted as the current missing-feature list.
 
 ## Current summary and evidence authority
 
+2026-09-16 protected-gallery step: AI APP now owns durable gallery persistence and key
+lifecycle. The production service requires explicit protected-store configuration, loads
+an AES-256-GCM authenticated snapshot, rebuilds a fresh exact/Zvec index at its durable
+revision, and only then enables enrollment/search. Store mutations use an interprocess
+lock, on-disk revision CAS, owner-only files and same-directory fsync+rename. Corrupt or
+tampered ciphertext fails closed. `GetGalleryStatus` now exposes revision/count/health
+without identities or vectors. eSDK/QEMU covers encrypted restart recognition, stale CAS,
+tamper rejection, Zvec existing-collection rebuild and the D-Bus wire. The filesystem key
+is not hardware-bound; power-cut, keystore/TEE, capacity/performance and board validation
+remain release gates. The complete eSDK/QEMU suite passes 119/119. No board was accessed
+because all devices are currently occupied.
+
 2026-09-16 source step: enrollment image source port and Qualcomm GStreamer JPEG-to-NV12
 adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
 and wait time are configuration bounded. The Qualcomm production mode requires GBM caps,
@@ -14,9 +26,8 @@ The production service now supplies the FD/FR handoff, retained-FD input admissi
 dedicated graph wiring. On `.98`, authorized JPEG enrollment completed through the real
 SCRFD/FastCV/EdgeFace/Zvec path via D-Bus, accepted one template and advanced gallery
 revision 1 to 2. In the same running process the AI-owned overlay/H.264 ring published a
-host-probed 1920x1080 30 FPS RTSP stream. Restart recovery remains open: the current Zvec
-adapter deliberately rejects an existing collection because durable authoritative gallery
-and revision recovery are not yet implemented. See
+host-probed 1920x1080 30 FPS RTSP stream. That historical run used a transient gallery;
+the current durable implementation has not yet been rerun on a board. See
 [image source](../architecture/face_enrollment_image_source.md).
 
 2026-09-16 combined `.98` run: one RAW acquisition drove YOLOv8n-person and SCRFD while
@@ -52,8 +63,8 @@ Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Per
 has measured 30 AI results/s; approximately 44.5% process CPU remains above the requested
 15–25% target. These are historical measured runs, not a new test run for this docs update.
 The source now composes primary FD, retained-frame alignment, secondary EdgeFace execution
-and embedding decode without model-name branches. Live FD-to-embedding parity, matching,
-gallery recovery and attendance are unfinished. Generic backend selection, DMA completion,
+and embedding decode without model-name branches. Durable matching/restart recovery is
+now source-delivered; golden calibration and attendance remain unfinished. Generic backend selection, DMA completion,
 released-FW acceptance and allocation/copy optimization remain open.
 See [alignment issues](architecture_alignment_review.md) and [capability matrix](capability_matrix.md).
 
@@ -152,9 +163,9 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/perception/detection/vqec_vision_tensor_reader.cpp` | Bounded tensor lookup, manifest shape/value-count validation and shared typed scalar/dequantization for model decoders | Model-specific tensor semantics and postprocess |
 | `include/vqec/vision/ai/ports/vqec_vision_tracker.hpp`, `src/perception/tracking/vqec_vision_tracker_registry.cpp` | Neutral serialized tracker port plus bounded activation-time factory registry with distinct per-source/model owners | Concrete association/tracking implementation |
 | `src/perception/tracking/vqec_vision_tracking_stage.cpp` | Transactional detection-to-tracker coordinator with monotonic-time enforcement, epoch reset and ambiguous-failure isolation | Concrete association/tracking implementation and replay qualification |
-| `src/perception/embedding/vqec_vision_exact_embedding_index.cpp`, `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` | Neutral revision-pinned embedding index port, bounded exact cosine reference backend and optional Zvec C API adapter source with model-version isolation, cosine-distance conversion and faulted-mutation gating | Durable encrypted gallery adapter, Zvec restart recovery and workload qualification |
-| `include/vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp`, `include/vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp` | Bounded authoritative gallery snapshot validation and neutral protected-store load/atomic-CAS boundary with model/preprocess identity and multi-template limits | FW protected-storage/key adapter, durable implementation, Zvec generation rebuild/publish and crash recovery |
-| `src/perception/embedding/vqec_vision_recognition_session.cpp`, `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp`, `src/adapters/fw_control/vqec_vision_face_enrollment_dbus.cpp` | Bounded multi-template recognition owner, revision-CAS enrollment/remove lifecycle, exact-frame label correlation, optional DBus control adapter with configured-peer authentication, and render-time identity output authorization | Durable encrypted gallery/recovery and peer-name provisioning, temporal/liveness policy, display-name metadata authorization, attendance output |
+| `src/perception/embedding/vqec_vision_exact_embedding_index.cpp`, `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` | Neutral revision-pinned index, exact cosine reference backend and Zvec C API adapter with explicit rebuild of disposable existing collections after authoritative load | Bounded worker, capacity/performance/thermal qualification and atomic generation publication under concurrent queries |
+| `include/vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp`, `include/vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp`, `src/adapters/storage/vqec_vision_encrypted_face_gallery_store.cpp` | Bounded authoritative snapshot plus AI-owned AES-256-GCM persistence, private files, interprocess lock, disk CAS and atomic fsync+rename | Hardware-bound key provider, schema migration, power-cut/backup/restore and board qualification |
+| `src/perception/embedding/vqec_vision_recognition_session.cpp`, `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp`, `src/adapters/fw_control/vqec_vision_face_enrollment_dbus.cpp` | Persistent multi-template recognition, revision-CAS enrollment/remove, exact-frame label correlation, authenticated DBus and gallery health/status without biometric disclosure | Durable request receipts, temporal/liveness policy, display-name metadata authorization, attendance output and calibration |
 | `src/perception/attributes/vqec_vision_attribute_reader.cpp` | Exact tracked-attribute lookup with schema/version identity, bounded values, source-clock freshness and borrowed-result lifetime | Concrete typed attribute producers, temporal fusion and calibration |
 | `include/vqec/vision/ai/contracts/vqec_vision_feature_event.hpp`, `include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp` | Config-bounded neutral feature events and serialized algorithm port with source/frame/config/schema provenance | Effective-state manager, concrete rules, output router, replay and delivery qualification |
 | `include/vqec/vision/ai/contracts/vqec_vision_feature_catalog.hpp`, `src/core/vqec_vision_feature_catalog.cpp` | Versioned feature integration metadata validates processor/configuration contracts, model roles, attribute freshness and bounded temporal/event resources against the model catalog | Authenticated loader, per-source desired/entitled activation, processor registry and concrete feature packages |

@@ -19,7 +19,7 @@ Hai thay đổi có chủ đích cần phân biệt với sai lệch:
 | Quyết định | Ban đầu | Hiện hành | Đánh giá |
 |---|---|---|---|
 | Qualcomm | Plugin-first ADR 0002 | Thêm owned QNN adapter ADR 0003; production dùng FastCV/QNN | Hợp hướng nếu có capability/evidence; generic selection chưa xong |
-| FR gallery/search | Đề xuất FW service | AI sở hữu matching/index; Zvec ADR 0004; FW protected storage | Người dùng đổi scope rõ; storage protocol/recovery chưa triển khai |
+| FR gallery/search | Đề xuất FW service | AI sở hữu matching, encrypted gallery/key và Zvec theo ADR 0004 | Đúng scope mới; hardware key/power-cut/performance còn mở |
 | Push | Tự commit + push | Commit theo bước, người dùng tự push | Rule đã đồng bộ theo chỉ đạo mới nhất |
 
 Portable không có nghĩa mọi model/vendor đã hỗ trợ. Default build có Zvec không đồng

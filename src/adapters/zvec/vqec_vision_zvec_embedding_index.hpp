@@ -13,11 +13,18 @@ struct zvec_collection_t;
 
 namespace vqec::vision::ai {
 
+enum class zvec_existing_collection_policy {
+    reject,
+    rebuild
+};
+
 // Zvec is a derived index. The caller remains responsible for the authoritative,
 // encrypted gallery and must be able to rebuild this collection after loss.
 class zvec_embedding_index final : public embedding_index_port {
 public:
-    explicit zvec_embedding_index(std::string _collection_path);
+    explicit zvec_embedding_index(std::string _collection_path,
+        zvec_existing_collection_policy _existing_policy =
+            zvec_existing_collection_policy::reject);
     ~zvec_embedding_index() override;
 
     zvec_embedding_index(const zvec_embedding_index&) = delete;
@@ -40,6 +47,7 @@ public:
 
 private:
     std::string collection_path_;
+    zvec_existing_collection_policy existing_policy_;
     zvec_collection_t* collection_{nullptr};
     embedding_index_config config_;
     std::vector<std::uint64_t> record_ids_;

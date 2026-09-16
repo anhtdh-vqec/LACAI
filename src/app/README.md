@@ -53,6 +53,12 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   D-Bus and never carries image bytes or embeddings. File enrollment requires explicit
   allow-listed roots, JPEG byte/time limits and Qualcomm element selection; its graph
   lifecycle is isolated from live camera inference.
+- Production FR also requires explicit `--fr-gallery-path` for the disposable Zvec
+  collection and AI-owned protected-store settings: `--fr-protected-directory`,
+  `--fr-gallery-file`, `--fr-key-file`, `--fr-lock-file`, `--fr-gallery-id`,
+  `--fr-preprocess-revision` and `--fr-store-max-bytes`. The directory must already exist,
+  be owned by the service UID and have mode 0700. AI creates mode-0600 key/gallery/lock
+  files, authenticates the snapshot, then rebuilds Zvec before recognition becomes ready.
 - The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
   interoperability, hardware-completion evidence and long-run performance remain open.
 - The current production service loop is serialized. The `.48` integration run sustained

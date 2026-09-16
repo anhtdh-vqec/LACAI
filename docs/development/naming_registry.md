@@ -36,6 +36,7 @@ Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp 
 | src/adapters/qualcomm | qcom |
 | src/adapters/reference | refer |
 | src/adapters/fw_control | fwctl |
+| src/adapters/storage | stor |
 | src/adapters/fw_output | fwout |
 | src/adapters/rockchip | rchip |
 | src/adapters/mediatek | mtek |
@@ -537,3 +538,8 @@ prefix `vqec_vision_ai_unit_addtst_`.
 Cascade frame store: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
 file_id `cfstr`, prefix `vqec_vision_ai_sched_cfstr_` (header-only).
 Test `tests/unit/vqec_vision_cascade_frame_store_test.cpp`, file_id `cfst`.
+
+AI-owned encrypted gallery store `src/adapters/storage/vqec_vision_encrypted_face_gallery_store.cpp`
+uses file_id `efgal`, prefix `vqec_vision_ai_stor_efgal_`. Its unit test
+`tests/unit/vqec_vision_encrypted_face_gallery_store_test.cpp` uses file_id `efgtst`,
+prefix `vqec_vision_ai_unit_efgtst_`; `main` retains the language entrypoint spelling.
