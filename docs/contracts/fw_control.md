@@ -1,6 +1,8 @@
 # FW control, outputs, entitlement và BSP handoff
 
-Status: proposal for four-team review, không phải implemented protocol.
+Status: umbrella proposal for four-team review. The usecase activation boundary is
+specified normatively in [FW usecase activation](fw_usecase_control.md); its transport
+implementation is still pending.
 
 The proposal below extends, not replaces, the released AI D-Bus and H264 preview
 interfaces. See [FW release baseline](fw_release_compatibility.md) for exact legacy
@@ -24,7 +26,7 @@ thermal budgets, redistributable scope. Source OSS không thay kit này.
 ## Control plane
 
 get_capabilities, get_health, list_features, get_effective_config,
-validate_config, apply_config(expected_revision, request_id), set_feature_state,
+validate_config, apply_config(expected_revision, request_id), apply_desired_plan,
 apply_entitlement, get_runtime_status, request_diagnostics, prepare_shutdown.
 
 Config atomic snapshot: validate schema/license/model/resources trước publish.

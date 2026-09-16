@@ -1,7 +1,7 @@
 # Runtime feature activation boundary
 
-Feature activation is composed after deployment/model admission and before the
-serialized source executor starts. `feature_activation_manager` owns one processor
+Feature activation is composed after usecase-to-model resolution and deployment/model
+admission, and before the serialized source executor starts. `feature_activation_manager` owns one processor
 and `feature_stage` per ready `(source_id, feature_id)` association. The runtime
 composition layer consumes the manager's immutable record and catalog mapping, then
 binds each stage to the model slot named by its catalog dependency.
@@ -16,3 +16,9 @@ The mapping is activation-time and numeric: source deployment order and
 `source.model_ids_` order define slots. Per-frame code does not look up feature or
 model names, allocate, resolve catalogs or re-evaluate entitlement. Output dispatch
 still rechecks authorization from the event payload and policy revision.
+
+This feature-stage boundary is not the commercial compute switch. FW selects usecases
+through [the usecase activation contract](../contracts/fw_usecase_control.md). That
+selection must derive the effective root-model deployment before the production platform
+loads graphs; this manager then creates only feature stages belonging to effective
+usecases.
