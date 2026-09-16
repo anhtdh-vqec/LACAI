@@ -54,15 +54,19 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         next_frame_id_ == 0 || next_frame_id_ == std::numeric_limits<std::uint64_t>::max()) {
         return vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_state);
     }
-    std::string authorized_path;
+    authorized_image_path authorized_path;
     auto result = config_.path_authorizer_->vqec_vision_ai_ports_ipath_authorize(
         pending_.image_path_, authorized_path);
     if (result.code_ != status_code::ok) {
         (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
         return result;
     }
+    if (authorized_path.path_.empty() || !authorized_path.owner_) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::protocol_error);
+        return {status_code::protocol_error, "path authorizer returned no retained file"};
+    }
     face_enrollment_image image;
-    const face_enrollment_image_request image_request{authorized_path, next_frame_id_,
+    const face_enrollment_image_request image_request{authorized_path.path_, next_frame_id_,
         config_.source_epoch_, _steady_now_ns, config_.geometry_.width_,
         config_.geometry_.height_};
     result = config_.image_source_->vqec_vision_ai_ports_feimg_load(image_request, image);

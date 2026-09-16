@@ -22,3 +22,8 @@ templates per subject.
 The component and contract tests are delivered. Production service composition still
 needs a dedicated FD graph, a configured path authorizer and a call to `step`; until that
 composition is present the service continues to reject image-path requests explicitly.
+
+The POSIX authorizer opens the requested file with `O_NOFOLLOW`, verifies regular-file
+type, byte ceiling, JPEG signature and canonical containment under configured roots, then
+returns a retained `/proc/self/fd` path. The open inode remains owned through decode, so a
+rename or symlink swap after authorization cannot redirect `filesrc` to another file.

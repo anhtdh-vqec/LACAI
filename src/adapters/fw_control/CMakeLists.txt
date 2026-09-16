@@ -1,4 +1,13 @@
 # Optional AI-owned DBus control adapter. Neutral enrollment contracts remain free of GIO.
+if(UNIX)
+    add_library(vqec_vision_ai_image_path_authorizer STATIC
+        vqec_vision_image_path_authorizer.cpp)
+    target_include_directories(vqec_vision_ai_image_path_authorizer PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+    target_link_libraries(vqec_vision_ai_image_path_authorizer PUBLIC vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_image_path_authorizer PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 if(VQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(face_enrollment_gio REQUIRED IMPORTED_TARGET gio-2.0)

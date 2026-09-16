@@ -162,6 +162,9 @@ Image path authorization port
 `include/vqec/vision/ai/ports/vqec_vision_image_path_authorizer.hpp` uses file_id `ipath`
 and interface prefix `vqec_vision_ai_ports_ipath_`. Face image detector/cascade interfaces
 use prefixes `vqec_vision_ai_ports_fidet_` and `vqec_vision_ai_ports_ficas_`.
+POSIX enrollment image authorizer
+`src/adapters/fw_control/vqec_vision_image_path_authorizer.cpp` uses file_id `ipath`,
+prefix `vqec_vision_ai_fwctl_ipath_`; its test uses file_id `ipatst`.
 
 Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
 Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id

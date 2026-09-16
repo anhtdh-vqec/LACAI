@@ -27,6 +27,10 @@ commit and terminal failure transition behind neutral detector/cascade/path port
 composition with dedicated graphs and an allow-listed filesystem resolver remains open,
 so deployed DBus still rejects non-empty paths.
 
+The POSIX image-path authorizer is delivered with retained-FD containment, regular-file,
+size and JPEG checks plus symlink-escape rejection. Production must still supply allowed
+roots from validated deployment configuration.
+
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.
 Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow

@@ -568,6 +568,14 @@
         vqec_vision_ai_face_enrollment_image_pipeline)
     add_test(NAME face_enrollment_image_pipeline
         COMMAND vqec_vision_ai_face_enrollment_image_pipeline_test)
+    if(TARGET vqec_vision_ai_image_path_authorizer)
+        add_executable(vqec_vision_ai_image_path_authorizer_test
+            unit/vqec_vision_image_path_authorizer_test.cpp)
+        target_link_libraries(vqec_vision_ai_image_path_authorizer_test PRIVATE
+            vqec_vision_ai_image_path_authorizer)
+        add_test(NAME image_path_authorizer
+            COMMAND vqec_vision_ai_image_path_authorizer_test)
+    endif()
     if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
         add_executable(vqec_vision_ai_camera_session_test contract/vqec_vision_camera_session_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_session_test

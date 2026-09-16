@@ -62,9 +62,10 @@ public:
 class test_authorizer final : public image_path_authorizer_port {
 public:
     status vqec_vision_ai_ports_ipath_authorize(
-        const std::string& _requested_path, std::string& _authorized_path) override {
+        const std::string& _requested_path, authorized_image_path& _authorized_path) override {
         if (deny_) return {status_code::unauthorized, "denied"};
-        _authorized_path = _requested_path;
+        _authorized_path.path_ = _requested_path;
+        _authorized_path.owner_ = std::make_shared<int>(1);
         return {};
     }
     bool deny_{false};
