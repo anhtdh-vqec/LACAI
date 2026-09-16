@@ -1,5 +1,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -82,7 +84,7 @@ status vqec_vision_ai_core_color_convert_nv12_to_rgb(
     color_matrix _matrix, color_range _range, channel_order _order,
     std::uint8_t* _rgb, std::uint32_t _rgb_stride) noexcept {
     if (_y_plane == nullptr || _uv_plane == nullptr || _rgb == nullptr ||
-        _width == 0 || _height == 0 || _width % 2 != 0 || _height % 2 != 0 ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(_width, _height) ||
         _y_stride < _width || _uv_stride < _width || _rgb_stride < _width * 3U) {
         return {status_code::invalid_argument, "invalid NV12 to RGB conversion arguments"};
     }

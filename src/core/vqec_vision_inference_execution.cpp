@@ -250,9 +250,7 @@ status vqec_vision_ai_core_inexe_validate_model_update(
             _update.update_artifact_ref_, g_inexe_model_identifier_bytes)) {
         return {status_code::invalid_argument, "model update identity is invalid"};
     }
-    if (_update.update_artifact_sha256_.size() != 64 ||
-        _update.update_artifact_sha256_.find_first_not_of("0123456789abcdef") !=
-            std::string::npos) {
+    if (!vqec_vision_ai_cntr_ident_is_sha256_hex(_update.update_artifact_sha256_)) {
         return {status_code::invalid_argument, "model update digest is invalid"};
     }
     if (_update.update_revision_ == 0 ||

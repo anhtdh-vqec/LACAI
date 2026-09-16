@@ -1,6 +1,7 @@
 #ifndef VQEC_VISION_AI_CONTRACTS_MODEL_PACKAGE_HPP
 #define VQEC_VISION_AI_CONTRACTS_MODEL_PACKAGE_HPP
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,12 @@
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
+
+namespace model_package_limits {
+// Package identity ceiling. Distinct owner from the catalog/update ceilings even though the
+// value coincides today; resolve() rejects longer identifiers rather than truncating.
+inline constexpr std::size_t g_max_identifier_bytes = 128;
+}  // namespace model_package_limits
 
 // Inputs to resolve one model package. The catalog entry and the trusted-resolved paths are
 // supplied by the caller (the trusted artifact resolver already enforced containment, size

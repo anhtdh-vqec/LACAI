@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_preview_pool.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 
 #include <new>
@@ -14,12 +15,12 @@ status preview_surface_pool::vqec_vision_ai_core_pvpol_configure(
     }
     if (_capacity == 0 || _capacity > slots_.size() || _geometry.width_ == 0 ||
         _geometry.height_ == 0 || _geometry.width_ > preview_limits::g_max_dimension_pixels || _geometry.height_ > preview_limits::g_max_dimension_pixels ||
-        _geometry.width_ % 2 != 0 || _geometry.height_ % 2 != 0 ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(_geometry.width_, _geometry.height_) ||
         _max_total_bytes == 0 || _max_total_bytes > preview_limits::g_max_pool_bytes) {
         return {status_code::invalid_argument, "invalid preview pool configuration"};
     }
-    const auto pixels = static_cast<std::uint64_t>(_geometry.width_) * _geometry.height_;
-    const auto bytes = pixels + pixels / 2;
+    const auto bytes =
+        vqec_vision_ai_cntr_nvgeo_packed_bytes(_geometry.width_, _geometry.height_);
     if (bytes > preview_limits::g_max_surface_bytes || bytes * _capacity > _max_total_bytes) {
         return {status_code::resource_exhausted, "preview pool exceeds pixel budget"};
     }

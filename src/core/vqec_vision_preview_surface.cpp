@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_preview_surface.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 
 #include <limits>
@@ -15,12 +16,12 @@ status writable_preview_surface::vqec_vision_ai_core_pvsrf_create(
     }
     if (_geometry.width_ == 0 || _geometry.height_ == 0 ||
         _geometry.width_ > preview_limits::g_max_dimension_pixels || _geometry.height_ > preview_limits::g_max_dimension_pixels ||
-        _geometry.width_ % 2 != 0 || _geometry.height_ % 2 != 0 ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(_geometry.width_, _geometry.height_) ||
         _max_bytes == 0 || _max_bytes > preview_limits::g_max_surface_bytes) {
         return {status_code::invalid_argument, "invalid CPU preview surface geometry or budget"};
     }
-    const std::uint64_t pixels = static_cast<std::uint64_t>(_geometry.width_) * _geometry.height_;
-    const std::uint64_t bytes = pixels + pixels / 2;
+    const std::uint64_t bytes =
+        vqec_vision_ai_cntr_nvgeo_packed_bytes(_geometry.width_, _geometry.height_);
     if (bytes > _max_bytes || bytes > std::numeric_limits<std::size_t>::max()) {
         return {status_code::resource_exhausted, "CPU preview surface exceeds byte budget"};
     }

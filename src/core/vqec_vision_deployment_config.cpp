@@ -5,6 +5,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 
 namespace vqec::vision::ai {
 namespace {
@@ -60,7 +61,7 @@ status vqec_vision_ai_core_dpval_validate_deployment(
             profile.width_ == 0 || profile.height_ == 0 ||
             profile.width_ > deployment_limits::g_max_dimension_pixels ||
             profile.height_ > deployment_limits::g_max_dimension_pixels ||
-            profile.width_ % 2 != 0 || profile.height_ % 2 != 0 ||
+            !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(profile.width_, profile.height_) ||
             profile.fps_numerator_ == 0 || profile.fps_denominator_ == 0 ||
             static_cast<std::uint64_t>(profile.fps_numerator_) >
                 static_cast<std::uint64_t>(deployment_limits::g_max_frames_per_second) *
@@ -80,8 +81,8 @@ status vqec_vision_ai_core_dpval_validate_deployment(
             source.model_ids_.size() > deployment_limits::g_max_models_per_source) {
             return {status_code::invalid_argument, "invalid source profile or resource budget"};
         }
-        const auto packed_pixels = static_cast<std::uint64_t>(profile.width_) * profile.height_;
-        const auto packed_nv12_bytes = packed_pixels + packed_pixels / 2;
+        const auto packed_nv12_bytes =
+            vqec_vision_ai_cntr_nvgeo_packed_bytes(profile.width_, profile.height_);
         const bool has_valid_preview =
             vqec_vision_ai_core_dpval_is_identifier(source.preview_output_ref_);
         if (memory.max_frame_allocation_bytes_ < packed_nv12_bytes ||

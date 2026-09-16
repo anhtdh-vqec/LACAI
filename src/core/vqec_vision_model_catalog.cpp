@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
@@ -19,8 +20,7 @@ bool vqec_vision_ai_core_mdcat_is_identifier(const std::string& _value) noexcept
 }
 
 bool vqec_vision_ai_core_mdcat_is_digest(const std::string& _value) noexcept {
-    return _value.size() == 64 &&
-        _value.find_first_not_of("0123456789abcdef") == std::string::npos;
+    return vqec_vision_ai_cntr_ident_is_sha256_hex(_value);
 }
 
 bool vqec_vision_ai_core_mdcat_add_bytes(
@@ -116,8 +116,8 @@ status vqec_vision_ai_core_mdcat_validate_entry(const model_catalog_entry& _mode
         constraints.max_height_ < constraints.min_height_ ||
         constraints.max_width_ > deployment_limits::g_max_dimension_pixels ||
         constraints.max_height_ > deployment_limits::g_max_dimension_pixels ||
-        constraints.min_width_ % 2 != 0 || constraints.min_height_ % 2 != 0 ||
-        constraints.max_width_ % 2 != 0 || constraints.max_height_ % 2 != 0 ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(constraints.min_width_, constraints.min_height_) ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(constraints.max_width_, constraints.max_height_) ||
         constraints.min_fps_numerator_ == 0 || constraints.min_fps_denominator_ == 0 ||
         constraints.min_fps_numerator_ > inference_limits::g_max_fps_numerator ||
         constraints.min_fps_denominator_ > inference_limits::g_max_fps_denominator ||

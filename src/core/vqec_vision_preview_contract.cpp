@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 
 #include <cmath>
@@ -12,7 +13,7 @@ status vqec_vision_ai_core_pvctr_validate_identity(
     if (_frame.source_epoch_ == 0 || _frame.source_pts_ns_ == UINT64_MAX ||
         _geometry.width_ == 0 || _geometry.height_ == 0 ||
         _geometry.width_ > preview_limits::g_max_dimension_pixels || _geometry.height_ > preview_limits::g_max_dimension_pixels ||
-        _geometry.width_ % 2 != 0 || _geometry.height_ % 2 != 0) {
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(_geometry.width_, _geometry.height_)) {
         return {status_code::invalid_argument, "invalid preview identity or NV12 geometry"};
     }
     if (_frame.camera_id_ != _expected_frame.camera_id_ ||

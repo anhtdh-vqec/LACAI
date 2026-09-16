@@ -27,6 +27,14 @@ namespace vqec::vision::ai {
     return true;
 }
 
+// Shared lowercase SHA-256 hex check: exactly 64 characters from [0-9a-f]. Catalog,
+// package and model-update digests must all accept the same encoding.
+[[nodiscard]] inline bool vqec_vision_ai_cntr_ident_is_sha256_hex(
+    const std::string& _value) noexcept {
+    return _value.size() == 64 &&
+        _value.find_first_not_of("0123456789abcdef") == std::string::npos;
+}
+
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_CONTRACTS_VQEC_VISION_IDENTIFIER_HPP

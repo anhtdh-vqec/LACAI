@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 
 namespace vqec::vision::ai {
@@ -48,7 +49,7 @@ status vqec_vision_ai_core_encct_validate_input(
         geometry.width_ == 0 || geometry.height_ == 0 ||
         geometry.width_ > preview_limits::g_max_dimension_pixels ||
         geometry.height_ > preview_limits::g_max_dimension_pixels ||
-        geometry.width_ % 2 != 0 || geometry.height_ % 2 != 0) {
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(geometry.width_, geometry.height_)) {
         return {status_code::invalid_argument, "invalid encoder input metadata or owner"};
     }
     if (frame.camera_id_ != _expected_frame.camera_id_ ||
@@ -67,8 +68,8 @@ status vqec_vision_ai_core_encct_validate_input(
         _input.dispatch_generation_ != _expected_generation) {
         return {status_code::invalid_state, "encoder input binding mismatch"};
     }
-    const auto pixels = static_cast<std::uint64_t>(geometry.width_) * geometry.height_;
-    const auto bytes = pixels + pixels / 2; // Packed NV12: Y plus interleaved half-size UV.
+    const auto bytes =
+        vqec_vision_ai_cntr_nvgeo_packed_bytes(geometry.width_, geometry.height_);
     if (bytes > preview_limits::g_max_surface_bytes) {
         return {status_code::resource_exhausted, "encoder input exceeds surface ceiling"};
     }

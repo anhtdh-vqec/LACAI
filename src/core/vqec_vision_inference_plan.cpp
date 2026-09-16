@@ -1,5 +1,6 @@
 #include <vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp>
 
+#include <vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp>
 #include <vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp>
 #include <vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp>
 
@@ -35,13 +36,12 @@ bool vqec_vision_ai_core_infpl_has_suffix(
 
 std::uint64_t vqec_vision_ai_core_infpl_get_packed_frame_bytes(
     const inference_plan& _plan) noexcept {
-    if (_plan.source_width_ == 0 || _plan.source_height_ == 0 ||
-        _plan.source_width_ > preview_limits::g_max_dimension_pixels ||
-        _plan.source_height_ > preview_limits::g_max_dimension_pixels ||
-        (_plan.source_width_ % 2) != 0 || (_plan.source_height_ % 2) != 0) {
+    if (_plan.source_width_ > preview_limits::g_max_dimension_pixels ||
+        _plan.source_height_ > preview_limits::g_max_dimension_pixels) {
         return 0;
     }
-    return static_cast<std::uint64_t>(_plan.source_width_) * _plan.source_height_ * 3 / 2;
+    return vqec_vision_ai_cntr_nvgeo_packed_bytes(
+        _plan.source_width_, _plan.source_height_);
 }
 
 status vqec_vision_ai_core_infpl_validate_plan(const inference_plan& _plan) {

@@ -1,5 +1,19 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-C update: duplicated neutral validation now has one owner.
+`vqec_vision_identifier.hpp` gained the shared lowercase SHA-256 hex check, used by the
+model catalog, model package and model-update validators; `model_package` no longer carries
+its own diverging identifier loop and owns its ceiling as
+`model_package_limits::g_max_identifier_bytes`. A new header-only
+`vqec_vision_nv12_geometry.hpp` (`vqec_vision_ai_cntr_nvgeo_*`) owns the packed-NV12
+even-dimension rule and byte formula, and color, deployment, encoder contract/window,
+preview surface/pool/contract, model catalog constraints and inference plan now call it
+instead of re-deriving it. The `model_io_manifest` input/output label is included in error
+messages instead of being discarded. A `nv12_geometry_contract` CTest pins the helpers.
+eSDK/QEMU suite passes 123/123. Board `.98`: native 114/116 (same two environment-fixture
+failures) and a live compatibility run published H.264 1920x1080 30/1 (181 frames in 6 s)
+with `first_error=0`, D-Bus 5/5 and cascade `embedded=5 cascade_failed=0`.
+
 2026-09-16 clean-base CB-B update: the Qualcomm production executable no longer carries
 deployment defaults. `production_platform_config` starts empty and `configure()` rejects
 missing backend/system library, camera socket dir, NV12 format value,

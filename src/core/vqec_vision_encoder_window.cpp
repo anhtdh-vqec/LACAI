@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_encoder_window.hpp"
 
+#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 
 namespace vqec::vision::ai {
@@ -71,12 +72,13 @@ status encoder_window::vqec_vision_ai_core_encwn_configure(const encoder_window_
     }
     const auto geometry = _config.geometry_;
     if (geometry.width_ == 0 || geometry.height_ == 0 || geometry.width_ > preview_limits::g_max_dimension_pixels ||
-        geometry.height_ > preview_limits::g_max_dimension_pixels || geometry.width_ % 2 != 0 || geometry.height_ % 2 != 0 ||
+        geometry.height_ > preview_limits::g_max_dimension_pixels ||
+        !vqec_vision_ai_cntr_nvgeo_is_even_nonzero(geometry.width_, geometry.height_) ||
         _config.max_input_bytes_ == 0 || _config.max_input_bytes_ > preview_limits::g_max_pool_bytes) {
         return {status_code::invalid_argument, "invalid encoder geometry or memory budget"};
     }
-    const auto pixels = static_cast<std::uint64_t>(geometry.width_) * geometry.height_;
-    const auto bytes = pixels + pixels / 2;
+    const auto bytes =
+        vqec_vision_ai_cntr_nvgeo_packed_bytes(geometry.width_, geometry.height_);
     if (bytes > preview_limits::g_max_surface_bytes || bytes > _config.max_input_bytes_) {
         return {status_code::resource_exhausted, "encoder surface exceeds budget"};
     }

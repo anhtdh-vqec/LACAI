@@ -255,6 +255,14 @@ Header-only `include/vqec/vision/ai/contracts/vqec_vision_identifier.hpp`:
 file_id `ident`, owner `cntr`, prefix `vqec_vision_ai_cntr_ident_`. Shared bounded
 ASCII identifier check; callers keep their own per-contract byte ceiling. This is the
 single source of truth for the accepted character set so validators cannot diverge.
+It also owns the shared lowercase SHA-256 hex check (`..._is_sha256_hex`).
+
+Header-only `include/vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp`:
+file_id `nvgeo`, owner `cntr`, prefix `vqec_vision_ai_cntr_nvgeo_`. Shared packed-NV12
+even-dimension rule and byte formula, so color, preview, encoder, deployment and inference
+modules do not re-derive it.
+Test `tests/unit/vqec_vision_nv12_geometry_test.cpp`, file_id `ngtst`, prefix
+`vqec_vision_ai_unit_ngtst_` (main retains the language exception).
 
 FW ring wrapper: `src/adapters/fw_output/vqec_vision_ring_sink.cpp`, file_id `rgsnk`,
 prefix `vqec_vision_ai_fwout_rgsnk_`; paired private header uses the same stem.

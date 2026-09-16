@@ -2,30 +2,18 @@
 
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 namespace {
 
 bool vqec_vision_ai_core_mpkg_is_sha256(const std::string& _value) noexcept {
-    if (_value.size() != 64) {
-        return false;
-    }
-    return _value.find_first_not_of("0123456789abcdef") == std::string::npos;
+    return vqec_vision_ai_cntr_ident_is_sha256_hex(_value);
 }
 
 bool vqec_vision_ai_core_mpkg_is_identifier(const std::string& _value) noexcept {
-    if (_value.empty() || _value.size() > 128) {
-        return false;
-    }
-    for (const char character : _value) {
-        const bool valid = (character >= 'a' && character <= 'z') ||
-            (character >= 'A' && character <= 'Z') ||
-            (character >= '0' && character <= '9') || character == '_' ||
-            character == '-' || character == '.' || character == ':';
-        if (!valid) {
-            return false;
-        }
-    }
-    return true;
+    return vqec_vision_ai_cntr_ident_is_valid(
+        _value, model_package_limits::g_max_identifier_bytes);
 }
 
 }  // namespace
