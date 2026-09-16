@@ -28,6 +28,9 @@ constexpr auto g_sync_property = "sync";
 constexpr auto g_max_buffers_property = "max-buffers";
 constexpr auto g_drop_property = "drop";
 constexpr auto g_engine_property = "engine";
+// GStreamer videoscale 1.x property. Enrollment preserves source aspect ratio on the
+// requested deployment canvas before catalog-owned model preprocessing.
+constexpr auto g_add_borders_property = "add-borders";
 constexpr unsigned g_nv12_plane_count = 2;
 constexpr unsigned g_single_image_buffer_count = 1;
 
@@ -62,6 +65,18 @@ status vqec_vision_ai_qcom_feimg_set_enum(
     const int value = selected->value;
     g_type_class_unref(values);
     g_object_set(_object, _property, value, nullptr);
+    return {};
+}
+
+status vqec_vision_ai_qcom_feimg_enable_borders(GObject* _object) {
+    const auto* specification = g_object_class_find_property(
+        G_OBJECT_GET_CLASS(_object), g_add_borders_property);
+    if (specification == nullptr || !G_IS_PARAM_SPEC_BOOLEAN(specification) ||
+        (specification->flags & G_PARAM_WRITABLE) == 0) {
+        return {status_code::incompatible_plugin,
+            "image scaler aspect-ratio property is absent"};
+    }
+    g_object_set(_object, g_add_borders_property, TRUE, nullptr);
     return {};
 }
 }
@@ -115,6 +130,15 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
         return {status_code::missing_plugin, "JPEG image decode elements are unavailable"};
     }
     g_object_set(source, g_location_property, _request.image_path_.c_str(), nullptr);
+    const auto borders = vqec_vision_ai_qcom_feimg_enable_borders(G_OBJECT(scaler));
+    if (borders.code_ != status_code::ok) {
+        for (auto* element : {source, decoder, converter, scaler, output_transform,
+                              caps_filter, sink}) {
+            gst_object_unref(element);
+        }
+        gst_object_unref(pipeline);
+        return borders;
+    }
     if (output_transform != nullptr && !config_.output_transform_engine_.empty()) {
         const auto selected = vqec_vision_ai_qcom_feimg_set_enum(
             G_OBJECT(output_transform), g_engine_property, config_.output_transform_engine_);

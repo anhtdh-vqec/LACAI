@@ -13,6 +13,10 @@ memory; the adapter verifies that the resulting memory is DMA-BUF backed and exp
 `raw_frame`; retaining the sample owner keeps the FD valid. Portable/reference mode can
 instead return packed CPU NV12.
 
+The adapter validates and enables the standard `videoscale` `add-borders` property.
+Portrait and other non-matching aspect ratios are centered on the requested deployment
+canvas instead of being stretched, preserving face geometry before detector preprocess.
+
 The image path must already have passed FW authorization and deployment policy checks.
 This adapter only rejects empty/NUL paths and enforces the configured output bound; it
 does not grant filesystem authority.
