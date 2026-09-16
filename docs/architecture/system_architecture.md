@@ -10,7 +10,8 @@ usecase có cấu hình, tận dụng phần cứng Qualcomm qua adapters và po
 Executable là `vqec_ai_vision_applications`. FW đã đồng ý đáp ứng boundary; việc này không
 thay thế kiểm chứng released-FW integration hay nghiệm thu tính năng.
 
-Hiện có production composition và historical person compatibility evidence trên `.48`; current board validation target là `.99`. FastCV/QNN HTP,
+Hiện có production composition và historical compatibility evidence; current board
+validation target là `.98`. FastCV/QNN HTP,
 QTI overlay/encode và ring. Luồng FD → exact-frame alignment → EdgeFace → typed embedding
 đã được nối ở source qua neutral ports. Live cascade/golden parity, recognition/attendance,
 durable gallery recovery, generic backend factory, released-FW DMA completion và

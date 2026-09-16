@@ -3,8 +3,8 @@
 Ngày lập: 2026-09-15. Cập nhật theo source hiện tại: 2026-09-15.
 Trạng thái: kế hoạch triển khai và nghiệm thu. Các mục đã đánh dấu chỉ có nghĩa là source
 và logic test tương ứng đã có; gate board/golden/owner review vẫn quyết định nghiệm thu.
-Đích triển khai: QCS6490 / Qualcomm Linux 1.8. Board phát triển hiện được phân bổ là `.99`;
-không dùng `.48` khi board đó đang có người sử dụng.
+Đích triển khai: QCS6490 / Qualcomm Linux 1.8. Board phát triển hiện được phân bổ là `.98`;
+không dùng `.99` hoặc `.48` khi các board đó đang có người sử dụng.
 
 ## 1. Kết quả phải bàn giao
 
@@ -30,12 +30,12 @@ không cần sửa orchestration. YOLO person không phải dependency bắt bu�
 
 | Hạng mục | Đã có | Chưa chứng minh/chưa nối |
 |---|---|---|
-| SCRFD-500M-KPS W8A16 | QNN HTP probe; package/decoder/catalog binding; production primary selection; compatibility live cascade `.99` | Golden accuracy với ảnh thật và released-FW acceptance |
-| EdgeFace-S gamma=0.5 W8A16 | QNN HTP probe; package/decoder/alignment contract; production secondary binding; compatibility live embeddings `.99` | Golden crop/input/embedding parity và post-fix multi-face rerun |
+| SCRFD-500M-KPS W8A16 | QNN HTP probe; package/decoder/catalog binding; production primary selection; compatibility live cascade `.98` | Golden accuracy với ảnh thật và released-FW acceptance |
+| EdgeFace-S gamma=0.5 W8A16 | QNN HTP probe; package/decoder/alignment contract; production secondary binding; compatibility live embeddings `.98` | Golden crop/input/embedding parity và post-fix multi-face rerun |
 | Package registry | Binding riêng theo immutable model identity; role/dependency activation | Artifact authenticity và TOCTOU-safe trusted open |
 | Anchor-distance decoder | Typed decode, inverse placement, NMS, landmarks; production chọn kind từ package | Golden tensors thật; output batch còn cấp phát; malformed metadata cần test rộng hơn |
 | Frame store | Exact key, owner giữ frame, pump/session wiring, task tickets, byte budget, dependent drain | Completion phần cứng và age/epoch policy mở rộng |
-| Cascade coordinator | Ticket-correlated alignment, synchronous secondary execute/decode, per-task isolation; compatibility live smoke `.99` | Async worker/fairness, post-fix multi-face và released-FW evidence |
+| Cascade coordinator | Ticket-correlated alignment, synchronous secondary execute/decode, per-task isolation; compatibility live smoke `.98` | Async worker/fairness, post-fix multi-face và released-FW evidence |
 | Image alignment port | Typed landmarks/template/transform/completion; Qualcomm FastCV adapter | Destination pool và golden alignment parity |
 | Zvec | v0.7.0 public ARM64 SDK, mặc định build adapter; real-library tests pass trên `.48` | Chỉ tạo collection mới; revision/record IDs trong RAM; recovery/enrollment chưa có |
 | FR/điểm danh | Production FD-to-embedding source composition; feature/event infrastructure | Matching, recognition state, gallery recovery, enrollment và attendance |

@@ -22,8 +22,8 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Qualcomm plugin backend | Source-delivered | Graph lifecycle, typed tensor extraction, submission; lifecycle + installed-plugin check pass native trên QCS6490 |
 | QNN engine LACAI-owned | **Board-verified (sync)** | compose + finalize + execute SCRFD/EdgeFace/YOLOv8n trên HTP V68; person output byte-identical với `qnn-net-run`; async/shared/update chưa |
 | Perception / feature pipeline | Source-delivered + person smoke | YOLOv8 decoder, IoU tracker, feature pipeline; person detections đã chạy từ camera thật qua QNN HTP |
-| Face cascade | Compatibility board smoke | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding đã chạy trên `.99`; golden/post-fix multi-face/released-FW acceptance chưa |
-| Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow `.48`; released-FW/thermal/latency acceptance chưa |
+| Face cascade | Compatibility board smoke | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding đã chạy trên `.98`; golden/post-fix multi-face/released-FW acceptance chưa |
+| Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow; released-FW/thermal/latency acceptance chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
 **Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 104/104 passed for the current

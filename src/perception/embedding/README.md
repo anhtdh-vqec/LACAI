@@ -3,7 +3,8 @@
 Versioned face/body embedding index boundary for recognition and retrieval workflows.
 
 - **Status:** neutral index port and bounded exact-cosine reference backend delivered;
-  Zvec adapter built by default, verified with the real SDK under eSDK QEMU and an earlier QCS6490 .48 run; current board target is .99
+  Zvec adapter built by default, verified with the real SDK under eSDK QEMU and a
+  historical QCS6490 run; current board target is `.98`.
 - **Naming registry:** `embed`
 - **Depends on:** detection, alignment and attribute framework
 
