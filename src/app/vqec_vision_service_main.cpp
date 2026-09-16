@@ -1949,8 +1949,13 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         ++steps;
         // Pace the supervisor loop to wall time so camera frames, model cadence and the
         // AI-owned output stage progress at the source rate instead of spinning.
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(args.runtime_step_interval_ns));
+        const auto step_end_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        const auto step_cost_ns = step_end_ns > clock_now ?
+            step_end_ns - clock_now : 0U;
+        if (step_cost_ns < args.runtime_step_interval_ns) {
+            std::this_thread::sleep_for(
+                std::chrono::nanoseconds(args.runtime_step_interval_ns - step_cost_ns));
+        }
     }
 
     std::printf("stopping after %llu steps\n", static_cast<unsigned long long>(steps));

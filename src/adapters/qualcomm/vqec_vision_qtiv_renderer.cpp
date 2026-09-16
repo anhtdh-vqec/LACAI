@@ -62,86 +62,7 @@ GstBufferPool* vqec_vision_ai_qcom_qtvr_create_output_pool(
     return pool;
 }
 
-GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(
-    const raw_frame& _frame, GstBufferPool* _pool) {
-    const auto& descriptor = _frame.descriptor_;
-    if (_frame.native_handle_ < 0 ||
-        _frame.native_handle_ > std::numeric_limits<int>::max() ||
-        descriptor.width_ == 0 || descriptor.height_ == 0 ||
-        descriptor.width_ % g_nv12_chroma_row_divisor != 0 ||
-        descriptor.height_ % g_nv12_chroma_row_divisor != 0 ||
-        descriptor.allocation_size_bytes_ == 0 || descriptor.view_size_bytes_ == 0 ||
-        descriptor.memory_offset_bytes_ > descriptor.allocation_size_bytes_ ||
-        descriptor.view_size_bytes_ >
-            descriptor.allocation_size_bytes_ - descriptor.memory_offset_bytes_) {
-        return nullptr;
-    }
-    const std::size_t width = descriptor.width_;
-    const std::size_t height = descriptor.height_;
-    const std::size_t chroma_rows = height / g_nv12_chroma_row_divisor;
-    for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
-        const std::size_t rows = plane == 0 ? height : chroma_rows;
-        if (descriptor.strides_[plane] < static_cast<std::int32_t>(width) ||
-            descriptor.offsets_[plane] > descriptor.view_size_bytes_ ||
-            rows > (descriptor.view_size_bytes_ - descriptor.offsets_[plane]) /
-                static_cast<std::size_t>(descriptor.strides_[plane])) {
-            return nullptr;
-        }
-    }
-    void* mapped = ::mmap(nullptr, static_cast<std::size_t>(descriptor.allocation_size_bytes_),
-        PROT_READ, MAP_SHARED, static_cast<int>(_frame.native_handle_), 0);
-    if (mapped == MAP_FAILED) {
-        return nullptr;
-    }
-    GstBuffer* buffer = nullptr;
-    if (_pool == nullptr ||
-        gst_buffer_pool_acquire_buffer(_pool, &buffer, nullptr) != GST_FLOW_OK) {
-        ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-        return nullptr;
-    }
-    GstMapInfo map{};
-    const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-    if (copied) {
-        const auto* base = static_cast<const std::uint8_t*>(mapped) +
-            descriptor.memory_offset_bytes_;
-        const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
-        if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
-            gst_buffer_unmap(buffer, &map);
-            ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-            gst_buffer_unref(buffer);
-            return nullptr;
-        }
-        for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
-            const std::size_t rows = plane == 0 ? height : chroma_rows;
-            const auto* source = base + descriptor.offsets_[plane];
-            const std::size_t source_stride =
-                static_cast<std::size_t>(descriptor.strides_[plane]);
-            const std::size_t destination_offset = output_meta->offset[plane];
-            const std::size_t destination_stride =
-                static_cast<std::size_t>(output_meta->stride[plane]);
-            if (destination_stride < width || destination_offset > map.size ||
-                rows > (map.size - destination_offset) / destination_stride) {
-                gst_buffer_unmap(buffer, &map);
-                ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-                gst_buffer_unref(buffer);
-                return nullptr;
-            }
-            for (std::size_t row = 0; row < rows; ++row) {
-                std::memcpy(map.data + destination_offset + row * destination_stride,
-                    source + row * source_stride, width);
-            }
-        }
-        gst_buffer_unmap(buffer, &map);
-    }
-    ::munmap(mapped, static_cast<std::size_t>(descriptor.allocation_size_bytes_));
-    if (!copied) {
-        if (buffer != nullptr) {
-            gst_buffer_unref(buffer);
-        }
-        return nullptr;
-    }
-    return buffer;
-}
+
 
 status vqec_vision_ai_qcom_qtvr_read_pipeline_error(GstElement* _pipeline) {
     GstBus* bus = gst_element_get_bus(_pipeline);
@@ -281,7 +202,29 @@ private:
 
 }  // namespace
 
+struct mapped_slot {
+    int fd_{-1};
+    void* address_{nullptr};
+    std::size_t size_{0};
+};
+inline constexpr std::size_t g_max_mapped_slots = 8U;
+
 struct qtiv_renderer::implementation {
+    ~implementation() noexcept {
+        unmap_all();
+    }
+
+    void unmap_all() noexcept {
+        for (auto& slot : mapped_cache_) {
+            if (slot.address_ != nullptr && slot.size_ != 0) {
+                ::munmap(slot.address_, slot.size_);
+                slot = {};
+            }
+        }
+    }
+
+    GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(const raw_frame& _frame);
+
     qtiv_renderer_config config_;
     GstElement* pipeline_{nullptr};
     GstElement* appsrc_{nullptr};
@@ -293,6 +236,7 @@ struct qtiv_renderer::implementation {
     // has not produced an access unit yet, otherwise a reused PTS stalls v4l2h264enc.
     std::uint64_t submitted_{0};
     bool is_open_{false};
+    std::array<mapped_slot, g_max_mapped_slots> mapped_cache_{};
 };
 
 qtiv_renderer::qtiv_renderer() : implementation_(std::make_unique<implementation>()) {}
@@ -376,13 +320,119 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
     return {};
 }
 
+GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
+    const raw_frame& _frame) {
+    const auto& descriptor = _frame.descriptor_;
+    if (_frame.native_handle_ < 0 ||
+        _frame.native_handle_ > std::numeric_limits<int>::max() ||
+        descriptor.width_ == 0 || descriptor.height_ == 0 ||
+        descriptor.width_ % g_nv12_chroma_row_divisor != 0 ||
+        descriptor.height_ % g_nv12_chroma_row_divisor != 0 ||
+        descriptor.allocation_size_bytes_ == 0 || descriptor.view_size_bytes_ == 0 ||
+        descriptor.memory_offset_bytes_ > descriptor.allocation_size_bytes_ ||
+        descriptor.view_size_bytes_ >
+            descriptor.allocation_size_bytes_ - descriptor.memory_offset_bytes_) {
+        return nullptr;
+    }
+    const std::size_t width = descriptor.width_;
+    const std::size_t height = descriptor.height_;
+    const std::size_t chroma_rows = height / g_nv12_chroma_row_divisor;
+    for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
+        const std::size_t rows = plane == 0 ? height : chroma_rows;
+        if (descriptor.strides_[plane] < static_cast<std::int32_t>(width) ||
+            descriptor.offsets_[plane] > descriptor.view_size_bytes_ ||
+            rows > (descriptor.view_size_bytes_ - descriptor.offsets_[plane]) /
+                static_cast<std::size_t>(descriptor.strides_[plane])) {
+            return nullptr;
+        }
+    }
+    const int frame_fd = static_cast<int>(_frame.native_handle_);
+    const std::size_t alloc_size = static_cast<std::size_t>(descriptor.allocation_size_bytes_);
+    void* mapped = nullptr;
+    for (auto& slot : mapped_cache_) {
+        if (slot.fd_ == frame_fd && slot.size_ == alloc_size) {
+            mapped = slot.address_;
+            break;
+        }
+    }
+    if (mapped == nullptr) {
+        mapped = ::mmap(nullptr, alloc_size, PROT_READ, MAP_SHARED, frame_fd, 0);
+        if (mapped == MAP_FAILED) {
+            return nullptr;
+        }
+        bool cached = false;
+        for (auto& slot : mapped_cache_) {
+            if (slot.fd_ == -1) {
+                slot = {frame_fd, mapped, alloc_size};
+                cached = true;
+                break;
+            }
+        }
+        if (!cached) {
+            if (mapped_cache_[0].address_ != nullptr &&
+                mapped_cache_[0].size_ != 0) {
+                ::munmap(mapped_cache_[0].address_, mapped_cache_[0].size_);
+            }
+            mapped_cache_[0] = {frame_fd, mapped, alloc_size};
+        }
+    }
+    GstBuffer* buffer = nullptr;
+    if (output_pool_ == nullptr ||
+        gst_buffer_pool_acquire_buffer(output_pool_, &buffer, nullptr) != GST_FLOW_OK) {
+        return nullptr;
+    }
+    GstMapInfo map{};
+    const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+    if (copied) {
+        const auto* base = static_cast<const std::uint8_t*>(mapped) +
+            descriptor.memory_offset_bytes_;
+        const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
+        if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
+            gst_buffer_unmap(buffer, &map);
+            gst_buffer_unref(buffer);
+            return nullptr;
+        }
+        for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
+            const std::size_t rows = plane == 0 ? height : chroma_rows;
+            const auto* source = base + descriptor.offsets_[plane];
+            const std::size_t source_stride =
+                static_cast<std::size_t>(descriptor.strides_[plane]);
+            const std::size_t destination_offset = output_meta->offset[plane];
+            const std::size_t destination_stride =
+                static_cast<std::size_t>(output_meta->stride[plane]);
+            if (destination_stride < width || destination_offset > map.size ||
+                rows > (map.size - destination_offset) / destination_stride) {
+                gst_buffer_unmap(buffer, &map);
+                gst_buffer_unref(buffer);
+                return nullptr;
+            }
+            if (destination_stride == source_stride && destination_stride == width) {
+                std::memcpy(map.data + destination_offset, source, rows * width);
+            } else {
+                for (std::size_t row = 0; row < rows; ++row) {
+                    std::memcpy(map.data + destination_offset + row * destination_stride,
+                        source + row * source_stride, width);
+                }
+            }
+        }
+        gst_buffer_unmap(buffer, &map);
+    }
+    if (!copied) {
+        if (buffer != nullptr) {
+            gst_buffer_unref(buffer);
+        }
+        return nullptr;
+    }
+    return buffer;
+}
+
 status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     const raw_frame& _frame, const observation_batch& _observations) {
     if (implementation_ == nullptr || !implementation_->is_open_) {
         return {status_code::invalid_state, "qtiv renderer is not initialized"};
     }
     auto& impl = *implementation_;
-    GstBuffer* buffer = vqec_vision_ai_qcom_qtvr_copy_nv12(_frame, impl.output_pool_);
+    GstBuffer* buffer = impl.vqec_vision_ai_qcom_qtvr_copy_nv12(_frame);
     if (buffer == nullptr) {
         return {status_code::io_error,
             "cannot copy the NV12 frame into the Qualcomm render surface"};
@@ -407,35 +457,35 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     if (pushed != GST_FLOW_OK) {
         return {status_code::io_error, "qtiv renderer appsrc rejected the frame"};
     }
-    // The hardware encoder may retain the current input until the next frame arrives.
-    // Blocking here serializes frame production behind that internal latency and can turn
-    // a one-frame delay into one full timeout per frame. Pick up the oldest ready access
-    // unit without waiting; a retained unit remains queued for the next render call.
-    GstSample* sample = gst_app_sink_try_pull_sample(
-        GST_APP_SINK(impl.appsink_), g_encoder_poll_timeout_ns);
-    if (sample == nullptr) {
+    GstSample* sample = nullptr;
+    bool any_sample = false;
+    status result = {};
+    while ((sample = gst_app_sink_try_pull_sample(
+                GST_APP_SINK(impl.appsink_), g_encoder_poll_timeout_ns)) != nullptr) {
+        any_sample = true;
+        GstBuffer* encoded = gst_sample_get_buffer(sample);
+        GstMapInfo out_map {};
+        if (encoded != nullptr && gst_buffer_map(encoded, &out_map, GST_MAP_READ)) {
+            const bool keyframe = (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
+            if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data), out_map.size,
+                    _frame.descriptor_.width_, _frame.descriptor_.height_, keyframe)) {
+                ++impl.written_;
+            } else {
+                result = {status_code::io_error, "cannot write the encoded ring slot"};
+            }
+            gst_buffer_unmap(encoded, &out_map);
+        } else {
+            result = {status_code::io_error, "cannot map the encoded access unit"};
+        }
+        gst_sample_unref(sample);
+    }
+    if (!any_sample) {
         const auto pipeline = vqec_vision_ai_qcom_qtvr_read_pipeline_error(impl.pipeline_);
         if (pipeline.code_ != status_code::ok) {
             return pipeline;
         }
         return {status_code::pending, "encoder produced no access unit"};
     }
-    GstBuffer* encoded = gst_sample_get_buffer(sample);
-    GstMapInfo out_map {};
-    status result = {};
-    if (encoded != nullptr && gst_buffer_map(encoded, &out_map, GST_MAP_READ)) {
-        const bool keyframe = (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
-        if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data), out_map.size,
-                _frame.descriptor_.width_, _frame.descriptor_.height_, keyframe)) {
-            ++impl.written_;
-        } else {
-            result = {status_code::io_error, "cannot write the encoded ring slot"};
-        }
-        gst_buffer_unmap(encoded, &out_map);
-    } else {
-        result = {status_code::io_error, "cannot map the encoded access unit"};
-    }
-    gst_sample_unref(sample);
     return result;
 }
 
@@ -469,6 +519,7 @@ void qtiv_renderer::vqec_vision_ai_qcom_qtvr_close() noexcept {
         impl.output_pool_ = nullptr;
     }
     impl.ring_.close();
+    impl.unmap_all();
     impl.is_open_ = false;
 }
 
