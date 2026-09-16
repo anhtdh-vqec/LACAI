@@ -19,6 +19,18 @@ released `camera_ai_common` v5 header (which is not present in the current eSDK 
 The earlier "AI must not duplicate the shared ABI" rule still holds: the single duplicated
 layout now lives in one contracts header, not inline in the adapter.
 
+2026-09-16 board evidence (`.98`). The eSDK-built production binary ran against the
+compatibility camera simulator and the FW v5 ring reader (`vqec_vision_ring_rtsp.py`). The
+reader self-check reported `header=4096 slot_hdr=1232 slots=16 payload=1048576`; the ring
+file was 16,801,024 bytes (4096 + 16 x (1232 + 1 MiB)). A host TCP `ffprobe` on
+`rtsp://192.168.138.98:8554/live/ai/detect0` returned H.264, 1920x1080, `30/1`, and an 8
+second decode received 229 frames (~30 FPS) with in-band SPS/PPS, so the new writer filled
+frame_id/timestamp_ns and the reader started from a real IDR. D-Bus FR enrollment/retry/
+delete and runtime transitions passed, cascade reported `embedded=2 cascade_failed=0`, and
+the service wrote the ring without unlinking or clobbering. This is compatibility-camera
+and synthetic-reader evidence: released-FW reader integration, DMA completion and thermal
+qualification remain open.
+
 Source-only optional adapter against the reviewed camera_ai_common API. No SDK files
 copied; no configure/build/board test run. Baseline FW commit:
 139d335913e19e5a33a36fa8f8d706009892db44.
