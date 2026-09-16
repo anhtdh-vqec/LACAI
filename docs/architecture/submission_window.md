@@ -46,6 +46,13 @@ UTC/capture-time accuracy. No
 wall clock is used. A separate steady-clock value is used for deadline checks and
 must never be compared directly against source/pipeline timestamps.
 
+The ticket therefore carries two distinct clocks. `pipeline_pts_ns_` is the
+vendor/pipeline-domain PTS used for encoder correlation; `submitted_steady_ns_` is the
+monotonic steady time captured at reserve. Latency or queue-age arithmetic must use
+`submitted_steady_ns_` only. The runtime executor's `route_latency_*` metric is the
+steady interval from reservation to result routing; it is not camera-to-output latency
+and excludes FW capture and preview encode.
+
 Deadline expiry marks the window faulted but keeps all outstanding slots. Inflight
 budget includes prepared, submitted and result-held jobs; it does NOT budget vendor
 pools, tensor bytes or camera buffers retained elsewhere.

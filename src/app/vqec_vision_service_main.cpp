@@ -2003,11 +2003,14 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
     }
-    const auto e2e_avg_us = metrics.end_to_end_samples_ == 0 ? 0ULL :
+    const auto route_avg_us = metrics.end_to_end_samples_ == 0 ? 0ULL :
         metrics.end_to_end_ns_sum_ / (1000ULL * metrics.end_to_end_samples_);
+    // route_latency is the steady-clock interval from job reservation to result routing. It
+    // is not camera-to-output latency and does not include FW capture or preview encode.
     std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
         "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
-        "e2e_avg_us=%llu e2e_min_us=%llu e2e_max_us=%llu samples=%u\n",
+        "route_latency_avg_us=%llu route_latency_min_us=%llu route_latency_max_us=%llu "
+        "samples=%u\n",
         static_cast<unsigned long long>(metrics.steps_),
         static_cast<unsigned long long>(metrics.results_routed_),
         static_cast<unsigned long long>(metrics.events_delivered_),
@@ -2016,7 +2019,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         static_cast<unsigned long long>(metrics.cascade_tasks_accepted_),
         static_cast<unsigned long long>(metrics.cascade_embeddings_),
         static_cast<unsigned long long>(metrics.cascade_tasks_failed_),
-        static_cast<unsigned long long>(e2e_avg_us),
+        static_cast<unsigned long long>(route_avg_us),
         static_cast<unsigned long long>(metrics.end_to_end_samples_ == 0 ? 0ULL :
             metrics.end_to_end_ns_min_ / 1000ULL),
         static_cast<unsigned long long>(metrics.end_to_end_ns_max_ / 1000ULL),

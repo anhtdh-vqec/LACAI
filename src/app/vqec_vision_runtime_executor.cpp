@@ -118,8 +118,12 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
             pending_report_.first_error_code_ = cascaded.code_;
         }
     }
-    if (result.pipeline_pts_ns_ != 0 && _steady_now_ns >= result.pipeline_pts_ns_) {
-        const auto latency = _steady_now_ns - result.pipeline_pts_ns_;
+    // Latency is measured entirely in the steady-clock domain: from the monotonic time the
+    // job was reserved to the monotonic time its result is routed here. result.pipeline_pts_ns_
+    // belongs to the vendor/pipeline clock and must not be mixed into this arithmetic.
+    const auto submitted_steady_ns = pump_report.result_ticket_.submitted_steady_ns_;
+    if (submitted_steady_ns != 0 && _steady_now_ns >= submitted_steady_ns) {
+        const auto latency = _steady_now_ns - submitted_steady_ns;
         metrics_.end_to_end_ns_sum_ += latency;
         metrics_.end_to_end_ns_max_ =
             latency > metrics_.end_to_end_ns_max_ ? latency : metrics_.end_to_end_ns_max_;

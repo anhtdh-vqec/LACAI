@@ -25,7 +25,12 @@ struct submission_ticket {
     std::uint64_t source_epoch_{0};
     std::uint64_t source_frame_id_{0};
     std::uint64_t source_pts_ns_{0};
+    // Pipeline-clock PTS: vendor/pipeline domain used for encoder correlation. It is NOT a
+    // steady-clock value and must never be subtracted from a steady timestamp.
     std::uint64_t pipeline_pts_ns_{0};
+    // Monotonic steady-clock time captured when the job was reserved. This is the only
+    // valid clock domain for queue/completion latency arithmetic.
+    std::uint64_t submitted_steady_ns_{0};
 };
 
 // A full-frame graph accepts each source identity once. A dependent tensor graph may

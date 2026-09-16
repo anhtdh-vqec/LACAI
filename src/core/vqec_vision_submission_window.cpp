@@ -70,7 +70,8 @@ status submission_window::vqec_vision_ai_core_subwn_reserve(std::uint64_t _sourc
                _source_epoch,
                _source_frame_id,
                _source_pts_ns,
-               config_.pipeline_anchor_ns_ + delta};
+               config_.pipeline_anchor_ns_ + delta,
+               _steady_now_ns};
     return {};
 }
 

@@ -1,5 +1,16 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-03 update: the runtime latency metric no longer mixes clock
+domains. `submission_ticket` now carries `submitted_steady_ns_` (monotonic time captured at
+reserve) separately from `pipeline_pts_ns_` (vendor/pipeline PTS for encoder correlation),
+and the executor computes its metric from reservation to result routing in the steady
+domain only. The metric is renamed `route_latency_*` because it is not camera-to-output
+latency. Before this change the executor subtracted the pipeline PTS from the steady clock,
+producing nonsensical multi-second values. Board `.98`: `route_latency_avg_us=31186`
+(min 15521, max 46779) across a live compatibility run whose RTSP output probed H.264
+1920x1080 30/1 (181 frames in 6 s), D-Bus FR transitions passed and `first_error=0`.
+eSDK/QEMU suite passes 121/121.
+
 2026-09-16 clean-base CB-02 update: the owned QNN engine now supports a defined reload
 path. `release_model()` frees graphs, context, model library, output workspace and
 registered buffers while keeping the backend/device open, and `qnn_inference_graph::unload`
