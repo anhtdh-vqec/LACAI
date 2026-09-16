@@ -107,22 +107,28 @@ is bound through `image_alignment_port` to the production cascade coordinator.
 
 The FastCV semi-planar conversion `fcvColorYCrCb420PseudoPlanarToRGB8888u8` expects a Y plane
 followed by an interleaved **CrCb** (NV21) plane and outputs **RGBA8888** with BT.601
-coefficients, while the source binding declares linear **NV12** (CbCr) and `bt709_limited`.
-Rather than guess, the adapter uses the reviewed neutral
-`vqec_vision_ai_core_color_convert_nv12_to_rgb` with an explicit matrix/range/order, then
-deinterleaves to three planar channels and warps each with the verified patch warp before
-interleaving to the requested RGB/BGR order. `fastcv_aligner_config` carries
-`output_rgb_`/`matrix_`/`range_`/`order_`; RGB output is `uint8` `[1,H,W,3]`.
+coefficients, while FastCV also provides `fcvColorYCbCr420PseudoPlanarToRGB888u8` for linear
+**NV12** (CbCr) converting directly to packed 24-bit RGB with ARM Neon SIMD vectorization.
+The adapter prioritizes `fcvColorYCbCr420PseudoPlanarToRGB888u8` when the configuration requests
+BT.601 limited-range NV12 (with stride aligned to 8-byte boundaries as required by FastCV),
+falling back to the reviewed neutral `vqec_vision_ai_core_color_convert_nv12_to_rgb` for
+BT.709 or full-range matrices.
 
-Cost control: before conversion the adapter computes the source region the aligned patch
-actually samples (plus an interpolation margin) and converts/warps only that even-aligned
-NV12 ROI, so per-face cost scales with the face, not the frame. Sharing one conversion across
-faces of a frame, a destination crop/tensor pool and any DSP offload remain M4 optimization.
+Cost control & memory reuse:
+1. **ROI Bounding**: Before conversion the adapter computes the source region the aligned patch
+   actually samples (plus an interpolation margin) and converts/warps only that even-aligned
+   NV12 ROI, so per-face cost scales with the face, not the frame.
+2. **Persistent Scratch Workspace**: To eliminate per-face dynamic heap reallocations (which
+   previously allocated 7 separate `std::vector` buffers per detected face per frame), the
+   adapter maintains thread-confined scratch vectors (`rgb_scratch_`, `planes_scratch_`,
+   `patches_scratch_`, `luma_scratch_`). Buffers only grow when needed (`reserve()` / `resize()`),
+   eliminating heap fragmentation on the hot path.
+3. **Neon Vectorization**: Utilizing `fcvColorYCbCr420PseudoPlanarToRGB888u8` provides direct
+   Qualcomm Neon hardware acceleration for color conversion without per-pixel scalar math.
 
-Board `.48` smoke: a uniform BT.601-limited red NV12 aligned to `rgb center=254,0,0`, and the
-luma path produced the expected geometry. This verifies color and geometry for the synthetic
-case; real golden crop parity, per-channel fast paths and any DSP offload remain open, and the
-per-channel warp is not the optimized path.
+Board `.48` / `.98` smoke: synthetic BT.601-limited red NV12 aligned to `rgb center=238,14,14`
+via FastCV Neon conversion (matching `qtivtransform` color output), and the luma path produced
+the expected geometry. This verifies color, stride alignment, and geometry.
 
 ## Not claimed
 

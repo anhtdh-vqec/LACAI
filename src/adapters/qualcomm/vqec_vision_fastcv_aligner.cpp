@@ -262,33 +262,47 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             ::munmap(mapping, static_cast<std::size_t>(map_length));
             return {status_code::unsupported, "RGB alignment requires a valid NV12 color policy"};
         }
-        const std::size_t rgb_stride = static_cast<std::size_t>(roi_width) * 3U;
-        std::vector<std::uint8_t> rgb(rgb_stride * roi_height, 0U);
+        const std::uint32_t fastcv_stride = (roi_width * 3U + 7U) & ~7U;
+        const std::size_t rgb_size = static_cast<std::size_t>(fastcv_stride) * roi_height;
+        if (rgb_scratch_.size() != rgb_size) {
+            rgb_scratch_.resize(rgb_size);
+        }
         const std::size_t chroma_offset =
             static_cast<std::size_t>(in_page_offset + descriptor.offsets_[1]);
         const std::uint8_t* y_roi = base + luma_offset +
             static_cast<std::size_t>(roi_y0) * descriptor.strides_[0] + roi_x0;
         const std::uint8_t* uv_roi = base + chroma_offset +
             static_cast<std::size_t>(roi_y0 / 2U) * descriptor.strides_[1] + roi_x0;
-        const auto converted = vqec_vision_ai_core_color_convert_nv12_to_rgb(y_roi,
-            static_cast<std::uint32_t>(descriptor.strides_[0]), uv_roi,
-            static_cast<std::uint32_t>(descriptor.strides_[1]), roi_width, roi_height,
-            config_.matrix_, config_.range_, channel_order::rgb, rgb.data(),
-            static_cast<std::uint32_t>(rgb_stride));
-        if (converted.code_ != status_code::ok) {
-            ::munmap(mapping, static_cast<std::size_t>(map_length));
-            return converted;
+
+        if (config_.matrix_ == color_matrix::bt601 && config_.range_ == color_range::limited) {
+            fcvColorYCbCr420PseudoPlanarToRGB888u8(
+                y_roi, uv_roi, roi_width, roi_height,
+                static_cast<std::uint32_t>(descriptor.strides_[0]),
+                static_cast<std::uint32_t>(descriptor.strides_[1]),
+                rgb_scratch_.data(), fastcv_stride);
+        } else {
+            const auto converted = vqec_vision_ai_core_color_convert_nv12_to_rgb(
+                y_roi, static_cast<std::uint32_t>(descriptor.strides_[0]),
+                uv_roi, static_cast<std::uint32_t>(descriptor.strides_[1]),
+                roi_width, roi_height, config_.matrix_, config_.range_,
+                channel_order::rgb, rgb_scratch_.data(), fastcv_stride);
+            if (converted.code_ != status_code::ok) {
+                ::munmap(mapping, static_cast<std::size_t>(map_length));
+                return converted;
+            }
         }
         // Deinterleave into three planar channels, warp each with the verified patch warp,
         // then interleave to the requested order.
-        std::array<std::vector<std::uint8_t>, 3> planes;
-        for (auto& plane : planes) {
-            plane.assign(static_cast<std::size_t>(roi_width) * roi_height, 0U);
+        const std::size_t plane_size = static_cast<std::size_t>(roi_width) * roi_height;
+        for (auto& plane : planes_scratch_) {
+            if (plane.size() != plane_size) {
+                plane.resize(plane_size);
+            }
         }
         for (std::uint32_t row = 0; row < roi_height; ++row) {
-            const std::uint8_t* source_row = rgb.data() + static_cast<std::size_t>(row) * rgb_stride;
+            const std::uint8_t* source_row = rgb_scratch_.data() + static_cast<std::size_t>(row) * fastcv_stride;
             for (unsigned channel = 0; channel < 3U; ++channel) {
-                std::uint8_t* plane_row = planes[channel].data() +
+                std::uint8_t* plane_row = planes_scratch_[channel].data() +
                     static_cast<std::size_t>(row) * roi_width;
                 for (std::uint32_t column = 0; column < roi_width; ++column) {
                     plane_row[column] =
@@ -296,46 +310,50 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
                 }
             }
         }
-        std::array<std::vector<std::uint8_t>, 3> patches;
         for (unsigned channel = 0; channel < 3U; ++channel) {
-            patches[channel].assign(patch_pixels, 0U);
-            const int warp = fcvTransformAffineu8_v2(planes[channel].data(), roi_width,
-                roi_height, roi_width, roi_position, affine, patches[channel].data(),
+            if (patches_scratch_[channel].size() != patch_pixels) {
+                patches_scratch_[channel].resize(patch_pixels);
+            }
+            const int warp = fcvTransformAffineu8_v2(planes_scratch_[channel].data(), roi_width,
+                roi_height, roi_width, roi_position, affine, patches_scratch_[channel].data(),
                 _template.destination_width_, _template.destination_height_,
                 _template.destination_width_);
             if (warp != 0) {
                 vqec_vision_ai_qcom_fcaln_warp_bilinear_fallback(
-                    planes[channel].data(), roi_width, roi_height, roi_width,
-                    roi_position, affine, patches[channel].data(),
+                    planes_scratch_[channel].data(), roi_width, roi_height, roi_width,
+                    roi_position, affine, patches_scratch_[channel].data(),
                     _template.destination_width_, _template.destination_height_,
                     _template.destination_width_);
             }
         }
         const bool rgb_order = config_.order_ == channel_order::rgb;
-        std::vector<std::uint8_t> packed(patch_pixels * 3U, 0U);
+        std::vector<std::uint8_t> packed(patch_pixels * 3U);
         for (std::size_t index = 0; index < patch_pixels; ++index) {
-            packed[index * 3U + 0U] = rgb_order ? patches[0][index] : patches[2][index];
-            packed[index * 3U + 1U] = patches[1][index];
-            packed[index * 3U + 2U] = rgb_order ? patches[2][index] : patches[0][index];
+            packed[index * 3U + 0U] = rgb_order ? patches_scratch_[0][index] : patches_scratch_[2][index];
+            packed[index * 3U + 1U] = patches_scratch_[1][index];
+            packed[index * 3U + 2U] = rgb_order ? patches_scratch_[2][index] : patches_scratch_[0][index];
         }
         candidate.tensor_.spec_.dimensions_ = {1U, _template.destination_height_,
             _template.destination_width_, 3U};
         candidate.tensor_.bytes_ = std::move(packed);
     } else {
-        std::vector<std::uint8_t> luma(static_cast<std::size_t>(roi_width) * roi_height, 0U);
+        const std::size_t plane_size = static_cast<std::size_t>(roi_width) * roi_height;
+        if (luma_scratch_.size() != plane_size) {
+            luma_scratch_.resize(plane_size);
+        }
         for (std::uint32_t row = 0; row < roi_height; ++row) {
-            std::memcpy(luma.data() + static_cast<std::size_t>(row) * roi_width,
+            std::memcpy(luma_scratch_.data() + static_cast<std::size_t>(row) * roi_width,
                 base + luma_offset +
                     static_cast<std::size_t>(roi_y0 + row) * descriptor.strides_[0] + roi_x0,
                 roi_width);
         }
-        std::vector<std::uint8_t> patch(patch_pixels, 0U);
-        const int result = fcvTransformAffineu8_v2(luma.data(), roi_width, roi_height,
+        std::vector<std::uint8_t> patch(patch_pixels);
+        const int result = fcvTransformAffineu8_v2(luma_scratch_.data(), roi_width, roi_height,
             roi_width, roi_position, affine, patch.data(), _template.destination_width_,
             _template.destination_height_, _template.destination_width_);
         if (result != 0) {
             vqec_vision_ai_qcom_fcaln_warp_bilinear_fallback(
-                luma.data(), roi_width, roi_height, roi_width, roi_position, affine,
+                luma_scratch_.data(), roi_width, roi_height, roi_width, roi_position, affine,
                 patch.data(), _template.destination_width_, _template.destination_height_,
                 _template.destination_width_);
         }

@@ -1,7 +1,9 @@
 #ifndef VQEC_VISION_AI_QCOM_FASTCV_ALIGNER_HPP
 #define VQEC_VISION_AI_QCOM_FASTCV_ALIGNER_HPP
 
+#include <array>
 #include <cstdint>
+#include <vector>
 
 #include "vqec/vision/ai/contracts/vqec_vision_image_enums.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
@@ -46,6 +48,10 @@ public:
 
 private:
     fastcv_aligner_config config_{};
+    std::vector<std::uint8_t> rgb_scratch_;
+    std::array<std::vector<std::uint8_t>, 3> planes_scratch_;
+    std::array<std::vector<std::uint8_t>, 3> patches_scratch_;
+    std::vector<std::uint8_t> luma_scratch_;
 };
 
 }  // namespace vqec::vision::ai
