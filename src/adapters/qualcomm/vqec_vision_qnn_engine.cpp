@@ -1,6 +1,7 @@
 #include "vqec_vision_qnn_engine.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <utility>
 
 #include <dlfcn.h>
@@ -128,6 +129,37 @@ using compose_graphs_fn = model_error_t (*)(
 using free_graphs_fn = model_error_t (*)(qnn_model_graph_info***, std::uint32_t);
 
 constexpr model_error_t g_model_no_error = 0;
+constexpr int g_rpcmem_heap_id_system = 25;
+constexpr std::uint32_t g_rpcmem_default_flags = 1;
+constexpr std::size_t g_rpcmem_page_alignment = 4096;
+constexpr std::uint32_t g_max_shared_registrations = 16;
+
+using rpcmem_alloc_fn = void* (*)(int, std::uint32_t, int);
+using rpcmem_to_fd_fn = int (*)(void*);
+using rpcmem_free_fn = void (*)(void*);
+
+struct qnn_rpcmem_driver {
+    void* lib_handle_{nullptr};
+    rpcmem_alloc_fn alloc_{nullptr};
+    rpcmem_to_fd_fn to_fd_{nullptr};
+    rpcmem_free_fn free_{nullptr};
+
+    [[nodiscard]] bool is_available() const noexcept {
+        return alloc_ != nullptr && to_fd_ != nullptr && free_ != nullptr;
+    }
+};
+
+struct qnn_registered_buffer {
+    void* data_{nullptr};
+    int fd_{-1};
+    std::size_t size_{0};
+    Qnn_MemHandle_t handle_{nullptr};
+};
+
+std::size_t vqec_vision_ai_qcom_qneng_round_up(
+    std::size_t _size, std::size_t _alignment) noexcept {
+    return (_size + (_alignment - 1U)) & ~(_alignment - 1U);
+}
 
 }  // namespace
 
@@ -145,10 +177,17 @@ struct qnn_engine::implementation {
     // Resolved once at prepare so execute reconstructs no tensor metadata on the hot path.
     std::vector<tensor_spec> input_specs_;
     std::vector<tensor_spec> output_specs_;
+    // Pre-allocated output workspace to eliminate per-frame heap allocations.
+    std::vector<tensor_blob> output_workspace_;
+    // Registered zero-copy ION/rpcmem buffers for model outputs.
+    std::vector<qnn_registered_buffer> registered_outputs_;
+    qnn_rpcmem_driver rpcmem_;
     const QnnHtpDevice_PerfInfrastructure_t* perf_{nullptr};
     std::uint32_t power_client_id_{0};
     bool has_power_client_{false};
     bool supports_low_latency_{false};
+    bool supports_shared_memory_{false};
+    bool has_memhandle_output_{false};
     bool is_open_{false};
     bool is_prepared_{false};
 };
@@ -217,6 +256,17 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_open(
                 impl.perf_->setPowerConfig != nullptr;
         }
     }
+    impl.rpcmem_.lib_handle_ = ::dlopen("libcdsprpc.so", RTLD_NOW | RTLD_LOCAL);
+    if (impl.rpcmem_.lib_handle_ != nullptr) {
+        impl.rpcmem_.alloc_ = reinterpret_cast<rpcmem_alloc_fn>(
+            ::dlsym(impl.rpcmem_.lib_handle_, "rpcmem_alloc"));
+        impl.rpcmem_.to_fd_ = reinterpret_cast<rpcmem_to_fd_fn>(
+            ::dlsym(impl.rpcmem_.lib_handle_, "rpcmem_to_fd"));
+        impl.rpcmem_.free_ = reinterpret_cast<rpcmem_free_fn>(
+            ::dlsym(impl.rpcmem_.lib_handle_, "rpcmem_free"));
+    }
+    impl.supports_shared_memory_ = impl.rpcmem_.is_available() &&
+        impl.qnn_->memRegister != nullptr && impl.qnn_->memDeRegister != nullptr;
     impl.is_open_ = true;
     inference_capabilities capabilities;
     const auto probed = vqec_vision_ai_qcom_qneng_probe_capabilities(capabilities);
@@ -322,10 +372,11 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(
     capabilities.compute_unit_count_ = 0;
     capabilities.graph_count_ = 1;
     capabilities.max_inflight_jobs_ = 1;
-    capabilities.max_shared_registrations_ = 0;
+    capabilities.max_shared_registrations_ = implementation_->supports_shared_memory_
+        ? g_max_shared_registrations : 0;
     capabilities.supports_async_ = false;
     capabilities.supports_native_output_ = true;
-    capabilities.supports_shared_memory_ = false;
+    capabilities.supports_shared_memory_ = implementation_->supports_shared_memory_;
     capabilities.supports_artifact_update_ = false;
     capabilities.supports_multi_model_domain_ = false;
     const auto valid = vqec_vision_ai_core_inexe_validate_capabilities(capabilities);
@@ -418,6 +469,77 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         }
         impl.output_specs_.push_back(spec);
     }
+    // Pre-allocate output workspace once to avoid per-frame heap allocations.
+    impl.output_workspace_.clear();
+    impl.output_workspace_.reserve(impl.output_specs_.size());
+    for (const auto& spec : impl.output_specs_) {
+        tensor_blob blob;
+        blob.spec_ = spec;
+        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
+        blob.bytes_.resize(static_cast<std::size_t>(bytes));
+        impl.output_workspace_.push_back(std::move(blob));
+    }
+
+    // Try registering zero-copy ION/rpcmem buffers for model outputs if supported.
+    impl.registered_outputs_.clear();
+    impl.has_memhandle_output_ = false;
+    if (impl.supports_shared_memory_ && impl.context_ != nullptr) {
+        bool all_registered = true;
+        std::vector<qnn_registered_buffer> registered;
+        registered.reserve(graph->numOutputTensors);
+        for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+            const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(impl.output_specs_[index]);
+            const std::size_t aligned_size = vqec_vision_ai_qcom_qneng_round_up(
+                static_cast<std::size_t>(bytes), g_rpcmem_page_alignment);
+            void* ptr = impl.rpcmem_.alloc_(
+                g_rpcmem_heap_id_system, g_rpcmem_default_flags, static_cast<int>(aligned_size));
+            const int fd = ptr != nullptr ? impl.rpcmem_.to_fd_(ptr) : -1;
+            if (ptr == nullptr || fd < 0) {
+                if (ptr != nullptr) {
+                    impl.rpcmem_.free_(ptr);
+                }
+                all_registered = false;
+                break;
+            }
+            std::memset(ptr, 0, aligned_size);
+
+            Qnn_MemDescriptor_t desc{};
+            desc.memShape.numDim = graph->outputTensors[index].v2.rank;
+            desc.memShape.dimSize = graph->outputTensors[index].v2.dimensions;
+            desc.memShape.shapeConfig = nullptr;
+            desc.dataType = graph->outputTensors[index].v2.dataType;
+            desc.memType = QNN_MEM_TYPE_ION;
+            desc.ionInfo.fd = fd;
+            Qnn_MemHandle_t handle = nullptr;
+            const auto reg_status = impl.qnn_->memRegister(
+                impl.context_, &desc, 1U, &handle);
+            if (reg_status != QNN_SUCCESS || handle == nullptr) {
+                impl.rpcmem_.free_(ptr);
+                all_registered = false;
+                break;
+            }
+            registered.push_back({ptr, fd, aligned_size, handle});
+        }
+        if (all_registered && registered.size() == graph->numOutputTensors) {
+            impl.registered_outputs_ = std::move(registered);
+            impl.has_memhandle_output_ = true;
+            for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+                auto& tensor = graph->outputTensors[index];
+                tensor.v2.memType = QNN_TENSORMEMTYPE_MEMHANDLE;
+                tensor.v2.memHandle = impl.registered_outputs_[index].handle_;
+            }
+        } else {
+            for (auto& buf : registered) {
+                if (buf.handle_ != nullptr && impl.qnn_->memDeRegister != nullptr) {
+                    (void)impl.qnn_->memDeRegister(&buf.handle_, 1U);
+                }
+                if (buf.data_ != nullptr && impl.rpcmem_.free_ != nullptr) {
+                    impl.rpcmem_.free_(buf.data_);
+                }
+            }
+            registered.clear();
+        }
+    }
     impl.is_prepared_ = true;
     return {};
 }
@@ -457,29 +579,19 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
                 "input blob does not match the model graph tensor identity"};
         }
     }
-    std::vector<tensor_blob> outputs;
-    outputs.reserve(impl.output_specs_.size());
-    for (const auto& spec : impl.output_specs_) {
-        tensor_blob blob;
-        blob.spec_ = spec;
-        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
-        if (bytes == 0) {
-            return {status_code::unsupported, "model output tensor metadata is invalid"};
-        }
-        blob.bytes_.resize(static_cast<std::size_t>(bytes));
-        outputs.push_back(std::move(blob));
-    }
     for (std::uint32_t index = 0; index < graph->numInputTensors; ++index) {
         auto& tensor = graph->inputTensors[index];
         tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
         tensor.v2.clientBuf.data = const_cast<std::uint8_t*>(_inputs[index].bytes_.data());
         tensor.v2.clientBuf.dataSize = _inputs[index].bytes_.size();
     }
-    for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
-        auto& tensor = graph->outputTensors[index];
-        tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
-        tensor.v2.clientBuf.data = outputs[index].bytes_.data();
-        tensor.v2.clientBuf.dataSize = outputs[index].bytes_.size();
+    if (!impl.has_memhandle_output_) {
+        for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
+            auto& tensor = graph->outputTensors[index];
+            tensor.v2.memType = QNN_TENSORMEMTYPE_RAW;
+            tensor.v2.clientBuf.data = impl.output_workspace_[index].bytes_.data();
+            tensor.v2.clientBuf.dataSize = impl.output_workspace_[index].bytes_.size();
+        }
     }
     const auto executed = impl.qnn_->graphExecute(
         graph->graph, graph->inputTensors, graph->numInputTensors,
@@ -487,7 +599,20 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     if (executed != QNN_SUCCESS) {
         return {status_code::io_error, "QNN graph execution failed"};
     }
-    _outputs = std::move(outputs);
+    if (_outputs.size() != impl.output_specs_.size()) {
+        _outputs.resize(impl.output_specs_.size());
+    }
+    for (std::size_t index = 0; index < impl.output_specs_.size(); ++index) {
+        _outputs[index].spec_ = impl.output_specs_[index];
+        const auto bytes = impl.output_workspace_[index].bytes_.size();
+        if (_outputs[index].bytes_.size() != bytes) {
+            _outputs[index].bytes_.resize(bytes);
+        }
+        const void* source = impl.has_memhandle_output_
+            ? impl.registered_outputs_[index].data_
+            : impl.output_workspace_[index].bytes_.data();
+        std::memcpy(_outputs[index].bytes_.data(), source, bytes);
+    }
     return {};
 }
 
@@ -496,6 +621,27 @@ void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
         return;
     }
     auto& impl = *implementation_;
+    if (!impl.registered_outputs_.empty()) {
+        std::vector<Qnn_MemHandle_t> handles;
+        handles.reserve(impl.registered_outputs_.size());
+        for (const auto& buf : impl.registered_outputs_) {
+            if (buf.handle_ != nullptr) {
+                handles.push_back(buf.handle_);
+            }
+        }
+        if (!handles.empty() && impl.qnn_ != nullptr && impl.qnn_->memDeRegister != nullptr) {
+            (void)impl.qnn_->memDeRegister(
+                handles.data(), static_cast<std::uint32_t>(handles.size()));
+        }
+        for (auto& buf : impl.registered_outputs_) {
+            if (buf.data_ != nullptr && impl.rpcmem_.free_ != nullptr) {
+                impl.rpcmem_.free_(buf.data_);
+            }
+        }
+        impl.registered_outputs_.clear();
+    }
+    impl.has_memhandle_output_ = false;
+    impl.output_workspace_.clear();
     if (impl.graphs_ != nullptr && impl.free_graphs_ != nullptr) {
         (void)impl.free_graphs_(&impl.graphs_, impl.graph_count_);
     }
@@ -530,6 +676,13 @@ void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
     impl.qnn_ = nullptr;
     impl.is_open_ = false;
     impl.libraries_.vqec_vision_ai_qcom_sdkld_close();
+    if (impl.rpcmem_.lib_handle_ != nullptr) {
+        ::dlclose(impl.rpcmem_.lib_handle_);
+        impl.rpcmem_.lib_handle_ = nullptr;
+        impl.rpcmem_.alloc_ = nullptr;
+        impl.rpcmem_.to_fd_ = nullptr;
+        impl.rpcmem_.free_ = nullptr;
+    }
 }
 
 }  // namespace vqec::vision::ai

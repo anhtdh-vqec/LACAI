@@ -43,7 +43,7 @@ intersection of adapter + model graph + backend + policy.
 | Synchronous client-buffer execute | `graphExecute` | yes | **yes** (SCRFD/YOLOv8n, byte-identical to qnn-net-run, 2026-09-14) | `mode=synchronous`, `max_inflight_jobs=1` |
 | Native (graph-dtype) output | `graphExecute` | yes | **yes** (uint16 UFIXED_POINT_16 returned) | `supports_native_output=true` |
 | Async execute | `graphExecuteAsync` | no | no | `supports_async=false` |
-| Shared/registered buffers | `memRegister`/`memDeRegister` | no | no | `supports_shared_memory=false`, bound `0` |
+| Shared/registered buffers | `memRegister`/`memDeRegister` | yes | **yes** (ION/rpcmem MEMHANDLE bound via libcdsprpc) | `supports_shared_memory=true`, bound `16` when rpcmem is available |
 | Artifact / LoRA update | `contextApplyBinarySection` | no | no | `supports_artifact_update=false` |
 | Multi-model execution domain | one context | no | no | `supports_multi_model_domain=false`, `graph_count=1` |
 | Perf profile | HTP perf infra | `balanced` plus explicit DCVS V3 low-latency vote | integration-smoked on `.98` (2026-09-16); thermal acceptance open | `balanced`, `low_latency` when HTP perf functions are present |
@@ -55,7 +55,7 @@ submit; each row moves to `implemented` only with the matching lifecycle path an
 tests. `prepare` must call `graphFinalize` after `composeGraphs`: generated model libraries
 compose but do not finalize, and `graphExecute` fails otherwise (board-discovered). Sync
 execute and native output are board-qualified. The HTP low-latency mapping has live
-integration evidence, but no sustained thermal acceptance. Async, shared memory, update,
+integration evidence, but no sustained thermal acceptance. Async, update,
 file domains and topology still require a qualified lifecycle and board evidence.
 
 `prepare` creates a context, `dlopen`s one QNN model library (`.so` from
@@ -67,9 +67,11 @@ tensor metadata on the hot path. `execute` re-checks each input against the full
 identity (name, shape, dtype and quantization, not only byte count), binds client buffers
 for the single graph, runs synchronous `graphExecute` and returns native-dtype output
 blobs. The wrapper structures used by generated model libraries are mirrored as local ABI
-types instead of including the restricted SDK example header. Output bytes are still
-allocated per call until the pooled native-output lease (S05) is wired; that remaining
-allocation and any SDK staging are not yet measured.
+types instead of including the restricted SDK example header. Output bytes use a
+pre-allocated workspace initialized at `prepare` time; when `libcdsprpc.so` is available,
+output tensors bind directly to physical ION pages (`QNN_TENSORMEMTYPE_MEMHANDLE`),
+eliminating heap reallocations and CPU staging during steady-state inference.
+Read [qualcomm_qnn_ion_memory.md](qualcomm_qnn_ion_memory.md) for memory architecture details.
 
 `vqec_vision_ai_qcom_bfact_create` builds one owned bundle from the trusted
 `resolved_model_paths`: it opens the engine with the resolved backend/system libraries,
