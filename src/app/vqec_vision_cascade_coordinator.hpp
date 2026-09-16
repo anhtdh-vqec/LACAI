@@ -57,9 +57,20 @@ public:
         std::vector<alignment_result>& _aligned,
         std::vector<embedding_result>& _embeddings,
         cascade_coordinator_report& _report);
+    // File/offline path: the caller already owns the exact frame represented by _tracked.
+    [[nodiscard]] status vqec_vision_ai_appl_cscrd_process_frame(
+        std::uint64_t _steady_now_ns, const raw_frame& _frame,
+        const observation_batch& _tracked, std::vector<alignment_result>& _aligned,
+        std::vector<embedding_result>& _embeddings,
+        cascade_coordinator_report& _report);
     [[nodiscard]] bool vqec_vision_ai_appl_cscrd_is_configured() const noexcept;
 
 private:
+    [[nodiscard]] status vqec_vision_ai_appl_cscrd_process_with_lease(
+        std::uint64_t _steady_now_ns, cascade_frame_lease_port& _lease,
+        const observation_batch& _tracked, std::vector<alignment_result>& _aligned,
+        std::vector<embedding_result>& _embeddings,
+        cascade_coordinator_report& _report);
     image_alignment_port* aligner_{nullptr};
     cascade_frame_lease_port* lease_{nullptr};
     inference_graph_port* embedding_graph_{nullptr};

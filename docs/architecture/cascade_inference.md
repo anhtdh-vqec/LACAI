@@ -21,6 +21,11 @@ FD-to-FR composition owner. The delivered cascade path retains the exact RAW fra
 primary submission, then binds each landmark task to a frame-store completion ticket. A
 numeric frame ID or a later preview frame must never substitute for those retained pixels.
 
+File enrollment already owns the exact decoded image, so `process_frame` uses a bounded
+direct lease over that owner. It validates frame/epoch/PTS/geometry identity and then runs
+the same aligner, embedding graph and decoder as the live retained-frame path. It does not
+reacquire a camera source or bypass alignment-completion ownership.
+
 ## Required neutral flow
 
 ```text

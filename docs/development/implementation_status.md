@@ -20,6 +20,10 @@ correlation and transactional detection publication. Production composition, dir
 cascade execution and DBus completion remain open; see
 [single-image inference](../architecture/single_image_inference.md).
 
+The cascade coordinator now accepts an exact caller-owned frame for offline enrollment,
+using the same bounded alignment and embedding path without a camera frame-store lease.
+DBus request orchestration and gallery commit remain open.
+
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.
 Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow

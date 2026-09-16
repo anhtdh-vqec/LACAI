@@ -10,6 +10,48 @@
 namespace vqec::vision::ai {
 namespace {
 
+class direct_frame_lease final : public cascade_frame_lease_port {
+public:
+    direct_frame_lease(const raw_frame& _frame, const preview_frame_key& _key) noexcept
+        : frame_(_frame), key_(_key) {}
+    status vqec_vision_ai_ports_cflse_acquire(
+        const preview_frame_key& _key, raw_frame& _frame,
+        std::uint64_t& _ticket) override {
+        if (is_outstanding_ || _key.camera_id_ != key_.camera_id_ ||
+            _key.channel_id_ != key_.channel_id_ || _key.source_epoch_ != key_.source_epoch_ ||
+            _key.frame_id_ != key_.frame_id_ || _key.source_pts_ns_ != key_.source_pts_ns_) {
+            return {status_code::invalid_state, "direct frame lease identity is unavailable"};
+        }
+        is_outstanding_ = true;
+        _ticket = next_ticket_++;
+        active_ticket_ = _ticket;
+        _frame = frame_;
+        return {};
+    }
+    status vqec_vision_ai_ports_cflse_complete(std::uint64_t _ticket) override {
+        if (!is_outstanding_ || _ticket != active_ticket_) {
+            return {status_code::invalid_state, "direct frame lease ticket is invalid"};
+        }
+        is_outstanding_ = false;
+        active_ticket_ = 0;
+        return {};
+    }
+    status vqec_vision_ai_ports_cflse_retire(const preview_frame_key& _key) override {
+        if (is_outstanding_ || _key.source_epoch_ != key_.source_epoch_ ||
+            _key.frame_id_ != key_.frame_id_) {
+            return {status_code::invalid_state, "direct frame lease cannot retire"};
+        }
+        return {};
+    }
+
+private:
+    raw_frame frame_;
+    preview_frame_key key_;
+    std::uint64_t next_ticket_{1};
+    std::uint64_t active_ticket_{0};
+    bool is_outstanding_{false};
+};
+
 // Builds the quantized model input tensor from an aligned uint8 RGB patch using the exact
 // spec taken from the loaded graph (name, dims, dtype, quantization).
 status vqec_vision_ai_appl_cscrd_quantize(
@@ -56,7 +98,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     if (is_configured_) {
         return {status_code::invalid_state, "cascade coordinator is already configured"};
     }
-    if (_config.aligner_ == nullptr || _config.lease_ == nullptr ||
+    if (_config.aligner_ == nullptr ||
         _config.max_tasks_per_frame_ == 0 ||
         _config.max_tasks_per_frame_ > image_alignment_limits::g_max_points) {
         return {status_code::invalid_argument, "invalid cascade coordinator configuration"};
@@ -137,6 +179,36 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
     std::uint64_t _steady_now_ns, const observation_batch& _tracked,
     std::vector<alignment_result>& _aligned, std::vector<embedding_result>& _embeddings,
     cascade_coordinator_report& _report) {
+    if (lease_ == nullptr) {
+        return {status_code::invalid_state, "cascade coordinator has no live frame lease"};
+    }
+    return vqec_vision_ai_appl_cscrd_process_with_lease(
+        _steady_now_ns, *lease_, _tracked, _aligned, _embeddings, _report);
+}
+
+status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_frame(
+    std::uint64_t _steady_now_ns, const raw_frame& _frame,
+    const observation_batch& _tracked, std::vector<alignment_result>& _aligned,
+    std::vector<embedding_result>& _embeddings, cascade_coordinator_report& _report) {
+    if (!is_configured_) {
+        return {status_code::invalid_state, "cascade coordinator is not configured"};
+    }
+    if (!_frame.owner_ || _frame.descriptor_.session_epoch_ != _tracked.frame_.source_epoch_ ||
+        _frame.descriptor_.buffer_id_ != _tracked.frame_.frame_id_ ||
+        _frame.descriptor_.pts_ns_ != _tracked.frame_.source_pts_ns_ ||
+        _frame.descriptor_.width_ != _tracked.geometry_.width_ ||
+        _frame.descriptor_.height_ != _tracked.geometry_.height_) {
+        return {status_code::invalid_argument, "direct cascade frame identity is invalid"};
+    }
+    direct_frame_lease lease(_frame, _tracked.frame_);
+    return vqec_vision_ai_appl_cscrd_process_with_lease(
+        _steady_now_ns, lease, _tracked, _aligned, _embeddings, _report);
+}
+
+status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
+    std::uint64_t _steady_now_ns, cascade_frame_lease_port& _lease,
+    const observation_batch& _tracked, std::vector<alignment_result>& _aligned,
+    std::vector<embedding_result>& _embeddings, cascade_coordinator_report& _report) {
     _aligned.clear();
     _embeddings.clear();
     _report = {};
@@ -152,7 +224,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
     }
     const bool embed = embedding_graph_ != nullptr;
     if (embed && armed_source_epoch_ != 0 && armed_source_epoch_ != key.source_epoch_) {
-        (void)lease_->vqec_vision_ai_ports_cflse_retire(key);
+        (void)_lease.vqec_vision_ai_ports_cflse_retire(key);
         return {status_code::invalid_state,
             "secondary graph must restart before the source epoch changes"};
     }
@@ -170,7 +242,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         raw_frame frame;
         std::uint64_t frame_ticket = 0;
         const auto acquired =
-            lease_->vqec_vision_ai_ports_cflse_acquire(key, frame, frame_ticket);
+            _lease.vqec_vision_ai_ports_cflse_acquire(key, frame, frame_ticket);
         if (acquired.code_ != status_code::ok) {
             ++_report.failed_;
             continue;
@@ -248,7 +320,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         // Release the frame-retention ticket regardless of downstream success; it is a
         // different ticket from the alignment-completion ticket above.
         const bool complete_ok =
-            lease_->vqec_vision_ai_ports_cflse_complete(frame_ticket).code_ == status_code::ok;
+            _lease.vqec_vision_ai_ports_cflse_complete(frame_ticket).code_ == status_code::ok;
         if (task_ok && complete_ok) {
             ++_report.accepted_;
         } else {
@@ -263,7 +335,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
             }
         }
     }
-    const auto retired = lease_->vqec_vision_ai_ports_cflse_retire(key);
+    const auto retired = _lease.vqec_vision_ai_ports_cflse_retire(key);
     if (retired.code_ != status_code::ok && retired.code_ != status_code::invalid_state) {
         ++_report.failed_;
     }

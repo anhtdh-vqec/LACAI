@@ -226,6 +226,7 @@ alignment_template make_template() {
 observation_batch make_batch(unsigned _count) {
     observation_batch batch;
     batch.frame_ = {0U, 0U, 1U, 1U, 1000U};
+    batch.geometry_ = {640U, 480U};
     for (unsigned index = 0; index < _count; ++index) {
         observation item;
         item.frame_ = batch.frame_;
@@ -284,6 +285,30 @@ int main() {
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
                   0, make_batch(1), aligned, embeddings, report).code_ ==
             status_code::invalid_state);
+    }
+
+    // File enrollment uses the exact owned frame without a live frame-store lease.
+    {
+        fake_aligner aligner;
+        fake_lease unused_lease;
+        auto config = make_config(aligner, unused_lease, 2);
+        config.lease_ = nullptr;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ ==
+            status_code::ok);
+        auto batch = make_batch(2);
+        raw_frame frame;
+        frame.owner_ = std::make_shared<int>(0);
+        frame.descriptor_.session_epoch_ = batch.frame_.source_epoch_;
+        frame.descriptor_.buffer_id_ = batch.frame_.frame_id_;
+        frame.descriptor_.pts_ns_ = batch.frame_.source_pts_ns_;
+        frame.descriptor_.width_ = batch.geometry_.width_;
+        frame.descriptor_.height_ = batch.geometry_.height_;
+        check(coordinator.vqec_vision_ai_appl_cscrd_process_frame(
+                  0, frame, batch, aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 2 && report.failed_ == 0 && aligned.size() == 2);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  0, batch, aligned, embeddings, report).code_ == status_code::invalid_state);
     }
 
     // Align failure is isolated, the ticket is completed and admission retired.
