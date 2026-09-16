@@ -48,6 +48,13 @@ target_link_libraries(vqec_vision_ai_cascade_coordinator
     PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_cascade_coordinator PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_single_image_inference STATIC
+    vqec_vision_single_image_inference.cpp)
+target_include_directories(vqec_vision_ai_single_image_inference PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_single_image_inference PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_single_image_inference PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_cascade_graph_session STATIC
     vqec_vision_cascade_graph_session.cpp)
 target_include_directories(vqec_vision_ai_cascade_graph_session PUBLIC

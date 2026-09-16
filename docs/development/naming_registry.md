@@ -150,6 +150,11 @@ uses file_id `feimg`, prefix `vqec_vision_ai_qcom_feimg_`; its neutral port is
 Contract test `tests/contract/vqec_vision_face_enrollment_image_source_test.cpp` uses
 file_id `feitst`; `main` retains the language entrypoint spelling.
 
+Single-image inference runner `src/app/vqec_vision_single_image_inference.cpp` uses
+file_id `siinf`, prefix `vqec_vision_ai_appl_siinf_`.
+Test `tests/unit/vqec_vision_single_image_inference_test.cpp` uses file_id `siitst`;
+port overrides retain their interface names and `main` retains language spelling.
+
 Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
 Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id
 `rcpol`, prefix `vqec_vision_ai_embed_rcpol_`. Test

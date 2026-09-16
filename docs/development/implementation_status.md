@@ -14,6 +14,12 @@ FD/FR handoff, input-file admission and service wiring remain open; image-path e
 is still explicitly unsupported. See
 [image source](../architecture/face_enrollment_image_source.md).
 
+The neutral synchronous `single_image_inference` runner now reuses the admitted image
+processor, graph and decoder ports for one owned file frame, with exact epoch/frame
+correlation and transactional detection publication. Production composition, direct-frame
+cascade execution and DBus completion remain open; see
+[single-image inference](../architecture/single_image_inference.md).
+
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.
 Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow

@@ -557,6 +557,11 @@
     target_link_libraries(vqec_vision_ai_tensor_contract_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_tensor_contract_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME tensor_contract_validation COMMAND vqec_vision_ai_tensor_contract_test)
+    add_executable(vqec_vision_ai_single_image_inference_test
+        unit/vqec_vision_single_image_inference_test.cpp)
+    target_link_libraries(vqec_vision_ai_single_image_inference_test PRIVATE
+        vqec_vision_ai_single_image_inference)
+    add_test(NAME single_image_inference COMMAND vqec_vision_ai_single_image_inference_test)
     if(VQEC_VISION_AI_ENABLE_CAMERA AND VQEC_VISION_AI_ENABLE_QUALCOMM)
         add_executable(vqec_vision_ai_camera_session_test contract/vqec_vision_camera_session_test.cpp)
         target_link_libraries(vqec_vision_ai_camera_session_test
