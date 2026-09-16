@@ -74,6 +74,7 @@ the configured FW peer at startup. Durable encrypted storage and peer-name provi
 remain platform integration work; file enrollment execution must be added before a
 non-empty `image_path` can be accepted and must not bypass this port.
 
-The delivered [image source adapter](../architecture/face_enrollment_image_source.md)
-decodes one JPEG to a neutral owned NV12 image. It is not yet connected to FD/FR or
-filesystem admission; non-empty paths still return `unsupported` from the controller.
+The delivered [image pipeline](../architecture/face_enrollment_image_pipeline.md) defines
+bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. The
+production service has not composed its dedicated graph/path policy yet, so non-empty
+paths still return `unsupported` instead of silently sharing a live graph.

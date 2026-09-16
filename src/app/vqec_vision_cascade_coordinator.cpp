@@ -205,6 +205,18 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_frame(
         _steady_now_ns, lease, _tracked, _aligned, _embeddings, _report);
 }
 
+status cascade_coordinator::vqec_vision_ai_ports_ficas_run(
+    const raw_frame& _frame, const observation_batch& _detections,
+    std::uint64_t _steady_now_ns, std::vector<embedding_result>& _embeddings,
+    std::size_t& _failed_tasks) {
+    std::vector<alignment_result> aligned;
+    cascade_coordinator_report report;
+    const auto result = vqec_vision_ai_appl_cscrd_process_frame(
+        _steady_now_ns, _frame, _detections, aligned, _embeddings, report);
+    if (result.code_ == status_code::ok) _failed_tasks = report.failed_;
+    return result;
+}
+
 status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
     std::uint64_t _steady_now_ns, cascade_frame_lease_port& _lease,
     const observation_batch& _tracked, std::vector<alignment_result>& _aligned,

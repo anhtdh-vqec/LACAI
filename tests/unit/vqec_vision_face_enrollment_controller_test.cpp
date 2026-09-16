@@ -62,6 +62,19 @@ int main() {
     assert(controller.vqec_vision_ai_ports_fenrl_remove_subject(
         g_subject_ref, status.gallery_revision_, removed_revision).code_ == status_code::ok);
     assert(removed_revision == 5);
+    request.request_id_ = "enroll_file_1";
+    request.image_path_ = "/authorized/alice.jpg";
+    request.target_track_id_ = 0;
+    request.expected_samples_ = 1;
+    request.expected_gallery_revision_ = removed_revision;
+    assert(controller.vqec_vision_ai_ports_fenrl_begin(request, status).code_ ==
+        status_code::unsupported);
+    assert(controller.vqec_vision_ai_ports_fenrl_begin_image(request, status).code_ ==
+        status_code::ok);
+    assert(controller.vqec_vision_ai_ports_fenrl_fail(
+        request.request_id_, status_code::io_error, status).code_ == status_code::ok);
+    assert(status.state_ == face_enrollment_state::failed &&
+        status.last_error_ == status_code::io_error);
     std::cout << "face enrollment controller passed\n";
     return 0;
 }

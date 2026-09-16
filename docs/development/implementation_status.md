@@ -22,7 +22,10 @@ cascade execution and DBus completion remain open; see
 
 The cascade coordinator now accepts an exact caller-owned frame for offline enrollment,
 using the same bounded alignment and embedding path without a camera frame-store lease.
-DBus request orchestration and gallery commit remain open.
+The bounded image pipeline now owns one pending request, exact-one-face admission, gallery
+commit and terminal failure transition behind neutral detector/cascade/path ports. Service
+composition with dedicated graphs and an allow-listed filesystem resolver remains open,
+so deployed DBus still rejects non-empty paths.
 
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.

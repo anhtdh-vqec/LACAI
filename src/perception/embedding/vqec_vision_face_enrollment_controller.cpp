@@ -11,6 +11,23 @@ face_enrollment_controller::face_enrollment_controller(
 
 status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
     const face_enrollment_begin_request& _request, face_enrollment_status& _status) {
+    if (!_request.image_path_.empty()) {
+        return {status_code::unsupported,
+            "image-path enrollment requires the authorized file pipeline"};
+    }
+    return vqec_vision_ai_embed_fenrc_begin_request(_request, _status);
+}
+
+status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin_image(
+    const face_enrollment_begin_request& _request, face_enrollment_status& _status) {
+    if (_request.image_path_.empty()) {
+        return {status_code::invalid_argument, "file enrollment requires an image path"};
+    }
+    return vqec_vision_ai_embed_fenrc_begin_request(_request, _status);
+}
+
+status face_enrollment_controller::vqec_vision_ai_embed_fenrc_begin_request(
+    const face_enrollment_begin_request& _request, face_enrollment_status& _status) {
     if (!status_.request_id_.empty() && _request.request_id_ == status_.request_id_) {
         if (_request.subject_ref_ != request_.subject_ref_ ||
             _request.image_path_ != request_.image_path_ ||
@@ -42,10 +59,6 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
         _request.expected_gallery_revision_ == 0 ||
         _request.expected_gallery_revision_ == UINT64_MAX) {
         return {status_code::invalid_argument, "face enrollment request is invalid"};
-    }
-    if (!_request.image_path_.empty()) {
-        return {status_code::unsupported,
-            "image-path enrollment requires the file enrollment pipeline"};
     }
     const auto snapshot = session_.vqec_vision_ai_embed_rcses_get_snapshot();
     if (!snapshot.is_configured_ || snapshot.is_faulted_ ||
@@ -99,6 +112,20 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_get_status(
     if (_request_id != status_.request_id_ || status_.request_id_.empty()) {
         return {status_code::invalid_argument, "face enrollment request is unknown"};
     }
+    _status = status_;
+    return {};
+}
+
+status face_enrollment_controller::vqec_vision_ai_ports_fenrl_fail(
+    const std::string& _request_id, status_code _error,
+    face_enrollment_status& _status) {
+    if (_request_id != status_.request_id_ ||
+        status_.state_ != face_enrollment_state::collecting ||
+        _error == status_code::ok || _error == status_code::pending) {
+        return {status_code::invalid_state, "enrollment request cannot transition to failed"};
+    }
+    status_.state_ = face_enrollment_state::failed;
+    status_.last_error_ = _error;
     _status = status_;
     return {};
 }

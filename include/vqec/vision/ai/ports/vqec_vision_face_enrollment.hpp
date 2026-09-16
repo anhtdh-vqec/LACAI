@@ -48,6 +48,14 @@ public:
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_begin(
         const face_enrollment_begin_request& _request,
         face_enrollment_status& _status) = 0;
+    // Internal authorized file-pipeline entry. DBus adapters call begin, never this method.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_begin_image(
+        const face_enrollment_begin_request& _request,
+        face_enrollment_status& _status) {
+        (void)_request;
+        (void)_status;
+        return {status_code::unsupported, "file enrollment pipeline is unavailable"};
+    }
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_cancel(
         const std::string& _request_id, face_enrollment_status& _status) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_remove_subject(
@@ -55,6 +63,10 @@ public:
         std::uint64_t& _new_gallery_revision) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_get_status(
         const std::string& _request_id, face_enrollment_status& _status) const = 0;
+    // Internal orchestration terminal transition; never exposed as a FW mutation method.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_fail(
+        const std::string& _request_id, status_code _error,
+        face_enrollment_status& _status) = 0;
     // Called by the serialized runtime owner after cascade completion. The controller
     // consumes at most one embedding per frame and never retains pixel buffers.
     [[nodiscard]] virtual status vqec_vision_ai_ports_fenrl_accept_embedding(

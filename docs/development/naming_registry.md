@@ -155,6 +155,14 @@ file_id `siinf`, prefix `vqec_vision_ai_appl_siinf_`.
 Test `tests/unit/vqec_vision_single_image_inference_test.cpp` uses file_id `siitst`;
 port overrides retain their interface names and `main` retains language spelling.
 
+Enrollment image pipeline `src/app/vqec_vision_face_enrollment_image_pipeline.cpp` uses
+file_id `feipl`, prefix `vqec_vision_ai_appl_feipl_`. Its test uses file_id `fiptst`;
+port overrides retain interface names and `main` retains language spelling.
+Image path authorization port
+`include/vqec/vision/ai/ports/vqec_vision_image_path_authorizer.hpp` uses file_id `ipath`
+and interface prefix `vqec_vision_ai_ports_ipath_`. Face image detector/cascade interfaces
+use prefixes `vqec_vision_ai_ports_fidet_` and `vqec_vision_ai_ports_ficas_`.
+
 Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
 Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id
 `rcpol`, prefix `vqec_vision_ai_embed_rcpol_`. Test

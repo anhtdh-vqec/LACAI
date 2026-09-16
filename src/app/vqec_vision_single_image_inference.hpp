@@ -7,6 +7,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_face_image_inference.hpp"
 
 namespace vqec::vision::ai {
 
@@ -24,13 +25,18 @@ struct single_image_inference_config {
 
 // Serialized one-image execution on a graph whose configure/load/bind/start lifecycle is
 // owned by the caller. No retry, queue or hidden graph fallback is performed.
-class single_image_inference final {
+class single_image_inference final : public face_image_detector_port {
 public:
     [[nodiscard]] status vqec_vision_ai_appl_siinf_configure(
         const single_image_inference_config& _config);
     [[nodiscard]] status vqec_vision_ai_appl_siinf_run(
         const raw_frame& _frame, std::uint64_t _steady_now_ns,
         observation_batch& _observations);
+    [[nodiscard]] status vqec_vision_ai_ports_fidet_run(
+        const raw_frame& _frame, std::uint64_t _steady_now_ns,
+        observation_batch& _detections) override {
+        return vqec_vision_ai_appl_siinf_run(_frame, _steady_now_ns, _detections);
+    }
 
 private:
     single_image_inference_config config_{};

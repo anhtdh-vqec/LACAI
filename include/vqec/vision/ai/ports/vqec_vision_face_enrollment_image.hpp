@@ -16,6 +16,7 @@ struct face_enrollment_image_request {
     std::string image_path_;
     std::uint64_t buffer_id_{0};
     std::uint64_t session_epoch_{0};
+    std::uint64_t source_pts_ns_{UINT64_MAX};
     std::uint32_t width_{0};
     std::uint32_t height_{0};
 };

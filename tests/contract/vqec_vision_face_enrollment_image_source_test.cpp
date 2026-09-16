@@ -24,7 +24,7 @@ int main() {
         qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
                                                   fixture_bytes, fixture_timeout_ms});
         face_enrollment_image image;
-        const face_enrollment_image_request invalid{fixture_path, 1, 1, fixture_width + 1,
+        const face_enrollment_image_request invalid{fixture_path, 1, 1, 1, fixture_width + 1,
                                                     fixture_height};
         const auto result = source.vqec_vision_ai_ports_feimg_load(invalid, image);
         std::remove(fixture_path);
@@ -60,7 +60,7 @@ int main() {
         qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
                                                   fixture_bytes, fixture_timeout_ms});
         face_enrollment_image image;
-        const face_enrollment_image_request invalid{fixture_path, 1, 1, fixture_width + 1,
+        const face_enrollment_image_request invalid{fixture_path, 1, 1, 1, fixture_width + 1,
                                                     fixture_height};
         std::remove(fixture_path);
         return source.vqec_vision_ai_ports_feimg_load(invalid, image).code_ ==
@@ -69,7 +69,8 @@ int main() {
     qcom_face_enrollment_image_source source({"jpegdec", "videoconvert", "videoscale",
                                               fixture_bytes, fixture_timeout_ms});
     face_enrollment_image image;
-    const face_enrollment_image_request request{fixture_path, 1, 1, fixture_width, fixture_height};
+    const face_enrollment_image_request request{
+        fixture_path, 1, 1, 1, fixture_width, fixture_height};
     const auto loaded = source.vqec_vision_ai_ports_feimg_load(request, image);
     std::remove(fixture_path);
     if (loaded.code_ != status_code::ok || !image.nv12_ || image.nv12_->size() != fixture_bytes ||

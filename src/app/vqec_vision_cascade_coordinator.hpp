@@ -13,6 +13,7 @@
 #include "vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_alignment.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_face_image_inference.hpp"
 
 namespace vqec::vision::ai {
 
@@ -47,7 +48,7 @@ struct cascade_coordinator_report {
 // secondary embedding graph, completes each ticket and closes admission. A per-task failure
 // is counted and isolated; it never faults the primary path. Synchronous secondary backend in
 // this slice; async and the bounded worker are optimization.
-class cascade_coordinator {
+class cascade_coordinator : public face_image_cascade_port {
 public:
     cascade_coordinator() = default;
     [[nodiscard]] status vqec_vision_ai_appl_cscrd_configure(
@@ -63,6 +64,10 @@ public:
         const observation_batch& _tracked, std::vector<alignment_result>& _aligned,
         std::vector<embedding_result>& _embeddings,
         cascade_coordinator_report& _report);
+    [[nodiscard]] status vqec_vision_ai_ports_ficas_run(
+        const raw_frame& _frame, const observation_batch& _detections,
+        std::uint64_t _steady_now_ns, std::vector<embedding_result>& _embeddings,
+        std::size_t& _failed_tasks) override;
     [[nodiscard]] bool vqec_vision_ai_appl_cscrd_is_configured() const noexcept;
 
 private:

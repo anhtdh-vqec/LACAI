@@ -13,6 +13,9 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_begin(
         const face_enrollment_begin_request& _request,
         face_enrollment_status& _status) override;
+    [[nodiscard]] status vqec_vision_ai_ports_fenrl_begin_image(
+        const face_enrollment_begin_request& _request,
+        face_enrollment_status& _status) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_cancel(
         const std::string& _request_id, face_enrollment_status& _status) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_remove_subject(
@@ -20,6 +23,9 @@ public:
         std::uint64_t& _new_gallery_revision) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_get_status(
         const std::string& _request_id, face_enrollment_status& _status) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_fenrl_fail(
+        const std::string& _request_id, status_code _error,
+        face_enrollment_status& _status) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_accept_embedding(
         const embedding_result& _embedding, face_enrollment_status& _status) override;
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_accept_batch(
@@ -27,6 +33,9 @@ public:
         std::size_t _eligible_face_count, face_enrollment_status& _status) override;
 
 private:
+    [[nodiscard]] status vqec_vision_ai_embed_fenrc_begin_request(
+        const face_enrollment_begin_request& _request,
+        face_enrollment_status& _status);
     recognition_session& session_;
     face_enrollment_begin_request request_;
     face_enrollment_status status_;

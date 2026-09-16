@@ -53,7 +53,9 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
         _request.width_ == 0 || _request.height_ == 0 || _request.buffer_id_ == 0 ||
         _request.width_ % 2 != 0 || _request.height_ % 2 != 0 ||
         _request.width_ > G_MAXINT || _request.height_ > G_MAXINT ||
-        _request.session_epoch_ == 0 || config_.max_image_bytes_ == 0 ||
+        _request.session_epoch_ == 0 ||
+        _request.source_pts_ns_ == std::numeric_limits<std::uint64_t>::max() ||
+        config_.max_image_bytes_ == 0 ||
         config_.timeout_ms_ == 0 || config_.jpeg_decoder_factory_.empty() ||
         config_.converter_factory_.empty() || config_.scaler_factory_.empty()) {
         return {status_code::invalid_argument, "invalid image source request"};
@@ -135,6 +137,7 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     descriptor.session_epoch_ = _request.session_epoch_;
     descriptor.width_ = _request.width_;
     descriptor.height_ = _request.height_;
+    descriptor.pts_ns_ = _request.source_pts_ns_;
     if (config_.require_dmabuf_) {
         if (gst_buffer_n_memory(buffer) != 1) {
             gst_sample_unref(sample);
