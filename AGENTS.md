@@ -184,7 +184,7 @@ The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.
 
-The user-authorized QCS6490 test target is `.99`; `.48` is currently in use by another
-developer and must not be accessed. Connection guidance is recorded in
-docs/testing/qsc6490_board.md. Verify any local alias resolves to `.99`, then try BatchMode
+The user-authorized QCS6490 test target is `.98`; `.99` and `.48` are currently in use by
+other developers and must not be accessed. Connection guidance is recorded in
+docs/testing/qsc6490_board.md. Verify any local alias resolves to `.98`, then try BatchMode
 before asking for credentials. Never record or echo a password.

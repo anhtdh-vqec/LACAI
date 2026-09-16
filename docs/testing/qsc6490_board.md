@@ -1,7 +1,7 @@
 # QCS6490 board test target
 
-The currently allocated development target is `192.168.138.99`. Board `.48` is in use by
-another developer and must not be accessed until the user reallocates it. The existing
+The currently allocated development target is `192.168.138.98`. Boards `.99` and `.48` are
+in use by other developers and must not be accessed until the user reallocates them. The existing
 local alias may still point at an earlier target, so verify its resolved hostname before
 using it. Try BatchMode access first. Passwords must remain outside this repository and
 command output.
