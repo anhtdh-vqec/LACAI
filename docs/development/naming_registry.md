@@ -124,6 +124,13 @@ Fixed-capacity activation mapping:
 `tests/unit/vqec_vision_activation_snapshot_test.cpp` uses file_id `astst`, prefix
 `vqec_vision_ai_unit_astst_`; main retains the language exception.
 
+Pre-load usecase activation contract:
+`include/vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp` and
+`src/core/vqec_vision_usecase_activation.cpp`, file_id `ucact`, prefix
+`vqec_vision_ai_core_ucact_`. Test
+`tests/unit/vqec_vision_usecase_activation_test.cpp` uses file_id `ucatst`, prefix
+`vqec_vision_ai_unit_ucatst_`; `main` retains the language exception.
+
 Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
 file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation
 `src/core/vqec_vision_observation.cpp`, file_id `obval`, prefix `vqec_vision_ai_core_obval_`.

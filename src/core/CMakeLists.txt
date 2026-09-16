@@ -11,6 +11,7 @@ add_library(vqec_vision_ai_core STATIC
     vqec_vision_encoded_output.cpp vqec_vision_output_generation.cpp
     vqec_vision_encoder_contract.cpp vqec_vision_observation.cpp vqec_vision_embedding.cpp
     vqec_vision_deployment_config.cpp vqec_vision_model_catalog.cpp
+    vqec_vision_usecase_activation.cpp
     vqec_vision_feature_event.cpp vqec_vision_feature_catalog.cpp
     vqec_vision_inference_execution.cpp
     vqec_vision_secondary_inference.cpp

@@ -108,6 +108,12 @@ FW config + entitlement --> feature manager --> dependency graph + admission
 Health / effective state / metrics -------------------------------> FW
 ```
 
+Commercial enable/disable is resolved before platform preparation. The usecase resolver
+derives the effective root-model deployment from installed, entitled, desired, supported,
+compatible and admitted gates; only that filtered deployment may load vendor graphs. See
+[usecase activation](usecase_activation.md) and the
+[FW contract](../contracts/fw_usecase_control.md).
+
 Dependent ROI models use the bounded design in
 [cascade inference](cascade_inference.md). They retain the exact source frame through
 secondary completion and do not enter the full-frame multi-model cadence fan-out.
