@@ -13,6 +13,7 @@ namespace vqec::vision::ai {
 namespace face_enrollment_limits {
 inline constexpr std::size_t g_max_request_id_bytes = 128;
 inline constexpr std::size_t g_max_source_id_bytes = 128;
+inline constexpr std::size_t g_max_image_path_bytes = 4096;
 inline constexpr std::size_t g_max_samples_per_request = 32;
 }
 
@@ -21,6 +22,8 @@ enum class face_enrollment_state { idle, collecting, completed, cancelled, faile
 struct face_enrollment_begin_request {
     std::string request_id_;
     std::string subject_ref_;
+    // FW-authorized local image path. Empty selects live-camera enrollment.
+    std::string image_path_;
     std::string source_id_;
     std::uint32_t camera_id_{0};
     std::uint32_t channel_id_{0};

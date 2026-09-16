@@ -11,9 +11,10 @@ enrollment on the same alignment and model-version path as recognition.
 
 ## Operations
 
-`BeginEnrollment(request_id, subject_ref, source_id, camera_id, channel_id,
+`BeginEnrollment(request_id, subject_ref, image_path, source_id, camera_id, channel_id,
 target_track_id, expected_samples, expected_gallery_revision)` starts one bounded
-request. `target_track_id=0` means the AI adapter must accept a sample only when the
+request. `image_path` is the FW-authorized local path for file enrollment; when it is
+empty, `target_track_id=0` means the AI adapter must accept a sample only when the
 frame has one eligible face; a frame with multiple eligible embeddings is rejected as
 ambiguous. `expected_samples` allows several templates for one subject and is bounded
 by the validated deployment policy.
@@ -42,7 +43,7 @@ the same ID are rejected. The current controller retains one request receipt; ol
 receipts need the durable store before restart-safe retries can be claimed.
 
 DBus v1 uses bus `com.vqec.Lacai`, object `/com/vqec/Lacai/FaceEnrollment`, interface
-`com.vqec.Lacai.FaceEnrollment1`. Begin input is `(sssuutut)` and status output is
+`com.vqec.Lacai.FaceEnrollment1`. Begin input is `(ssssuutut)` and status output is
 `(ssuuuti)`; remove input/output are `(st)` / `(ti)`. Wire state/error codes must be
 mapped explicitly by the adapter rather than exposing C++ enum ordinal values.
 The adapter resolves a configured trusted FW bus name to its unique sender at startup.
@@ -64,9 +65,11 @@ without a subject label.
 - authorization covers enrollment, deletion, and the subject identity attribute
   separately; a live box may be emitted without a name when name scope is denied;
 - DBus timeouts are unknown outcomes. FW must query status/revision before retrying;
-- no method carries image bytes, raw embeddings, filesystem paths, or credentials.
+- no method carries image bytes, raw embeddings or credentials; `image_path` is a
+  bounded FW-authorized reference and must be resolved inside an allow-listed adapter.
 
 The current controller implements the bounded lifecycle and revision checks in-process.
 The optional GIO DBus adapter implements the concrete object/interface and authenticates
 the configured FW peer at startup. Durable encrypted storage and peer-name provisioning
-remain platform integration work; they must not bypass this port.
+remain platform integration work; file enrollment execution must be added before a
+non-empty `image_path` can be accepted and must not bypass this port.

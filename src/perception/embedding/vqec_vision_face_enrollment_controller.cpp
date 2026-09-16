@@ -13,6 +13,7 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
     const face_enrollment_begin_request& _request, face_enrollment_status& _status) {
     if (!status_.request_id_.empty() && _request.request_id_ == status_.request_id_) {
         if (_request.subject_ref_ != request_.subject_ref_ ||
+            _request.image_path_ != request_.image_path_ ||
             _request.source_id_ != request_.source_id_ ||
             _request.camera_id_ != request_.camera_id_ ||
             _request.channel_id_ != request_.channel_id_ ||
@@ -32,6 +33,8 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
             _request.request_id_, face_enrollment_limits::g_max_request_id_bytes) ||
         !vqec_vision_ai_cntr_ident_is_valid(
             _request.subject_ref_, embedding_index_limits::g_max_subject_ref_bytes) ||
+        _request.image_path_.size() > face_enrollment_limits::g_max_image_path_bytes ||
+        _request.image_path_.find('\0') != std::string::npos ||
         !vqec_vision_ai_cntr_ident_is_valid(
             _request.source_id_, face_enrollment_limits::g_max_source_id_bytes) ||
         _request.expected_samples_ == 0 ||
@@ -39,6 +42,10 @@ status face_enrollment_controller::vqec_vision_ai_ports_fenrl_begin(
         _request.expected_gallery_revision_ == 0 ||
         _request.expected_gallery_revision_ == UINT64_MAX) {
         return {status_code::invalid_argument, "face enrollment request is invalid"};
+    }
+    if (!_request.image_path_.empty()) {
+        return {status_code::unsupported,
+            "image-path enrollment requires the file enrollment pipeline"};
     }
     const auto snapshot = session_.vqec_vision_ai_embed_rcses_get_snapshot();
     if (!snapshot.is_configured_ || snapshot.is_faulted_ ||

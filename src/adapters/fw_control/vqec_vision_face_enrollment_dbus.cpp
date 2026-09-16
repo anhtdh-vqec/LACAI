@@ -23,7 +23,7 @@ struct dbus_binding {
 
 constexpr char g_introspection_xml[] =
     "<node><interface name='com.vqec.Lacai.FaceEnrollment1'>"
-    "<method name='BeginEnrollment'><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='u' direction='in'/><arg type='u' direction='in'/><arg type='t' direction='in'/><arg type='u' direction='in'/><arg type='t' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
+    "<method name='BeginEnrollment'><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='u' direction='in'/><arg type='u' direction='in'/><arg type='t' direction='in'/><arg type='u' direction='in'/><arg type='t' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
     "<method name='CancelEnrollment'><arg type='s' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
     "<method name='RemoveSubject'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
     "<method name='GetEnrollmentStatus'><arg type='s' direction='in'/><arg type='s' direction='out'/><arg type='s' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='u' direction='out'/><arg type='t' direction='out'/><arg type='i' direction='out'/></method>"
@@ -111,17 +111,20 @@ void vqec_vision_ai_fwctl_fedbs_method_call(
     if (g_strcmp0(_method_name, face_enrollment_dbus_protocol::g_begin_method) == 0) {
         const gchar* request_id = nullptr;
         const gchar* subject_ref = nullptr;
+        const gchar* image_path = nullptr;
         const gchar* source_id = nullptr;
         guint camera_id = 0;
         guint channel_id = 0;
         guint64 target_track_id = 0;
         guint expected_samples = 0;
         guint64 expected_revision = 0;
-        g_variant_get(_parameters, "(&s&s&suutut)", &request_id, &subject_ref, &source_id,
+        g_variant_get(_parameters, "(&s&s&s&suutut)", &request_id, &subject_ref,
+            &image_path, &source_id,
             &camera_id, &channel_id, &target_track_id, &expected_samples, &expected_revision);
         face_enrollment_begin_request request;
         request.request_id_ = request_id == nullptr ? "" : request_id;
         request.subject_ref_ = subject_ref == nullptr ? "" : subject_ref;
+        request.image_path_ = image_path == nullptr ? "" : image_path;
         request.source_id_ = source_id == nullptr ? "" : source_id;
         request.camera_id_ = camera_id;
         request.channel_id_ = channel_id;
