@@ -68,13 +68,13 @@ without a subject label.
 - no method carries image bytes, raw embeddings or credentials; `image_path` is a
   bounded FW-authorized reference and must be resolved inside an allow-listed adapter.
 
-The current controller implements the bounded lifecycle and revision checks in-process.
-The optional GIO DBus adapter implements the concrete object/interface and authenticates
-the configured FW peer at startup. Durable encrypted storage and peer-name provisioning
-remain platform integration work; file enrollment execution must be added before a
-non-empty `image_path` can be accepted and must not bypass this port.
+The controller implements the bounded lifecycle and revision checks in-process. The
+optional GIO D-Bus adapter implements the concrete object/interface and authenticates the
+configured FW peer at startup. In Qualcomm production mode the service resolves a
+non-empty path through configured roots, decodes it to an owned DMA-BUF frame and executes
+dedicated SCRFD/EdgeFace graphs outside the D-Bus callback. Durable encrypted storage and
+peer-name provisioning remain platform integration work.
 
 The delivered [image pipeline](../architecture/face_enrollment_image_pipeline.md) defines
-bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. The
-production service has not composed its dedicated graph/path policy yet, so non-empty
-paths still return `unsupported` instead of silently sharing a live graph.
+bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. Its
+dedicated graphs do not share submission state with the live camera graphs.

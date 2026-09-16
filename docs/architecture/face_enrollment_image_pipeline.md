@@ -19,9 +19,12 @@ produces one template; FW enrolls several photos for one subject with separate r
 and the current gallery revision. The recognition session enforces the configured maximum
 templates per subject.
 
-The component and contract tests are delivered. Production service composition still
-needs a dedicated FD graph, a configured path authorizer and a call to `step`; until that
-composition is present the service continues to reject image-path requests explicitly.
+The production service composes dedicated SCRFD and EdgeFace graph owners for this path.
+They reuse the catalog/package contracts and Qualcomm adapters while remaining isolated
+from live camera submissions. The service starts both graphs before publishing D-Bus,
+advances one pending job outside the callback, and drains/unloads both graphs on shutdown.
+Allowed roots, maximum JPEG bytes, decode timeout and every GStreamer factory/engine are
+required command-line deployment inputs; missing policy fails startup.
 
 The POSIX authorizer opens the requested file with `O_NOFOLLOW`, verifies regular-file
 type, byte ceiling, JPEG signature and canonical containment under configured roots, then

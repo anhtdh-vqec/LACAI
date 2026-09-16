@@ -76,6 +76,32 @@ struct production_cascade_binding {
     std::uint64_t max_output_bytes_{0};
 };
 
+// Owns an isolated model graph for serialized offline/file inference. The concrete QNN
+// backend and Qualcomm preprocessing resources stay behind this application-layer PIMPL.
+// Decoder pointers are borrowed from production_platform; this owner and every consumer
+// must therefore be destroyed before the platform.
+class production_offline_model final {
+public:
+    production_offline_model();
+    ~production_offline_model() noexcept;
+    production_offline_model(const production_offline_model& _other) = delete;
+    production_offline_model& operator=(const production_offline_model& _other) = delete;
+
+    [[nodiscard]] inference_graph_port* vqec_vision_ai_appl_pdplt_get_graph() noexcept;
+    [[nodiscard]] image_processor_port* vqec_vision_ai_appl_pdplt_get_processor() noexcept;
+    [[nodiscard]] model_decoder_port* vqec_vision_ai_appl_pdplt_get_decoder() noexcept;
+    [[nodiscard]] embedding_decoder_port*
+    vqec_vision_ai_appl_pdplt_get_embedding_decoder() noexcept;
+    [[nodiscard]] image_alignment_port* vqec_vision_ai_appl_pdplt_get_aligner() noexcept;
+    [[nodiscard]] const production_cascade_binding&
+    vqec_vision_ai_appl_pdplt_get_binding() const noexcept;
+
+private:
+    struct implementation;
+    std::unique_ptr<implementation> implementation_;
+    friend class production_platform;
+};
+
 class production_platform final {
 public:
     production_platform();
@@ -115,6 +141,11 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_pdplt_cascade_binding(
         std::uint16_t _source_slot, const std::string& _model_id,
         production_cascade_binding& _binding);
+    // Creates a graph isolated from the live camera graph for file enrollment. The model
+    // must be activated by _source_slot. Failure preserves _owner.
+    [[nodiscard]] status vqec_vision_ai_appl_pdplt_create_offline_model(
+        std::uint16_t _source_slot, const std::string& _model_id,
+        std::unique_ptr<production_offline_model>& _owner);
     // Renders one source frame with the tracked observations and writes the encoded AU to
     // the FW ring. No-op with ok when output is disabled. Borrowed frame; call on the
     // serialized runtime owner.

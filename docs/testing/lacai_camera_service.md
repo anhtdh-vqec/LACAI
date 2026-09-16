@@ -4,6 +4,16 @@ These two board-side services replace the product FW for integration tests only.
 itself is the production binary `vqec_ai_vision_applications`; the mocks never implement
 AI, overlay, encode or ring production. They are test satellites, not product code.
 
+## File enrollment service policy
+
+When the face-enrollment D-Bus adapter is enabled, production startup also requires at
+least one `--enrollment-image-root` plus `--enrollment-max-image-bytes`,
+`--enrollment-image-timeout-ms`, `--enrollment-jpeg-decoder`,
+`--enrollment-converter`, `--enrollment-scaler`, `--enrollment-transform` and
+`--enrollment-transform-engine`. Select these values from the installed BSP and deployment
+policy. The service does not choose a fallback plugin. The requested JPEG must already be
+inside an allowed root on the target filesystem; biometric test files are never committed.
+
 ## 1. Mock FW camera (`tools/vqec_vision_fw_camera_sim.py`)
 
 Reproduces the two FW camera responsibilities LACAI depends on, sourcing pixels from the

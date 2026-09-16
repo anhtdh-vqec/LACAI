@@ -35,6 +35,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
 | `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; runs harness and reference/fake/Qualcomm production selections |
 | `vqec_vision_production_platform.cpp` | Resolves dependency-activated catalog identities and composes FW RAW source, owned QNN graphs, primary perception, secondary cascade binding and optional Qualcomm encoded output |
+| `vqec_vision_face_enrollment_image_pipeline.cpp` | Advances one authorized JPEG enrollment through dedicated detector/embedding graphs and commits one template |
 | `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
 
 ## Limits and next work
@@ -45,7 +46,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - FR service mode requires explicit `--fr-feature-id` and
   `--fr-identity-attribute`; recognized labels are emitted only when the output gate
   authorizes that source/feature/attribute scope. Enrollment control is optional GIO
-  D-Bus and never carries image bytes or embeddings.
+  D-Bus and never carries image bytes or embeddings. File enrollment requires explicit
+  allow-listed roots, JPEG byte/time limits and Qualcomm element selection; its graph
+  lifecycle is isolated from live camera inference.
 - The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
   interoperability, hardware-completion evidence and long-run performance remain open.
 - The current production service loop is serialized. The `.48` integration run sustained

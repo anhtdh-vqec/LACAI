@@ -45,6 +45,7 @@ struct model_slot_owner {
     std::unique_ptr<image_alignment_port> aligner_;
     alignment_template alignment_;
     preprocess_spec preprocess_;
+    std::uint64_t max_frame_allocation_bytes_{0};
 };
 
 json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
@@ -185,6 +186,51 @@ struct production_platform::implementation {
     std::unique_ptr<qtiv_renderer> renderer_;
 };
 
+struct production_offline_model::implementation {
+    std::unique_ptr<qnn_backend_bundle> backend_;
+    std::unique_ptr<fastcv_processor> processor_;
+    std::unique_ptr<image_alignment_port> aligner_;
+    model_decoder_port* decoder_{nullptr};
+    embedding_decoder_port* embedding_decoder_{nullptr};
+    production_cascade_binding binding_;
+};
+
+production_offline_model::production_offline_model()
+    : implementation_(std::make_unique<implementation>()) {}
+
+production_offline_model::~production_offline_model() noexcept = default;
+
+inference_graph_port* production_offline_model::vqec_vision_ai_appl_pdplt_get_graph() noexcept {
+    return implementation_ != nullptr && implementation_->backend_ != nullptr ?
+        implementation_->backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+}
+
+image_processor_port*
+production_offline_model::vqec_vision_ai_appl_pdplt_get_processor() noexcept {
+    return implementation_ != nullptr ? implementation_->processor_.get() : nullptr;
+}
+
+model_decoder_port*
+production_offline_model::vqec_vision_ai_appl_pdplt_get_decoder() noexcept {
+    return implementation_ != nullptr ? implementation_->decoder_ : nullptr;
+}
+
+embedding_decoder_port*
+production_offline_model::vqec_vision_ai_appl_pdplt_get_embedding_decoder() noexcept {
+    return implementation_ != nullptr ? implementation_->embedding_decoder_ : nullptr;
+}
+
+image_alignment_port*
+production_offline_model::vqec_vision_ai_appl_pdplt_get_aligner() noexcept {
+    return implementation_ != nullptr ? implementation_->aligner_.get() : nullptr;
+}
+
+const production_cascade_binding&
+production_offline_model::vqec_vision_ai_appl_pdplt_get_binding() const noexcept {
+    static const production_cascade_binding g_empty;
+    return implementation_ != nullptr ? implementation_->binding_ : g_empty;
+}
+
 production_platform::production_platform()
     : implementation_(std::make_unique<implementation>()) {}
 
@@ -290,6 +336,13 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         owner.paths_.model_path_ = binding->model_library_;
         owner.paths_.backend_path_ = impl.config_.backend_library_;
         owner.paths_.system_path_ = impl.config_.system_library_;
+        owner.max_frame_allocation_bytes_ = max_frame_allocation_bytes;
+
+        const auto planned = vqec_vision_ai_core_mdcat_compose_inference_plan(
+            *model_source, model, owner.paths_, owner.plan_);
+        if (planned.code_ != status_code::ok) {
+            return planned;
+        }
 
         // Capability-checked backend selection: the factory opens the engine, probes the
         // adapter capabilities, validates the requested execution policy against them and
@@ -381,11 +434,6 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             return {status_code::unsupported,
                 "embedding package requires the FastCV alignment adapter"};
 #endif
-            const auto planned = vqec_vision_ai_core_mdcat_compose_inference_plan(
-                *model_source, model, owner.paths_, owner.plan_);
-            if (planned.code_ != status_code::ok) {
-                return planned;
-            }
         } else if (package.kind_ == decoder_package_kind::anchor_distance) {
             if (model.role_ != model_role::primary) {
                 return {status_code::invalid_argument,
@@ -691,6 +739,68 @@ status production_platform::vqec_vision_ai_appl_pdplt_cascade_binding(
     }
     return {status_code::unsupported,
         "source has no prepared cascade model binding"};
+}
+
+status production_platform::vqec_vision_ai_appl_pdplt_create_offline_model(
+    std::uint16_t _source_slot, const std::string& _model_id,
+    std::unique_ptr<production_offline_model>& _owner) {
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "production platform is not prepared"};
+    }
+    for (auto& model : implementation_->models_) {
+        if (model.model_id_ != _model_id ||
+            std::find(model.source_slots_.begin(), model.source_slots_.end(), _source_slot) ==
+                model.source_slots_.end()) {
+            continue;
+        }
+        auto candidate = std::make_unique<production_offline_model>();
+        auto& offline = *candidate->implementation_;
+        const auto created = vqec_vision_ai_qcom_bfact_create(
+            model.paths_, inference_execution_policy{}, offline.backend_);
+        if (created.code_ != status_code::ok) {
+            return created;
+        }
+        offline.decoder_ = model.decoder_.get();
+        offline.embedding_decoder_ = model.embedding_decoder_.get();
+        if (model.role_ == model_role::primary) {
+            if (offline.decoder_ == nullptr) {
+                return {status_code::invalid_state, "offline primary decoder is unavailable"};
+            }
+            offline.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
+                model.max_frame_allocation_bytes_,
+                implementation_->config_.preprocess_output_timeout_ns_});
+        } else {
+#if defined(VQEC_VISION_AI_HAS_FASTCV_ALIGNER)
+            if (offline.embedding_decoder_ == nullptr) {
+                return {status_code::invalid_state,
+                    "offline embedding decoder is unavailable"};
+            }
+            fastcv_aligner_config aligner_config;
+            aligner_config.output_rgb_ = true;
+            aligner_config.matrix_ = model.preprocess_.matrix_;
+            aligner_config.range_ = model.preprocess_.range_;
+            aligner_config.order_ = model.preprocess_.channels_;
+            offline.aligner_ = std::make_unique<fastcv_aligner>(aligner_config);
+#else
+            return {status_code::unsupported,
+                "offline embedding requires the FastCV alignment adapter"};
+#endif
+        }
+        offline.binding_.model_id_ = model.outputs_.model_id_;
+        offline.binding_.model_version_ = model.outputs_.model_version_;
+        offline.binding_.embedding_dimensions_ = model.embedding_dimensions_;
+        offline.binding_.graph_ = offline.backend_->vqec_vision_ai_qcom_bfact_get_graph();
+        offline.binding_.decoder_ = offline.embedding_decoder_;
+        offline.binding_.aligner_ = offline.aligner_.get();
+        offline.binding_.alignment_ = model.alignment_;
+        offline.binding_.preprocess_ = model.preprocess_;
+        offline.binding_.plan_ = model.plan_;
+        offline.binding_.outputs_ = model.outputs_.outputs_;
+        offline.binding_.max_output_bytes_ = model.outputs_.max_output_bytes_;
+        _owner = std::move(candidate);
+        return {};
+    }
+    return {status_code::unsupported, "source has no prepared offline model binding"};
 }
 
 }  // namespace vqec::vision::ai

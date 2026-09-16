@@ -10,26 +10,27 @@ must not be interpreted as the current missing-feature list.
 adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
 and wait time are configuration bounded. The Qualcomm production mode requires GBM caps,
 verifies DMA-BUF memory/layout bounds and retains the Gst sample behind neutral `raw_frame`.
-FD/FR handoff, input-file admission and service wiring remain open; image-path enrollment
-is still explicitly unsupported. See
+The production service now supplies the FD/FR handoff, retained-FD input admission and
+dedicated graph wiring. Board end-to-end D-Bus/model/gallery evidence remains to be
+recorded. See
 [image source](../architecture/face_enrollment_image_source.md).
 
-The neutral synchronous `single_image_inference` runner now reuses the admitted image
+The neutral synchronous `single_image_inference` runner reuses the admitted image
 processor, graph and decoder ports for one owned file frame, with exact epoch/frame
-correlation and transactional detection publication. Production composition, direct-frame
-cascade execution and DBus completion remain open; see
+correlation and transactional detection publication. Production owns isolated detector
+and embedding graph instances for it; see
 [single-image inference](../architecture/single_image_inference.md).
 
 The cascade coordinator now accepts an exact caller-owned frame for offline enrollment,
 using the same bounded alignment and embedding path without a camera frame-store lease.
-The bounded image pipeline now owns one pending request, exact-one-face admission, gallery
-commit and terminal failure transition behind neutral detector/cascade/path ports. Service
-composition with dedicated graphs and an allow-listed filesystem resolver remains open,
-so deployed DBus still rejects non-empty paths.
+The bounded image pipeline owns one pending request, exact-one-face admission, gallery
+commit and terminal failure transition behind neutral detector/cascade/path ports. The
+serialized service loop advances it outside D-Bus callbacks and drains its two graph
+sessions before destroying their platform owners.
 
 The POSIX image-path authorizer is delivered with retained-FD containment, regular-file,
-size and JPEG checks plus symlink-escape rejection. Production must still supply allowed
-roots from validated deployment configuration.
+size and JPEG checks plus symlink-escape rejection. Production requires allowed roots and
+all image-source policy as explicit startup arguments.
 
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.

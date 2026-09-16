@@ -40,6 +40,10 @@
 #include "vqec_vision_exact_embedding_index.hpp"
 #include "vqec_vision_recognition_session.hpp"
 #include "vqec_vision_face_enrollment_controller.hpp"
+#include "vqec_vision_face_enrollment_image_pipeline.hpp"
+#include "vqec_vision_single_image_inference.hpp"
+#include "vqec_vision_image_path_authorizer.hpp"
+#include "vqec_vision_face_enrollment_image_source.hpp"
 #if defined(VQEC_VISION_AI_HAS_ZVEC)
 #include "vqec_vision_zvec_embedding_index.hpp"
 #endif
@@ -97,6 +101,70 @@ struct service_cascade_owner {
     std::uint16_t root_model_slot_{g_invalid_model_slot};
 };
 
+status vqec_vision_ai_appl_svcmn_start_graph_sessions(
+    const std::array<cascade_graph_session*, 2>& _sessions) {
+    bool all_running = false;
+    while (!all_running) {
+        all_running = true;
+        const auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        for (auto* session : _sessions) {
+            if (session == nullptr || session->vqec_vision_ai_appl_cgses_get_state() ==
+                    cascade_graph_session_state::running) {
+                continue;
+            }
+            all_running = false;
+            const auto stepped = session->vqec_vision_ai_appl_cgses_step(now_ns);
+            if (stepped.code_ != status_code::ok && stepped.code_ != status_code::pending) {
+                return stepped;
+            }
+        }
+        if (!all_running) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        }
+    }
+    return {};
+}
+
+status vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+    const std::array<cascade_graph_session*, 2>& _sessions) {
+    status first_error;
+    auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+    for (auto* session : _sessions) {
+        if (session == nullptr) {
+            continue;
+        }
+        const auto requested = session->vqec_vision_ai_appl_cgses_request_stop(now_ns);
+        if (requested.code_ != status_code::ok && first_error.code_ == status_code::ok) {
+            first_error = requested;
+        }
+    }
+    bool all_stopped = false;
+    while (!all_stopped) {
+        all_stopped = true;
+        now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        for (auto* session : _sessions) {
+            if (session == nullptr) {
+                continue;
+            }
+            const auto state = session->vqec_vision_ai_appl_cgses_get_state();
+            if (state == cascade_graph_session_state::stopped ||
+                state == cascade_graph_session_state::faulted) {
+                continue;
+            }
+            all_stopped = false;
+            const auto stepped = session->vqec_vision_ai_appl_cgses_step(now_ns);
+            if (stepped.code_ != status_code::ok && stepped.code_ != status_code::pending &&
+                first_error.code_ == status_code::ok) {
+                first_error = stepped;
+            }
+        }
+        if (!all_stopped) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        }
+    }
+    return first_error;
+}
+
 status vqec_vision_ai_appl_svcmn_make_source_binding(
     const source_deployment_config& _source, const model_catalog_entry& _model,
     source_binding& _binding) {
@@ -125,6 +193,31 @@ status vqec_vision_ai_appl_svcmn_make_source_binding(
     candidate.backend_memory_contract_ = service_harness::g_qcom_dmabuf_contract;
     candidate.preprocess_contract_ = _model.preprocess_contract_;
     _binding = std::move(candidate);
+    return {};
+}
+
+status vqec_vision_ai_appl_svcmn_make_offline_graph_session(
+    const source_deployment_config& _source, const model_catalog_entry& _model,
+    production_offline_model& _offline,
+    std::unique_ptr<cascade_graph_session>& _session) {
+    const auto& binding = _offline.vqec_vision_ai_appl_pdplt_get_binding();
+    cascade_graph_session_config config;
+    config.graph_ = _offline.vqec_vision_ai_appl_pdplt_get_graph();
+    config.plan_ = binding.plan_;
+    config.outputs_ = binding.outputs_;
+    config.max_output_bytes_ = binding.max_output_bytes_;
+    config.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
+    config.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
+    const auto bound = vqec_vision_ai_appl_svcmn_make_source_binding(
+        _source, _model, config.binding_);
+    if (bound.code_ != status_code::ok) {
+        return bound;
+    }
+    if (config.graph_ == nullptr || config.plan_.model_path_.empty() ||
+        config.outputs_.empty() || config.max_output_bytes_ == 0) {
+        return {status_code::invalid_state, "offline graph binding is incomplete"};
+    }
+    _session = std::make_unique<cascade_graph_session>(std::move(config));
     return {};
 }
 
@@ -392,6 +485,14 @@ struct parsed_arguments {
     std::string enrollment_peer_name;
     int enrollment_rpc_timeout_ms{0};
     std::size_t enrollment_callbacks_per_poll{0};
+    std::vector<std::string> enrollment_image_roots;
+    std::uint64_t enrollment_max_image_bytes{0};
+    std::uint32_t enrollment_image_timeout_ms{0};
+    std::string enrollment_jpeg_decoder;
+    std::string enrollment_converter;
+    std::string enrollment_scaler;
+    std::string enrollment_transform;
+    std::string enrollment_transform_engine;
 };
 
 bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& _args) {
@@ -486,6 +587,23 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
         } else if (option == "--enrollment-callbacks-per-poll" && has_value) {
             _args.enrollment_callbacks_per_poll = static_cast<std::size_t>(
                 std::strtoull(_argv[++index], nullptr, 10));
+        } else if (option == "--enrollment-image-root" && has_value) {
+            _args.enrollment_image_roots.emplace_back(_argv[++index]);
+        } else if (option == "--enrollment-max-image-bytes" && has_value) {
+            _args.enrollment_max_image_bytes = std::strtoull(_argv[++index], nullptr, 10);
+        } else if (option == "--enrollment-image-timeout-ms" && has_value) {
+            _args.enrollment_image_timeout_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--enrollment-jpeg-decoder" && has_value) {
+            _args.enrollment_jpeg_decoder = _argv[++index];
+        } else if (option == "--enrollment-converter" && has_value) {
+            _args.enrollment_converter = _argv[++index];
+        } else if (option == "--enrollment-scaler" && has_value) {
+            _args.enrollment_scaler = _argv[++index];
+        } else if (option == "--enrollment-transform" && has_value) {
+            _args.enrollment_transform = _argv[++index];
+        } else if (option == "--enrollment-transform-engine" && has_value) {
+            _args.enrollment_transform_engine = _argv[++index];
         } else {
             std::fprintf(stderr, "unknown or incomplete argument: %s\n", option.c_str());
             return false;
@@ -561,7 +679,12 @@ int main(int _argc, char** _argv) {
             "[--fr-gallery-path <path> --fr-min-similarity <0..1> "
             "--fr-subject-margin <0..1> --fr-max-templates <n> --fr-top-k <n> "
             "--fr-feature-id <id> --fr-identity-attribute <id> "
-            "[--enrollment-dbus|--enrollment-dbus-session]]\n");
+            "[--enrollment-dbus|--enrollment-dbus-session "
+            "--enrollment-image-root <absolute-dir> "
+            "--enrollment-max-image-bytes <bytes> --enrollment-image-timeout-ms <ms> "
+            "--enrollment-jpeg-decoder <factory> --enrollment-converter <factory> "
+            "--enrollment-scaler <factory> --enrollment-transform <factory> "
+            "--enrollment-transform-engine <engine>]]\n");
         return 2;
     }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
@@ -590,6 +713,17 @@ int main(int _argc, char** _argv) {
         std::fprintf(stderr,
             "FR requires gallery path, similarity, margin, max templates, top-k, feature id "
             "and identity attribute\n");
+        return 1;
+    }
+    const bool has_complete_image_enrollment = !args.enrollment_image_roots.empty() &&
+        args.enrollment_max_image_bytes != 0 && args.enrollment_image_timeout_ms != 0 &&
+        !args.enrollment_jpeg_decoder.empty() && !args.enrollment_converter.empty() &&
+        !args.enrollment_scaler.empty() && !args.enrollment_transform.empty() &&
+        !args.enrollment_transform_engine.empty();
+    if (args.enrollment_dbus && !has_complete_image_enrollment) {
+        std::fprintf(stderr,
+            "enrollment DBus requires image roots, byte/time limits and every image "
+            "pipeline factory\n");
         return 1;
     }
     model_package_registry model_packages;
@@ -628,6 +762,11 @@ int main(int _argc, char** _argv) {
     const bool use_production_platform = args.platform == "qualcomm";
     const bool platform_named = args.platform == "fake" || args.platform == "reference" ||
         args.platform == "qualcomm";
+    if (args.enrollment_dbus && (!args.production_mode || !use_production_platform)) {
+        std::fprintf(stderr,
+            "file enrollment DBus requires production mode with the Qualcomm platform\n");
+        return 1;
+    }
     if (args.production_mode && !platform_named) {
         std::fprintf(stderr,
             "production mode: --platform %s is not wired; use --platform fake or "
@@ -1039,6 +1178,22 @@ int main(int _argc, char** _argv) {
     std::unique_ptr<embedding_index_port> recognition_index;
     recognition_session recognition;
     std::unique_ptr<face_enrollment_controller> enrollment_controller;
+    std::unique_ptr<production_offline_model> enrollment_detector_model;
+    std::unique_ptr<production_offline_model> enrollment_embedding_model;
+    std::unique_ptr<cascade_graph_session> enrollment_detector_graph_session;
+    std::unique_ptr<cascade_graph_session> enrollment_embedding_graph_session;
+    std::unique_ptr<single_image_inference> enrollment_detector;
+    std::unique_ptr<cascade_coordinator> enrollment_cascade;
+    std::unique_ptr<image_path_authorizer> enrollment_path_authorizer;
+    std::unique_ptr<qcom_face_enrollment_image_source> enrollment_image_source;
+    std::unique_ptr<face_enrollment_image_pipeline> enrollment_image_pipeline;
+    face_enrollment_port* enrollment_port = nullptr;
+    const auto stop_enrollment_graphs = [&]() {
+        return vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+            std::array<cascade_graph_session*, 2>{
+                enrollment_detector_graph_session.get(),
+                enrollment_embedding_graph_session.get()});
+    };
 #if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
     std::unique_ptr<face_enrollment_dbus_server> enrollment_dbus;
 #endif
@@ -1114,11 +1269,15 @@ int main(int _argc, char** _argv) {
     }
     if (has_complete_fr_arguments) {
         const service_cascade_owner* recognition_owner = nullptr;
+        std::uint16_t recognition_source_slot = g_invalid_model_slot;
+        std::uint16_t candidate_source_slot = 0;
         for (const auto& owner : cascade_owners) {
             if (owner.model_ != nullptr && owner.binding_.embedding_dimensions_ != 0) {
                 recognition_owner = &owner;
+                recognition_source_slot = candidate_source_slot;
                 break;
             }
+            ++candidate_source_slot;
         }
         if (recognition_owner == nullptr) {
             std::fprintf(stderr, "FR configuration requires an active embedding model\n");
@@ -1157,6 +1316,125 @@ int main(int _argc, char** _argv) {
             return 1;
         }
         enrollment_controller = std::make_unique<face_enrollment_controller>(recognition);
+        enrollment_port = enrollment_controller.get();
+        if (args.enrollment_dbus) {
+            const auto& source = deployment.sources_[recognition_source_slot];
+            const auto* secondary_model = recognition_owner->model_;
+            const auto* primary_model = secondary_model != nullptr &&
+                    secondary_model->depends_on_.size() == 1U ?
+                vqec_vision_ai_appl_svcmn_find_model(
+                    catalog, secondary_model->depends_on_[0].model_id_) : nullptr;
+            if (primary_model == nullptr || secondary_model == nullptr) {
+                std::fprintf(stderr, "enrollment model dependency is incomplete\n");
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+            auto prepared = production.vqec_vision_ai_appl_pdplt_create_offline_model(
+                recognition_source_slot, primary_model->model_id_, enrollment_detector_model);
+            if (prepared.code_ == status_code::ok) {
+                prepared = production.vqec_vision_ai_appl_pdplt_create_offline_model(
+                    recognition_source_slot, secondary_model->model_id_,
+                    enrollment_embedding_model);
+            }
+            if (prepared.code_ == status_code::ok) {
+                prepared = vqec_vision_ai_appl_svcmn_make_offline_graph_session(
+                    source, *primary_model, *enrollment_detector_model,
+                    enrollment_detector_graph_session);
+            }
+            if (prepared.code_ == status_code::ok) {
+                prepared = vqec_vision_ai_appl_svcmn_make_offline_graph_session(
+                    source, *secondary_model, *enrollment_embedding_model,
+                    enrollment_embedding_graph_session);
+            }
+            const std::array<cascade_graph_session*, 2> enrollment_graph_sessions{
+                enrollment_detector_graph_session.get(),
+                enrollment_embedding_graph_session.get()};
+            if (prepared.code_ == status_code::ok) {
+                prepared = vqec_vision_ai_appl_svcmn_start_graph_sessions(
+                    enrollment_graph_sessions);
+            }
+            if (prepared.code_ != status_code::ok) {
+                std::fprintf(stderr, "enrollment graph startup failed (%d): %s\n",
+                    static_cast<int>(prepared.code_), prepared.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+                    enrollment_graph_sessions);
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+
+            enrollment_detector = std::make_unique<single_image_inference>();
+            single_image_inference_config detector_config;
+            detector_config.processor_ =
+                enrollment_detector_model->vqec_vision_ai_appl_pdplt_get_processor();
+            detector_config.graph_ =
+                enrollment_detector_model->vqec_vision_ai_appl_pdplt_get_graph();
+            detector_config.decoder_ =
+                enrollment_detector_model->vqec_vision_ai_appl_pdplt_get_decoder();
+            detector_config.plan_ =
+                &enrollment_detector_model->vqec_vision_ai_appl_pdplt_get_binding().plan_;
+            detector_config.geometry_ = {source.profile_.width_, source.profile_.height_};
+            detector_config.camera_id_ = source.camera_id_;
+            detector_config.channel_id_ = source.channel_id_;
+            detector_config.cycle_id_ = vqec_vision_ai_appl_svcmn_monotonic_ns();
+            detector_config.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
+            prepared = enrollment_detector->vqec_vision_ai_appl_siinf_configure(
+                detector_config);
+
+            enrollment_cascade = std::make_unique<cascade_coordinator>();
+            cascade_coordinator_config cascade_config;
+            const auto& embedding_binding =
+                enrollment_embedding_model->vqec_vision_ai_appl_pdplt_get_binding();
+            cascade_config.aligner_ =
+                enrollment_embedding_model->vqec_vision_ai_appl_pdplt_get_aligner();
+            cascade_config.embedding_graph_ =
+                enrollment_embedding_model->vqec_vision_ai_appl_pdplt_get_graph();
+            cascade_config.embedding_decoder_ = enrollment_embedding_model->
+                vqec_vision_ai_appl_pdplt_get_embedding_decoder();
+            cascade_config.template_ = embedding_binding.alignment_;
+            cascade_config.normalize_offset_ = embedding_binding.preprocess_.offset_;
+            cascade_config.normalize_scale_ = embedding_binding.preprocess_.scale_;
+            cascade_config.cycle_id_ = detector_config.cycle_id_ + 1U;
+            cascade_config.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
+            cascade_config.max_tasks_per_frame_ = 1U;
+            if (prepared.code_ == status_code::ok) {
+                prepared = enrollment_cascade->vqec_vision_ai_appl_cscrd_configure(
+                    cascade_config);
+            }
+
+            enrollment_path_authorizer = std::make_unique<image_path_authorizer>();
+            if (prepared.code_ == status_code::ok) {
+                prepared = enrollment_path_authorizer->vqec_vision_ai_fwctl_ipath_configure(
+                    {args.enrollment_image_roots, args.enrollment_max_image_bytes});
+            }
+            enrollment_image_source = std::make_unique<qcom_face_enrollment_image_source>(
+                qcom_face_enrollment_image_source_config{args.enrollment_jpeg_decoder,
+                    args.enrollment_converter, args.enrollment_scaler,
+                    args.enrollment_transform, args.enrollment_transform_engine,
+                    args.enrollment_max_image_bytes, args.enrollment_image_timeout_ms, true});
+            enrollment_image_pipeline =
+                std::make_unique<face_enrollment_image_pipeline>();
+            face_enrollment_image_pipeline_config pipeline_config;
+            pipeline_config.controller_ = enrollment_controller.get();
+            pipeline_config.path_authorizer_ = enrollment_path_authorizer.get();
+            pipeline_config.image_source_ = enrollment_image_source.get();
+            pipeline_config.detector_ = enrollment_detector.get();
+            pipeline_config.cascade_ = enrollment_cascade.get();
+            pipeline_config.geometry_ = detector_config.geometry_;
+            pipeline_config.source_epoch_ = detector_config.cycle_id_;
+            if (prepared.code_ == status_code::ok) {
+                prepared = enrollment_image_pipeline->vqec_vision_ai_appl_feipl_configure(
+                    pipeline_config);
+            }
+            if (prepared.code_ != status_code::ok) {
+                std::fprintf(stderr, "enrollment image pipeline failed (%d): %s\n",
+                    static_cast<int>(prepared.code_), prepared.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+                    enrollment_graph_sessions);
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+            enrollment_port = enrollment_image_pipeline.get();
+        }
 #if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
         if (args.enrollment_dbus) {
             enrollment_dbus = std::make_unique<face_enrollment_dbus_server>();
@@ -1166,10 +1444,11 @@ int main(int _argc, char** _argv) {
             dbus_config.max_callbacks_per_poll_ = args.enrollment_callbacks_per_poll;
             dbus_config.use_session_bus_ = args.enrollment_dbus_session_bus;
             const auto opened = enrollment_dbus->vqec_vision_ai_fwctl_fedbs_open(
-                *enrollment_controller, dbus_config);
+                *enrollment_port, dbus_config);
             if (opened.code_ != status_code::ok) {
                 std::fprintf(stderr, "face enrollment DBus failed (%d): %s\n",
                     static_cast<int>(opened.code_), opened.message_.c_str());
+                (void)stop_enrollment_graphs();
                 (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
                 return 1;
             }
@@ -1178,6 +1457,7 @@ int main(int _argc, char** _argv) {
         if (args.enrollment_dbus) {
             std::fprintf(stderr,
                 "face enrollment DBus was requested but adapter is not built\n");
+            (void)stop_enrollment_graphs();
             (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
             return 1;
         }
@@ -1192,6 +1472,7 @@ int main(int _argc, char** _argv) {
     if (activated.code_ != status_code::ok) {
         std::fprintf(stderr, "composition activation failed (%d): %s\n",
             static_cast<int>(activated.code_), activated.message_.c_str());
+        (void)stop_enrollment_graphs();
         (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
         return 1;
     }
@@ -1241,12 +1522,12 @@ int main(int _argc, char** _argv) {
                 }
                 if (recognition_enabled && !embeddings.empty() &&
                     taken.source_index_ < deployment_limits::g_max_sources) {
-                    if (enrollment_controller != nullptr) {
+                    if (enrollment_port != nullptr) {
                         face_enrollment_status enrollment_status;
                         const auto root_slot = cascade_owners[taken.source_index_].root_model_slot_;
                         const auto face_count = root_slot < tracked.size()
                             ? tracked[root_slot].observations_.size() : 0;
-                        const auto accepted = enrollment_controller->
+                        const auto accepted = enrollment_port->
                             vqec_vision_ai_ports_fenrl_accept_batch(
                                 deployment.sources_[taken.source_index_].source_id_,
                                 embeddings, face_count, enrollment_status);
@@ -1324,6 +1605,16 @@ int main(int _argc, char** _argv) {
             enrollment_dbus->vqec_vision_ai_fwctl_fedbs_poll();
         }
 #endif
+        if (enrollment_image_pipeline != nullptr &&
+            enrollment_image_pipeline->vqec_vision_ai_appl_feipl_has_pending()) {
+            const auto enrolled = enrollment_image_pipeline->
+                vqec_vision_ai_appl_feipl_step(now_ns);
+            if (enrolled.code_ != status_code::ok &&
+                enrolled.code_ != status_code::pending) {
+                std::fprintf(stderr, "enrollment image job failed (%d): %s\n",
+                    static_cast<int>(enrolled.code_), enrolled.message_.c_str());
+            }
+        }
         if (use_production_platform) {
             for (std::uint16_t source_slot = 0;
                  source_slot < deployment.sources_.size(); ++source_slot) {
@@ -1390,6 +1681,11 @@ int main(int _argc, char** _argv) {
         ++routed_sources;
     }
     const auto metrics = executor->vqec_vision_ai_appl_rtexe_get_metrics();
+    const auto enrollment_stopped = stop_enrollment_graphs();
+    if (enrollment_stopped.code_ != status_code::ok &&
+        first_error_code == status_code::ok) {
+        first_error_code = enrollment_stopped.code_;
+    }
     const auto cascade_stopped =
         vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
