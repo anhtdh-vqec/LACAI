@@ -269,7 +269,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         std::to_string(_config.keyframe_interval_frames_);
     const std::string description =
         "appsrc name=src is-live=true format=time"
-        " ! queue ! capsfilter name=surfacecaps ! qtivoverlay"
+        " ! capsfilter name=surfacecaps ! qtivoverlay"
         " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate +
         ",video_gop_size=" + keyframe_interval + "\""
         // Repeat SPS/PPS on every IDR so a late RTSP reader can start from any retained
