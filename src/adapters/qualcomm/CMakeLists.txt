@@ -24,7 +24,8 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         vqec_vision_fastcv_processor.cpp
         vqec_vision_qtiv_color.cpp
         vqec_vision_plugin_graph.cpp
-        vqec_vision_inference_graph.cpp)
+        vqec_vision_inference_graph.cpp
+        vqec_vision_face_enrollment_image_source.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)

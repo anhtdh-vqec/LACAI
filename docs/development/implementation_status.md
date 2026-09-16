@@ -6,6 +6,12 @@ must not be interpreted as the current missing-feature list.
 
 ## Current summary and evidence authority
 
+2026-09-16 source step: enrollment image source port and Qualcomm GStreamer JPEG-to-NV12
+adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
+and wait time are configuration bounded. FD/FR handoff, input-file admission and service
+wiring remain open; image-path enrollment is still explicitly unsupported. See
+[image source](../architecture/face_enrollment_image_source.md).
+
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
 2026-09-15); later commits must record their own validation rather than inherit this count.
 Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow

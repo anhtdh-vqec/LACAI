@@ -144,6 +144,12 @@ prefix `vqec_vision_ai_embed_exidx_`. Test
 Optional Zvec adapter `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` uses
 file_id `zvidx`, prefix `vqec_vision_ai_zvec_zvidx_`.
 
+Qualcomm enrollment image source `src/adapters/qualcomm/vqec_vision_face_enrollment_image_source.cpp`
+uses file_id `feimg`, prefix `vqec_vision_ai_qcom_feimg_`; its neutral port is
+`include/vqec/vision/ai/ports/vqec_vision_face_enrollment_image.hpp`, file_id `feimg`.
+Contract test `tests/contract/vqec_vision_face_enrollment_image_source_test.cpp` uses
+file_id `feitst`; `main` retains the language entrypoint spelling.
+
 Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
 Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id
 `rcpol`, prefix `vqec_vision_ai_embed_rcpol_`. Test

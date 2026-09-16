@@ -578,10 +578,19 @@
     set_target_properties(vqec_vision_ai_source_binding_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME source_binding_validation COMMAND vqec_vision_ai_source_binding_test)
     if(VQEC_VISION_AI_ENABLE_QUALCOMM)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(face_enrollment_gstreamer REQUIRED IMPORTED_TARGET
+            gstreamer-1.0 gstreamer-video-1.0 gstreamer-app-1.0)
         add_executable(vqec_vision_ai_plugin_graph_test contract/vqec_vision_plugin_graph_test.cpp)
         target_link_libraries(vqec_vision_ai_plugin_graph_test PRIVATE vqec_vision_ai_qualcomm)
         set_target_properties(vqec_vision_ai_plugin_graph_test PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME plugin_graph_state_guards COMMAND vqec_vision_ai_plugin_graph_test)
+        add_executable(vqec_vision_ai_face_enrollment_image_source_test
+            contract/vqec_vision_face_enrollment_image_source_test.cpp)
+        target_link_libraries(vqec_vision_ai_face_enrollment_image_source_test PRIVATE
+            vqec_vision_ai_qualcomm PkgConfig::face_enrollment_gstreamer)
+        add_test(NAME face_enrollment_image_source
+            COMMAND vqec_vision_ai_face_enrollment_image_source_test)
     endif()
     add_executable(vqec_vision_ai_inference_plan_test unit/vqec_vision_inference_plan_test.cpp)
     target_link_libraries(vqec_vision_ai_inference_plan_test PRIVATE vqec_vision_ai_core)

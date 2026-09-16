@@ -73,3 +73,7 @@ The optional GIO DBus adapter implements the concrete object/interface and authe
 the configured FW peer at startup. Durable encrypted storage and peer-name provisioning
 remain platform integration work; file enrollment execution must be added before a
 non-empty `image_path` can be accepted and must not bypass this port.
+
+The delivered [image source adapter](../architecture/face_enrollment_image_source.md)
+decodes one JPEG to a neutral owned NV12 image. It is not yet connected to FD/FR or
+filesystem admission; non-empty paths still return `unsupported` from the controller.
