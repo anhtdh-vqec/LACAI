@@ -6,6 +6,7 @@
 #include <utility>
 
 #include <gst/app/gstappsink.h>
+#include <gst/allocators/gstdmabuf.h>
 #include <gst/video/video.h>
 
 namespace vqec::vision::ai {
@@ -20,6 +21,7 @@ constexpr auto g_caps_property = "caps";
 constexpr auto g_raw_video_media = "video/x-raw";
 constexpr auto g_format_field = "format";
 constexpr auto g_nv12_format = "NV12";
+constexpr auto g_gbm_memory_feature = "memory:GBM";
 constexpr auto g_width_field = "width";
 constexpr auto g_height_field = "height";
 constexpr auto g_emit_signals_property = "emit-signals";
@@ -28,6 +30,14 @@ constexpr auto g_max_buffers_property = "max-buffers";
 constexpr auto g_drop_property = "drop";
 constexpr unsigned g_nv12_plane_count = 2;
 constexpr unsigned g_single_image_buffer_count = 1;
+
+struct sample_owner {
+    explicit sample_owner(GstSample* _sample) noexcept : sample_(_sample) {}
+    ~sample_owner() noexcept {
+        if (sample_ != nullptr) gst_sample_unref(sample_);
+    }
+    GstSample* sample_{nullptr};
+};
 
 void vqec_vision_ai_qcom_feimg_initialize_gst() {
     gst_init(nullptr, nullptr);
@@ -54,8 +64,11 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
         pixels > config_.max_image_bytes_ || pixels + pixels / 2 > config_.max_image_bytes_) {
         return {status_code::resource_exhausted, "decoded image exceeds configured bound"};
     }
-    // Allocate before constructing the graph: allocation failure cannot strand Gst owners.
-    auto bytes = std::make_shared<std::vector<std::uint8_t>>(pixels + pixels / 2);
+    std::shared_ptr<std::vector<std::uint8_t>> bytes;
+    if (!config_.require_dmabuf_) {
+        // Allocate before constructing the graph: allocation failure cannot strand Gst owners.
+        bytes = std::make_shared<std::vector<std::uint8_t>>(pixels + pixels / 2);
+    }
     std::call_once(g_gst_initialized, vqec_vision_ai_qcom_feimg_initialize_gst);
     GstElement* pipeline = gst_pipeline_new(nullptr);
     GstElement* source = gst_element_factory_make(g_file_source_factory, nullptr);
@@ -76,6 +89,9 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     GstCaps* caps = gst_caps_new_simple(g_raw_video_media, g_format_field, G_TYPE_STRING, g_nv12_format,
                                         g_width_field, G_TYPE_INT, static_cast<int>(_request.width_),
                                         g_height_field, G_TYPE_INT, static_cast<int>(_request.height_), nullptr);
+    if (config_.require_dmabuf_) {
+        gst_caps_set_features(caps, 0, gst_caps_features_new(g_gbm_memory_feature, nullptr));
+    }
     g_object_set(caps_filter, g_caps_property, caps, nullptr);
     gst_caps_unref(caps);
     g_object_set(sink, g_emit_signals_property, FALSE, g_sync_property, FALSE,
@@ -99,48 +115,101 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     }
     GstBuffer* buffer = gst_sample_get_buffer(sample);
     GstVideoInfo info{};
-    GstVideoFrame mapped_frame{};
-    const bool mapped = buffer != nullptr &&
+    const bool valid_video = buffer != nullptr &&
         gst_video_info_from_caps(&info, gst_sample_get_caps(sample)) &&
         GST_VIDEO_INFO_FORMAT(&info) == GST_VIDEO_FORMAT_NV12 &&
         GST_VIDEO_INFO_WIDTH(&info) == static_cast<int>(_request.width_) &&
-        GST_VIDEO_INFO_HEIGHT(&info) == static_cast<int>(_request.height_) &&
-        gst_video_frame_map(&mapped_frame, &info, buffer, GST_MAP_READ);
+        GST_VIDEO_INFO_HEIGHT(&info) == static_cast<int>(_request.height_);
     const auto expected = pixels + pixels / 2;
-    if (!mapped || expected > config_.max_image_bytes_ ||
-        GST_VIDEO_FRAME_PLANE_STRIDE(&mapped_frame, 0) < static_cast<int>(_request.width_) ||
-        GST_VIDEO_FRAME_PLANE_STRIDE(&mapped_frame, 1) < static_cast<int>(_request.width_)) {
-        if (mapped) gst_video_frame_unmap(&mapped_frame);
+    if (!valid_video || expected > config_.max_image_bytes_ ||
+        GST_VIDEO_INFO_PLANE_STRIDE(&info, 0) < static_cast<int>(_request.width_) ||
+        GST_VIDEO_INFO_PLANE_STRIDE(&info, 1) < static_cast<int>(_request.width_)) {
         gst_sample_unref(sample);
         gst_element_set_state(pipeline, GST_STATE_NULL);
         gst_object_unref(pipeline);
         return {status_code::protocol_error, "decoded image is not a complete NV12 frame"};
     }
-    for (unsigned plane = 0; plane < g_nv12_plane_count; ++plane) {
-        const auto rows = plane == 0 ? _request.height_ : _request.height_ / 2;
-        const auto* data = static_cast<const std::uint8_t*>(GST_VIDEO_FRAME_PLANE_DATA(&mapped_frame, plane));
-        const auto stride = GST_VIDEO_FRAME_PLANE_STRIDE(&mapped_frame, plane);
-        auto* destination = bytes->data() + (plane == 0 ? 0 : pixels);
-        for (std::uint32_t row = 0; row < rows; ++row) {
-            std::copy_n(data + static_cast<std::ptrdiff_t>(row) * stride,
-                        _request.width_, destination + static_cast<std::size_t>(row) * _request.width_);
+    face_enrollment_image candidate;
+    auto& descriptor = candidate.frame_.descriptor_;
+    descriptor.buffer_id_ = _request.buffer_id_;
+    descriptor.session_epoch_ = _request.session_epoch_;
+    descriptor.width_ = _request.width_;
+    descriptor.height_ = _request.height_;
+    if (config_.require_dmabuf_) {
+        if (gst_buffer_n_memory(buffer) != 1) {
+            gst_sample_unref(sample);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+            return {status_code::protocol_error, "decoded GBM image has multiple memories"};
         }
+        GstMemory* memory = gst_buffer_peek_memory(buffer, 0);
+        if (memory == nullptr || !gst_is_dmabuf_memory(memory)) {
+            gst_sample_unref(sample);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+            return {status_code::incompatible_plugin, "decoded image is not DMA-BUF backed"};
+        }
+        gsize memory_offset = 0;
+        gsize allocation_size = 0;
+        const gsize view_size = gst_memory_get_sizes(memory, &memory_offset, &allocation_size);
+        const auto y_offset = GST_VIDEO_INFO_PLANE_OFFSET(&info, 0);
+        const auto uv_offset = GST_VIDEO_INFO_PLANE_OFFSET(&info, 1);
+        const auto y_end = y_offset + static_cast<gsize>(GST_VIDEO_INFO_PLANE_STRIDE(&info, 0)) *
+            _request.height_;
+        const auto uv_end = uv_offset + static_cast<gsize>(GST_VIDEO_INFO_PLANE_STRIDE(&info, 1)) *
+            (_request.height_ / 2);
+        const int native_fd = gst_dmabuf_memory_get_fd(memory);
+        if (native_fd < 0 || allocation_size == 0 ||
+            allocation_size > config_.max_image_bytes_ || memory_offset > allocation_size ||
+            view_size > allocation_size - memory_offset || y_end > view_size || uv_end > view_size ||
+            y_offset > std::numeric_limits<std::uint32_t>::max() ||
+            uv_offset > std::numeric_limits<std::uint32_t>::max()) {
+            gst_sample_unref(sample);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+            return {status_code::protocol_error, "decoded DMA-BUF layout exceeds its bounds"};
+        }
+        descriptor.offsets_ = {
+            static_cast<std::uint32_t>(y_offset), static_cast<std::uint32_t>(uv_offset)};
+        descriptor.strides_ = {GST_VIDEO_INFO_PLANE_STRIDE(&info, 0),
+                               GST_VIDEO_INFO_PLANE_STRIDE(&info, 1)};
+        descriptor.view_size_bytes_ = view_size;
+        descriptor.memory_offset_bytes_ = memory_offset;
+        descriptor.allocation_size_bytes_ = allocation_size;
+        candidate.frame_.native_handle_ = native_fd;
+        candidate.frame_.owner_ = std::make_shared<sample_owner>(sample);
+    } else {
+        GstVideoFrame mapped_frame{};
+        if (!gst_video_frame_map(&mapped_frame, &info, buffer, GST_MAP_READ)) {
+            gst_sample_unref(sample);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+            return {status_code::protocol_error, "decoded NV12 image cannot be mapped"};
+        }
+        for (unsigned plane = 0; plane < g_nv12_plane_count; ++plane) {
+            const auto rows = plane == 0 ? _request.height_ : _request.height_ / 2;
+            const auto* data = static_cast<const std::uint8_t*>(
+                GST_VIDEO_FRAME_PLANE_DATA(&mapped_frame, plane));
+            const auto stride = GST_VIDEO_FRAME_PLANE_STRIDE(&mapped_frame, plane);
+            auto* destination = bytes->data() + (plane == 0 ? 0 : pixels);
+            for (std::uint32_t row = 0; row < rows; ++row) {
+                std::copy_n(data + static_cast<std::ptrdiff_t>(row) * stride,
+                            _request.width_, destination +
+                                static_cast<std::size_t>(row) * _request.width_);
+            }
+        }
+        gst_video_frame_unmap(&mapped_frame);
+        gst_sample_unref(sample);
+        descriptor.offsets_ = {0U, static_cast<std::uint32_t>(pixels)};
+        descriptor.strides_ = {static_cast<std::int32_t>(_request.width_),
+                               static_cast<std::int32_t>(_request.width_)};
+        descriptor.view_size_bytes_ = expected;
+        descriptor.allocation_size_bytes_ = expected;
+        candidate.frame_.owner_ = bytes;
+        candidate.nv12_ = std::move(bytes);
     }
-    gst_video_frame_unmap(&mapped_frame);
-    gst_sample_unref(sample);
     gst_element_set_state(pipeline, GST_STATE_NULL);
     gst_object_unref(pipeline);
-    face_enrollment_image candidate;
-    candidate.descriptor_.buffer_id_ = _request.buffer_id_;
-    candidate.descriptor_.session_epoch_ = _request.session_epoch_;
-    candidate.descriptor_.width_ = _request.width_;
-    candidate.descriptor_.height_ = _request.height_;
-    candidate.descriptor_.offsets_ = {0U, _request.width_ * _request.height_};
-    candidate.descriptor_.strides_ = {static_cast<std::int32_t>(_request.width_),
-                                      static_cast<std::int32_t>(_request.width_)};
-    candidate.descriptor_.view_size_bytes_ = expected;
-    candidate.descriptor_.allocation_size_bytes_ = expected;
-    candidate.nv12_ = std::move(bytes);
     _image = std::move(candidate);
     return {};
 }

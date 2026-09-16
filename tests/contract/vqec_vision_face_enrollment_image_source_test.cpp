@@ -73,7 +73,8 @@ int main() {
     const auto loaded = source.vqec_vision_ai_ports_feimg_load(request, image);
     std::remove(fixture_path);
     if (loaded.code_ != status_code::ok || !image.nv12_ || image.nv12_->size() != fixture_bytes ||
-        image.descriptor_.offsets_[1] != fixture_width * fixture_height) {
+        image.frame_.descriptor_.offsets_[1] != fixture_width * fixture_height ||
+        !image.frame_.owner_) {
         std::cerr << loaded.message_ << '\n';
         return 4;
     }

@@ -19,7 +19,8 @@ endif()
 
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0)
+    pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET
+        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 gstreamer-allocators-1.0)
     add_library(vqec_vision_ai_qualcomm STATIC
         vqec_vision_fastcv_processor.cpp
         vqec_vision_qtiv_color.cpp

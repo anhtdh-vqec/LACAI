@@ -8,6 +8,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_frame_descriptor.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 
@@ -20,7 +21,9 @@ struct face_enrollment_image_request {
 };
 
 struct face_enrollment_image {
-    frame_descriptor descriptor_;
+    // Production adapters return an importable native frame. The optional packed copy is
+    // for portable/reference adapters and contract tests; hot Qualcomm paths leave it null.
+    raw_frame frame_;
     std::shared_ptr<const std::vector<std::uint8_t>> nv12_;
 };
 

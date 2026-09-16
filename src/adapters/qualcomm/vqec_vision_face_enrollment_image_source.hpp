@@ -14,6 +14,7 @@ struct qcom_face_enrollment_image_source_config {
     std::string scaler_factory_;
     std::uint64_t max_image_bytes_{0};
     std::uint32_t timeout_ms_{0};
+    bool require_dmabuf_{false};
 };
 
 class qcom_face_enrollment_image_source final

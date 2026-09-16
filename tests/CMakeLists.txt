@@ -580,7 +580,7 @@
     if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(face_enrollment_gstreamer REQUIRED IMPORTED_TARGET
-            gstreamer-1.0 gstreamer-video-1.0 gstreamer-app-1.0)
+            gstreamer-1.0 gstreamer-video-1.0 gstreamer-app-1.0 gstreamer-allocators-1.0)
         add_executable(vqec_vision_ai_plugin_graph_test contract/vqec_vision_plugin_graph_test.cpp)
         target_link_libraries(vqec_vision_ai_plugin_graph_test PRIVATE vqec_vision_ai_qualcomm)
         set_target_properties(vqec_vision_ai_plugin_graph_test PROPERTIES CXX_EXTENSIONS OFF)

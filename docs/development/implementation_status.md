@@ -8,8 +8,10 @@ must not be interpreted as the current missing-feature list.
 
 2026-09-16 source step: enrollment image source port and Qualcomm GStreamer JPEG-to-NV12
 adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
-and wait time are configuration bounded. FD/FR handoff, input-file admission and service
-wiring remain open; image-path enrollment is still explicitly unsupported. See
+and wait time are configuration bounded. The Qualcomm production mode requires GBM caps,
+verifies DMA-BUF memory/layout bounds and retains the Gst sample behind neutral `raw_frame`.
+FD/FR handoff, input-file admission and service wiring remain open; image-path enrollment
+is still explicitly unsupported. See
 [image source](../architecture/face_enrollment_image_source.md).
 
 The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
