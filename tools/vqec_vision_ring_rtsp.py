@@ -17,7 +17,6 @@ lock-free observer.
 
 Subcommands:
   read      attach to the ring and serve RTSP
-  simulate  self-test: encode videotestsrc into the ring (stand-in producer)
 
 Examples:
   vqec_vision_ring_rtsp.py read --ring-id encoded_ai_detect0_cam0_ch0 \
@@ -98,18 +97,53 @@ class RingReader:
         self.path = path
         self.fd = -1
         self.mapping = None
+        self.identity = None
+
+    def vqec_vision_ai_tools_rrtsp_try_open(_self):
+        try:
+            _self.fd = os.open(_self.path, os.O_RDONLY)
+            descriptor = os.fstat(_self.fd)
+            if descriptor.st_size < HEADER_SIZE:
+                _self.close()
+                return False
+            _self.mapping = mmap.mmap(_self.fd, descriptor.st_size, mmap.MAP_SHARED,
+                                     mmap.PROT_READ)
+            required = _self.header_size() + _self.slot_count() * (
+                _self.slot_header_size() + _self.payload_size())
+            if (_self.u32(H_VERSION) != RING_VERSION or
+                    _self.header_size() < HEADER_SIZE or
+                    _self.slot_header_size() < SLOT_HEADER_SIZE or
+                    _self.slot_count() == 0 or _self.payload_size() == 0 or
+                    required > descriptor.st_size):
+                _self.close()
+                return False
+            _self.identity = (descriptor.st_dev, descriptor.st_ino, descriptor.st_size)
+            return True
+        except (OSError, ValueError, struct.error):
+            _self.close()
+            return False
+
+    def vqec_vision_ai_tools_rrtsp_refresh_mapping(_self):
+        try:
+            current = os.stat(_self.path)
+            identity = (current.st_dev, current.st_ino, current.st_size)
+        except OSError:
+            identity = None
+        if identity == _self.identity and _self.mapping is not None:
+            return False
+        _self.close()
+        if identity is not None:
+            _self.vqec_vision_ai_tools_rrtsp_try_open()
+        return True
 
     def open(self, timeout_s=10.0):
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
-            if os.path.exists(self.path):
-                break
+        deadline = time.monotonic() + timeout_s
+        while True:
+            if self.vqec_vision_ai_tools_rrtsp_try_open():
+                return True
+            if time.monotonic() >= deadline:
+                return False
             time.sleep(0.1)
-        self.fd = os.open(self.path, os.O_RDWR)
-        size = os.fstat(self.fd).st_size
-        self.mapping = mmap.mmap(self.fd, size, mmap.MAP_SHARED,
-                                 mmap.PROT_READ | mmap.PROT_WRITE)
-        return self.header_size() > 0
 
     def close(self):
         if self.mapping is not None:
@@ -118,6 +152,7 @@ class RingReader:
         if self.fd >= 0:
             os.close(self.fd)
             self.fd = -1
+        self.identity = None
 
     def u32(self, offset):
         return struct.unpack_from("<I", self.mapping, offset)[0]
@@ -237,6 +272,10 @@ def run_read(args):
     }
 
     def poll():
+        replaced = reader.vqec_vision_ai_tools_rrtsp_refresh_mapping()
+        if reader.mapping is None:
+            state["started"] = False
+            return True
         if not publisher.ready():
             return True
         if state["generation"] != publisher.generation:
@@ -246,6 +285,11 @@ def run_read(args):
             state["client_frame"] = 0
             state["generation"] = publisher.generation
         current = reader.write_sequence()
+        if replaced or current < state["next"]:
+            state["next"] = max(0, current - reader.slot_count())
+            state["started"] = False
+            # Keep client_frame monotonic for the existing RTSP media session.
+        state["next"] = max(state["next"], current - reader.slot_count())
         while state["next"] < current:
             slot = reader.read_slot(state["next"])
             state["next"] += 1

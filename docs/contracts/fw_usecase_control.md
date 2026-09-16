@@ -1,8 +1,8 @@
 # FW usecase activation contract
 
 Status: normative AI APP boundary. The bounded D-Bus v1 adapter and neutral desired-plan
-manager are source-delivered; live service generation drain/recomposition and FW product
-integration remain pending.
+manager and service-owned stop/drain/recomposition are source-delivered. Live hardware
+acceptance and FW product integration require the test evidence below.
 
 ## Purpose
 
@@ -123,21 +123,38 @@ output is rechecked before dispatch.
 
 ## Reconciliation and hardware lifetime
 
-An accepted change constructs a complete candidate runtime generation:
+An accepted change resolves a complete candidate desired plan. The delivered serialized
+replacement follows this order:
 
-1. Resolve effective usecases from trusted catalog, entitlement and desired plan.
-2. Expand each effective usecase to primary model roots and compute the dependency closure.
-3. Perform compatibility, memory, accelerator, encoder and thermal admission.
-4. Build all required model graphs, pools, processors and output routes without exposing
-   a partial generation.
-5. Atomically publish the candidate, then start its source sessions.
-6. Block removed outputs, stop scheduling removed work, drain submitted hardware work and
-   unload only dependencies whose reference count reached zero.
+1. Resolve trusted gates, root models, dependency closure and configured resource admission.
+2. Stop new scheduling/rendering for the obsolete generation.
+3. Drain submitted work, reconcile source leases and unload obsolete graphs.
+4. Destroy runtime owners only after successful drain; recovery-required blocks replacement.
+5. Prepare and construct the complete effective candidate; inactive catalog models do not
+   require decoder owners or model preparation.
+6. Start source sessions and publish only after every session reports running. All-off
+   publishes an empty generation and retains only the control loop.
+
+Future incremental replacement may retain compatible shared dependencies, but must preserve
+those ownership/output/readiness gates. Session readiness does not prove numerical warmup
+or continued source health.
 
 The initial implementation may stop and rebuild the complete runtime generation. It must
 still keep command/state reporting live and must not release buffers until actual backend
 completion. A failed candidate leaves the last valid generation running when policy still
 authorizes it; revocation always blocks unauthorized output even if teardown fails.
+
+The current service implements serialized full-generation replacement in the same
+process. The usecase D-Bus object outlives the runtime owners. Scheduling/rendering stops
+before draining the old generation; after successful drain its owners are destroyed and the effective
+model deployment is reconstructed. All-off keeps only the control loop. FR enrollment
+is available only while its runtime is enabled; its authenticated gallery survives disable.
+The configured FW peer must retain its unique connection across transitions. D-Bus work
+is polled between runtime steps; synchronous model preparation and image enrollment can
+delay replies. Bounded asynchronous preparation/enrollment remains a production gate.
+Desired-plan receipts/revisions are currently process-local; restart restores the trusted
+startup snapshot rather than persisting live commands. Signed entitlement provisioning
+and hardware state observation remain separate unfinished boundaries.
 
 If every usecase for a source is disabled and preview is not independently contracted,
 AI APP releases the camera lease. If all usecases are disabled, no model graph is loaded.
@@ -170,3 +187,5 @@ FW and AI APP acceptance must demonstrate on QCS6490 that:
 
 Measured load/unload, RSS, accelerator utilization, CPU, temperature and clock-frequency
 evidence is required; source inspection alone is not acceptance.
+
+Current measured cases and release limits: [FR validation](../testing/face_recognition_production_validation.md).

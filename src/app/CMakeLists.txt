@@ -211,7 +211,16 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_model_catalog_config
         vqec_vision_ai_feature_catalog_config
         vqec_vision_ai_usecase_config
+        vqec_vision_ai_usecase_control
         vqec_vision_ai_encrypted_gallery_store)
+    if(TARGET vqec_vision_ai_usecase_control_dbus)
+        target_link_libraries(vqec_ai_vision_applications PRIVATE
+            vqec_vision_ai_usecase_control_dbus)
+        target_include_directories(vqec_ai_vision_applications PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>)
+        target_compile_definitions(vqec_ai_vision_applications PRIVATE
+            VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS=1)
+    endif()
     if(TARGET vqec_vision_ai_face_enrollment_dbus)
         target_link_libraries(vqec_ai_vision_applications PRIVATE
             vqec_vision_ai_face_enrollment_dbus)

@@ -18,9 +18,8 @@ non-empty result is passed through deployment and model-catalog validation befor
 The resolver is transactional: malformed, incomplete or duplicate snapshots leave its
 output objects unchanged. It does not authenticate catalogs or entitlements, measure
 hardware capacity, load models or mutate a live runtime. Those belong to the trusted
-provisioning boundary, admission provider and generation owner. Dynamic disable remains
-incomplete until that owner blocks output, stops submissions, drains backend completion
-and destroys the obsolete generation.
+provisioning boundary, admission provider and generation owner. The service now implements full-generation replacement: stop scheduling/output, drain
+backend work and source leases, destroy obsolete owners, then construct the candidate.
 
 The strict startup loader `vqec_vision_usecase_config` accepts one authenticated snapshot
 containing independent control, entitlement and deployment revisions. The service option
@@ -46,10 +45,15 @@ port. It resolves a configured FW peer to one unique D-Bus sender, bounds reques
 callback progress, and never accepts entitlement/admission fields from the caller. Bus
 name and object path are installation configuration.
 
-The service still composes only its startup generation. Live D-Bus acceptance is therefore
-not wired into the executable until a generation owner can stop submission, drain all
-backend completion, construct the full candidate and atomically publish or reject it. The
-manager and adapter do not claim that dynamic drain/unload is delivered.
+The executable now owns manager/transport across runtime generations. `--usecase-dbus`
+(or `--usecase-dbus-session`) enables desired-plan commands with explicit installation
+names/timeouts/budgets. Initial status remains loading until all source-session phases are
+running. New desired commands are rejected during initial loading or pending reconciliation.
+Recovery-required prevents constructing another generation. All-off publishes an empty
+runtime and keeps the control object live without platform preparation or source acquisition.
+Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
+D-Bus replies. Runtime health observation, signed provisioning and incremental shared-owner
+replacement remain open. See [FR validation](../testing/face_recognition_production_validation.md).
 
 See [FW usecase activation](../contracts/fw_usecase_control.md) for the wire contract and
 lifecycle requirements.

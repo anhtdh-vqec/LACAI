@@ -46,7 +46,10 @@ per-slot seqlock, so it is a lock-free observer. It publishes
 `rtsp://<host>:<port><mount>` through `GstRtspServer` and
 `rtph264pay name=pay0`. `--fps` is required. When a client connects, the reader scans the
 retained ring window for an IDR containing SPS/PPS, allowing late join when the configured
-GOP fits inside that window. PTS starts at zero for each RTSP media generation; ring-global
+GOP fits inside that window. The reader detects ring inode replacement/removal after runtime switching, closes its
+obsolete mapping and resumes only from an IDR with SPS/PPS. Within an existing RTSP
+media session timestamps remain monotonic across ring replacement.
+PTS starts at zero for each RTSP media generation; ring-global
 sequence is never used as client running time, so a late join does not inherit process uptime
 as startup delay.
 
@@ -69,3 +72,14 @@ RTSP service is therefore the whole output-side FW replacement.
 - The camera mock and renderer each perform an explicit CPU copy before QTI hardware
   overlay/encode. These are wiring aids, not zero-copy, model-accuracy or released-FW
   acceptance evidence.
+
+## Runtime usecase/enrollment acceptance runner
+
+Use `tools/vqec_vision_fr_runtime_dbus_test.py` with a private deployment fixture to retain
+one authenticated FW peer while checking live model load/unload, image enrollment,
+idempotency and multi-template removal. See [FR validation](face_recognition_production_validation.md)
+for fixture fields, native/QEMU results and outstanding release gates.
+
+Synthetic replacement regression: `PYTHONDONTWRITEBYTECODE=1 python3
+/opt/anhtdh/tools/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
+The development host lacks that GI namespace; this Python regression is native-tested.

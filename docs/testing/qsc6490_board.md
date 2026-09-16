@@ -323,3 +323,15 @@ one green `person` box and two separate face boxes. This proves concurrent compo
 overlay retention in the compatibility setup. It does not prove model accuracy, persistent
 gallery recovery, released-FW DMA-BUF interop, thermal stability or load/unload behavior for
 the proposed dynamic usecase control plane.
+
+## 2026-09-16 runtime-control and FR validation (.98)
+
+Approved eSDK candidate: 120/120 QEMU CTest; 114/114 native logic/contract binaries
+after supplying target decoder-package manifest fixtures. Same-process D-Bus runtime
+switching checked person/FD/FR model-library residency, all-off control availability,
+peer authorization and protected-gallery preservation. File enrollment/retry/conflict
+and two-template subject deletion passed. Ring-reader replacement regression passed
+natively; ffprobe decoded final H264 at 1920×1080 with metadata `30/1`.
+See [FR validation](face_recognition_production_validation.md) for the full matrix and
+open production gates. This does not certify thermal/AI FPS, accuracy, signed grants,
+TEE keys, fault recovery or released-FW DMA-BUF completion.

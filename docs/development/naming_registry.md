@@ -4,6 +4,11 @@ Physical source/tool filenames use `vqec_vision_`; logical owners and registered
 function prefixes do not change. Reserved filenames below follow the same rule.
 See code_convention.md section 0 for the finite non-source exceptions.
 
+Native FR validation: `tools/vqec_vision_fr_runtime_dbus_test.py`, file_id `frdbt`,
+prefix `vqec_vision_ai_tools_frdbt_`. Its deployment/biometric fixture stays outside Git.
+Ring-generation regression: `tools/vqec_vision_ring_rtsp_test.py`, file_id `rrtst`,
+prefix `vqec_vision_ai_tools_rrtst_`; synthetic file-backed ring only.
+
 Registry này là nguồn chuẩn, không tự viết tắt theo cảm tính.
 Các file ở bảng Reserved là **reserved/planned**; bảng Implementation additions
 ghi các file đã bắt đầu có source, chưa build.
@@ -145,6 +150,8 @@ interface prefix `vqec_vision_ai_ports_ucctl_`. Serialized manager
 prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus v1 adapter
 `src/adapters/fw_control/vqec_vision_usecase_control_dbus.cpp` uses file_id `ucdbs`, prefix
 `vqec_vision_ai_fwctl_ucdbs_`; its private-bus wire test uses file_id `ucdtst`.
+Runtime D-Bus integration tool `tools/vqec_vision_usecase_runtime_dbus_test.py`
+uses file_id `ucrtst`, prefix `vqec_vision_ai_tools_ucrtst_`.
 
 Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
 file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation

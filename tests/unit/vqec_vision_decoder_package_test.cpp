@@ -61,7 +61,7 @@ std::string anchor_document() {
 
 }  // namespace
 
-int main() {
+int main(int _argc, char** _argv) {
     unsigned failures = 0;
     const auto check = [&failures](bool _condition) {
         if (!_condition) {
@@ -222,7 +222,10 @@ int main() {
     // The shipped SCRFD package must satisfy the strict loader it is deployed through.
 #if defined(VQEC_VISION_AI_MODEL_MANIFEST_DIR)
     {
-        std::ifstream scrfd(std::string(VQEC_VISION_AI_MODEL_MANIFEST_DIR) +
+        // Native deployment supplies its fixture root; CTest keeps the build fixture.
+        const std::string manifest_root = _argc == 2
+            ? _argv[1] : VQEC_VISION_AI_MODEL_MANIFEST_DIR;
+        std::ifstream scrfd(manifest_root +
             "/scrfd_500m_bnkps/decoder.json");
         if (!scrfd.is_open()) {
             ++failures;
@@ -235,7 +238,7 @@ int main() {
             check(shipped.stages_[0].score_tensor_ == "score_8" &&
                 shipped.stages_[2].stride_ == 32U);
         }
-        std::ifstream edgeface(std::string(VQEC_VISION_AI_MODEL_MANIFEST_DIR) +
+        std::ifstream edgeface(manifest_root +
             "/edgeface_s_gamma_05/decoder.json");
         if (!edgeface.is_open()) {
             ++failures;

@@ -19,6 +19,8 @@ request. `image_path` is the required FW-authorized local path. Version 1 requir
 a file with zero or multiple eligible faces is rejected. Multiple faces for one person
 are enrolled through separate idempotent requests sharing the same `subject_ref` and
 advancing the gallery revision after each accepted image.
+The request source/camera/channel must match the enabled FR pipeline's immutable binding.
+Unknown or mismatched sources are rejected before image decode or gallery mutation.
 
 `CancelEnrollment(request_id)` transitions a collecting request to cancelled. Samples
 already committed remain gallery records; FW can remove the subject with a revision CAS

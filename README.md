@@ -172,3 +172,6 @@ dữ liệu sinh trắc học hay secret.
   LoRA mới có contract, chưa dùng trong execute.
 - CI workflow có job eSDK đang gate sau `vars.ESDK_ROOT`; chưa có bằng chứng runner được cấu hình.
 - Structural checker kiểm filename/include/CMake, không phải AST naming hay ownership validator.
+
+Current runtime D-Bus/enrollment evidence and remaining production gates:
+[FR validation](docs/testing/face_recognition_production_validation.md).

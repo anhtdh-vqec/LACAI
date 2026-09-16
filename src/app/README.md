@@ -46,7 +46,10 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - Authenticated FW registry RPC and deployment-time peer-name provisioning remain open.
 - `--usecase-snapshot <json>` filters the maximum deployment to effective usecase roots.
   An empty result keeps the process idle without preparing graphs or acquiring a source;
-  live D-Bus reconciliation is still pending.
+  live D-Bus full-generation replacement is wired through `--usecase-dbus` or
+  `--usecase-dbus-session` with explicit service/object/peer names, timeout and callback
+  budget. Old runtime drains before candidate construction; publication waits for source
+  session readiness. All-off remains D-Bus responsive. Desired plans are process-local.
 - FR service mode requires explicit `--fr-feature-id` and
   `--fr-identity-attribute`; recognized labels are emitted only when the output gate
   authorizes that source/feature/attribute scope. Enrollment control is optional GIO
@@ -79,3 +82,5 @@ Production prepares and cross-validates a neutral embedding cascade binding for 
 source. The service owns secondary graph start/drain/unload and binds the coordinator to
 the catalog-derived primary slot before activating that source. Live target parity,
 multi-source secondary ownership and asynchronous cascade scheduling remain pending.
+
+Runtime/enrollment test evidence and release gates: [FR validation](../../docs/testing/face_recognition_production_validation.md).

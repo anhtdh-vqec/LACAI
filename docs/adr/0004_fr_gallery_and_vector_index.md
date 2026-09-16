@@ -67,8 +67,8 @@ binary decoding. Its current filesystem key is not hardware-bound; Qualcomm keys
 qualification and power-cut testing remain release gates.
 
 C API query/document allocation and blocking vendor calls still require a bounded worker
-and measured allocation/latency budgets before production activation. The optional source
-is not yet an end-to-end FR persistence implementation.
+and measured allocation/latency budgets before production activation. Production now composes authenticated persistence and derived-index rebuild; blocking
+execution, derived-index at-rest protection and failure qualification remain open.
 
 ## Real-library validation
 
@@ -76,6 +76,8 @@ The pinned public Linux ARM64 v0.7.0 SDK is now acquired under third_party/zvec/
 using the checksum-verified bootstrap. CMake enables the adapter by default and links
 libzvec_c_api.so. On 2026-09-15 the eSDK-built integration executable passed both QEMU
 and native QCS6490 .48 execution (zero failed checks). That historical run predates
-durable recovery. Current encrypted-store and restart logic is eSDK/QEMU evidence only
-until an authorized board is available.
+durable recovery. On 2026-09-16 the authorized `.98` board passed encrypted-store clean-restart recovery,
+runtime disable/re-enable and multi-template D-Bus enrollment/removal. The authoritative
+snapshot is encrypted; the persistent plaintext Zvec collection is still a release blocker.
+See [FR validation](../testing/face_recognition_production_validation.md).
 The upstream library is a release binary; only LACAI was compiled with the eSDK.

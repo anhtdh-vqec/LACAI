@@ -1,5 +1,12 @@
 # Kế hoạch hoàn thiện Face Recognition: SCRFD + EdgeFace + Zvec
 
+2026-09-16 evidence update: runtime D-Bus switching, actual model-library unload,
+multi-template image enrollment/retry/delete and gallery preservation pass on `.98`.
+The detailed matrix and remaining release gates are maintained in
+[FR validation](../testing/face_recognition_production_validation.md); these results do
+not close golden accuracy, attendance, hardware key, plaintext derived-index protection,
+durable receipt, signed provisioning or performance acceptance gates.
+
 Ngày lập: 2026-09-15. Cập nhật theo source hiện tại: 2026-09-15.
 Trạng thái: kế hoạch triển khai và nghiệm thu. Các mục đã đánh dấu chỉ có nghĩa là source
 và logic test tương ứng đã có; gate board/golden/owner review vẫn quyết định nghiệm thu.

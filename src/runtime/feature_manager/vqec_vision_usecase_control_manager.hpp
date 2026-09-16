@@ -27,6 +27,9 @@ public:
     // A pending plan is immutable until the runtime owner publishes or rejects it.
     [[nodiscard]] status vqec_vision_ai_ftmgr_ucmgr_get_pending(
         usecase_control_snapshot& _snapshot, deployment_config& _deployment) const;
+    [[nodiscard]] bool vqec_vision_ai_ftmgr_ucmgr_has_pending() const noexcept {
+        return has_pending_;
+    }
     [[nodiscard]] status vqec_vision_ai_ftmgr_ucmgr_publish_initial(
         std::uint64_t _runtime_generation);
     [[nodiscard]] status vqec_vision_ai_ftmgr_ucmgr_publish_pending(

@@ -1,8 +1,8 @@
 # FW control, outputs, entitlement và BSP handoff
 
 Status: umbrella proposal for four-team review. The usecase activation boundary is
-specified normatively in [FW usecase activation](fw_usecase_control.md); its transport
-implementation is still pending.
+specified normatively in [FW usecase activation](fw_usecase_control.md); the D-Bus v1 adapter and service-owned runtime replacement are source-delivered.
+See [FR validation](../testing/face_recognition_production_validation.md) for measured cases.
 
 The proposal below extends, not replaces, the released AI D-Bus and H264 preview
 interfaces. See [FW release baseline](fw_release_compatibility.md) for exact legacy

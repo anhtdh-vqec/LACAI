@@ -77,9 +77,22 @@ void vqec_vision_ai_unit_ucmtst_check_apply_publish_and_idempotency() {
     vqec_vision_ai_unit_ucmtst_make_fixture(models, deployment, control);
     usecase_control_manager manager;
     if (manager.vqec_vision_ai_ftmgr_ucmgr_configure(
-            control, deployment, models).code_ != status_code::ok ||
-        manager.vqec_vision_ai_ftmgr_ucmgr_publish_initial(1).code_ != status_code::ok) {
+            control, deployment, models).code_ != status_code::ok) {
         throw std::runtime_error("usecase manager configure failed");
+    }
+    usecase_control_status initial;
+    if (manager.vqec_vision_ai_ports_ucctl_get_status(initial).code_ != status_code::ok ||
+        initial.entries_[0].loaded_ || initial.entries_[0].running_) {
+        throw std::runtime_error("unpublished generation reports loaded models");
+    }
+    usecase_apply_receipt unpublished_receipt;
+    const usecase_desired_plan unpublished_plan{"before_start", 1, {}};
+    if (manager.vqec_vision_ai_ports_ucctl_apply_desired_plan(
+            unpublished_plan, unpublished_receipt).code_ != status_code::invalid_state) {
+        throw std::runtime_error("desired replacement was accepted before startup readiness");
+    }
+    if (manager.vqec_vision_ai_ftmgr_ucmgr_publish_initial(1).code_ != status_code::ok) {
+        throw std::runtime_error("initial usecase publication failed");
     }
 
     usecase_desired_plan plan;
@@ -136,7 +149,8 @@ void vqec_vision_ai_unit_ucmtst_check_rejections_and_capabilities() {
     vqec_vision_ai_unit_ucmtst_make_fixture(models, deployment, control);
     usecase_control_manager manager;
     if (manager.vqec_vision_ai_ftmgr_ucmgr_configure(
-            control, deployment, models).code_ != status_code::ok) {
+            control, deployment, models).code_ != status_code::ok ||
+        manager.vqec_vision_ai_ftmgr_ucmgr_publish_initial(1).code_ != status_code::ok) {
         throw std::runtime_error("usecase manager configure failed");
     }
     usecase_desired_plan duplicate{"duplicate", 1,

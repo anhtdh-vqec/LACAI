@@ -572,7 +572,6 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_decoders(
         if (model.role_ == model_role::secondary) {
             continue;
         }
-        bool registered = false;
         for (const auto& owner : implementation_->models_) {
             if (owner.model_id_ != model.model_id_ || owner.decoder_ == nullptr) {
                 continue;
@@ -582,11 +581,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_decoders(
             if (result.code_ != status_code::ok) {
                 return result;
             }
-            registered = true;
         }
-        if (!registered) {
-            return {status_code::unsupported, "no prepared decoder for catalog model"};
-        }
+        // Catalog presence does not activate a model. Only prepared owners enter
+        // this generation's registry; source composition validates active lookups.
     }
     return {};
 }

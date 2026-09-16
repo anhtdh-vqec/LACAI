@@ -838,6 +838,23 @@
             TIMEOUT 20
             PASS_REGULAR_EXPRESSION "delivered=[1-9][0-9]*"
             FAIL_REGULAR_EXPRESSION "stopped=false;first_error=[1-9]")
+        if(TARGET vqec_vision_ai_usecase_control_dbus AND CMAKE_CROSSCOMPILING_EMULATOR)
+            find_program(usecase_runtime_python NAMES python3 PATHS /usr/bin
+                NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+            find_program(usecase_runtime_session NAMES dbus-run-session PATHS /usr/bin
+                NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+            if(usecase_runtime_python AND usecase_runtime_session)
+                add_test(NAME service_usecase_runtime_dbus
+                    COMMAND ${usecase_runtime_session}
+                        --config-file=/usr/share/dbus-1/session.conf --
+                        ${usecase_runtime_python}
+                        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_usecase_runtime_dbus_test.py
+                        ${CMAKE_CURRENT_SOURCE_DIR}/golden
+                        ${CMAKE_CROSSCOMPILING_EMULATOR}
+                        $<TARGET_FILE:vqec_ai_vision_applications>)
+                set_tests_properties(service_usecase_runtime_dbus PROPERTIES TIMEOUT 100)
+            endif()
+        endif()
     endif()
 
 if(VQEC_VISION_AI_ENABLE_ZVEC)

@@ -11,6 +11,10 @@ public:
     status vqec_vision_ai_ports_fenrl_begin(
         const face_enrollment_begin_request& _request,
         face_enrollment_status& _status) override {
+        if (_request.request_id_ == status_.request_id_) {
+            _status = status_;
+            return {};
+        }
         request_ = _request;
         status_ = {_request.request_id_, _request.subject_ref_,
             face_enrollment_state::collecting, 0, _request.expected_samples_,
@@ -142,11 +146,20 @@ int main() {
     test_cascade cascade;
     face_enrollment_image_pipeline pipeline;
     const face_enrollment_image_pipeline_config config{
-        &controller, &authorizer, &source, &detector, &cascade, {64, 48}, 9};
+        &controller, &authorizer, &source, &detector, &cascade, {64, 48}, 9, "file", 2, 3};
     assert(pipeline.vqec_vision_ai_appl_feipl_configure(config).code_ == status_code::ok);
     face_enrollment_begin_request request{
         "request-1", "subject-1", "/authorized/face.jpg", "file", 2, 3, 0, 1, 1};
     face_enrollment_status status;
+    auto mismatched = request;
+    mismatched.source_id_ = "unknown_source";
+    assert(pipeline.vqec_vision_ai_ports_fenrl_begin(mismatched, status).code_ ==
+        status_code::unauthorized);
+    mismatched = request;
+    ++mismatched.camera_id_;
+    assert(pipeline.vqec_vision_ai_ports_fenrl_begin(mismatched, status).code_ ==
+        status_code::unauthorized);
+    assert(!pipeline.vqec_vision_ai_appl_feipl_has_pending());
     assert(pipeline.vqec_vision_ai_ports_fenrl_begin(request, status).code_ == status_code::ok);
     assert(status.state_ == face_enrollment_state::collecting &&
         pipeline.vqec_vision_ai_appl_feipl_has_pending());
@@ -155,6 +168,9 @@ int main() {
     assert(pipeline.vqec_vision_ai_ports_fenrl_get_status(request.request_id_, status).code_ ==
         status_code::ok);
     assert(status.state_ == face_enrollment_state::completed && status.accepted_samples_ == 1);
+    assert(pipeline.vqec_vision_ai_ports_fenrl_begin(request, status).code_ == status_code::ok);
+    assert(status.state_ == face_enrollment_state::completed);
+    assert(!pipeline.vqec_vision_ai_appl_feipl_has_pending());
 
     request.request_id_ = "request-2";
     request.expected_gallery_revision_ = 2;

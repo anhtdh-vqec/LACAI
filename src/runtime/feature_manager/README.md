@@ -23,6 +23,8 @@ plus the serialized feature processor/stage boundary.
 | `vqec_vision_feature_processor_registry.cpp` | Bounded contract-to-factory registry returning distinct processor owners |
 | `vqec_vision_feature_stage.cpp` | Serialized processor coordinator with monotonic time and epoch faults |
 | `vqec_vision_feature_catalog.cpp` | Optional strict bounded feature-catalog JSON loader |
+| `vqec_vision_usecase_control_manager.cpp` | Desired-only CAS/idempotency manager with immutable pending deployment and explicit runtime-generation publication |
+| `vqec_vision_usecase_config.cpp` | Strict trusted-startup snapshot loader; no D-Bus entitlement self-assertion |
 
 ## Limits and next work
 
@@ -36,3 +38,5 @@ plus the serialized feature processor/stage boundary.
 - [Feature activation manager](../../../docs/architecture/feature_activation_manager.md)
 - [Feature processor registry](../../../docs/architecture/feature_processor_registry.md), [feature stage](../../../docs/architecture/feature_stage.md)
 - [Feature catalog](../../../docs/architecture/feature_catalog.md), [feature event contract](../../../docs/architecture/feature_event_contract.md)
+
+Service-owned live replacement and measured limitations: [FR validation](../../../docs/testing/face_recognition_production_validation.md).

@@ -4,6 +4,8 @@
 #include <limits>
 #include <utility>
 
+#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+
 namespace vqec::vision::ai {
 
 status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_configure(
@@ -12,7 +14,8 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_configure(
         _config.path_authorizer_ == nullptr || _config.image_source_ == nullptr ||
         _config.detector_ == nullptr || _config.cascade_ == nullptr ||
         _config.geometry_.width_ == 0 || _config.geometry_.height_ == 0 ||
-        _config.source_epoch_ == 0) {
+        _config.source_epoch_ == 0 || !vqec_vision_ai_cntr_ident_is_valid(
+            _config.source_id_, face_enrollment_limits::g_max_source_id_bytes)) {
         return {status_code::invalid_argument, "invalid enrollment image pipeline config"};
     }
     config_ = _config;
@@ -30,12 +33,19 @@ status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_begin(
         return {status_code::invalid_argument,
             "FW enrollment requires one image and one automatically selected face sample"};
     }
+    if (_request.source_id_ != config_.source_id_ ||
+        _request.camera_id_ != config_.camera_id_ ||
+        _request.channel_id_ != config_.channel_id_) {
+        return {status_code::unauthorized,
+            "enrollment source does not match the enabled FR pipeline"};
+    }
     if (has_pending_ && _request.request_id_ != pending_.request_id_) {
         return {status_code::resource_exhausted, "enrollment image pipeline already has a job"};
     }
     const auto begun = config_.controller_->vqec_vision_ai_ports_fenrl_begin_image(
         _request, _status);
-    if (begun.code_ != status_code::ok || has_pending_) {
+    if (begun.code_ != status_code::ok || has_pending_ ||
+        _status.state_ != face_enrollment_state::collecting) {
         return begun;
     }
     pending_ = _request;

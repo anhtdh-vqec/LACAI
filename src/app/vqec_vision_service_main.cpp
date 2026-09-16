@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,6 +29,7 @@
 #include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_usecase_config.hpp"
+#include "vqec_vision_usecase_control_manager.hpp"
 #include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
@@ -52,6 +54,9 @@
 #endif
 #if defined(VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS)
 #include "vqec_vision_face_enrollment_dbus.hpp"
+#endif
+#if defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
+#include "vqec_vision_usecase_control_dbus.hpp"
 #endif
 
 using namespace vqec::vision::ai;
@@ -83,6 +88,9 @@ namespace {
 volatile std::sig_atomic_t g_stop_requested = 0;
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
 constexpr std::uint64_t g_step_interval_ns = 1000000;
+// Internal generation outcomes; recovery-required must never enter candidate rollback.
+constexpr int g_reconcile_generation_exit_code = 4;
+constexpr int g_recovery_required_exit_code = 5;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
     g_stop_requested = 1;
@@ -469,6 +477,13 @@ struct parsed_arguments {
     std::string catalog_path;
     std::string feature_catalog_path;
     std::string usecase_snapshot_path;
+    bool usecase_dbus{false};
+    bool usecase_dbus_session_bus{false};
+    std::string usecase_service_name;
+    std::string usecase_object_path;
+    std::string usecase_peer_name;
+    int usecase_rpc_timeout_ms{0};
+    std::size_t usecase_callbacks_per_poll{0};
     std::uint64_t max_steps{0};
     std::uint32_t require_sources{0};
     // Production requires an explicit wired platform. Harness selects the device-free fake
@@ -534,6 +549,23 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.feature_catalog_path = _argv[++index];
         } else if (option == "--usecase-snapshot" && has_value) {
             _args.usecase_snapshot_path = _argv[++index];
+        } else if (option == "--usecase-dbus") {
+            _args.usecase_dbus = true;
+        } else if (option == "--usecase-dbus-session") {
+            _args.usecase_dbus = true;
+            _args.usecase_dbus_session_bus = true;
+        } else if (option == "--usecase-service-name" && has_value) {
+            _args.usecase_service_name = _argv[++index];
+        } else if (option == "--usecase-object-path" && has_value) {
+            _args.usecase_object_path = _argv[++index];
+        } else if (option == "--usecase-peer-name" && has_value) {
+            _args.usecase_peer_name = _argv[++index];
+        } else if (option == "--usecase-rpc-timeout-ms" && has_value) {
+            _args.usecase_rpc_timeout_ms = static_cast<int>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--usecase-callbacks-per-poll" && has_value) {
+            _args.usecase_callbacks_per_poll = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
         } else if (option == "--steps" && has_value) {
             _args.max_steps = std::strtoull(_argv[++index], nullptr, 10);
         } else if (option == "--require-sources" && has_value) {
@@ -706,12 +738,20 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
 
 }  // namespace
 
-int main(int _argc, char** _argv) {
+int vqec_vision_ai_appl_svcmn_run_generation(
+    int _argc, char** _argv, const deployment_config* _effective_deployment,
+    usecase_control_manager* _control_manager,
+    const std::function<void()>& _poll_control,
+    std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svcmn_parse(_argc, _argv, args)) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--usecase-snapshot <json>] "
+            "[--usecase-dbus|--usecase-dbus-session "
+            "--usecase-service-name <name> --usecase-object-path <path> "
+            "--usecase-peer-name <name> --usecase-rpc-timeout-ms <ms> "
+            "--usecase-callbacks-per-poll <n>] "
             "[--steps <n>] [--require-sources <n>] "
             "[--mode harness|production] [--platform fake|reference|qualcomm] "
             "[--model-package-registry <json>] "
@@ -750,7 +790,9 @@ int main(int _argc, char** _argv) {
         !vqec_vision_ai_appl_svcmn_load_feature_catalog(args.feature_catalog_path, features)) {
         return 1;
     }
-    if (!args.usecase_snapshot_path.empty()) {
+    if (_effective_deployment != nullptr) {
+        deployment = *_effective_deployment;
+    } else if (!args.usecase_snapshot_path.empty()) {
         usecase_control_snapshot control;
         if (!vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
                 args.usecase_snapshot_path, control)) {
@@ -777,15 +819,34 @@ int main(int _argc, char** _argv) {
             static_cast<unsigned long long>(control.control_revision_),
             static_cast<unsigned long long>(control.entitlement_revision_),
             deployment.sources_.size());
-        if (deployment.sources_.empty()) {
-            std::uint64_t idle_steps = 0;
-            while (!g_stop_requested &&
-                   (args.max_steps == 0 || idle_steps < args.max_steps)) {
-                std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-                ++idle_steps;
+    }
+    if (deployment.sources_.empty()) {
+        if (_control_manager != nullptr) {
+            const auto published = _pending_control_revision == 0
+                ? (_runtime_generation == 1
+                    ? _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_initial(
+                          _runtime_generation)
+                    : status{})
+                : _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_pending(
+                      _pending_control_revision, _runtime_generation);
+            if (published.code_ != status_code::ok) {
+                return 1;
             }
-            return 0;
         }
+        std::uint64_t idle_steps = 0;
+        while (!g_stop_requested &&
+               (args.max_steps == 0 || idle_steps < args.max_steps)) {
+            if (_poll_control) {
+                _poll_control();
+            }
+            if (_control_manager != nullptr &&
+                _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
+                return g_reconcile_generation_exit_code;
+            }
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+            ++idle_steps;
+        }
+        return 0;
     }
     const bool has_fr_arguments = !args.fr_gallery_path.empty() ||
         !args.fr_protected_directory.empty() || !args.fr_gallery_file_name.empty() ||
@@ -1557,6 +1618,9 @@ int main(int _argc, char** _argv) {
             pipeline_config.cascade_ = enrollment_cascade.get();
             pipeline_config.geometry_ = detector_config.geometry_;
             pipeline_config.source_epoch_ = detector_config.cycle_id_;
+            pipeline_config.source_id_ = source.source_id_;
+            pipeline_config.camera_id_ = source.camera_id_;
+            pipeline_config.channel_id_ = source.channel_id_;
             if (prepared.code_ == status_code::ok) {
                 prepared = enrollment_image_pipeline->vqec_vision_ai_appl_feipl_configure(
                     pipeline_config);
@@ -1622,13 +1686,50 @@ int main(int _argc, char** _argv) {
     std::array<observation_batch, deployment_limits::g_max_sources>
         latest_overlay_observations;
     std::array<bool, deployment_limits::g_max_sources> cascade_error_reported{};
+    bool reconcile_requested = false;
+    bool generation_published = _control_manager == nullptr;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
+        if (_poll_control) {
+            _poll_control();
+        }
+        if (_control_manager != nullptr && generation_published &&
+            _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
+            reconcile_requested = true;
+            break;
+        }
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
         if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
             first_error_code = report.first_error_code_;
+        }
+        if (!generation_published && first_error_code == status_code::ok) {
+            bool all_sources_running = true;
+            for (std::uint16_t source_slot = 0;
+                 source_slot < deployment.sources_.size(); ++source_slot) {
+                const auto* session = bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
+                if (session == nullptr ||
+                    session->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
+                        source_session_phase::running) {
+                    all_sources_running = false;
+                    break;
+                }
+            }
+            if (all_sources_running) {
+                const auto published = _pending_control_revision == 0
+                    ? (_runtime_generation == 1
+                        ? _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_initial(
+                              _runtime_generation)
+                        : status{})
+                    : _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_pending(
+                          _pending_control_revision, _runtime_generation);
+                if (published.code_ != status_code::ok) {
+                    first_error_code = published.code_;
+                    break;
+                }
+                generation_published = true;
+            }
         }
         if (stepped.code_ == status_code::ok) {
             std::array<observation_batch, deployment_limits::g_max_models_per_source> tracked;
@@ -1860,8 +1961,131 @@ int main(int _argc, char** _argv) {
         stopped ? "true" : "false", routed_sources, static_cast<int>(first_error_code));
     // Owners (feature manager, fan-outs, registries, reference platform) outlive the
     // bundle; the bundle's composition must be stopped before they are destroyed.
-    if (!stopped || first_error_code != status_code::ok) {
+    if (!stopped || enrollment_stopped.code_ != status_code::ok ||
+        cascade_stopped.code_ != status_code::ok) {
+        return g_recovery_required_exit_code;
+    }
+    if (!generation_published || first_error_code != status_code::ok) {
         return 1;
     }
+    if (reconcile_requested) {
+        return g_reconcile_generation_exit_code;
+    }
     return routed_sources >= args.require_sources ? 0 : 1;
+}
+
+int main(int _argc, char** _argv) {
+    parsed_arguments args;
+    if (!vqec_vision_ai_appl_svcmn_parse(_argc, _argv, args)) {
+        return vqec_vision_ai_appl_svcmn_run_generation(
+            _argc, _argv, nullptr, nullptr, {}, 0, 0);
+    }
+    if (!args.usecase_dbus) {
+        if (!args.usecase_service_name.empty() || !args.usecase_object_path.empty() ||
+            !args.usecase_peer_name.empty() || args.usecase_rpc_timeout_ms != 0 ||
+            args.usecase_callbacks_per_poll != 0) {
+            std::fprintf(stderr, "usecase DBus settings require --usecase-dbus\n");
+            return 2;
+        }
+        return vqec_vision_ai_appl_svcmn_run_generation(
+            _argc, _argv, nullptr, nullptr, {}, 0, 0);
+    }
+#if !defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
+    std::fprintf(stderr, "usecase DBus was requested but adapter is not built\n");
+    return 2;
+#else
+    if (!args.production_mode || args.usecase_snapshot_path.empty() ||
+        args.usecase_service_name.empty() || args.usecase_object_path.empty() ||
+        args.usecase_peer_name.empty() || args.usecase_rpc_timeout_ms <= 0 ||
+        args.usecase_callbacks_per_poll == 0) {
+        std::fprintf(stderr, "usecase DBus requires production mode, trusted snapshot, "
+            "service/object/peer names, RPC timeout and callback budget\n");
+        return 2;
+    }
+    model_catalog catalog;
+    deployment_config base_deployment;
+    usecase_control_snapshot trusted;
+    if (!vqec_vision_ai_appl_svcmn_load_model_catalog(args.catalog_path, catalog) ||
+        !vqec_vision_ai_appl_svcmn_load_deployment(
+            args.deployment_path, base_deployment) ||
+        !vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
+            args.usecase_snapshot_path, trusted)) {
+        return 1;
+    }
+    usecase_control_manager manager;
+    const auto configured = manager.vqec_vision_ai_ftmgr_ucmgr_configure(
+        trusted, base_deployment, catalog);
+    if (configured.code_ != status_code::ok) {
+        std::fprintf(stderr, "usecase control configuration failed (%d): %s\n",
+            static_cast<int>(configured.code_), configured.message_.c_str());
+        return 1;
+    }
+    usecase_activation_snapshot activation;
+    deployment_config current_deployment;
+    const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
+        base_deployment, catalog, trusted.catalog_, trusted.requests_,
+        activation, current_deployment);
+    if (composed.code_ != status_code::ok) {
+        std::fprintf(stderr, "initial usecase deployment failed (%d): %s\n",
+            static_cast<int>(composed.code_), composed.message_.c_str());
+        return 1;
+    }
+    usecase_control_dbus_server control_dbus;
+    const usecase_control_dbus_config dbus_config{
+        args.usecase_service_name, args.usecase_object_path,
+        args.usecase_peer_name, args.usecase_rpc_timeout_ms,
+        args.usecase_callbacks_per_poll, args.usecase_dbus_session_bus};
+    const auto opened = control_dbus.vqec_vision_ai_fwctl_ucdbs_open(
+        manager, dbus_config);
+    if (opened.code_ != status_code::ok) {
+        std::fprintf(stderr, "usecase DBus failed (%d): %s\n",
+            static_cast<int>(opened.code_), opened.message_.c_str());
+        return 1;
+    }
+    const std::function<void()> poll_control = [&control_dbus]() {
+        control_dbus.vqec_vision_ai_fwctl_ucdbs_poll();
+    };
+    deployment_config last_published_deployment = current_deployment;
+    std::uint64_t generation = 1;
+    std::uint64_t pending_revision = 0;
+    for (;;) {
+        const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
+            _argc, _argv, &current_deployment, &manager, poll_control,
+            generation, pending_revision);
+        if (outcome == g_reconcile_generation_exit_code) {
+            last_published_deployment = current_deployment;
+            usecase_control_snapshot pending;
+            deployment_config candidate;
+            const auto fetched = manager.vqec_vision_ai_ftmgr_ucmgr_get_pending(
+                pending, candidate);
+            if (fetched.code_ != status_code::ok ||
+                generation == UINT64_MAX) {
+                std::fprintf(stderr, "cannot fetch pending usecase generation\n");
+                return 1;
+            }
+            current_deployment = std::move(candidate);
+            pending_revision = pending.control_revision_;
+            ++generation;
+            continue;
+        }
+        if (outcome == g_recovery_required_exit_code) {
+            std::fprintf(stderr, "runtime drain requires recovery; replacement blocked\n");
+            return outcome;
+        }
+        if (pending_revision != 0 && manager.vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
+            const auto failed = manager.vqec_vision_ai_ftmgr_ucmgr_fail_pending(
+                pending_revision, status_code::invalid_state);
+            if (failed.code_ != status_code::ok) {
+                return 1;
+            }
+            current_deployment = last_published_deployment;
+            pending_revision = 0;
+            if (g_stop_requested) {
+                return outcome;
+            }
+            continue;
+        }
+        return outcome;
+    }
+#endif
 }

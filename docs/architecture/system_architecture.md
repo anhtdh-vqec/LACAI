@@ -116,9 +116,10 @@ compatible and admitted gates; only that filtered deployment may load vendor gra
 
 The desired-plan manager and D-Bus v1 transport are now separated from runtime ownership:
 the adapter can change only `desired`, while trusted gates remain in AI APP. Startup
-pre-load filtering is wired. Live generation replacement remains an explicit boundary;
-the executable must not report a D-Bus plan as running until old submissions drain and the
-complete candidate generation is published.
+pre-load filtering and serialized same-process generation replacement are wired. Old work
+drains before candidate construction; running is published after source-session startup.
+All-off retains only control. Signed provisioning, durable desired receipts and detailed
+runtime health observation remain open; see [FR validation](../testing/face_recognition_production_validation.md).
 
 Dependent ROI models use the bounded design in
 [cascade inference](cascade_inference.md). They retain the exact source frame through

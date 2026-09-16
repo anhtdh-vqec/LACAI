@@ -159,6 +159,9 @@ status usecase_control_manager::vqec_vision_ai_ports_ucctl_apply_desired_plan(
     if (_plan.expected_control_revision_ != control_.control_revision_) {
         return {status_code::invalid_state, "usecase control revision is stale"};
     }
+    if (runtime_generation_ == 0) {
+        return {status_code::invalid_state, "initial usecase runtime is still loading"};
+    }
     if (has_pending_) {
         return {status_code::invalid_state, "a usecase runtime generation is reconciling"};
     }
@@ -267,12 +270,14 @@ status usecase_control_manager::vqec_vision_ai_ports_ucctl_get_status(
             const bool active_ready = active != nullptr &&
                 active->state_ == usecase_effective_state::ready && runtime_generation_ != 0;
             const bool candidate_ready = record.state_ == usecase_effective_state::ready;
-            const bool loaded = active_ready || (!has_pending_ && !failed && candidate_ready);
+            const bool loaded = active_ready ||
+                (!has_pending_ && !failed && candidate_ready && runtime_generation_ != 0);
             bool running = !has_pending_ && active_ready;
+            const bool awaiting_publication = has_pending_ || runtime_generation_ == 0;
             auto runtime_state = vqec_vision_ai_ftmgr_ucmgr_runtime_state(
-                record.state_, has_pending_, failed);
+                record.state_, awaiting_publication, failed);
             const char* reason = vqec_vision_ai_ftmgr_ucmgr_reason(
-                record.state_, has_pending_, failed);
+                record.state_, awaiting_publication, failed);
             if (has_pending_ && active_ready && candidate_ready) {
                 running = true;
                 runtime_state = usecase_runtime_state::running;

@@ -16,6 +16,9 @@ struct face_enrollment_image_pipeline_config {
     face_image_cascade_port* cascade_{nullptr};
     preview_geometry geometry_;
     std::uint64_t source_epoch_{0};
+    std::string source_id_;
+    std::uint32_t camera_id_{0};
+    std::uint32_t channel_id_{0};
 };
 
 // One bounded image job. BeginEnrollment returns collecting; the serialized service loop
