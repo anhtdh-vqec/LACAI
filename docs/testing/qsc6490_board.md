@@ -99,6 +99,41 @@ load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
 
+## 2026-09-16 AI-owned protected gallery on `.98`
+
+The eSDK-built production binary was staged separately from the existing live binary,
+using the already staged licensed model packages and Zvec libraries. The original
+transient Zvec collection and permitted enrollment JPEG were retained. The first
+attempt exposed a Zvec C API behavior on a missing derived collection: its open error
+was not `NOT_FOUND`. The adapter now checks the configured path before opening it;
+missing means create, while unreadable or invalid existing paths fail closed. A real
+Zvec fresh-rebuild regression test passes under eSDK/QEMU.
+
+The service started with an AI-owned protected directory at mode 0700 and separate
+configuration for its encrypted gallery/key/lock filenames, gallery ID, preprocessing
+revision and byte limit. A trusted session-bus test peer invoked the image-path
+`BeginEnrollment` request. `GetGalleryStatus()` reported `(1, 0, 0, true, false)`
+before enrollment, then `(2, 1, 1, true, false)` after one accepted image. The three
+protected files were owned by root at mode 0600; the ciphertext contained no plaintext
+subject reference in a byte scan. This scan alone does not prove cryptographic safety.
+
+After a clean service stop/restart, the peer read `(2, 1, 1, true, false)` without a
+second enrollment; the encrypted file digest was unchanged. The service resumed both
+model slots, with SCRFD cascade embeddings and no reported cascade failures in the
+sampled log. A TCP host `ffprobe` returned H.264, 1920×1080, 30/1 for
+`rtsp://192.168.138.98:8554/live/ai/detect0`. The live recognition label was not
+visually rechecked in this run. The compatibility camera simulator and private session
+bus do not establish released-FW D-Bus/camera integration. Power-cut durability,
+hardware-bound key protection, backup/restore, liveness/accuracy, sustained FPS,
+CPU/thermal and released-FW qualification remain open.
+
+A further rapid restart temporarily failed to open the simulator's QMMF camera and the
+service stopped with no running source session. Starting the simulator again after
+resource release and then starting the service recovered both model slots and RTSP.
+The final running test session used that recovered simulator process. Automated camera
+restart/backoff and clean QMMF release need separate qualification; this incident does
+not invalidate the protected-gallery revision and ciphertext recovery observation.
+
 ## 2026-09-16 enrollment image source on `.98`
 
 After the target allocation moved to `192.168.138.98`, the eSDK-built POSIX path

@@ -267,9 +267,10 @@ storage boundary; Zvec là index dẫn xuất, không phải nguồn duy nhất 
 
 **Tiến độ M6 (2026-09-16):** AES-256-GCM store, private file validation, interprocess
 locking, disk CAS, atomic rename, tamper rejection và restart rebuild đã pass eSDK/QEMU.
-Zvec existing collection is destroyed only under explicit rebuild policy after the
-authoritative snapshot validates. Power-cut, temporary generation publication,
-hardware-backed key and device performance remain open.
+Board `.98` đã xác nhận enrollment ảnh qua D-Bus, revision 2 tồn tại qua clean restart
+và Zvec được rebuild từ snapshot. Zvec existing collection is destroyed only under
+explicit rebuild policy after the authoritative snapshot validates. Power-cut, temporary
+generation publication, hardware-backed key and device performance remain open.
 
 **Gate:** enroll/update/delete tồn tại đúng sau restart; crash không tạo match stale hoặc
 identity mồ côi; không search khi revision mismatch. Có backup/restore/rebuild procedure.

@@ -13,10 +13,12 @@ revision, and only then enables enrollment/search. Store mutations use an interp
 lock, on-disk revision CAS, owner-only files and same-directory fsync+rename. Corrupt or
 tampered ciphertext fails closed. `GetGalleryStatus` now exposes revision/count/health
 without identities or vectors. eSDK/QEMU covers encrypted restart recognition, stale CAS,
-tamper rejection, Zvec existing-collection rebuild and the D-Bus wire. The filesystem key
-is not hardware-bound; power-cut, keystore/TEE, capacity/performance and board validation
-remain release gates. The complete eSDK/QEMU suite passes 119/119. No board was accessed
-because all devices are currently occupied.
+tamper rejection, Zvec fresh/existing-collection rebuild and the D-Bus wire. On `.98`,
+image-path enrollment through D-Bus advanced revision 1 to 2; after a clean process
+restart `GetGalleryStatus` returned revision 2 with the same subject/template count,
+and the published RTSP stream probed as H.264 1920×1080 30/1. The filesystem key is not
+hardware-bound; power-cut, keystore/TEE, capacity/performance and released-FW board
+qualification remain release gates. The complete eSDK/QEMU suite passes 119/119.
 
 2026-09-16 source step: enrollment image source port and Qualcomm GStreamer JPEG-to-NV12
 adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
@@ -27,7 +29,7 @@ dedicated graph wiring. On `.98`, authorized JPEG enrollment completed through t
 SCRFD/FastCV/EdgeFace/Zvec path via D-Bus, accepted one template and advanced gallery
 revision 1 to 2. In the same running process the AI-owned overlay/H.264 ring published a
 host-probed 1920x1080 30 FPS RTSP stream. That historical run used a transient gallery;
-the current durable implementation has not yet been rerun on a board. See
+the current protected gallery has since passed clean-restart recovery on `.98`. See
 [image source](../architecture/face_enrollment_image_source.md).
 
 2026-09-16 combined `.98` run: one RAW acquisition drove YOLOv8n-person and SCRFD while

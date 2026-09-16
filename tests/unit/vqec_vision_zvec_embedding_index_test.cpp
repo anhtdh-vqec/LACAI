@@ -18,15 +18,27 @@ int main(int _argc, char** _argv) {
             ++failures;
         }
     };
+    embedding_index_config config;
+    config.model_id_ = "synthetic_embedding";
+    config.model_version_ = "1";
+    config.dimensions_ = 2;
+    config.capacity_ = 3;
+    config.max_results_ = 3;
+    config.initial_revision_ = 1;
+    {
+        // Production recovery starts with a fresh derived collection.
+        zvec_embedding_index initial(_argv[1],
+            zvec_existing_collection_policy::rebuild);
+        const auto opened = initial.vqec_vision_ai_ports_emidx_configure(config);
+        if (opened.code_ != status_code::ok) {
+            std::cerr << "Zvec fresh rebuild configure failed: "
+                      << opened.message_ << '\n';
+        }
+        check(opened.code_ == status_code::ok);
+    }
+    std::filesystem::remove_all(_argv[1]);
     {
         zvec_embedding_index index(_argv[1]);
-        embedding_index_config config;
-        config.model_id_ = "synthetic_embedding";
-        config.model_version_ = "1";
-        config.dimensions_ = 2;
-        config.capacity_ = 3;
-        config.max_results_ = 3;
-        config.initial_revision_ = 1;
         const auto configured = index.vqec_vision_ai_ports_emidx_configure(config);
         check(configured.code_ == status_code::ok);
         if (configured.code_ == status_code::ok) {

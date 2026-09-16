@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cmath>
 #include <charconv>
 #include <cstring>
@@ -9,6 +10,8 @@
 #include <new>
 #include <string>
 #include <utility>
+
+#include <sys/stat.h>
 
 #include <zvec/c_api.h>
 
@@ -78,18 +81,30 @@ status vqec_vision_ai_zvec_zvidx_create_collection(
     zvec_existing_collection_policy _existing_policy,
     zvec_collection_t*& _collection) noexcept {
     if (_existing_policy == zvec_existing_collection_policy::rebuild) {
-        zvec_collection_t* existing = nullptr;
-        const auto opened = zvec_collection_open(_path.c_str(), nullptr, &existing);
-        if (opened == ZVEC_OK) {
+        // Zvec does not consistently map an absent collection to NOT_FOUND on
+        // target. Probe the configured derived path before calling its open API;
+        // all other filesystem failures and existing invalid paths fail closed.
+        struct stat path_stat{};
+        if (::lstat(_path.c_str(), &path_stat) == 0) {
+            if (!S_ISDIR(path_stat.st_mode)) {
+                return {status_code::invalid_argument,
+                    "Zvec derived collection path is not a directory"};
+            }
+            zvec_collection_t* existing = nullptr;
+            const auto opened = zvec_collection_open(_path.c_str(), nullptr, &existing);
+            if (opened != ZVEC_OK) {
+                return vqec_vision_ai_zvec_zvidx_map_error(
+                    opened, "Zvec derived collection inspection failed");
+            }
             const auto destroyed = zvec_collection_destroy(existing);
             if (destroyed != ZVEC_OK) {
                 (void)zvec_collection_close(existing);
                 return vqec_vision_ai_zvec_zvidx_map_error(
                     destroyed, "Zvec derived collection destruction failed");
             }
-        } else if (opened != ZVEC_ERROR_NOT_FOUND) {
-            return vqec_vision_ai_zvec_zvidx_map_error(
-                opened, "Zvec derived collection inspection failed");
+        } else if (errno != ENOENT) {
+            return {status_code::io_error,
+                "Zvec derived collection path inspection failed"};
         }
     }
     zvec_collection_schema_t* schema =
