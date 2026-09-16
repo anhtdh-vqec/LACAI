@@ -370,28 +370,64 @@ built with the approved eSDK toolchain and verified natively on `.98`:
      Introduced persistent thread-confined scratch workspaces (`rgb_scratch_`, `planes_scratch_`,
      `patches_scratch_`, `luma_scratch_`), eliminating 7 heap allocations per detected face.
 
+4. **Phase 4 (Renderer Cache, Plane Memcpy, Queue Removal & Deadline Loop Pacing)**:
+   - Defect: Frame drops down to 13–14 FPS and 50–60% CPU were traced to four bottlenecks:
+     a) Unconditional `sleep_for` in `service_main.cpp` creating a 35–40 ms loop period (> 33.3 ms 30 FPS period), overwriting incoming camera frames before acquisition.
+     b) Per-frame `::mmap` / `::munmap` on 4 MiB NV12 buffer causing page-fault storms and TLB shootdowns.
+     c) 1,620 individual `std::memcpy` calls per frame across NV12 row strides.
+     d) Redundant GStreamer `queue` element inside the `qtivoverlay` pipeline burning 7.5%–10.0% CPU.
+   - Fixes:
+     - Implemented deadline loop pacing (`step_cost_ns < interval ? sleep(interval - step_cost_ns) : 0`).
+     - Added 8-slot cached `mmap` avoiding repeated system calls and page faults on rotating buffer FDs.
+     - Replaced line-by-line copies with 2 contiguous ARM64 Neon memory burst copies for Y and UV planes.
+     - Drained all available access units from `appsink` in a non-blocking pull loop.
+     - Removed redundant `queue` element between `appsrc` and `qtivoverlay`.
+
+5. **Phase 5 (Decoder Direct Float32 Pointer Indexing)**:
+   - Defect: YOLOv8 (8,400 anchors) and SCRFD (16,800 anchors) decoders invoked `vqec_vision_ai_detec_tnrd_read_scalar`
+     up to 504,000 times/second at 30 FPS, performing repeated bounds checking, integer divisions,
+     modulos, type switches, and `memcpy` calls.
+   - Fix: Added fast-path direct `float32*` array indexing in `yolov8_decoder` and `anchor_distance_decoder`,
+     reducing decoder CPU overhead while preserving exact schema validation and typed fallbacks.
+
 ### Measured Board Evidence (.98)
 
+- **RTSP Stream Output Rate (Measured via FFmpeg TCP probe over 10 seconds)**:
+  - Nominal camera rate: **30 FPS (1920×1080 NV12)**.
+  - Measured output: **301 frames in 10.00 seconds = 30.1 FPS**.
+  - Frame drop rate: **0% (Zero dropped frames)**.
+  - Previous baseline before Phase 4: 13–14 FPS (>50% dropped frames).
+
 - **Single-model Person flow (`yolov8n_person` @ 30 FPS 1080p, overlay, V4L2 H.264 HW encode, ring)**:
-  - Total process CPU: **27.3% – 35.0% of a single core** (representing **~3.5% – 4.3%** of the
-    8-core SoC capacity).
+  - Total process CPU: **36.0% – 38.0% of a single core** (representing **~4.5%** of the 8-core SoC capacity).
   - Thread breakdown:
-    - Preprocessing thread (`input:s+`): 14.4%
-    - Supervisor main thread: 10.9%
-    - Queue thread (`queue0:+`): 6.5%
-    - Postprocess / worker thread: 4.0%
-    - V4L2 H.264 HW encode: 1.5%
-  - Comparison: Directly matches `ai_app`'s ~25% of one core baseline while preserving LACAI's
-    modular hexagonal architecture and strict interface encapsulation.
+    - Preprocessing thread (`input:s+`, `qtimlvconverter` 1080p -> 640x640): 15.9% – 17.0%
+    - Supervisor main thread: 7.5% – 8.0%
+    - Output render & appsrc (`src:src`): 6.5% – 7.0%
+    - Worker thread (YOLOv8 decoder): 3.5% – 4.0%
+    - V4L2 H.264 HW encode: 0.5% – 1.0%
+    - GStreamer queue thread: Eliminated (0.0%)
 
 - **Dual-model + FR Cascade flow (`yolov8n_person` + `scrfd_500m_bnkps` + `edgeface` @ 30 FPS)**:
-  - System idle: **79.4% idle** (SoC-wide CPU load is only 20.6%).
-  - Total process CPU: **~50.0% of a single core** across all active threads:
-    - Main supervisor thread: 21.9%
-    - Preprocessing thread 1: 9.5%
-    - Preprocessing thread 2: 9.0%
-    - GStreamer queue thread: 5.0%
-    - Worker threads: 2.5% each
+  - System idle: **75.0% – 78.0% idle** (SoC-wide CPU load is only 22% – 25%).
+  - Total process CPU: **~60.0% – 65.0% of a single core** across all active threads:
+    - Main supervisor thread: 23.5%
+    - Preprocessing thread 1 (`input:s+`, YOLOv8): 12.0%
+    - Preprocessing thread 2 (`input:s+`, SCRFD): 12.0%
+    - Output render & appsrc (`src:src`): 6.5%
+    - Worker threads (fast-path decoders): 2.5% – 4.0% each
     - V4L2 H.264 HW encode: 0.5%
-  - Stability: Zero cascade failures (`cascade_failed=0`), steady 30 FPS inference routing.
+    - Cascade status: Zero cascade failures (`cascade_failed=0`), steady 30 FPS inference routing.
+
+### Comparison Against Legacy `ai_app`
+
+Legacy `ai_app` was observed at ~15%–20% of one core for person detection because:
+1. **Inference Cadence**: `ai_app` configured `"inference_fps": 10` by default (running 3× fewer inferences per second than LACAI).
+2. **cDSP Preprocessing Offload**: `ai_app` offloaded image letterboxing (`ScaleDownMNu8` and `ColorYCbCr420PseudoPlanarToRGB888u8`) to the Hexagon cDSP via `libvqec_dsp_skel.so`.
+3. **cDSP Postprocessing Offload**: NMS and coordinate decoding were executed on the cDSP.
+
+LACAI runs models at **full 30 FPS** (matching preview rate, per user requirement) using Qualcomm Linux standard plugins (`qtimlvconverter` + `qtimlqnn`) on CPU FastCV. At full 30 FPS:
+- Single-model person flow: **~36% of 1 core** (~4.5% SoC load).
+- Output stream: **Steady 30.1 FPS with zero frame drops**.
+
 
