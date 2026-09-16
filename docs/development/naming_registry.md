@@ -312,6 +312,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
 | src/core/vqec_vision_image_alignment.cpp | imaln | vqec_vision_ai_core_imaln_ |
 | include/vqec/vision/ai/contracts/vqec_vision_color.hpp | color | (contract declaration; implemented in core) |
+| include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp | fwrly | (contract data + inline path helper; mirrors released FW ring v5) |
+| tests/unit/vqec_vision_fw_ring_layout_test.cpp | frlt | (main exception only) |
 | src/core/vqec_vision_color.cpp | color | vqec_vision_ai_core_color_ |
 | tests/unit/vqec_vision_color_test.cpp | coltst | vqec_vision_ai_unit_coltst_ |
 | include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp | imaln | vqec_vision_ai_ports_imaln_ |

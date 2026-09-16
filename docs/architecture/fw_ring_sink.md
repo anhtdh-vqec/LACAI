@@ -1,5 +1,24 @@
 # Released FW ring sink wrapper
 
+2026-09-16 ABI decision. The canonical AI-side definition of the released FW encoded ring is
+`include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp`: **version 5, 16 slots,
+1 MiB payload, 4096-byte header, 1232-byte slot header**, matching the deployed FW RTSP
+reader (`vqec_vision_ring_rtsp.py`, offsets documented there). Adapters must include this
+header and must not re-declare offsets, sizes or the version. The production writer is
+`fw_ring_writer` inside `vqec_vision_qtiv_renderer.cpp` (AI owns encoded ring production);
+it creates with `O_CREAT|O_EXCL`, attaches and validates an existing ring, and never
+unlinks or clobbers another writer's mapping. Slot publication uses a release fence before
+the seqlock closes and before the header write sequence advances; the FW reader must use a
+matching acquire.
+
+The optional `ring_sink` wrapper below was written against an earlier reviewed FW revision
+(commit `139d335`, version 4, 2 MiB payload). It is **stale relative to the deployed v5
+ring** and is not used by the production composition. Do not re-enable it as the production
+writer until its constants, `preview_limits` and this document are re-baselined against a
+released `camera_ai_common` v5 header (which is not present in the current eSDK sysroot).
+The earlier "AI must not duplicate the shared ABI" rule still holds: the single duplicated
+layout now lives in one contracts header, not inline in the adapter.
+
 Source-only optional adapter against the reviewed camera_ai_common API. No SDK files
 copied; no configure/build/board test run. Baseline FW commit:
 139d335913e19e5a33a36fa8f8d706009892db44.

@@ -1,5 +1,7 @@
 #include "vqec_vision_qtiv_renderer.hpp"
 
+#include <atomic>
+#include <cerrno>
 #include <cstring>
 #include <limits>
 
@@ -16,6 +18,7 @@
 #include <gst/video/video.h>
 #include <gst/video/video-utils.h>
 
+#include "vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
@@ -96,16 +99,9 @@ status vqec_vision_ai_qcom_qtvr_read_pipeline_error(GstElement* _pipeline) {
     return result;
 }
 
-namespace ring_layout {
-inline constexpr std::uint32_t g_version = 5;
-inline constexpr std::uint32_t g_slot_count = 16;
-inline constexpr std::uint32_t g_payload_size = 1U << 20;
-inline constexpr std::size_t g_header_size = 4096;
-inline constexpr std::size_t g_slot_header_size = 1232;
-inline constexpr std::size_t g_h_write_sequence = 32;
-inline constexpr std::size_t g_h_ring_id = 64;
-inline constexpr std::uint32_t g_magic = 0x4C414341U;
-}  // namespace ring_layout
+// The released FW ring ABI has a single definition in the contracts header. Adapters must
+// not re-declare offsets, sizes or the version; the FW RTSP service is the only reader.
+namespace ring_layout = fw_ring_layout;
 
 template <typename T>
 void vqec_vision_ai_qcom_qtvr_store(std::uint8_t* _base, std::size_t _offset, T _value) {
@@ -119,36 +115,62 @@ public:
     ~fw_ring_writer() { close(); }
 
     bool open(const std::string& _ring_id) {
-        path_ = "/dev/shm/camera_ai_" + _ring_id;
-        ::unlink(path_.c_str());
-        fd_ = ::open(path_.c_str(), O_RDWR | O_CREAT, 0600);
+        path_ = ring_layout::vqec_vision_ai_cntr_fwrly_make_shm_path(_ring_id);
+        bool created = false;
+        fd_ = ::open(path_.c_str(), O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+        if (fd_ < 0 && errno == EEXIST) {
+            // Attach to an existing ring instead of clobbering another writer's mapping.
+            // Layout/version mismatch fails closed; coordinated replacement is a FW handshake,
+            // never an implicit unlink.
+            fd_ = ::open(path_.c_str(), O_RDWR | O_CLOEXEC);
+        } else if (fd_ >= 0) {
+            created = true;
+        }
         if (fd_ < 0) {
             return false;
         }
-        total_ = ring_layout::g_header_size +
+        total_ = static_cast<std::size_t>(ring_layout::g_header_size) +
             static_cast<std::size_t>(ring_layout::g_slot_count) *
                 (ring_layout::g_slot_header_size + ring_layout::g_payload_size);
-        if (::ftruncate(fd_, static_cast<off_t>(total_)) != 0) {
+        if (created && ::ftruncate(fd_, static_cast<off_t>(total_)) != 0) {
+            close();
             return false;
         }
         mapping_ = ::mmap(nullptr, total_, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
         if (mapping_ == MAP_FAILED) {
             mapping_ = nullptr;
+            close();
             return false;
         }
         auto* base = static_cast<std::uint8_t*>(mapping_);
-        vqec_vision_ai_qcom_qtvr_store(base, 0, ring_layout::g_magic);
-        vqec_vision_ai_qcom_qtvr_store(base, 4, ring_layout::g_version);
-        vqec_vision_ai_qcom_qtvr_store(base, 8,
-            static_cast<std::uint32_t>(ring_layout::g_header_size));
-        vqec_vision_ai_qcom_qtvr_store(base, 12,
-            static_cast<std::uint32_t>(ring_layout::g_slot_header_size));
-        vqec_vision_ai_qcom_qtvr_store(base, 16, ring_layout::g_slot_count);
-        vqec_vision_ai_qcom_qtvr_store(base, 20, ring_layout::g_payload_size);
-        vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_write_sequence,
-            static_cast<std::uint64_t>(0));
-        std::memcpy(base + ring_layout::g_h_ring_id, _ring_id.data(),
-            _ring_id.size() < 63 ? _ring_id.size() : 63);
+        if (created) {
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_magic,
+                ring_layout::g_magic);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_version,
+                ring_layout::g_version);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_header_size,
+                ring_layout::g_header_size);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_slot_header_size,
+                ring_layout::g_slot_header_size);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_slot_count,
+                ring_layout::g_slot_count);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_payload_size,
+                ring_layout::g_payload_size);
+            vqec_vision_ai_qcom_qtvr_store(base, ring_layout::g_h_write_sequence,
+                static_cast<std::uint64_t>(0));
+            std::memcpy(base + ring_layout::g_h_ring_id, _ring_id.data(),
+                _ring_id.size() < (ring_layout::g_h_ring_id_max_bytes - 1)
+                    ? _ring_id.size()
+                    : (ring_layout::g_h_ring_id_max_bytes - 1));
+            sequence_ = 0;
+        } else {
+            if (!vqec_vision_ai_qcom_qtvr_validate_attached_header(base)) {
+                close();
+                return false;
+            }
+            sequence_ = vqec_vision_ai_qcom_qtvr_read_u64(base,
+                ring_layout::g_h_write_sequence);
+        }
         return true;
     }
 
@@ -164,35 +186,68 @@ public:
     }
 
     bool push(const std::uint8_t* _data, std::size_t _size, std::uint32_t _width,
-        std::uint32_t _height, bool _keyframe) {
-        if (mapping_ == nullptr || _size == 0 || _size > ring_layout::g_payload_size) {
+        std::uint32_t _height, std::uint64_t _timestamp_ns, bool _keyframe) {
+        if (mapping_ == nullptr || _data == nullptr || _size == 0 ||
+            _size > ring_layout::g_payload_size) {
             return false;
         }
         const std::size_t index = sequence_ % ring_layout::g_slot_count;
-        const std::size_t base = ring_layout::g_header_size +
+        const std::size_t base = static_cast<std::size_t>(ring_layout::g_header_size) +
             index * (ring_layout::g_slot_header_size + ring_layout::g_payload_size);
         auto* slot = static_cast<std::uint8_t*>(mapping_);
         const std::uint32_t write_started =
             static_cast<std::uint32_t>((sequence_ * 2U) + 1U);
         const std::uint32_t write_finished = write_started + 1U;
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, write_started);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 8, static_cast<std::uint32_t>(_size));
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 20, _width);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 24, _height);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 28, _width);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 40,
-            static_cast<std::uint32_t>(_keyframe ? 1 : 0));
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 56, sequence_ + 1);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 104, sequence_);
-        std::memcpy(slot + base + 176, "H264", 4);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_seqlock, write_started);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_data_size,
+            static_cast<std::uint32_t>(_size));
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_width, _width);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_height, _height);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_stride, _width);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_is_keyframe,
+            static_cast<std::uint32_t>(_keyframe ? 1U : 0U));
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_frame_id,
+            static_cast<std::uint64_t>(sequence_ + 1U));
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_timestamp_ns,
+            _timestamp_ns);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_media_pts_ns,
+            _timestamp_ns);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_sequence, sequence_);
+        std::memcpy(slot + base + ring_layout::g_s_codec, "H264", 4);
         std::memcpy(slot + base + ring_layout::g_slot_header_size, _data, _size);
-        vqec_vision_ai_qcom_qtvr_store(slot, base + 0, write_finished);
+        // Seqlock producer barrier: metadata and payload must be visible before the slot is
+        // published. Closing the fd is still not hardware completion.
+        std::atomic_thread_fence(std::memory_order_release);
+        vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_seqlock, write_finished);
         ++sequence_;
+        std::atomic_thread_fence(std::memory_order_release);
         vqec_vision_ai_qcom_qtvr_store(slot, ring_layout::g_h_write_sequence, sequence_);
         return true;
     }
 
 private:
+    static std::uint64_t vqec_vision_ai_qcom_qtvr_read_u64(
+        const std::uint8_t* _base, std::size_t _offset) {
+        std::uint64_t value = 0;
+        std::memcpy(&value, _base + _offset, sizeof(value));
+        return value;
+    }
+
+    static bool vqec_vision_ai_qcom_qtvr_validate_attached_header(
+        const std::uint8_t* _base) {
+        const auto read_u32 = [](const std::uint8_t* _source, std::size_t _offset) {
+            std::uint32_t value = 0;
+            std::memcpy(&value, _source + _offset, sizeof(value));
+            return value;
+        };
+        return read_u32(_base, ring_layout::g_h_version) == ring_layout::g_version &&
+            read_u32(_base, ring_layout::g_h_header_size) == ring_layout::g_header_size &&
+            read_u32(_base, ring_layout::g_h_slot_header_size) ==
+                ring_layout::g_slot_header_size &&
+            read_u32(_base, ring_layout::g_h_slot_count) == ring_layout::g_slot_count &&
+            read_u32(_base, ring_layout::g_h_payload_size) == ring_layout::g_payload_size;
+    }
+
     std::string path_;
     int fd_{-1};
     void* mapping_{nullptr};
@@ -441,8 +496,12 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         GstMapInfo out_map {};
         if (encoded != nullptr && gst_buffer_map(encoded, &out_map, GST_MAP_READ)) {
             const bool keyframe = (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
+            const GstClockTime encoded_pts = GST_BUFFER_PTS(encoded);
+            const std::uint64_t timestamp_ns =
+                GST_CLOCK_TIME_IS_VALID(encoded_pts) ? encoded_pts : 0U;
             if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data), out_map.size,
-                    _frame.descriptor_.width_, _frame.descriptor_.height_, keyframe)) {
+                    _frame.descriptor_.width_, _frame.descriptor_.height_, timestamp_ns,
+                    keyframe)) {
                 ++impl.written_;
             } else {
                 result = {status_code::io_error, "cannot write the encoded ring slot"};
