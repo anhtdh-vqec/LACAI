@@ -27,6 +27,9 @@ Versioned face/body embedding index boundary for recognition and retrieval workf
   never a source-tree default. Search remains pinned to the in-memory gallery revision and
   embedding model identity. Existing collections are rejected until a journaled recovery
   handshake supplies the authoritative revision; this prevents stale matches after restart.
+- `recognition_session::configure_persistent` consumes the authoritative face-gallery
+  snapshot and protected-store port, rebuilds a fresh index at the durable revision and
+  commits mutations before derived-index updates.
 - The authoritative face-gallery snapshot and protected-store port now define bounded
   model/preprocess identity plus atomic revision CAS; the FW encrypted adapter and Zvec
   rebuild/publish owner remain open.

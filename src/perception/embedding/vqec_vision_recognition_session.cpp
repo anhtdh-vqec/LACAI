@@ -15,13 +15,8 @@ bool vqec_vision_ai_embed_rcses_valid_revision_change(
     return _current == _expected && _current != UINT64_MAX;
 }
 
-}  // namespace
-
-status recognition_session::vqec_vision_ai_embed_rcses_configure(
-    embedding_index_port& _index, const recognition_session_config& _config) {
-    if (is_configured_) {
-        return {status_code::invalid_state, "recognition session is already configured"};
-    }
+status vqec_vision_ai_embed_rcses_validate_config(
+    const recognition_session_config& _config) {
     const auto policy_status =
         vqec_vision_ai_embed_rcpol_validate_config(_config.policy_);
     if (policy_status.code_ != status_code::ok ||
@@ -36,6 +31,20 @@ status recognition_session::vqec_vision_ai_embed_rcses_configure(
         _config.search_minimum_similarity_ > _config.policy_.minimum_similarity_) {
         return {status_code::invalid_argument,
             "recognition session configuration is invalid"};
+    }
+    return {};
+}
+
+}  // namespace
+
+status recognition_session::vqec_vision_ai_embed_rcses_configure(
+    embedding_index_port& _index, const recognition_session_config& _config) {
+    if (is_configured_) {
+        return {status_code::invalid_state, "recognition session is already configured"};
+    }
+    const auto config_status = vqec_vision_ai_embed_rcses_validate_config(_config);
+    if (config_status.code_ != status_code::ok) {
+        return config_status;
     }
     try {
         std::vector<template_metadata> metadata;
@@ -55,6 +64,93 @@ status recognition_session::vqec_vision_ai_embed_rcses_configure(
         return {status_code::resource_exhausted,
             "recognition session metadata allocation failed"};
     }
+}
+
+status recognition_session::vqec_vision_ai_embed_rcses_configure_persistent(
+    embedding_index_port& _index, face_gallery_store_port& _store,
+    const recognition_session_config& _config,
+    const face_gallery_config& _gallery_config) {
+    if (is_configured_) {
+        return {status_code::invalid_state, "recognition session is already configured"};
+    }
+    const auto config_status = vqec_vision_ai_embed_rcses_validate_config(_config);
+    const auto gallery_status =
+        vqec_vision_ai_core_fgalr_validate_config(_gallery_config);
+    if (config_status.code_ != status_code::ok) {
+        return config_status;
+    }
+    if (gallery_status.code_ != status_code::ok ||
+        _gallery_config.model_id_ != _config.index_.model_id_ ||
+        _gallery_config.model_version_ != _config.index_.model_version_ ||
+        _gallery_config.dimensions_ != _config.index_.dimensions_ ||
+        _gallery_config.capacity_ != _config.index_.capacity_ ||
+        _gallery_config.max_templates_per_subject_ !=
+            _config.max_templates_per_subject_) {
+        return {status_code::invalid_argument,
+            "recognition gallery and index configuration differ"};
+    }
+
+    face_gallery_snapshot gallery;
+    const auto loaded = _store.vqec_vision_ai_ports_fgstr_load(
+        _gallery_config, gallery);
+    if (loaded.code_ != status_code::ok) {
+        return loaded;
+    }
+    const auto validated =
+        vqec_vision_ai_core_fgalr_validate_snapshot(_gallery_config, gallery);
+    if (validated.code_ != status_code::ok) {
+        return validated;
+    }
+    if (gallery.revision_ <= gallery.templates_.size()) {
+        return {status_code::invalid_state,
+            "face gallery revision cannot seed an index rebuild"};
+    }
+
+    recognition_session_config candidate_config;
+    face_gallery_config candidate_gallery_config;
+    std::vector<template_metadata> metadata;
+    embedding_index_config index_config;
+    try {
+        candidate_config = _config;
+        candidate_gallery_config = _gallery_config;
+        metadata.reserve(_config.index_.capacity_);
+        for (const auto& item : gallery.templates_) {
+            metadata.push_back({item.record_id_, item.subject_ref_});
+        }
+        index_config = _config.index_;
+        index_config.initial_revision_ = gallery.revision_ - gallery.templates_.size();
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "recognition recovery allocation failed"};
+    }
+    auto rebuilt = _index.vqec_vision_ai_ports_emidx_configure(index_config);
+    auto revision = index_config.initial_revision_;
+    for (const auto& item : gallery.templates_) {
+        if (rebuilt.code_ != status_code::ok) {
+            break;
+        }
+        embedding_gallery_record record{item.record_id_, item.subject_ref_, item.values_};
+        rebuilt = _index.vqec_vision_ai_ports_emidx_upsert(
+            record, revision, revision + 1U);
+        ++revision;
+    }
+    if (rebuilt.code_ != status_code::ok || revision != gallery.revision_ ||
+        _index.vqec_vision_ai_ports_emidx_revision() != gallery.revision_) {
+        return rebuilt.code_ == status_code::ok
+            ? status{status_code::invalid_state,
+                  "rebuilt embedding index revision differs from gallery"}
+            : rebuilt;
+    }
+
+    index_ = &_index;
+    store_ = &_store;
+    config_ = std::move(candidate_config);
+    gallery_config_ = std::move(candidate_gallery_config);
+    gallery_ = std::move(gallery);
+    templates_ = std::move(metadata);
+    next_record_id_ = gallery_.next_record_id_;
+    is_configured_ = true;
+    return {};
 }
 
 status recognition_session::vqec_vision_ai_embed_rcses_add_template(
@@ -96,16 +192,37 @@ status recognition_session::vqec_vision_ai_embed_rcses_add_template(
     const std::uint64_t candidate_revision = revision + 1U;
     embedding_gallery_record record;
     template_metadata metadata;
+    face_gallery_snapshot replacement;
     try {
         record = {candidate_record_id, _subject_ref, _embedding.values_};
         metadata = {candidate_record_id, _subject_ref};
+        if (store_ != nullptr) {
+            replacement = gallery_;
+            replacement.revision_ = candidate_revision;
+            replacement.next_record_id_ = candidate_record_id + 1U;
+            replacement.templates_.push_back(
+                {candidate_record_id, _subject_ref, _embedding.values_});
+        }
     } catch (const std::bad_alloc&) {
         return {status_code::resource_exhausted, "recognition template allocation failed"};
+    }
+    if (store_ != nullptr) {
+        const auto validated = vqec_vision_ai_core_fgalr_validate_replacement(
+            gallery_config_, revision, replacement);
+        if (validated.code_ != status_code::ok) {
+            return validated;
+        }
+        const auto stored = store_->vqec_vision_ai_ports_fgstr_replace(
+            gallery_config_, revision, replacement);
+        if (stored.code_ != status_code::ok) {
+            return stored;
+        }
     }
     const auto added = index_->vqec_vision_ai_ports_emidx_upsert(
         record, revision, candidate_revision);
     if (added.code_ != status_code::ok) {
-        if (index_->vqec_vision_ai_ports_emidx_revision() != revision) {
+        if (store_ != nullptr ||
+            index_->vqec_vision_ai_ports_emidx_revision() != revision) {
             is_faulted_ = true;
         }
         return added;
@@ -113,6 +230,9 @@ status recognition_session::vqec_vision_ai_embed_rcses_add_template(
     // Both string and vector capacity are prepared before mutation; move cannot allocate.
     templates_.push_back(std::move(metadata));
     next_record_id_ = candidate_record_id + 1U;
+    if (store_ != nullptr) {
+        gallery_ = std::move(replacement);
+    }
     _record_id = candidate_record_id;
     _new_revision = candidate_revision;
     return {};
@@ -138,6 +258,34 @@ status recognition_session::vqec_vision_ai_embed_rcses_remove_subject(
     if (revision == 0 || count >= UINT64_MAX - revision) {
         return {status_code::invalid_state, "recognition revision space is exhausted"};
     }
+    if (count == 0) {
+        return {status_code::invalid_argument, "recognition subject is unknown"};
+    }
+    face_gallery_snapshot replacement;
+    if (store_ != nullptr) {
+        try {
+            replacement = gallery_;
+            replacement.revision_ = revision + count;
+            replacement.templates_.erase(std::remove_if(
+                replacement.templates_.begin(), replacement.templates_.end(),
+                [&_subject_ref](const face_gallery_template& _item) {
+                    return _item.subject_ref_ == _subject_ref;
+                }), replacement.templates_.end());
+        } catch (const std::bad_alloc&) {
+            return {status_code::resource_exhausted,
+                "recognition removal allocation failed"};
+        }
+        const auto validated = vqec_vision_ai_core_fgalr_validate_replacement(
+            gallery_config_, revision, replacement);
+        if (validated.code_ != status_code::ok) {
+            return validated;
+        }
+        const auto stored = store_->vqec_vision_ai_ports_fgstr_replace(
+            gallery_config_, revision, replacement);
+        if (stored.code_ != status_code::ok) {
+            return stored;
+        }
+    }
     bool removed_any = false;
     for (auto item = templates_.begin(); item != templates_.end();) {
         if (item->subject_ref_ != _subject_ref) {
@@ -156,6 +304,9 @@ status recognition_session::vqec_vision_ai_embed_rcses_remove_subject(
     }
     if (!removed_any) {
         return {status_code::invalid_argument, "recognition subject is unknown"};
+    }
+    if (store_ != nullptr) {
+        gallery_ = std::move(replacement);
     }
     _new_revision = revision;
     return {};

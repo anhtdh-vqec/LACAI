@@ -394,6 +394,15 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME recognition_session
         COMMAND vqec_vision_ai_recognition_session_test)
+
+    add_executable(vqec_vision_ai_recognition_persistence_test
+        unit/vqec_vision_recognition_persistence_test.cpp)
+    target_link_libraries(vqec_vision_ai_recognition_persistence_test
+        PRIVATE vqec_vision_ai_embedding)
+    set_target_properties(vqec_vision_ai_recognition_persistence_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME recognition_persistence
+        COMMAND vqec_vision_ai_recognition_persistence_test)
     add_executable(vqec_vision_ai_face_enrollment_controller_test
         unit/vqec_vision_face_enrollment_controller_test.cpp)
     target_link_libraries(vqec_vision_ai_face_enrollment_controller_test

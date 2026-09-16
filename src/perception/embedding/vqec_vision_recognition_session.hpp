@@ -8,6 +8,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_recognition.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp"
 
 namespace vqec::vision::ai {
 
@@ -38,6 +39,10 @@ public:
 
     [[nodiscard]] status vqec_vision_ai_embed_rcses_configure(
         embedding_index_port& _index, const recognition_session_config& _config);
+    [[nodiscard]] status vqec_vision_ai_embed_rcses_configure_persistent(
+        embedding_index_port& _index, face_gallery_store_port& _store,
+        const recognition_session_config& _config,
+        const face_gallery_config& _gallery_config);
     [[nodiscard]] status vqec_vision_ai_embed_rcses_add_template(
         const std::string& _subject_ref, const embedding_result& _embedding,
         std::uint64_t _expected_revision, std::uint64_t& _record_id,
@@ -63,7 +68,10 @@ private:
     };
 
     embedding_index_port* index_{nullptr};
+    face_gallery_store_port* store_{nullptr};
     recognition_session_config config_;
+    face_gallery_config gallery_config_;
+    face_gallery_snapshot gallery_;
     std::vector<template_metadata> templates_;
     std::uint64_t next_record_id_{1};
     bool is_configured_{false};

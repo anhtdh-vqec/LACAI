@@ -49,7 +49,7 @@ status vqec_vision_ai_core_fgalr_validate_snapshot(
     }
     if (_snapshot.schema_version_ != face_gallery_limits::g_schema_version ||
         _snapshot.revision_ == 0 || _snapshot.revision_ == UINT64_MAX ||
-        _snapshot.next_record_id_ == 0 ||
+        _snapshot.next_record_id_ == 0 || _snapshot.next_record_id_ == UINT64_MAX ||
         _snapshot.gallery_id_ != _config.gallery_id_ ||
         _snapshot.model_id_ != _config.model_id_ ||
         _snapshot.model_version_ != _config.model_version_ ||
