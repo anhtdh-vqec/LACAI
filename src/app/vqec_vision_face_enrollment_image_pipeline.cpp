@@ -90,12 +90,28 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
     std::size_t failed_tasks = 0;
     result = config_.cascade_->vqec_vision_ai_ports_ficas_run(
         image.frame_, detections, _steady_now_ns, embeddings, failed_tasks);
-    if (result.code_ != status_code::ok || failed_tasks != 0 || eligible != 1 ||
-        embeddings.size() != 1) {
-        const auto error = result.code_ == status_code::ok ?
-            status_code::invalid_argument : result.code_;
-        (void)vqec_vision_ai_appl_feipl_fail_pending(error);
-        return {error, "enrollment image must produce exactly one embedded face"};
+    if (result.code_ != status_code::ok) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
+        return result;
+    }
+    if (eligible == 0) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_argument);
+        return {status_code::invalid_argument,
+            "enrollment image detector found no landmark-bearing face"};
+    }
+    if (eligible != 1) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_argument);
+        return {status_code::invalid_argument,
+            "enrollment image detector found multiple eligible faces"};
+    }
+    if (failed_tasks != 0) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::io_error);
+        return {status_code::io_error, "enrollment face alignment or embedding failed"};
+    }
+    if (embeddings.size() != 1) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::protocol_error);
+        return {status_code::protocol_error,
+            "enrollment cascade returned an unexpected embedding count"};
     }
     face_enrollment_status enrollment_status;
     result = config_.controller_->vqec_vision_ai_ports_fenrl_accept_batch(
