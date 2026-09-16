@@ -50,6 +50,10 @@ access is forbidden then. Cascade processing follows the same completed-result b
 Independently, activation may enable the per-model workers defined by
 [multi-model pump](multi_model_pump.md). The two switches are separate because source-level
 overlap and model-level overlap have different ownership and accelerator-contention costs.
+The executable's polling interval is an independent deployment setting: shortening it
+does not change source/model cadence, queue capacity or ownership, but can reduce the
+accumulated delay between submit, harvest, result routing and the next receive. It must
+remain positive and requires CPU/thermal measurement rather than an implicit busy loop.
 Feature activation, entitlement, artifact authentication, immutable path opening,
 platform owner creation and measured board admission remain separate prerequisites.
 No Qualcomm, GStreamer, Camera wire or product-origin type crosses this boundary.

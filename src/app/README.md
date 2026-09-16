@@ -66,6 +66,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   surface. `--model-execution parallel` runs independent graph owners on persistent bounded
   workers; `--source-execution threaded` separately moves each source session off the
   control/output thread. Defaults remain serialized and unsupported QoS fails closed.
+  `--runtime-step-interval-us` explicitly controls the service polling/pacing interval;
+  it must be positive and defaults to 1000 microseconds. Lower values trade more control
+  loop wakeups for lower multi-step scheduling latency and require workload measurement.
   Completed model slots transfer their retained frame to the one result consumer so stale
   per-slot owners cannot fill a bounded camera producer. The cascade reuses its configured
   quantization/input workspace, avoiding a per-face graph-input deep copy. Released-FW

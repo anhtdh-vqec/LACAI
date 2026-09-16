@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -88,6 +89,7 @@ namespace {
 volatile std::sig_atomic_t g_stop_requested = 0;
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
 constexpr std::uint64_t g_step_interval_ns = 1000000;
+constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
 constexpr int g_reconcile_generation_exit_code = 4;
 constexpr int g_recovery_required_exit_code = 5;
@@ -494,6 +496,7 @@ struct parsed_arguments {
     inference_execution_policy execution_policy;
     bool use_session_workers{false};
     bool use_model_workers{false};
+    std::uint64_t runtime_step_interval_ns{g_step_interval_ns};
     std::string model_package_registry_path;
     std::string model_package;
     std::string model_library;
@@ -576,6 +579,16 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
                 std::fprintf(stderr, "unsupported model execution policy\n");
                 return false;
             }
+        } else if (option == "--runtime-step-interval-us" && has_value) {
+            const auto interval_us = std::strtoull(_argv[++index], nullptr, 10);
+            if (interval_us == 0 || interval_us >
+                    std::numeric_limits<std::uint64_t>::max() /
+                        g_nanoseconds_per_microsecond) {
+                std::fprintf(stderr, "invalid runtime step interval\n");
+                return false;
+            }
+            _args.runtime_step_interval_ns =
+                interval_us * g_nanoseconds_per_microsecond;
         } else if (option == "--model-catalog" && has_value) {
             _args.catalog_path = _argv[++index];
         } else if (option == "--feature-catalog" && has_value) {
@@ -1734,7 +1747,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             break;
         }
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
+        now_ns = clock_now > now_ns ? clock_now :
+            now_ns + args.runtime_step_interval_ns;
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
         // In threaded source mode an OK step consumed the worker completion and did not
@@ -1935,7 +1949,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         ++steps;
         // Pace the supervisor loop to wall time so camera frames, model cadence and the
         // AI-owned output stage progress at the source rate instead of spinning.
-        std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(args.runtime_step_interval_ns));
     }
 
     std::printf("stopping after %llu steps\n", static_cast<unsigned long long>(steps));
@@ -1949,8 +1964,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             executor->vqec_vision_ai_appl_rtexe_discard_pending();
         }
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        now_ns = clock_now > now_ns ? clock_now :
+            now_ns + args.runtime_step_interval_ns;
+        std::this_thread::sleep_for(
+            std::chrono::nanoseconds(args.runtime_step_interval_ns));
         runtime_executor_report drain_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
         if (drain_report.first_error_code_ != status_code::ok &&
