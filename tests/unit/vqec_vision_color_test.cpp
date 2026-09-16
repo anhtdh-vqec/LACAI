@@ -1,6 +1,8 @@
 // Device-free tests for the neutral NV12 -> RGB/BGR conversion policy.
 
 #include <array>
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -68,6 +70,55 @@ int main() {
                   frame.uv_.data(), 2, 2, 2, color_matrix::bt709, color_range::limited,
                   channel_order::rgb, bt709.data(), 6).code_ == status_code::ok);
         check(channel(bt709, 0U, 1U) != channel(rgb, 0U, 1U));
+    }
+
+    // The hot-path lookup implementation remains byte-exact with the normative floating
+    // formula at black/range boundaries and representative interior chroma values.
+    {
+        const std::array<std::uint8_t, 6> samples{0U, 16U, 81U, 128U, 235U, 255U};
+        for (const auto matrix : {color_matrix::bt601, color_matrix::bt709}) {
+            for (const auto range : {color_range::limited, color_range::full}) {
+                const bool limited = range == color_range::limited;
+                const double ys = limited ? 1.1643835616438356 : 1.0;
+                const double yo = limited ? 16.0 : 0.0;
+                const double rv = matrix == color_matrix::bt601 ?
+                    (limited ? 1.5960267857142858 : 1.402) :
+                    (limited ? 1.7927410714285714 : 1.5748);
+                const double gu = matrix == color_matrix::bt601 ?
+                    (limited ? 0.3917622900949137 : 0.34413628620102216) :
+                    (limited ? 0.21324861427372963 : 0.1873242729306488);
+                const double gv = matrix == color_matrix::bt601 ?
+                    (limited ? 0.8129676472377708 : 0.7141362862010221) :
+                    (limited ? 0.532909328559444 : 0.4681242729306488);
+                const double bu = matrix == color_matrix::bt601 ?
+                    (limited ? 2.017232142857143 : 1.772) :
+                    (limited ? 2.112401785714286 : 1.8556);
+                for (const auto y : samples) {
+                    for (const auto u : samples) {
+                        for (const auto v : samples) {
+                            frame2x2 frame;
+                            frame.y_.assign(frame.y_.size(), y);
+                            frame.uv_ = {u, v};
+                            std::vector<std::uint8_t> rgb(12U, 0U);
+                            check(vqec_vision_ai_core_color_convert_nv12_to_rgb(
+                                      frame.y_.data(), 2, frame.uv_.data(), 2, 2, 2,
+                                      matrix, range, channel_order::rgb, rgb.data(), 6)
+                                      .code_ == status_code::ok);
+                            const double luma = ys * (static_cast<double>(y) - yo);
+                            const double cb = static_cast<double>(u) - 128.0;
+                            const double cr = static_cast<double>(v) - 128.0;
+                            const auto expected = [](double _value) {
+                                return static_cast<std::uint8_t>(std::clamp(
+                                    std::round(_value), 0.0, 255.0));
+                            };
+                            check(channel(rgb, 0U, 0U) == expected(luma + rv * cr));
+                            check(channel(rgb, 0U, 1U) == expected(luma - gu * cb - gv * cr));
+                            check(channel(rgb, 0U, 2U) == expected(luma + bu * cb));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Full range keeps luma and rejects unspecified policy or bad geometry.

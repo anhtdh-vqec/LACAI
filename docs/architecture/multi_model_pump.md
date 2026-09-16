@@ -19,6 +19,13 @@ adapter can therefore ACK the legacy frame only after the last real graph reader
 releases it. This lifetime rule is required, but does not prove DMA-BUF import, cache
 coherence, hardware completion or end-to-end zero-copy on a board.
 
+When a graph result becomes ready, the pump moves that slot's retained frame into the
+single serialized result report. The downstream session may retain that exact frame for
+output/cascade correlation, but the completed model slot keeps no second owner. This
+transfer is required for bounded FW producers: stale owners from several model slots must
+not consume every in-flight camera buffer and prevent the next receive that would replace
+them.
+
 Every received frame also replaces one source-local, latest-wins preview mailbox. The
 serialized output owner takes that frame independently of model cadence and renders it
 with the newest completed observation snapshot. A 1 FPS model therefore does not force a
@@ -50,6 +57,16 @@ its owner; stop clears it before source reconciliation.
   rejection cannot occur after an earlier graph has already accepted that frame;
 - first hard source, cadence or graph error latches pump failure; the owning source session
   must stop acquisition, drain all graphs and reconcile the FW lease.
+
+Production may explicitly select parallel root-model execution. The pump then creates one
+persistent, joined worker per active model during activation; each worker owns only its
+model's preprocessing buffer and graph calls. A slot holds at most one frame, accepts only
+`drop_if_busy`, and never creates a stale backlog. The serialized pump thread still owns
+cadence, graph arming, cascade admission and result ordering. Stop cancels work that has not
+started, waits for submitted synchronous vendor calls to return, then releases frame owners.
+The default remains serialized for deterministic fixtures and backends whose graph owners
+cannot execute concurrently. This concurrency is a deployment policy, not an assertion that
+one vendor execution domain supports parallel graphs.
 
 The report includes due/submitted/busy masks, one indexed ticket per accepted graph, the
 single result slot/ticket and an error slot. Each ticket preserves source epoch/frame

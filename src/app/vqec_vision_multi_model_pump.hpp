@@ -2,7 +2,10 @@
 #define VQEC_VISION_AI_APP_MULTI_MODEL_PUMP_HPP
 
 #include <array>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include "vqec_vision_model_cadence.hpp"
@@ -56,13 +59,14 @@ struct multi_model_pump_report {
 class multi_model_pump {
 public:
     explicit multi_model_pump(raw_source_port& _source);
+    ~multi_model_pump() noexcept;
     multi_model_pump(const multi_model_pump& _other) = delete;
     multi_model_pump& operator=(const multi_model_pump& _other) = delete;
     [[nodiscard]] status vqec_vision_ai_appl_mmump_configure(
         const model_cadence_config& _cadence,
         const std::array<multi_model_graph_binding,
             deployment_limits::g_max_models_per_source>& _bindings,
-        std::uint16_t _binding_count);
+        std::uint16_t _binding_count, bool _use_model_workers = false);
     // Resolves and caches the input tensor identity of every preprocessing binding once,
     // after its graph is loaded and before any frame is received, so the per-frame path
     // performs no metadata lookup (S04/O07). A non-preprocessing binding is unaffected.
@@ -86,6 +90,27 @@ public:
     [[nodiscard]] bool vqec_vision_ai_appl_mmump_has_failed() const noexcept;
 
 private:
+    struct model_worker_job {
+        raw_frame frame_;
+        submission_ticket ticket_;
+        status result_;
+        std::uint64_t steady_now_ns_{0};
+        bool pending_{false};
+        bool running_{false};
+        bool completed_{false};
+        bool exiting_{false};
+    };
+
+    void vqec_vision_ai_appl_mmump_model_worker_main(std::uint16_t _slot) noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_start_model_workers();
+    void vqec_vision_ai_appl_mmump_stop_model_workers() noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_mmump_model_busy(
+        std::uint16_t _slot) const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_submit_model_work(
+        std::uint16_t _slot, const raw_frame& _frame,
+        std::uint64_t _steady_now_ns);
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_harvest_model_work(
+        multi_model_pump_report& _report);
     // A one-slot mailbox for a graph that is still busy. The newest due frame's
     // preprocessed tensors are retained and submitted when the graph frees up. Bounded by
     // construction: one entry per model slot.
@@ -124,6 +149,13 @@ private:
     // previous input is complete per the graph's own completion semantics.
     std::array<std::vector<tensor_blob>, deployment_limits::g_max_models_per_source>
         preprocess_buffers_{};
+    std::array<model_worker_job, deployment_limits::g_max_models_per_source>
+        model_worker_jobs_{};
+    std::array<std::thread, deployment_limits::g_max_models_per_source>
+        model_workers_{};
+    mutable std::mutex model_worker_mutex_;
+    std::array<std::condition_variable, deployment_limits::g_max_models_per_source>
+        model_worker_conditions_{};
     // Last received source epoch; a change discards parked inputs so an old-epoch result
     // can never be submitted into a new epoch.
     std::uint64_t last_source_epoch_{0};
@@ -142,6 +174,8 @@ private:
     bool has_cascade_root_{false};
     bool has_received_frame_{false};
     bool has_preview_frame_{false};
+    bool use_model_workers_{false};
+    bool model_workers_started_{false};
     bool is_configured_{false};
     bool is_stopping_{false};
     bool is_failed_{false};

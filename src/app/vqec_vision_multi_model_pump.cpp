@@ -1,6 +1,7 @@
 #include "vqec_vision_multi_model_pump.hpp"
 
 #include <limits>
+#include <new>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
@@ -9,11 +10,15 @@ namespace vqec::vision::ai {
 
 multi_model_pump::multi_model_pump(raw_source_port& _source) : source_(_source) {}
 
+multi_model_pump::~multi_model_pump() noexcept {
+    vqec_vision_ai_appl_mmump_stop_model_workers();
+}
+
 status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     const model_cadence_config& _cadence,
     const std::array<multi_model_graph_binding,
         deployment_limits::g_max_models_per_source>& _bindings,
-    std::uint16_t _binding_count) {
+    std::uint16_t _binding_count, bool _use_model_workers) {
     if (is_configured_) {
         return {status_code::invalid_state, "multi-model pump is already configured"};
     }
@@ -35,6 +40,11 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
             return {status_code::invalid_argument,
                 "preprocessing requires both a processor and an inference plan"};
         }
+        if (_use_model_workers &&
+            _cadence.dispatch_policies_[slot] != model_dispatch_policy::drop_if_busy) {
+            return {status_code::unsupported,
+                "parallel model workers require drop-if-busy dispatch"};
+        }
         for (std::uint16_t prior = 0; prior < slot; ++prior) {
             if (_bindings[prior].graph_ == binding.graph_) {
                 return {status_code::invalid_argument, "model graph is bound more than once"};
@@ -55,6 +65,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
         has_cascade_root_ = has_cascade_root_ || bindings[slot].cascade_root_;
     }
     has_target_spec_.fill(false);
+    use_model_workers_ = _use_model_workers;
     is_configured_ = true;
     return {};
 }
@@ -92,11 +103,12 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
         target_specs_[slot] = inputs[0];
         has_target_spec_[slot] = true;
     }
-    return {};
+    return use_model_workers_ ? vqec_vision_ai_appl_mmump_start_model_workers() : status{};
 }
 
 void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
     is_stopping_ = true;
+    vqec_vision_ai_appl_mmump_stop_model_workers();
     preview_frame_ = {};
     has_preview_frame_ = false;
     for (auto& retained : retained_frames_) {
@@ -123,8 +135,11 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_poll_result(
             _report.result_ticket_ = ticket;
             _report.result_model_slot_ = slot;
             _report.has_result_ = true;
-            _report.frame_ = retained_frames_[slot];
-            _report.has_frame_ = retained_frames_[slot].owner_ != nullptr;
+            // Result delivery transfers this slot's retained source-frame ownership to
+            // the serialized consumer. Keeping a second copy here can exhaust a bounded
+            // FW producer when several model slots complete on different frames.
+            _report.frame_ = std::move(retained_frames_[slot]);
+            _report.has_frame_ = _report.frame_.owner_ != nullptr;
             result_cursor_ = static_cast<std::uint16_t>((slot + 1U) % model_count_);
             return {};
         }
@@ -157,6 +172,12 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         return {status_code::invalid_state, "pump failed; source session must drain"};
     }
 
+    const auto harvested = vqec_vision_ai_appl_mmump_harvest_model_work(_report);
+    if (harvested.code_ != status_code::ok) {
+        is_failed_ = true;
+        return harvested;
+    }
+
     const auto result = vqec_vision_ai_appl_mmump_poll_result(
         _steady_now_ns, _result, _report);
     if (result.code_ != status_code::pending) {
@@ -180,7 +201,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             return {status_code::invalid_state, "pump requires every model graph running"};
         }
         has_available_graph = has_available_graph ||
-            graph.vqec_vision_ai_ports_infgr_get_outstanding() == 0;
+            (graph.vqec_vision_ai_ports_infgr_get_outstanding() == 0 &&
+             !vqec_vision_ai_appl_mmump_model_busy(slot));
     }
     if (!has_available_graph) {
         return {status_code::pending, "all model graphs have outstanding jobs"};
@@ -231,7 +253,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
-        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
+        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
+            vqec_vision_ai_appl_mmump_model_busy(slot)) {
             // drop_if_busy: skip. latest_wins/replace_pending: park the newest due input in
             // the one-slot mailbox and submit it once the graph frees up.
             model_dispatch_policy policy{model_dispatch_policy::drop_if_busy};
@@ -324,6 +347,21 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
+        if (use_model_workers_) {
+            const auto queued = vqec_vision_ai_appl_mmump_submit_model_work(
+                slot, frame, _steady_now_ns);
+            if (queued.code_ != status_code::ok) {
+                _report.error_model_slot_ = slot;
+                is_failed_ = true;
+                return queued;
+            }
+            if (bindings_[slot].cascade_root_) {
+                cascade_submitted = true;
+            }
+            _report.pending_model_mask_ = static_cast<std::uint16_t>(
+                _report.pending_model_mask_ | bit);
+            continue;
+        }
         submission_ticket ticket;
         status submitted;
         if (bindings_[slot].processor_ != nullptr) {
@@ -490,6 +528,191 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_flush_pending(
             is_failed_ = true;
             return submitted;
         }
+    }
+    return {};
+}
+
+void multi_model_pump::vqec_vision_ai_appl_mmump_model_worker_main(
+    std::uint16_t _slot) noexcept {
+    while (true) {
+        raw_frame frame;
+        std::uint64_t steady_now_ns = 0;
+        {
+            std::unique_lock<std::mutex> lock(model_worker_mutex_);
+            model_worker_conditions_[_slot].wait(lock, [this, _slot]() {
+                return model_worker_jobs_[_slot].exiting_ ||
+                    model_worker_jobs_[_slot].pending_;
+            });
+            auto& job = model_worker_jobs_[_slot];
+            if (job.exiting_ && !job.pending_) {
+                return;
+            }
+            frame = job.frame_;
+            steady_now_ns = job.steady_now_ns_;
+            job.pending_ = false;
+            job.running_ = true;
+        }
+
+        status submitted;
+        submission_ticket ticket;
+        try {
+            auto& graph = *bindings_[_slot].graph_;
+            if (bindings_[_slot].processor_ != nullptr) {
+                auto& blobs = preprocess_buffers_[_slot];
+                const auto preprocessed = vqec_vision_ai_appl_mmump_preprocess(
+                    _slot, frame, blobs);
+                if (preprocessed.code_ == status_code::ok) {
+                    submitted = graph.vqec_vision_ai_ports_infgr_submit_tensors(
+                        frame.descriptor_.session_epoch_, frame.descriptor_.buffer_id_,
+                        frame.descriptor_.pts_ns_, blobs, steady_now_ns, ticket);
+                } else {
+                    submitted = preprocessed;
+                }
+            } else {
+                submitted = graph.vqec_vision_ai_ports_infgr_submit_frame(
+                    frame, steady_now_ns, ticket);
+            }
+        } catch (const std::bad_alloc&) {
+            submitted = {status_code::resource_exhausted,
+                "model worker allocation failed"};
+        } catch (...) {
+            submitted = {status_code::io_error, "model worker raised an exception"};
+        }
+
+        std::lock_guard<std::mutex> lock(model_worker_mutex_);
+        auto& job = model_worker_jobs_[_slot];
+        job.result_ = std::move(submitted);
+        job.ticket_ = ticket;
+        job.running_ = false;
+        job.completed_ = true;
+    }
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_start_model_workers() {
+    if (model_workers_started_ || !use_model_workers_) {
+        return model_workers_started_ ?
+            status{status_code::invalid_state, "model workers are already started"} : status{};
+    }
+    try {
+        for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+            model_workers_[slot] = std::thread(
+                [this, slot]() { vqec_vision_ai_appl_mmump_model_worker_main(slot); });
+        }
+    } catch (...) {
+        {
+            std::lock_guard<std::mutex> lock(model_worker_mutex_);
+            for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+                model_worker_jobs_[slot].exiting_ = true;
+                model_worker_jobs_[slot].pending_ = false;
+                model_worker_jobs_[slot].frame_ = {};
+            }
+        }
+        for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+            model_worker_conditions_[slot].notify_all();
+            if (model_workers_[slot].joinable()) {
+                model_workers_[slot].join();
+            }
+        }
+        return {status_code::resource_exhausted, "cannot start model workers"};
+    }
+    model_workers_started_ = true;
+    return {};
+}
+
+void multi_model_pump::vqec_vision_ai_appl_mmump_stop_model_workers() noexcept {
+    if (!model_workers_started_) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(model_worker_mutex_);
+        for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+            auto& job = model_worker_jobs_[slot];
+            job.exiting_ = true;
+            if (job.pending_) {
+                job.pending_ = false;
+                job.frame_ = {};
+            }
+        }
+    }
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        model_worker_conditions_[slot].notify_all();
+    }
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        if (model_workers_[slot].joinable()) {
+            model_workers_[slot].join();
+        }
+    }
+    std::lock_guard<std::mutex> lock(model_worker_mutex_);
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        model_worker_jobs_[slot] = {};
+    }
+    model_workers_started_ = false;
+}
+
+bool multi_model_pump::vqec_vision_ai_appl_mmump_model_busy(
+    std::uint16_t _slot) const noexcept {
+    if (!use_model_workers_) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(model_worker_mutex_);
+    const auto& job = model_worker_jobs_[_slot];
+    return job.pending_ || job.running_ || job.completed_;
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_submit_model_work(
+    std::uint16_t _slot, const raw_frame& _frame, std::uint64_t _steady_now_ns) {
+    std::lock_guard<std::mutex> lock(model_worker_mutex_);
+    if (!model_workers_started_ || _slot >= model_count_) {
+        return {status_code::invalid_state, "model worker is unavailable"};
+    }
+    auto& job = model_worker_jobs_[_slot];
+    if (job.pending_ || job.running_ || job.completed_ || job.exiting_) {
+        return {status_code::resource_exhausted, "model worker is busy"};
+    }
+    job.frame_ = _frame;
+    job.steady_now_ns_ = _steady_now_ns;
+    job.pending_ = true;
+    model_worker_conditions_[_slot].notify_one();
+    return {};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_harvest_model_work(
+    multi_model_pump_report& _report) {
+    if (!use_model_workers_) {
+        return {};
+    }
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        status completed;
+        submission_ticket ticket;
+        raw_frame frame;
+        {
+            std::lock_guard<std::mutex> lock(model_worker_mutex_);
+            auto& job = model_worker_jobs_[slot];
+            if (!job.completed_) {
+                continue;
+            }
+            completed = std::move(job.result_);
+            ticket = job.ticket_;
+            frame = std::move(job.frame_);
+            job.result_ = {};
+            job.ticket_ = {};
+            job.steady_now_ns_ = 0;
+            job.completed_ = false;
+        }
+        if (completed.code_ != status_code::ok) {
+            _report.error_model_slot_ = slot;
+            return completed;
+        }
+        if (ticket.token_.job_id_ == 0) {
+            _report.error_model_slot_ = slot;
+            return {status_code::protocol_error,
+                "model worker completed without a submission ticket"};
+        }
+        const auto bit = static_cast<std::uint16_t>(1U << slot);
+        _report.submitted_tickets_[slot] = ticket;
+        _report.submitted_model_mask_ = static_cast<std::uint16_t>(
+            _report.submitted_model_mask_ | bit);
+        retained_frames_[slot] = std::move(frame);
     }
     return {};
 }

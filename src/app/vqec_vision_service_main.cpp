@@ -491,6 +491,9 @@ struct parsed_arguments {
     std::string platform{"none"};
     bool production_mode{false};
     // Production platform owner inputs (Qualcomm).
+    inference_execution_policy execution_policy;
+    bool use_session_workers{false};
+    bool use_model_workers{false};
     std::string model_package_registry_path;
     std::string model_package;
     std::string model_library;
@@ -543,6 +546,36 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
         const bool has_value = index + 1 < _argc;
         if (option == "--deployment" && has_value) {
             _args.deployment_path = _argv[++index];
+        } else if (option == "--source-execution" && has_value) {
+            const std::string execution = _argv[++index];
+            if (execution == "serialized") {
+                _args.use_session_workers = false;
+            } else if (execution == "threaded") {
+                _args.use_session_workers = true;
+            } else {
+                std::fprintf(stderr, "unsupported source execution policy\n");
+                return false;
+            }
+        } else if (option == "--inference-perf-profile" && has_value) {
+            const std::string profile = _argv[++index];
+            if (profile == "balanced") {
+                _args.execution_policy.profile_ = inference_perf_profile::balanced;
+            } else if (profile == "low_latency") {
+                _args.execution_policy.profile_ = inference_perf_profile::low_latency;
+            } else {
+                std::fprintf(stderr, "unsupported inference performance profile\n");
+                return false;
+            }
+        } else if (option == "--model-execution" && has_value) {
+            const std::string execution = _argv[++index];
+            if (execution == "serialized") {
+                _args.use_model_workers = false;
+            } else if (execution == "parallel") {
+                _args.use_model_workers = true;
+            } else {
+                std::fprintf(stderr, "unsupported model execution policy\n");
+                return false;
+            }
         } else if (option == "--model-catalog" && has_value) {
             _args.catalog_path = _argv[++index];
         } else if (option == "--feature-catalog" && has_value) {
@@ -961,6 +994,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     if (use_production_platform) {
         production_platform_config production_config;
         production_config.model_packages_ = model_packages;
+        production_config.execution_policy_ = args.execution_policy;
         production_config.backend_library_ = service_harness::g_backend_library;
         production_config.system_library_ = service_harness::g_system_library;
         production_config.socket_dir_ = args.camera_socket_dir;
@@ -1105,6 +1139,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     activation.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
     activation.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
     activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
+    activation.use_session_workers_ = args.use_session_workers;
+    activation.use_model_workers_ = args.use_model_workers;
     for (std::uint16_t source_slot = 0; source_slot < activation.source_count_; ++source_slot) {
         const auto& source = deployment.sources_[source_slot];
         auto& source_activation = activation.sources_[source_slot];
@@ -1701,6 +1737,11 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
+        // In threaded source mode an OK step consumed the worker completion and did not
+        // enqueue a replacement in the same call. Session-owned preview/cascade state is
+        // therefore quiescent until the next loop iteration. Pending can mean a worker is
+        // active, so the control/output thread must not touch the session mailbox then.
+        const bool source_session_quiescent = stepped.code_ == status_code::ok;
         if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
             first_error_code = report.first_error_code_;
         }
@@ -1863,7 +1904,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     static_cast<int>(enrolled.code_), enrolled.message_.c_str());
             }
         }
-        if (use_production_platform) {
+        if (use_production_platform &&
+            (!args.use_session_workers || source_session_quiescent)) {
             for (std::uint16_t source_slot = 0;
                  source_slot < deployment.sources_.size(); ++source_slot) {
                 auto* session = bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);

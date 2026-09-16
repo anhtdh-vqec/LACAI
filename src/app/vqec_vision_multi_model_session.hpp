@@ -67,6 +67,9 @@ struct multi_model_session_config {
     std::size_t cascade_frames_{0};
     std::size_t cascade_tasks_per_frame_{0};
     std::uint64_t cascade_max_bytes_{0};
+    // One persistent worker per active root model permits independent vendor graph owners
+    // to preprocess/execute concurrently. False preserves serialized deterministic tests.
+    bool use_model_workers_{false};
 };
 
 struct multi_model_session_snapshot {

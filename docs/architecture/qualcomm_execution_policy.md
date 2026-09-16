@@ -1,6 +1,7 @@
 # Neutral execution policy and the Qualcomm engine
 
-Status: A1 source-delivered (contracts + validators + tests). Later phases pending.
+Status: synchronous owned-QNN path and explicit HTP low-latency policy source-delivered;
+async/shared-memory execution and release qualification remain pending.
 This document is normative for the owned QNN engine direction in
 [ADR 0003](../adr/0003_owned_qnn_engine.md).
 
@@ -45,7 +46,7 @@ intersection of adapter + model graph + backend + policy.
 | Shared/registered buffers | `memRegister`/`memDeRegister` | no | no | `supports_shared_memory=false`, bound `0` |
 | Artifact / LoRA update | `contextApplyBinarySection` | no | no | `supports_artifact_update=false` |
 | Multi-model execution domain | one context | no | no | `supports_multi_model_domain=false`, `graph_count=1` |
-| Perf profile | HTP perf infra | not applied | no | only `balanced` |
+| Perf profile | HTP perf infra | `balanced` plus explicit DCVS V3 low-latency vote | integration-smoked on `.98` (2026-09-16); thermal acceptance open | `balanced`, `low_latency` when HTP perf functions are present |
 | Compute-unit affinity/topology | HTP device infra | not probed | no | `compute_unit_count=0` |
 
 An unimplemented operation is reported unsupported so
@@ -53,8 +54,9 @@ An unimplemented operation is reported unsupported so
 submit; each row moves to `implemented` only with the matching lifecycle path and negative
 tests. `prepare` must call `graphFinalize` after `composeGraphs`: generated model libraries
 compose but do not finalize, and `graphExecute` fails otherwise (board-discovered). Sync
-execute and native output are now board-qualified; async, shared memory, update, file
-domains and perf/topology still require a qualified lifecycle and board evidence.
+execute and native output are board-qualified. The HTP low-latency mapping has live
+integration evidence, but no sustained thermal acceptance. Async, shared memory, update,
+file domains and topology still require a qualified lifecycle and board evidence.
 
 `prepare` creates a context, `dlopen`s one QNN model library (`.so` from
 qnn-model-lib-generator), resolves `QnnModel_composeGraphs`/`QnnModel_freeGraphsInfo`,
@@ -162,3 +164,23 @@ resource is quarantined and reported, not reused.
 4. Copies, pool occupancy, p50/p95 latency, FPS, RSS and thermal on the agreed workload.
    A vendor sample or a source build is not performance evidence.
 5. Per-file license/provenance review; no copied vendor implementation into neutral layers.
+
+## Live HTP performance votes (2026-09-16)
+
+The production launcher accepts `--inference-perf-profile balanced|low_latency`.
+The default remains balanced (no added clock vote). The explicit low_latency intent
+requests an HTP DCVS performance-mode TURBO bus/core vote through the pinned
+`QnnHtpDevice_PerfInfrastructure_t`. Device/core IDs are discovered with version-checked
+platform metadata; no board-specific index or model name chooses the vote.
+Each engine owns a distinct nonzero power client ID until close after graph drain.
+Creation/application failures roll back the client and fail activation; other backends
+and unsupported profiles fail closed. No RPC polling, global client-zero override,
+thermal governor change or cancellation behavior is introduced. Live and isolated image
+enrollment models use the same configured intent. This is latency policy, not a thermal
+acceptance claim; it needs lead/platform review and workload/soak evidence before release.
+
+On `.98`, applying this policy and parallelizing the two independent root-model owners
+raised a short combined person+FD/FR sample from roughly 9.2 FPS to 24--28 FPS depending
+on board temperature. A later hot 45-second sample fell to 22.6 encoded FPS with thermal
+zones at roughly 66--70 C. These samples prove the mechanism executes and also show why
+`low_latency` cannot be treated as a sustained-performance or temperature guarantee.

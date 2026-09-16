@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
@@ -57,7 +58,7 @@ private:
 status vqec_vision_ai_appl_cscrd_quantize(
     const alignment_result& _aligned, const tensor_spec& _target,
     const std::array<float, 3>& _offset, const std::array<float, 3>& _scale,
-    tensor_blob& _blob) {
+    std::vector<std::uint16_t>& _workspace, tensor_blob& _blob) {
     const auto& spec = _aligned.tensor_.spec_;
     if (spec.dtype_ != tensor_element_type::uint8 || spec.dimensions_.size() != 4U ||
         spec.dimensions_[0] != 1U || spec.dimensions_[3] != 3U) {
@@ -76,18 +77,18 @@ status vqec_vision_ai_appl_cscrd_quantize(
         return {status_code::invalid_argument,
             "aligned patch does not match the model input spec"};
     }
-    std::vector<std::uint16_t> quantized(expected, 0U);
+    if (_workspace.size() != expected || _blob.spec_.name_ != _target.name_ ||
+        _blob.bytes_.size() != expected * sizeof(std::uint16_t)) {
+        return {status_code::invalid_state,
+            "embedding input workspace does not match the loaded graph"};
+    }
     const auto converted = vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
         _aligned.tensor_.bytes_.data(), width, height, width * 3U, _offset, _scale,
-        _target.quantization_.scale_, _target.quantization_.zero_point_, quantized.data());
+        _target.quantization_.scale_, _target.quantization_.zero_point_, _workspace.data());
     if (converted.code_ != status_code::ok) {
         return converted;
     }
-    tensor_blob blob;
-    blob.spec_ = _target;
-    blob.bytes_.resize(quantized.size() * sizeof(std::uint16_t));
-    std::memcpy(blob.bytes_.data(), quantized.data(), blob.bytes_.size());
-    _blob = std::move(blob);
+    std::memcpy(_blob.bytes_.data(), _workspace.data(), _blob.bytes_.size());
     return {};
 }
 
@@ -166,6 +167,22 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     job_timeout_ns_ = _config.job_timeout_ns_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
     embedding_input_spec_ = input_spec;
+    if (wants_embedding) {
+        const auto elements = static_cast<std::size_t>(input_spec.dimensions_[1]) *
+            input_spec.dimensions_[2] * input_spec.dimensions_[3];
+        try {
+            embedding_quantized_workspace_.assign(elements, 0U);
+            embedding_inputs_.assign(1U, tensor_blob{});
+            embedding_inputs_[0].spec_ = input_spec;
+            embedding_inputs_[0].bytes_.assign(
+                elements * sizeof(std::uint16_t), 0U);
+        } catch (const std::bad_alloc&) {
+            embedding_quantized_workspace_.clear();
+            embedding_inputs_.clear();
+            return {status_code::resource_exhausted,
+                "cannot allocate embedding input workspace"};
+        }
+    }
     has_embedding_input_spec_ = wants_embedding;
     is_configured_ = true;
     return {};
@@ -315,11 +332,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                     }
                 }
             }
-            tensor_blob input;
             if (task_ok) {
                 const auto quantized = vqec_vision_ai_appl_cscrd_quantize(
                     _aligned.back(), embedding_input_spec_, normalize_offset_, normalize_scale_,
-                    input);
+                    embedding_quantized_workspace_, embedding_inputs_[0]);
                 if (quantized.code_ != status_code::ok) {
                     task_ok = false;
                     if (last_task_error_.code_ == status_code::ok) {
@@ -331,7 +347,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                 submission_ticket secondary_ticket;
                 const auto submitted =
                     embedding_graph_->vqec_vision_ai_ports_infgr_submit_tensors(
-                        key.source_epoch_, key.frame_id_, key.source_pts_ns_, {input},
+                        key.source_epoch_, key.frame_id_, key.source_pts_ns_, embedding_inputs_,
                         _steady_now_ns, secondary_ticket);
                 if (submitted.code_ != status_code::ok) {
                     task_ok = false;

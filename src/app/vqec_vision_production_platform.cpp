@@ -349,7 +349,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         // only then constructs the graph binding. An unsupported policy fails closed here
         // instead of being discovered at execute time.
         const auto created = vqec_vision_ai_qcom_bfact_create(
-            owner.paths_, inference_execution_policy{}, owner.backend_);
+            owner.paths_, impl.config_.execution_policy_, owner.backend_);
         if (created.code_ != status_code::ok) {
             return created;
         }
@@ -753,7 +753,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_create_offline_model(
         auto candidate = std::make_unique<production_offline_model>();
         auto& offline = *candidate->implementation_;
         const auto created = vqec_vision_ai_qcom_bfact_create(
-            model.paths_, inference_execution_policy{}, offline.backend_);
+            model.paths_, implementation_->config_.execution_policy_, offline.backend_);
         if (created.code_ != status_code::ok) {
             return created;
         }

@@ -62,9 +62,15 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   `--fr-preprocess-revision` and `--fr-store-max-bytes`. The directory must already exist,
   be owned by the service UID and have mode 0700. AI creates mode-0600 key/gallery/lock
   files, authenticates the snapshot, then rebuilds Zvec before recognition becomes ready.
-- The Qualcomm path is synchronous and still copies into its output DMA surface; released-FW
-  interoperability, hardware-completion evidence and long-run performance remain open.
-- The current production service loop is serialized. The `.48` integration run sustained
+- Each Qualcomm graph call is synchronous and the renderer still copies into its output DMA
+  surface. `--model-execution parallel` runs independent graph owners on persistent bounded
+  workers; `--source-execution threaded` separately moves each source session off the
+  control/output thread. Defaults remain serialized and unsupported QoS fails closed.
+  Completed model slots transfer their retained frame to the one result consumer so stale
+  per-slot owners cannot fill a bounded camera producer. The cascade reuses its configured
+  quantization/input workspace, avoiding a per-face graph-input deep copy. Released-FW
+  interoperability, hardware-completion evidence and sustained thermal performance remain open.
+- The `.48` integration run sustained
   29.1 encoded FPS with 1 FPS inference. A later 30/1 cadence run using the Qualcomm
   FastCV image-processor adapter sustained 30 AI results/s and 30.1 RTSP FPS; multi-source,
   percentile latency and thermal limits remain unqualified.

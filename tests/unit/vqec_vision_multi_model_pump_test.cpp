@@ -286,10 +286,13 @@ int main() {
     second.vqec_vision_ai_unit_mmpst_complete_result();
     check(pump.vqec_vision_ai_appl_mmump_pump_step(102, result, report).code_ ==
           status_code::ok);
-    // The frame owner is retained for the reported result so an AI-owned output stage can
-    // render the same pixels; it is released when the pump stops or a new frame replaces it.
+    // Result delivery transfers the retained owner out of its model slot. Once the
+    // consumer releases the latest report, no stale per-slot owner may keep the FW frame
+    // charged indefinitely.
     check(report.has_result_ && report.result_model_slot_ == 1 && !weak_owner.expired());
     check(report.has_frame_ && report.frame_.owner_ != nullptr);
+    report = {};
+    check(weak_owner.expired());
 
     first.vqec_vision_ai_unit_mmpst_force_busy();
     second.vqec_vision_ai_unit_mmpst_force_busy();
@@ -298,7 +301,6 @@ int main() {
           status_code::pending);
     check(source.receive_calls_ == 1);
     pump.vqec_vision_ai_appl_mmump_begin_stop();
-    check(weak_owner.expired());
     check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(preview_frame).code_ ==
           status_code::pending);
 

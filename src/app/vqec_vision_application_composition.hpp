@@ -10,7 +10,8 @@ class application_composition final : public application_composition_port {
 public:
     explicit application_composition(
         std::uint64_t _deployment_revision, std::uint64_t _catalog_revision,
-        std::uint16_t _declared_sources) noexcept;
+        std::uint16_t _declared_sources,
+        bool _use_session_workers = false) noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_acomp_bind_session(
         std::uint16_t _source_index, source_session_port& _session);
     [[nodiscard]] status vqec_vision_ai_appl_acomp_take_result(

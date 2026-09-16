@@ -4,9 +4,9 @@ Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognitio
 
 Status: primary decoder selection, typed contracts, retained-frame integration, secondary
 coordinator, FastCV alignment, embedding decoder, production binding, secondary graph
-lifecycle and runtime invocation are source-delivered. Model execution probes and a live
-compatibility FD-to-embedding smoke on `.99` pass; golden parity, post-fix multi-face,
-released-FW, protected-gallery device recovery and attendance validation remain open.
+lifecycle and runtime invocation are source-delivered. Model execution probes and live
+compatibility FD-to-embedding runs on the currently assigned `.98` target pass; golden
+parity, post-fix multi-face, released-FW and attendance validation remain open.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -85,7 +85,10 @@ not proof of signed authenticity or TOCTOU-safe artifact loading.
 The coordinator derives quantization scale and zero point from the running graph's exact
 input `tensor_spec`; callers cannot supply a second quantization copy. Offset/scale
 normalization remains package/catalog metadata and is cross-validated during production
-preparation.
+preparation. Because the coordinator is serialized, it allocates one exact-size
+quantization workspace and one graph-input tensor vector during configuration and reuses
+them for every admitted face. This removes a per-face tensor deep copy without changing
+the tensor contract or allowing reuse before synchronous graph completion.
 
 The secondary graph arms its submission window with
 `repeated_tasks_per_source_frame`. Consecutive face jobs may therefore preserve the exact
@@ -154,8 +157,8 @@ The YOLOv8 decoder now reuses an activation-bounded candidate/order/suppression 
 across decode calls (`yolov8_decoder_limits::g_max_candidates`). Output observation
 landmark/string vectors still allocate under the current batch contract; primary production
 selection exists; pooled output ownership and golden model parity remain required.
-Production FD-to-embedding composition is source-delivered and has a live compatibility
-camera smoke on `.99`. Golden parity, a post-fix multi-face rerun and released-FW acceptance
+Production FD-to-embedding composition is source-delivered and has live compatibility
+camera evidence on `.98`. Golden parity, a post-fix multi-face rerun and released-FW acceptance
 remain open, so this is not yet an accepted FR usecase.
 
 ## Primary decoder package boundary

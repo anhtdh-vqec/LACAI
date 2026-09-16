@@ -5,6 +5,8 @@
 
 #include <dlfcn.h>
 
+#include <HTP/QnnHtpCommon.h>  // private QAIRT SDK header, not a project include
+#include <HTP/QnnHtpDevice.h>  // private QAIRT SDK header, not a project include
 #include <QnnInterface.h>  // private QAIRT SDK header, not a project include
 
 #include "vqec_vision_sdk_loader.hpp"
@@ -143,6 +145,10 @@ struct qnn_engine::implementation {
     // Resolved once at prepare so execute reconstructs no tensor metadata on the hot path.
     std::vector<tensor_spec> input_specs_;
     std::vector<tensor_spec> output_specs_;
+    const QnnHtpDevice_PerfInfrastructure_t* perf_{nullptr};
+    std::uint32_t power_client_id_{0};
+    bool has_power_client_{false};
+    bool supports_low_latency_{false};
     bool is_open_{false};
     bool is_prepared_{false};
 };
@@ -196,7 +202,92 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_open(
             return {status_code::unsupported, "QNN device creation failed for the selected backend"};
         }
     }
+    // Probe the selected backend, not its filename. HTP ABI is private to this adapter.
+    if (provider->backendId == QNN_BACKEND_ID_HTP &&
+        impl.qnn_->deviceGetInfrastructure != nullptr &&
+        impl.qnn_->deviceGetPlatformInfo != nullptr &&
+        impl.qnn_->deviceFreePlatformInfo != nullptr) {
+        QnnDevice_Infrastructure_t infrastructure = nullptr;
+        if (impl.qnn_->deviceGetInfrastructure(&infrastructure) == QNN_SUCCESS &&
+            infrastructure != nullptr &&
+            infrastructure->infraType == QNN_HTP_DEVICE_INFRASTRUCTURE_TYPE_PERF) {
+            impl.perf_ = &infrastructure->perfInfra;
+            impl.supports_low_latency_ = impl.perf_->createPowerConfigId != nullptr &&
+                impl.perf_->destroyPowerConfigId != nullptr &&
+                impl.perf_->setPowerConfig != nullptr;
+        }
+    }
     impl.is_open_ = true;
+    inference_capabilities capabilities;
+    const auto probed = vqec_vision_ai_qcom_qneng_probe_capabilities(capabilities);
+    const auto supported = probed.code_ == status_code::ok
+        ? vqec_vision_ai_core_inexe_policy_is_supported(_policy, capabilities) : probed;
+    if (supported.code_ != status_code::ok) {
+        vqec_vision_ai_qcom_qneng_close();
+        return supported;
+    }
+    if (_policy.profile_ == inference_perf_profile::low_latency) {
+        const QnnDevice_PlatformInfo_t* platform = nullptr;
+        const auto discovered = impl.qnn_->deviceGetPlatformInfo(nullptr, &platform);
+        bool found = false;
+        std::uint32_t device_id = 0;
+        std::uint32_t core_id = 0;
+        if (discovered == QNN_SUCCESS && platform != nullptr &&
+            platform->version == QNN_DEVICE_PLATFORM_INFO_VERSION_1 &&
+            platform->v1.hwDevices != nullptr) {
+            for (std::uint32_t index = 0; index < platform->v1.numHwDevices && !found; ++index) {
+                const auto& device = platform->v1.hwDevices[index];
+                if (device.version != QNN_DEVICE_HARDWARE_DEVICE_INFO_VERSION_1 ||
+                    device.v1.cores == nullptr) {
+                    continue;
+                }
+                for (std::uint32_t core = 0; core < device.v1.numCores; ++core) {
+                    const auto& info = device.v1.cores[core];
+                    if (info.version == QNN_DEVICE_CORE_INFO_VERSION_1 &&
+                        info.v1.coreType == QNN_HTP_CORE_TYPE_NSP) {
+                        device_id = device.v1.deviceId;
+                        core_id = info.v1.coreId;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (platform != nullptr) {
+            (void)impl.qnn_->deviceFreePlatformInfo(nullptr, platform);
+        }
+        if (!found || impl.perf_->createPowerConfigId(device_id, core_id,
+                &impl.power_client_id_) != QNN_SUCCESS) {
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "HTP performance client creation failed"};
+        }
+        impl.has_power_client_ = true;
+        // Client zero overrides other votes in this process; never use it.
+        if (impl.power_client_id_ == 0) {
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::unsupported, "HTP returned a global power client"};
+        }
+        QnnHtpPerfInfrastructure_PowerConfig_t power{};
+        power.option = QNN_HTP_PERF_INFRASTRUCTURE_POWER_CONFIGOPTION_DCVS_V3;
+        auto& dcvs = power.dcvsV3Config;
+        dcvs.contextId = impl.power_client_id_;
+        dcvs.setDcvsEnable = 1;
+        dcvs.dcvsEnable = 0;
+        dcvs.powerMode = QNN_HTP_PERF_INFRASTRUCTURE_POWERMODE_PERFORMANCE_MODE;
+        dcvs.setBusParams = 1;
+        dcvs.busVoltageCornerMin = DCVS_VOLTAGE_VCORNER_TURBO;
+        dcvs.busVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_TURBO;
+        dcvs.busVoltageCornerMax = DCVS_VOLTAGE_VCORNER_TURBO;
+        dcvs.setCoreParams = 1;
+        dcvs.coreVoltageCornerMin = DCVS_VOLTAGE_VCORNER_TURBO;
+        dcvs.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_TURBO;
+        dcvs.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_TURBO;
+        const QnnHtpPerfInfrastructure_PowerConfig_t* configs[] = {&power, nullptr};
+        if (impl.perf_->setPowerConfig(impl.power_client_id_, configs) != QNN_SUCCESS) {
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::io_error, "HTP low-latency power vote failed"};
+        }
+    }
     return {};
 }
 
@@ -224,6 +315,10 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(
     capabilities.supported_dtype_mask_ = vqec_vision_ai_qcom_qneng_supported_dtype_mask();
     capabilities.perf_profile_mask_ =
         static_cast<std::uint8_t>(1U << static_cast<unsigned>(inference_perf_profile::balanced));
+    if (implementation_->supports_low_latency_) {
+        capabilities.perf_profile_mask_ |= static_cast<std::uint8_t>(
+            1U << static_cast<unsigned>(inference_perf_profile::low_latency));
+    }
     capabilities.compute_unit_count_ = 0;
     capabilities.graph_count_ = 1;
     capabilities.max_inflight_jobs_ = 1;
@@ -417,6 +512,13 @@ void qnn_engine::vqec_vision_ai_qcom_qneng_close() noexcept {
     }
     impl.context_ = nullptr;
     impl.is_prepared_ = false;
+    if (impl.has_power_client_ && impl.perf_ != nullptr) {
+        (void)impl.perf_->destroyPowerConfigId(impl.power_client_id_);
+    }
+    impl.has_power_client_ = false;
+    impl.power_client_id_ = 0;
+    impl.perf_ = nullptr;
+    impl.supports_low_latency_ = false;
     if (impl.qnn_ != nullptr && impl.device_ != nullptr && impl.qnn_->deviceFree != nullptr) {
         (void)impl.qnn_->deviceFree(impl.device_);
     }

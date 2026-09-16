@@ -43,6 +43,10 @@ struct runtime_composition_activation {
     std::uint64_t stop_timeout_ns_{0};
     std::uint16_t source_count_{0};
     int rpc_timeout_ms_{0};
+    // Moves each blocking source/model session onto one bounded, joined worker. This is an
+    // activation policy: false retains deterministic serialized execution for fixtures.
+    bool use_session_workers_{false};
+    bool use_model_workers_{false};
 };
 
 // Optional activation-time feature wiring. Fan-out pointers are borrowed, already

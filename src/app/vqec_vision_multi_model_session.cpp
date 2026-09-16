@@ -137,7 +137,8 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
             "cascade-root session requires a nonzero retention budget"};
     }
     const auto configured = pump_.vqec_vision_ai_appl_mmump_configure(
-        config_.cadence_, pump_bindings, config_.graph_count_);
+        config_.cadence_, pump_bindings, config_.graph_count_,
+        config_.use_model_workers_);
     if (configured.code_ != status_code::ok) {
         return configured;
     }

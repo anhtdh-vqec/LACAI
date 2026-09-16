@@ -7,8 +7,9 @@ namespace vqec::vision::ai {
 
 application_composition::application_composition(
     std::uint64_t _deployment_revision, std::uint64_t _catalog_revision,
-    std::uint16_t _declared_sources) noexcept
-    : supervisor_({_deployment_revision, _catalog_revision, _declared_sources}) {
+    std::uint16_t _declared_sources, bool _use_session_workers) noexcept
+    : supervisor_({_deployment_revision, _catalog_revision, _declared_sources,
+          _use_session_workers}) {
     snapshot_.deployment_revision_ = _deployment_revision;
     snapshot_.catalog_revision_ = _catalog_revision;
     snapshot_.declared_sources_ = _declared_sources;

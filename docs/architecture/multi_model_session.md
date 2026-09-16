@@ -1,7 +1,8 @@
 # Multi-model source session
 
-Status: portable lifecycle source delivered and its fake-port test passes natively on
-QCS6490. Live Camera/Qualcomm integration and board recovery remain pending.
+Status: portable lifecycle source delivered; fake-port tests pass and the combined
+person+FD/FR path has live compatibility-source evidence on QCS6490. Released-FW recovery
+and acceptance remain pending.
 
 `multi_model_session` is the default source-session design for an admitted source with
 1..16 model graphs. It implements `source_session_port`, so the existing process-level
@@ -58,6 +59,13 @@ external BSP recovery procedure proves DMA has ceased.
 The fake-port test source covers preflight rejection before FW acquisition, failure while
 starting a later graph with rollback of an already-running graph, shared-frame running
 progress, ordered result correlation and graph-before-source shutdown.
+
+The result frame owner moves from the pump's completed model slot into the session's
+single `last_result_frame_`. Replacing that value releases the preceding result owner.
+The model slot must not retain a duplicate after completion: a live `.98` soak exposed a
+bounded-source deadlock when duplicate owners from separate model slots consumed all
+three compatibility-camera in-flight buffers. The ownership regression test now releases
+the consumer report and verifies the source owner expires.
 
 ## Limits
 

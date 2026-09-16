@@ -64,6 +64,55 @@ with eight logical CPUs. This excludes camera/RTSP processes and is not directly
 to machine-normalized CPU percentages. No stage/FPS/thermal target is inferred from this
 sample. A controlled workload and transition resource/soak matrix remain required.
 
+## Throughput repair and soak evidence
+
+The original combined live path serialized person preprocessing/QNN, face
+preprocessing/QNN, face alignment/EdgeFace and output work. A 30/1 deployment therefore
+routed only about **9.2 AI results/s per root model**. The repair adds three explicit,
+independently selectable mechanisms:
+
+- `--inference-perf-profile low_latency` maps neutral policy to a version-checked HTP DCVS
+  V3 performance vote; unsupported backends fail activation;
+- `--model-execution parallel` creates one bounded persistent worker for each root model,
+  while cadence, result ordering, cascade admission and frame ownership remain serialized;
+- exact lookup tables replace per-pixel floating multiplication in NV12 conversion and
+  RGB8 quantization. The cascade also reuses its activation-sized embedding input and
+  quantization workspace.
+
+The first 15-second sample after these changes produced 419 ring frames (**27.93 FPS**),
+401 person results (**26.73 FPS**) and 391 FD+FR root results (**26.07 FPS**). The process
+used **93.39% of one logical CPU** across its threads; this is about 11.7% when divided by
+the board's eight logical CPUs, but machine-normalized CPU is not the requested process
+budget. A host FFmpeg TCP client decoded 120 frames in 5.13 seconds including join time.
+
+That short run exposed a separate lifetime failure after roughly one minute: each completed
+model slot retained a duplicate source-frame owner after copying it into the result report.
+Three owners could consume all three compatibility-camera in-flight buffers, leaving no
+new frame that could replace them. The pump now moves the owner into the single result
+report. Its unit regression releases the report and proves the original owner expires.
+After the fix, consecutive 45- and 15-second windows continued without a stall:
+
+| Window | Encoded ring | Person root | FD+FR root | AI process CPU |
+|---|---:|---:|---:|---:|
+| 45 s | 25.02 FPS | 24.91 FPS | 24.02 FPS | 95.38% of one logical CPU |
+| 15 s, later in the same run | 25.80 FPS | 25.33 FPS | 24.60 FPS | 96.13% of one logical CPU |
+
+The final workspace-reuse candidate passed the native cascade test and the D-Bus
+enrollment/runtime transition runner, then sustained another 45-second window without the
+owner stall. On the already-warm board that window measured **22.62 encoded FPS**, **22.29
+person FPS** and **20.78 FD+FR FPS**, with process CPU **106.36% of one logical CPU**.
+Sampled CPU/NSP/DDR thermal zones were about 66--70 C. Board workload and temperature were
+not controlled, so the difference cannot be attributed solely to one source change.
+
+These measurements establish a large improvement and fix the frame-lifetime stall. They
+do not satisfy a sustained 25--30 FPS release criterion or the requested 15--25% process
+CPU target. The remaining dominant design limit is synchronous face
+align/quantize/EdgeFace execution on the serialized result thread, plus compatibility
+camera and renderer copies. The next performance slice is a bounded asynchronous cascade
+worker with measured queue age/drop policy, followed by released-FW DMA-BUF input, QNN
+registered buffers and a controlled thermal soak. Lowering cadence would hide work and is
+not accepted as a throughput fix.
+
 ## Reproduce
 
 For device-free service-generation testing:

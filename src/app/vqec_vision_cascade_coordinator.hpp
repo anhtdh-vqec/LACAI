@@ -92,6 +92,11 @@ private:
     std::size_t max_tasks_per_frame_{0};
     // Full model input spec taken from the loaded graph (name, dims, dtype, quantization).
     tensor_spec embedding_input_spec_{};
+    // The coordinator is serialized, so one activation-sized quantization workspace and
+    // one graph-input vector can be reused for every admitted face without frame-path
+    // allocation or an initializer-list deep copy of the tensor payload.
+    std::vector<std::uint16_t> embedding_quantized_workspace_;
+    std::vector<tensor_blob> embedding_inputs_;
     status last_task_error_{};
     bool has_embedding_input_spec_{false};
     bool is_configured_{false};

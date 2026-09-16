@@ -337,6 +337,7 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             session_config.cascade_frames_ = source.cascade_.frames_;
             session_config.cascade_tasks_per_frame_ = source.cascade_.tasks_per_frame_;
             session_config.cascade_max_bytes_ = source.cascade_.max_bytes_;
+            session_config.use_model_workers_ = _activation.use_model_workers_;
 
             for (std::uint16_t model_slot = 0;
                  model_slot < source_activation.model_count_; ++model_slot) {
@@ -425,7 +426,8 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
         }
 
         candidate->composition_ = std::make_unique<application_composition>(
-            _deployment.revision_, _catalog.revision_, _activation.source_count_);
+            _deployment.revision_, _catalog.revision_, _activation.source_count_,
+            _activation.use_session_workers_);
         for (std::uint16_t source_slot = 0;
              source_slot < _activation.source_count_; ++source_slot) {
             const auto bound = candidate->composition_->

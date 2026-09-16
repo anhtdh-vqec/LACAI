@@ -39,6 +39,7 @@ struct production_platform_config {
     model_package_registry model_packages_;
     std::string backend_library_;
     std::string system_library_;
+    inference_execution_policy execution_policy_;
     // Released FW camera route inputs.
     std::string socket_dir_{"/run/camera_ai"};
     std::uint32_t producer_uid_{0};

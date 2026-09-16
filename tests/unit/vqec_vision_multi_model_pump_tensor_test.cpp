@@ -3,8 +3,10 @@
 
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -200,6 +202,37 @@ int main() {
     assert(graph.tensor_submissions_ == 1);
     assert(graph.frame_submissions_ == 0);
     assert(processor.calls_ == 1);
+
+    // The optional bounded worker path owns a persistent thread, reports submission only
+    // after preprocessing/graph execution completes, and joins before pump teardown.
+    {
+        fake_source worker_source;
+        fake_graph worker_graph;
+        fake_processor worker_processor;
+        assert(worker_source.vqec_vision_ai_ports_rawsr_start(1000).code_ == status_code::ok);
+        auto worker_bindings = bindings;
+        worker_bindings[0].graph_ = &worker_graph;
+        worker_bindings[0].processor_ = &worker_processor;
+        multi_model_pump worker_pump(worker_source);
+        assert(worker_pump.vqec_vision_ai_appl_mmump_configure(
+                   cadence, worker_bindings, 1, true).code_ == status_code::ok);
+        assert(worker_pump.vqec_vision_ai_appl_mmump_resolve_targets().code_ ==
+               status_code::ok);
+        bool submitted = false;
+        for (std::uint64_t now = 1; now < 100 && !submitted; ++now) {
+            multi_model_pump_report worker_report;
+            (void)worker_pump.vqec_vision_ai_appl_mmump_pump_step(
+                now, result, worker_report);
+            submitted = worker_report.submitted_model_mask_ != 0;
+            if (!submitted) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+        assert(submitted);
+        worker_pump.vqec_vision_ai_appl_mmump_begin_stop();
+        assert(worker_graph.tensor_submissions_ >= 1);
+        assert(worker_processor.calls_ == worker_graph.tensor_submissions_);
+    }
 
     // S08/O09: a model class this base does not preprocess (multi-input, dynamic or
     // stateful) is rejected at activation, before any frame is received, instead of being

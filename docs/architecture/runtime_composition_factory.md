@@ -40,6 +40,16 @@ order. Port validation may inspect owner state but must not acquire hardware res
 The returned application composition is already in `validating` state and can be
 activated by the serialized service executor. A tensor result is routed using the source
 index and model slot in its progress report to the corresponding perception bundle.
+The activation descriptor also selects serialized source stepping or one bounded, joined
+worker per source. Production may use the worker policy so blocking preprocess/inference
+does not block control, cascade processing and preview rendering; deterministic fixtures
+retain serialized stepping. This policy does not add model concurrency within one source.
+The output thread takes a session preview only after it has consumed a worker completion;
+a pending executor step may mean the worker is mutating the session, so direct mailbox
+access is forbidden then. Cascade processing follows the same completed-result boundary.
+Independently, activation may enable the per-model workers defined by
+[multi-model pump](multi_model_pump.md). The two switches are separate because source-level
+overlap and model-level overlap have different ownership and accelerator-contention costs.
 Feature activation, entitlement, artifact authentication, immutable path opening,
 platform owner creation and measured board admission remain separate prerequisites.
 No Qualcomm, GStreamer, Camera wire or product-origin type crosses this boundary.

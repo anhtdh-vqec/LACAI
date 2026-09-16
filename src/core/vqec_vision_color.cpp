@@ -7,9 +7,70 @@
 namespace vqec::vision::ai {
 namespace {
 
+inline constexpr std::size_t g_rgb8_value_count =
+    static_cast<std::size_t>(std::numeric_limits<std::uint8_t>::max()) + 1U;
+inline constexpr double g_chroma_midpoint =
+    static_cast<double>(g_rgb8_value_count / 2U);
+
+struct color_conversion_lut {
+    std::array<double, g_rgb8_value_count> luma_{};
+    std::array<double, g_rgb8_value_count> red_cr_{};
+    std::array<double, g_rgb8_value_count> green_cb_{};
+    std::array<double, g_rgb8_value_count> green_cr_{};
+    std::array<double, g_rgb8_value_count> blue_cb_{};
+};
+
 std::uint8_t vqec_vision_ai_core_color_clamp(double _value) noexcept {
     const double rounded = std::round(_value);
     return static_cast<std::uint8_t>(std::clamp(rounded, 0.0, 255.0));
+}
+
+color_conversion_lut vqec_vision_ai_core_color_make_lut(
+    color_matrix _matrix, color_range _range) noexcept {
+    const bool limited = _range == color_range::limited;
+    const double luma_scale = limited ? 1.1643835616438356 : 1.0;
+    const double luma_offset = limited ? 16.0 : 0.0;
+    double red_cr = 0.0;
+    double green_cb = 0.0;
+    double green_cr = 0.0;
+    double blue_cb = 0.0;
+    if (_matrix == color_matrix::bt601) {
+        red_cr = limited ? 1.5960267857142858 : 1.402;
+        green_cb = limited ? 0.3917622900949137 : 0.34413628620102216;
+        green_cr = limited ? 0.8129676472377708 : 0.7141362862010221;
+        blue_cb = limited ? 2.017232142857143 : 1.772;
+    } else {
+        red_cr = limited ? 1.7927410714285714 : 1.5748;
+        green_cb = limited ? 0.21324861427372963 : 0.1873242729306488;
+        green_cr = limited ? 0.532909328559444 : 0.4681242729306488;
+        blue_cb = limited ? 2.112401785714286 : 1.8556;
+    }
+    color_conversion_lut lut;
+    for (std::size_t value = 0; value < lut.luma_.size(); ++value) {
+        const double component = static_cast<double>(value) - g_chroma_midpoint;
+        lut.luma_[value] = luma_scale * (static_cast<double>(value) - luma_offset);
+        lut.red_cr_[value] = red_cr * component;
+        lut.green_cb_[value] = green_cb * component;
+        lut.green_cr_[value] = green_cr * component;
+        lut.blue_cb_[value] = blue_cb * component;
+    }
+    return lut;
+}
+
+const color_conversion_lut& vqec_vision_ai_core_color_get_lut(
+    color_matrix _matrix, color_range _range) noexcept {
+    static const color_conversion_lut g_bt601_limited =
+        vqec_vision_ai_core_color_make_lut(color_matrix::bt601, color_range::limited);
+    static const color_conversion_lut g_bt601_full =
+        vqec_vision_ai_core_color_make_lut(color_matrix::bt601, color_range::full);
+    static const color_conversion_lut g_bt709_limited =
+        vqec_vision_ai_core_color_make_lut(color_matrix::bt709, color_range::limited);
+    static const color_conversion_lut g_bt709_full =
+        vqec_vision_ai_core_color_make_lut(color_matrix::bt709, color_range::full);
+    if (_matrix == color_matrix::bt601) {
+        return _range == color_range::limited ? g_bt601_limited : g_bt601_full;
+    }
+    return _range == color_range::limited ? g_bt709_limited : g_bt709_full;
 }
 
 }  // namespace
@@ -29,42 +90,25 @@ status vqec_vision_ai_core_color_convert_nv12_to_rgb(
         (_range != color_range::limited && _range != color_range::full)) {
         return {status_code::unsupported, "unspecified color matrix or range"};
     }
-    const bool limited = _range == color_range::limited;
-    // Limited-range luma scale/offset; full range leaves luma as-is.
-    const double luma_scale = limited ? 1.1643835616438356 : 1.0;
-    const double luma_offset = limited ? 16.0 : 0.0;
-    // Chroma coefficients per matrix for the limited-range form; the full-range form uses
-    // the standard full-range coefficients.
-    double r_v = 0.0;
-    double g_u = 0.0;
-    double g_v = 0.0;
-    double b_u = 0.0;
-    if (_matrix == color_matrix::bt601) {
-        r_v = limited ? 1.5960267857142858 : 1.402;
-        g_u = limited ? 0.3917622900949137 : 0.34413628620102216;
-        g_v = limited ? 0.8129676472377708 : 0.7141362862010221;
-        b_u = limited ? 2.017232142857143 : 1.772;
-    } else {
-        r_v = limited ? 1.7927410714285714 : 1.5748;
-        g_u = limited ? 0.21324861427372963 : 0.1873242729306488;
-        g_v = limited ? 0.532909328559444 : 0.4681242729306488;
-        b_u = limited ? 2.112401785714286 : 1.8556;
-    }
+    const auto& lut = vqec_vision_ai_core_color_get_lut(_matrix, _range);
     for (std::uint32_t row = 0; row < _height; ++row) {
         const std::uint8_t* y_row = _y_plane + static_cast<std::size_t>(row) * _y_stride;
         const std::uint8_t* uv_row =
             _uv_plane + static_cast<std::size_t>(row / 2U) * _uv_stride;
         std::uint8_t* out_row = _rgb + static_cast<std::size_t>(row) * _rgb_stride;
         for (std::uint32_t column = 0; column < _width; ++column) {
-            const double luma = luma_scale * (static_cast<double>(y_row[column]) - luma_offset);
+            const double luma = lut.luma_[y_row[column]];
             const std::size_t chroma_index =
                 static_cast<std::size_t>(column / 2U) * 2U;
-            const double cb = static_cast<double>(uv_row[chroma_index]) - 128.0;
-            const double cr = static_cast<double>(uv_row[chroma_index + 1U]) - 128.0;
-            const std::uint8_t red = vqec_vision_ai_core_color_clamp(luma + r_v * cr);
+            const auto cb = uv_row[chroma_index];
+            const auto cr = uv_row[chroma_index + 1U];
+            const std::uint8_t red =
+                vqec_vision_ai_core_color_clamp(luma + lut.red_cr_[cr]);
             const std::uint8_t green =
-                vqec_vision_ai_core_color_clamp(luma - g_u * cb - g_v * cr);
-            const std::uint8_t blue = vqec_vision_ai_core_color_clamp(luma + b_u * cb);
+                vqec_vision_ai_core_color_clamp(
+                    luma - lut.green_cb_[cb] - lut.green_cr_[cr]);
+            const std::uint8_t blue =
+                vqec_vision_ai_core_color_clamp(luma + lut.blue_cb_[cb]);
             std::uint8_t* pixel = out_row + static_cast<std::size_t>(column) * 3U;
             if (_order == channel_order::rgb) {
                 pixel[0] = red;
@@ -95,6 +139,18 @@ status vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
             return {status_code::invalid_argument, "non-finite normalization coefficients"};
         }
     }
+    // RGB8 has a finite domain: preserve the exact affine rounding/clipping formula
+    // once per channel/value instead of evaluating it for every destination pixel.
+    constexpr std::size_t g_rgb_channel_count = 3;
+    std::array<std::array<std::uint16_t, g_rgb8_value_count>, g_rgb_channel_count> mapping{};
+    for (std::size_t channel = 0; channel < mapping.size(); ++channel) {
+        for (std::size_t value = 0; value < mapping[channel].size(); ++value) {
+            const double real = (static_cast<double>(value) - _offset[channel]) * _scale[channel];
+            const double stored = std::round(real / static_cast<double>(_quant_scale)) +
+                static_cast<double>(_quant_zero_point);
+            mapping[channel][value] = static_cast<std::uint16_t>(std::clamp(stored, 0.0, 65535.0));
+        }
+    }
     for (std::uint32_t row = 0; row < _height; ++row) {
         const std::uint8_t* input_row = _rgb + static_cast<std::size_t>(row) * _rgb_stride;
         std::uint16_t* output_row =
@@ -103,13 +159,7 @@ status vqec_vision_ai_core_color_quantize_rgb8_to_uint16(
             const std::uint8_t* pixel = input_row + static_cast<std::size_t>(column) * 3U;
             std::uint16_t* out = output_row + static_cast<std::size_t>(column) * 3U;
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                const double real =
-                    (static_cast<double>(pixel[channel]) - _offset[channel]) *
-                    _scale[channel];
-                const double stored =
-                    std::round(real / static_cast<double>(_quant_scale)) +
-                    static_cast<double>(_quant_zero_point);
-                out[channel] = static_cast<std::uint16_t>(std::clamp(stored, 0.0, 65535.0));
+                out[channel] = mapping[channel][pixel[channel]];
             }
         }
     }
