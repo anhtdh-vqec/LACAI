@@ -110,6 +110,36 @@ invalid `memory:GBM` caps assumption and the second exposed the missing I420-to-
 conversion; the recorded passing run includes both fixes. This is native allocator/import
 evidence for one synthetic image, not end-to-end FD/FR performance or zero-copy proof.
 
+## 2026-09-16 image enrollment and live FR output on `.98`
+
+The eSDK-built production service processed the authorized test JPEG through dedicated
+SCRFD and EdgeFace graphs and completed the session-bus D-Bus enrollment request. The
+terminal status reported one accepted sample and advanced the gallery from revision 1 to
+revision 2. The image path was below the configured enrollment root; no image or embedding
+was added to Git.
+
+The first end-to-end attempt exposed two target-only issues. The GBM DMA-BUF returned by
+`qtivtransform` could be mapped through the GStreamer allocator but not directly with
+`mmap`; the cold image path now retains a packed memfd for FastCV alignment while detector
+preprocessing continues to consume the DMA-BUF. The still-image detector also produced no
+tracker identity, so the pipeline now assigns the immutable nonzero image buffer ID as the
+request-local track identity after it has proved that exactly one landmark-bearing face
+exists.
+
+After enrollment, the same service process ran live recognition, Qualcomm overlay/H.264
+encoding and the released FW ring. A host `ffprobe` TCP RTSP probe reported H.264,
+1920x1080 and 30/1 FPS at `rtsp://192.168.138.98:8554/live/ai/detect0`; the ring write
+sequence exceeded 800 without a recognition, label-correlation, render or executor error.
+The service remained running so visual name matching could be checked by a person at the
+camera.
+
+This run used the compatibility camera mock. At one sample the service used about 57% of
+one CPU and the mock about 34%; the mock performs a full NV12 copy into memfd and the
+renderer performs another copy into a QTI surface. These figures do not represent the
+released FW DMA-BUF path and are not a CPU acceptance result. A prior camera HAL run had
+orphaned CSL resources and reported LRME allocation failure; a controlled reboot of the
+assigned `.98` test board restored direct `qtiqmmfsrc` capture before the passing run.
+
 ## 2026-09-16 FR cascade run
 
 The board was reachable at `.99` using the approved test account. The production binary

@@ -11,8 +11,12 @@ adapter are delivered. Plane-aware packing handles GStreamer stride padding; out
 and wait time are configuration bounded. The Qualcomm production mode requires GBM caps,
 verifies DMA-BUF memory/layout bounds and retains the Gst sample behind neutral `raw_frame`.
 The production service now supplies the FD/FR handoff, retained-FD input admission and
-dedicated graph wiring. Board end-to-end D-Bus/model/gallery evidence remains to be
-recorded. See
+dedicated graph wiring. On `.98`, authorized JPEG enrollment completed through the real
+SCRFD/FastCV/EdgeFace/Zvec path via D-Bus, accepted one template and advanced gallery
+revision 1 to 2. In the same running process the AI-owned overlay/H.264 ring published a
+host-probed 1920x1080 30 FPS RTSP stream. Restart recovery remains open: the current Zvec
+adapter deliberately rejects an existing collection because durable authoritative gallery
+and revision recovery are not yet implemented. See
 [image source](../architecture/face_enrollment_image_source.md).
 
 The neutral synchronous `single_image_inference` runner reuses the admitted image
