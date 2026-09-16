@@ -11,8 +11,10 @@ The pipeline performs these bounded stages:
 2. decode one owned NV12 `raw_frame` through `face_enrollment_image_source_port`;
 3. run the configured detector through `face_image_detector_port`;
 4. require exactly one landmark-bearing face;
-5. align and embed it through `face_image_cascade_port`;
-6. commit one template through `face_enrollment_port` and publish completed status.
+5. use the immutable image buffer ID as the request-local track identity when the
+   detector has no live-tracker identity;
+6. align and embed it through `face_image_cascade_port`;
+7. commit one template through `face_enrollment_port` and publish completed status.
 
 Every failure transitions the request to `failed` with a stable status code. One image
 produces one template; FW enrolls several photos for one subject with separate request IDs

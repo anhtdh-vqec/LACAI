@@ -81,21 +81,11 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
         return result;
     }
+    const auto is_eligible = [](const observation& _item) {
+        return !_item.landmarks_.schema_id_.empty() && !_item.landmarks_.points_.empty();
+    };
     const auto eligible = static_cast<std::size_t>(std::count_if(
-        detections.observations_.begin(), detections.observations_.end(),
-        [](const observation& _item) {
-            return !_item.landmarks_.schema_id_.empty() && !_item.landmarks_.points_.empty();
-        }));
-    std::vector<embedding_result> embeddings;
-    std::size_t failed_tasks = 0;
-    const raw_frame& alignment_frame = image.alignment_frame_.owner_ ?
-        image.alignment_frame_ : image.frame_;
-    result = config_.cascade_->vqec_vision_ai_ports_ficas_run(
-        alignment_frame, detections, _steady_now_ns, embeddings, failed_tasks);
-    if (result.code_ != status_code::ok) {
-        (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
-        return result;
-    }
+        detections.observations_.begin(), detections.observations_.end(), is_eligible));
     if (eligible == 0) {
         (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_argument);
         return {status_code::invalid_argument,
@@ -105,6 +95,24 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_argument);
         return {status_code::invalid_argument,
             "enrollment image detector found multiple eligible faces"};
+    }
+    auto selected_face = std::find_if(
+        detections.observations_.begin(), detections.observations_.end(), is_eligible);
+    if (selected_face->track_id_ == 0) {
+        // An authorized still image does not pass through the live tracker. Its immutable,
+        // nonzero buffer identity provides the request-local identity required by the
+        // embedding contract and is propagated through the cascade result.
+        selected_face->track_id_ = image.frame_.descriptor_.buffer_id_;
+    }
+    std::vector<embedding_result> embeddings;
+    std::size_t failed_tasks = 0;
+    const raw_frame& alignment_frame = image.alignment_frame_.owner_ ?
+        image.alignment_frame_ : image.frame_;
+    result = config_.cascade_->vqec_vision_ai_ports_ficas_run(
+        alignment_frame, detections, _steady_now_ns, embeddings, failed_tasks);
+    if (result.code_ != status_code::ok) {
+        (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
+        return result;
     }
     if (failed_tasks != 0) {
         (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::io_error);

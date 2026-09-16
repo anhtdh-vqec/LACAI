@@ -49,7 +49,9 @@ public:
         const std::string& _source_id, const std::vector<embedding_result>& _embeddings,
         std::size_t _eligible_face_count, face_enrollment_status& _status) override {
         if (_source_id != request_.source_id_ || _eligible_face_count != 1 ||
-            _embeddings.size() != 1) return {status_code::invalid_argument, "bad batch"};
+            _embeddings.size() != 1 || _embeddings[0].track_id_ == 0) {
+            return {status_code::invalid_argument, "bad batch"};
+        }
         status_.accepted_samples_ = 1;
         status_.state_ = face_enrollment_state::completed;
         _status = status_;
@@ -115,6 +117,7 @@ public:
         std::size_t& _failed_tasks) override {
         embedding_result embedding;
         embedding.frame_ = _detections.frame_;
+        embedding.track_id_ = _detections.observations_[0].track_id_;
         embedding.model_id_ = "face.embedding";
         embedding.model_version_ = "1";
         embedding.values_ = {1.0F, 0.0F};
