@@ -323,6 +323,8 @@ int main() {
                   0, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
         check(report.accepted_ == 0 && report.failed_ == 2 && aligned.empty() &&
             lease.complete_calls_ == 2 && lease.retire_calls_ == 1);
+        check(coordinator.vqec_vision_ai_appl_cscrd_get_last_task_error().code_ ==
+            status_code::io_error);
     }
 
     // Acquire failure is counted and no ticket is completed; admission is still retired.

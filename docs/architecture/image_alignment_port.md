@@ -88,6 +88,11 @@ it validates the request/template, computes the neutral similarity, maps it to F
 the borrowed source NV12 FD read-only (page-aligned `mmap`), converts the sampled even-aligned
 ROI using the explicit model color contract, warps each channel with FastCV, and returns an
 owned NHWC RGB/BGR `uint8` tensor plus the transform and a synchronous completion ticket.
+The ROI is expanded to at least the destination dimensions because the QCS6490 FastCV
+binary rejects a smaller affine input even when its sampled footprint is valid. If the
+vendor warp still rejects a valid ROI, the adapter uses a bounded bilinear sampler on that
+small ROI; it does not convert or warp the full source frame. This is a correctness fallback
+and must be counted separately in future performance telemetry.
 
 Board evidence (`.48`, synthetic NV12 memfd, `vqec_vision_fastcv_affine_smoke`): the identity
 warp centered at source (32, 32) produced the expected 8×8 neighborhood with the marker `255`

@@ -69,6 +69,8 @@ public:
         std::uint64_t _steady_now_ns, std::vector<embedding_result>& _embeddings,
         std::size_t& _failed_tasks) override;
     [[nodiscard]] bool vqec_vision_ai_appl_cscrd_is_configured() const noexcept;
+    [[nodiscard]] const status&
+    vqec_vision_ai_appl_cscrd_get_last_task_error() const noexcept;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_cscrd_process_with_lease(

@@ -22,6 +22,8 @@ namespace {
 constexpr std::uint64_t g_align_ticket = 1;
 
 constexpr char g_aligned_tensor_name[] = "aligned_luma";
+constexpr double g_roi_interpolation_margin_pixels = 2.0;
+constexpr std::uint32_t g_nv12_coordinate_alignment_pixels = 2U;
 
 // True when a plane with the given offset/stride/width/height lies entirely inside the
 // valid view, using overflow-safe arithmetic.
@@ -42,6 +44,86 @@ bool vqec_vision_ai_qcom_fcaln_plane_fits(std::uint64_t _offset, std::int32_t _s
         return false;
     }
     return _offset + span <= _view_bytes;
+}
+
+// FastCV rejects affine inputs smaller than the destination patch even when the sampled
+// footprint itself is smaller (for example a close face). Preserve the ROI optimization
+// while expanding and shifting the crop to that documented backend precondition.
+void vqec_vision_ai_qcom_fcaln_make_roi_bounds(double _sample_min, double _sample_max,
+    std::uint32_t _minimum_extent, std::uint32_t _source_extent,
+    std::uint32_t& _begin, std::uint32_t& _end) noexcept {
+    const double sampled_extent = std::max(0.0, _sample_max - _sample_min) +
+        2.0 * g_roi_interpolation_margin_pixels;
+    const double required_extent = std::max(
+        sampled_extent,
+        static_cast<double>(_minimum_extent) + 2.0 * g_roi_interpolation_margin_pixels);
+    auto extent = static_cast<std::uint32_t>(std::ceil(required_extent));
+    extent = (extent + g_nv12_coordinate_alignment_pixels - 1U) &
+        ~(g_nv12_coordinate_alignment_pixels - 1U);
+    extent = std::min(extent, _source_extent);
+    const double centre = (_sample_min + _sample_max) / 2.0;
+    const double unclamped_begin = centre - static_cast<double>(extent) / 2.0;
+    const double maximum_begin = static_cast<double>(_source_extent - extent);
+    auto begin = static_cast<std::uint32_t>(
+        std::max(0.0, std::min(std::floor(unclamped_begin), maximum_begin)));
+    begin &= ~(g_nv12_coordinate_alignment_pixels - 1U);
+    if (begin > _source_extent - extent) {
+        begin = (_source_extent - extent) &
+            ~(g_nv12_coordinate_alignment_pixels - 1U);
+    }
+    _begin = begin;
+    _end = begin + extent;
+}
+
+// A direct bounded fallback keeps FR available when the FastCV binary rejects an otherwise
+// valid small ROI while another FastCV-backed graph is active. FastCV remains the first
+// path; this samples only the aligned patch and never converts the full source frame.
+void vqec_vision_ai_qcom_fcaln_warp_bilinear_fallback(const std::uint8_t* _source,
+    std::uint32_t _source_width, std::uint32_t _source_height,
+    std::uint32_t _source_stride, const float (&_position)[2],
+    const float (&_affine)[4], std::uint8_t* _destination,
+    std::uint32_t _destination_width, std::uint32_t _destination_height,
+    std::uint32_t _destination_stride) noexcept {
+    constexpr std::uint8_t g_border_fill_value = 0U;
+    const float destination_centre_x = static_cast<float>(_destination_width) / 2.0F;
+    const float destination_centre_y = static_cast<float>(_destination_height) / 2.0F;
+    for (std::uint32_t row = 0; row < _destination_height; ++row) {
+        for (std::uint32_t column = 0; column < _destination_width; ++column) {
+            const float offset_x = static_cast<float>(column) - destination_centre_x;
+            const float offset_y = static_cast<float>(row) - destination_centre_y;
+            const float source_x = _position[0] +
+                _affine[0] * offset_x + _affine[1] * offset_y;
+            const float source_y = _position[1] +
+                _affine[2] * offset_x + _affine[3] * offset_y;
+            auto& output = _destination[
+                static_cast<std::size_t>(row) * _destination_stride + column];
+            if (source_x < 0.0F || source_y < 0.0F ||
+                source_x >= static_cast<float>(_source_width - 1U) ||
+                source_y >= static_cast<float>(_source_height - 1U)) {
+                output = g_border_fill_value;
+                continue;
+            }
+            const auto x0 = static_cast<std::uint32_t>(std::floor(source_x));
+            const auto y0 = static_cast<std::uint32_t>(std::floor(source_y));
+            const auto x1 = x0 + 1U;
+            const auto y1 = y0 + 1U;
+            const float x_fraction = source_x - static_cast<float>(x0);
+            const float y_fraction = source_y - static_cast<float>(y0);
+            const auto top_left = static_cast<float>(
+                _source[static_cast<std::size_t>(y0) * _source_stride + x0]);
+            const auto top_right = static_cast<float>(
+                _source[static_cast<std::size_t>(y0) * _source_stride + x1]);
+            const auto bottom_left = static_cast<float>(
+                _source[static_cast<std::size_t>(y1) * _source_stride + x0]);
+            const auto bottom_right = static_cast<float>(
+                _source[static_cast<std::size_t>(y1) * _source_stride + x1]);
+            const float top = top_left + (top_right - top_left) * x_fraction;
+            const float bottom = bottom_left + (bottom_right - bottom_left) * x_fraction;
+            const float interpolated = top + (bottom - top) * y_fraction;
+            output = static_cast<std::uint8_t>(std::lround(
+                std::max(0.0F, std::min(255.0F, interpolated))));
+        }
+    }
 }
 
 }  // namespace
@@ -152,19 +234,14 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
         max_x = std::max(max_x, source_x);
         max_y = std::max(max_y, source_y);
     }
-    constexpr double g_roi_margin = 2.0;
-    const double clamped_x0 = std::max(0.0, std::floor(min_x - g_roi_margin));
-    const double clamped_y0 = std::max(0.0, std::floor(min_y - g_roi_margin));
-    const double clamped_x1 = std::min(static_cast<double>(descriptor.width_),
-        std::ceil(max_x + g_roi_margin));
-    const double clamped_y1 = std::min(static_cast<double>(descriptor.height_),
-        std::ceil(max_y + g_roi_margin));
-    const std::uint32_t roi_x0 = static_cast<std::uint32_t>(clamped_x0) & ~1U;
-    const std::uint32_t roi_y0 = static_cast<std::uint32_t>(clamped_y0) & ~1U;
-    const std::uint32_t roi_x1 = std::min(
-        (static_cast<std::uint32_t>(clamped_x1) + 1U) & ~1U, descriptor.width_);
-    const std::uint32_t roi_y1 = std::min(
-        (static_cast<std::uint32_t>(clamped_y1) + 1U) & ~1U, descriptor.height_);
+    std::uint32_t roi_x0 = 0;
+    std::uint32_t roi_y0 = 0;
+    std::uint32_t roi_x1 = 0;
+    std::uint32_t roi_y1 = 0;
+    vqec_vision_ai_qcom_fcaln_make_roi_bounds(min_x, max_x,
+        _template.destination_width_, descriptor.width_, roi_x0, roi_x1);
+    vqec_vision_ai_qcom_fcaln_make_roi_bounds(min_y, max_y,
+        _template.destination_height_, descriptor.height_, roi_y0, roi_y1);
     if (roi_x1 <= roi_x0 || roi_y1 <= roi_y0) {
         ::munmap(mapping, static_cast<std::size_t>(map_length));
         return {status_code::invalid_argument, "alignment source region is empty"};
@@ -227,8 +304,11 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
                 _template.destination_width_, _template.destination_height_,
                 _template.destination_width_);
             if (warp != 0) {
-                ::munmap(mapping, static_cast<std::size_t>(map_length));
-                return {status_code::io_error, "FastCV affine warp failed"};
+                vqec_vision_ai_qcom_fcaln_warp_bilinear_fallback(
+                    planes[channel].data(), roi_width, roi_height, roi_width,
+                    roi_position, affine, patches[channel].data(),
+                    _template.destination_width_, _template.destination_height_,
+                    _template.destination_width_);
             }
         }
         const bool rgb_order = config_.order_ == channel_order::rgb;
@@ -254,8 +334,10 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             roi_width, roi_position, affine, patch.data(), _template.destination_width_,
             _template.destination_height_, _template.destination_width_);
         if (result != 0) {
-            ::munmap(mapping, static_cast<std::size_t>(map_length));
-            return {status_code::io_error, "FastCV affine warp failed"};
+            vqec_vision_ai_qcom_fcaln_warp_bilinear_fallback(
+                luma.data(), roi_width, roi_height, roi_width, roi_position, affine,
+                patch.data(), _template.destination_width_, _template.destination_height_,
+                _template.destination_width_);
         }
         candidate.tensor_.spec_.dimensions_ = {1U, _template.destination_height_,
             _template.destination_width_, 1U};

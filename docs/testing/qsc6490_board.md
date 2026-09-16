@@ -269,3 +269,22 @@ not a product CPU, latency, thermal, model-accuracy or released-FW acceptance re
 service `e2e_*` metric remains excluded because the QNN pipeline PTS and executor steady
 clock have no established mapping. When the compatibility camera mock stopped, QMMF logged
 a pending-buffer timeout and track deletion failure; no LACAI service process remained.
+
+## 2026-09-16 combined person + FR run on `.98`
+
+The authorized `.98` target ran the eSDK-built production service with two primary roots
+on one 1920x1080 source: `yolov8n_person` at model slot 0 and `scrfd_500m_bnkps` at slot 1.
+`edgeface_s_gamma_05` remained a secondary SCRFD dependency. File enrollment through the
+private D-Bus session completed one template and advanced the gallery revision from 1 to 2.
+
+The first combined activation was rejected before acquisition because the declared 16 MiB
+tensor budget was smaller than the admitted model closure. Raising the example envelope to
+32 MiB allowed composition. After a clean board restart, logs repeatedly reported person
+and face results plus successful `cascade_accepted=1 embedded=1 cascade_failed=0` samples.
+No cascade failure appeared in the verified run.
+
+A host TCP RTSP probe reported H.264, 1920×1080 and 30/1. A captured frame visibly contained
+one green `person` box and two separate face boxes. This proves concurrent composition and
+overlay retention in the compatibility setup. It does not prove model accuracy, persistent
+gallery recovery, released-FW DMA-BUF interop, thermal stability or load/unload behavior for
+the proposed dynamic usecase control plane.

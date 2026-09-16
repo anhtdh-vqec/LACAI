@@ -1485,6 +1485,7 @@ int main(int _argc, char** _argv) {
         latest_model_observations;
     std::array<observation_batch, deployment_limits::g_max_sources>
         latest_overlay_observations;
+    std::array<bool, deployment_limits::g_max_sources> cascade_error_reported{};
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
         const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now : now_ns + g_step_interval_ns;
@@ -1591,6 +1592,16 @@ int main(int _argc, char** _argv) {
                     static_cast<unsigned>(taken.cascade_.accepted_),
                     static_cast<unsigned>(taken.cascade_.embedded_),
                     static_cast<unsigned>(taken.cascade_.failed_));
+                if (taken.cascade_.failed_ != 0 &&
+                    taken.source_index_ < cascade_owners.size() &&
+                    !cascade_error_reported[taken.source_index_] &&
+                    cascade_owners[taken.source_index_].coordinator_ != nullptr) {
+                    const auto& cascade_error = cascade_owners[taken.source_index_]
+                        .coordinator_->vqec_vision_ai_appl_cscrd_get_last_task_error();
+                    std::fprintf(stderr, "cascade task failed (%d): %s\n",
+                        static_cast<int>(cascade_error.code_), cascade_error.message_.c_str());
+                    cascade_error_reported[taken.source_index_] = true;
+                }
             }
         } else if (stepped.code_ != status_code::pending) {
             if (first_error_code == status_code::ok) {

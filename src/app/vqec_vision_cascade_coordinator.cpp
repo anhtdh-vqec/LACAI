@@ -175,6 +175,11 @@ bool cascade_coordinator::vqec_vision_ai_appl_cscrd_is_configured() const noexce
     return is_configured_;
 }
 
+const status& cascade_coordinator::
+vqec_vision_ai_appl_cscrd_get_last_task_error() const noexcept {
+    return last_task_error_;
+}
+
 status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
     std::uint64_t _steady_now_ns, const observation_batch& _tracked,
     std::vector<alignment_result>& _aligned, std::vector<embedding_result>& _embeddings,

@@ -19,6 +19,16 @@ adapter deliberately rejects an existing collection because durable authoritativ
 and revision recovery are not yet implemented. See
 [image source](../architecture/face_enrollment_image_source.md).
 
+2026-09-16 combined `.98` run: one RAW acquisition drove YOLOv8n-person and SCRFD while
+EdgeFace ran as the SCRFD cascade dependency. A captured 1920x1080 H.264 frame contained
+the person box plus independent face boxes; the host probe reported 30/1 stream metadata.
+The runtime log showed alternating model slots and successful
+`cascade_accepted=1 embedded=1 cascade_failed=0` results. The combined declared tensor
+budget is 32 MiB; the previous 16 MiB profile was correctly rejected before acquisition.
+FastCV rejected valid small affine ROIs in the combined workload, so alignment now expands
+the ROI to the destination minimum and has a bounded small-patch bilinear fallback. This
+restores FR availability but is not a claim that every alignment used hardware.
+
 The neutral synchronous `single_image_inference` runner reuses the admitted image
 processor, graph and decoder ports for one owned file frame, with exact epoch/frame
 correlation and transactional detection publication. Production owns isolated detector
