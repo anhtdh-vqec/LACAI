@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.local/schemas/usecase_control_snapshot.schema.json",
+  "title": "LACAI authenticated usecase control snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "control_revision", "entitlement_revision", "deployment_revision", "catalog", "associations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "control_revision": {"type": "integer", "minimum": 1},
+    "entitlement_revision": {"type": "integer", "minimum": 1},
+    "deployment_revision": {"type": "integer", "minimum": 1},
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "revision", "catalog_id", "model_catalog_ref", "usecases"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "catalog_id": {"$ref": "#/$defs/identifier"},
+        "model_catalog_ref": {"$ref": "#/$defs/identifier"},
+        "usecases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["usecase_id", "usecase_version", "root_model_ids", "feature_ids"],
+            "properties": {
+              "usecase_id": {"$ref": "#/$defs/identifier"},
+              "usecase_version": {"$ref": "#/$defs/identifier"},
+              "root_model_ids": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/identifier"}},
+              "feature_ids": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/identifier"}}
+            }
+          }
+        }
+      }
+    },
+    "associations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "usecase_id", "desired", "installed", "entitled", "supported", "compatible", "admitted"],
+        "properties": {
+          "source_id": {"$ref": "#/$defs/identifier"},
+          "usecase_id": {"$ref": "#/$defs/identifier"},
+          "desired": {"type": "boolean"},
+          "installed": {"type": "boolean"},
+          "entitled": {"type": "boolean"},
+          "supported": {"type": "boolean"},
+          "compatible": {"type": "boolean"},
+          "admitted": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$"}
+  }
+}

@@ -15,6 +15,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - Keep one latest-wins preview frame per source so output cadence is independent of model cadence.
 - Reconstruct source identity from retained submission tickets, then compose decode/track/feature.
 - Provide the take-once delivery slot so the executor cannot run ahead of an unconsumed result.
+- Resolve an authenticated startup usecase snapshot before package/graph preparation.
 
 ## Contents
 
@@ -43,6 +44,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - Decoder implementations are borrowed; tracker ownership is per binding.
 - Multi-model features still need an explicit bounded temporal join.
 - Authenticated FW registry RPC and deployment-time peer-name provisioning remain open.
+- `--usecase-snapshot <json>` filters the maximum deployment to effective usecase roots.
+  An empty result keeps the process idle without preparing graphs or acquiring a source;
+  live D-Bus reconciliation is still pending.
 - FR service mode requires explicit `--fr-feature-id` and
   `--fr-identity-attribute`; recognized labels are emitted only when the output gate
   authorizes that source/feature/attribute scope. Enrollment control is optional GIO

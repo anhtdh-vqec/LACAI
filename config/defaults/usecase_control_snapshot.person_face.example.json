@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "control_revision": 1,
+  "entitlement_revision": 1,
+  "deployment_revision": 2,
+  "catalog": {
+    "schema_version": 1,
+    "revision": 1,
+    "catalog_id": "commercial_usecases_qcs6490_v1",
+    "model_catalog_ref": "models_person_face_qcs6490_v1",
+    "usecases": [
+      {
+        "usecase_id": "person_detection",
+        "usecase_version": "1.0",
+        "root_model_ids": ["yolov8n_person"],
+        "feature_ids": []
+      },
+      {
+        "usecase_id": "face_recognition",
+        "usecase_version": "1.0",
+        "root_model_ids": ["scrfd_500m_bnkps"],
+        "feature_ids": ["face_recognition"]
+      }
+    ]
+  },
+  "associations": [
+    {
+      "source_id": "camera_front",
+      "usecase_id": "person_detection",
+      "desired": true,
+      "installed": true,
+      "entitled": true,
+      "supported": true,
+      "compatible": true,
+      "admitted": true
+    },
+    {
+      "source_id": "camera_front",
+      "usecase_id": "face_recognition",
+      "desired": true,
+      "installed": true,
+      "entitled": true,
+      "supported": true,
+      "compatible": true,
+      "admitted": true
+    }
+  ]
+}

@@ -26,6 +26,7 @@
 #include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
+#include "vqec_vision_usecase_config.hpp"
 #include "vqec_vision_feature_fanout.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
@@ -427,6 +428,22 @@ bool vqec_vision_ai_appl_svcmn_load_feature_catalog(
     return true;
 }
 
+bool vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
+    const std::string& _path, usecase_control_snapshot& _snapshot) {
+    std::ifstream stream(_path);
+    if (!stream.is_open()) {
+        std::fprintf(stderr, "cannot open usecase snapshot: %s\n", _path.c_str());
+        return false;
+    }
+    const auto loaded = vqec_vision_ai_ftmgr_ucfg_load_snapshot(stream, _snapshot);
+    if (loaded.code_ != status_code::ok) {
+        std::fprintf(stderr, "usecase snapshot rejected (%d): %s\n",
+            static_cast<int>(loaded.code_), loaded.message_.c_str());
+        return false;
+    }
+    return true;
+}
+
 std::string vqec_vision_ai_appl_svcmn_dev_model_path(const std::string& _model_id) {
     return std::string(service_harness::g_model_root) + _model_id + ".bin";
 }
@@ -449,6 +466,7 @@ struct parsed_arguments {
     std::string deployment_path;
     std::string catalog_path;
     std::string feature_catalog_path;
+    std::string usecase_snapshot_path;
     std::uint64_t max_steps{0};
     std::uint32_t require_sources{0};
     // Production requires an explicit wired platform. Harness selects the device-free fake
@@ -505,6 +523,8 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.catalog_path = _argv[++index];
         } else if (option == "--feature-catalog" && has_value) {
             _args.feature_catalog_path = _argv[++index];
+        } else if (option == "--usecase-snapshot" && has_value) {
+            _args.usecase_snapshot_path = _argv[++index];
         } else if (option == "--steps" && has_value) {
             _args.max_steps = std::strtoull(_argv[++index], nullptr, 10);
         } else if (option == "--require-sources" && has_value) {
@@ -667,7 +687,8 @@ int main(int _argc, char** _argv) {
     if (!vqec_vision_ai_appl_svcmn_parse(_argc, _argv, args)) {
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
-            "[--feature-catalog <json>] [--steps <n>] [--require-sources <n>] "
+            "[--feature-catalog <json>] [--usecase-snapshot <json>] "
+            "[--steps <n>] [--require-sources <n>] "
             "[--mode harness|production] [--platform fake|reference|qualcomm] "
             "[--model-package-registry <json>] "
             "[--output-ring-id <id> --output-bitrate <bps> "
@@ -701,6 +722,43 @@ int main(int _argc, char** _argv) {
         !vqec_vision_ai_appl_svcmn_load_feature_catalog(args.feature_catalog_path, features)) {
         return 1;
     }
+    if (!args.usecase_snapshot_path.empty()) {
+        usecase_control_snapshot control;
+        if (!vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
+                args.usecase_snapshot_path, control)) {
+            return 1;
+        }
+        if (control.deployment_revision_ != deployment.revision_) {
+            std::fprintf(stderr,
+                "usecase snapshot deployment revision does not match deployment\n");
+            return 1;
+        }
+        usecase_activation_snapshot activation_snapshot;
+        deployment_config effective_deployment;
+        const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
+            deployment, catalog, control.catalog_, control.requests_,
+            activation_snapshot, effective_deployment);
+        if (composed.code_ != status_code::ok) {
+            std::fprintf(stderr, "usecase composition rejected (%d): %s\n",
+                static_cast<int>(composed.code_), composed.message_.c_str());
+            return 1;
+        }
+        deployment = std::move(effective_deployment);
+        std::printf("usecase plan control_revision=%llu entitlement_revision=%llu "
+                    "active_sources=%zu\n",
+            static_cast<unsigned long long>(control.control_revision_),
+            static_cast<unsigned long long>(control.entitlement_revision_),
+            deployment.sources_.size());
+        if (deployment.sources_.empty()) {
+            std::uint64_t idle_steps = 0;
+            while (!g_stop_requested &&
+                   (args.max_steps == 0 || idle_steps < args.max_steps)) {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+                ++idle_steps;
+            }
+            return 0;
+        }
+    }
     const bool has_fr_arguments = !args.fr_gallery_path.empty() || args.fr_similarity_set ||
         args.fr_margin_set || args.fr_templates_set || args.fr_top_k_set ||
         !args.fr_feature_id.empty() || !args.fr_identity_attribute.empty() ||
@@ -715,6 +773,21 @@ int main(int _argc, char** _argv) {
             "and identity attribute\n");
         return 1;
     }
+    bool has_active_secondary_model = false;
+    for (const auto& source : deployment.sources_) {
+        for (const auto& model : catalog.models_) {
+            if (model.role_ == model_role::secondary &&
+                vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
+                has_active_secondary_model = true;
+                break;
+            }
+        }
+        if (has_active_secondary_model) {
+            break;
+        }
+    }
+    const bool fr_effectively_enabled =
+        has_complete_fr_arguments && has_active_secondary_model;
     const bool has_complete_image_enrollment = !args.enrollment_image_roots.empty() &&
         args.enrollment_max_image_bytes != 0 && args.enrollment_image_timeout_ms != 0 &&
         !args.enrollment_jpeg_decoder.empty() && !args.enrollment_converter.empty() &&
@@ -1072,7 +1145,7 @@ int main(int _argc, char** _argv) {
                 rule.attributes_.push_back(attribute_schema_id);
                 policy.rules_.push_back(std::move(rule));
             }
-            if (has_complete_fr_arguments) {
+            if (fr_effectively_enabled) {
                 for (const auto& source : deployment.sources_) {
                     output_scope_rule rule;
                     rule.source_id_ = source.source_id_;
@@ -1135,7 +1208,7 @@ int main(int _argc, char** _argv) {
         }
     }
 
-    if (has_complete_fr_arguments && !output_policy_applied) {
+    if (fr_effectively_enabled && !output_policy_applied) {
         output_policy policy;
         policy.revision_ = service_harness::g_policy_revision;
         policy.not_before_ns_ = 0;
@@ -1267,7 +1340,7 @@ int main(int _argc, char** _argv) {
             }
         }
     }
-    if (has_complete_fr_arguments) {
+    if (fr_effectively_enabled) {
         const service_cascade_owner* recognition_owner = nullptr;
         std::uint16_t recognition_source_slot = g_invalid_model_slot;
         std::uint16_t candidate_source_slot = 0;

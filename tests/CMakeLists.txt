@@ -276,6 +276,14 @@
     set_target_properties(vqec_vision_ai_usecase_activation_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME usecase_activation_composition
         COMMAND vqec_vision_ai_usecase_activation_test)
+    if(TARGET vqec_vision_ai_usecase_config)
+        add_executable(vqec_vision_ai_usecase_config_test
+            unit/vqec_vision_usecase_config_test.cpp)
+        target_link_libraries(vqec_vision_ai_usecase_config_test
+            PRIVATE vqec_vision_ai_usecase_config)
+        set_target_properties(vqec_vision_ai_usecase_config_test PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME usecase_config_loading COMMAND vqec_vision_ai_usecase_config_test)
+    endif()
     if(TARGET vqec_vision_ai_model_catalog_config)
         add_executable(vqec_vision_ai_model_catalog_loader_test
             unit/vqec_vision_model_catalog_loader_test.cpp)

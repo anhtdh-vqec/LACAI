@@ -131,6 +131,12 @@ Pre-load usecase activation contract:
 `tests/unit/vqec_vision_usecase_activation_test.cpp` uses file_id `ucatst`, prefix
 `vqec_vision_ai_unit_ucatst_`; `main` retains the language exception.
 
+Strict startup usecase snapshot loader
+`src/runtime/feature_manager/vqec_vision_usecase_config.cpp` uses file_id `ucfg`, prefix
+`vqec_vision_ai_ftmgr_ucfg_`. Test
+`tests/unit/vqec_vision_usecase_config_test.cpp` uses file_id `ucftst`, prefix
+`vqec_vision_ai_unit_ucftst_`; `main` retains the language exception.
+
 Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
 file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation
 `src/core/vqec_vision_observation.cpp`, file_id `obval`, prefix `vqec_vision_ai_core_obval_`.

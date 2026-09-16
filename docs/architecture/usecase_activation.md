@@ -22,5 +22,17 @@ trusted control adapter, admission provider and generation owner. Dynamic disabl
 incomplete until that owner blocks output, stops submissions, drains backend completion
 and destroys the obsolete generation.
 
+The strict startup loader `vqec_vision_usecase_config` accepts one authenticated snapshot
+containing independent control, entitlement and deployment revisions. The service option
+`--usecase-snapshot` resolves it before model-package resolution and
+`production_platform::prepare`. A person-only snapshot therefore never prepares SCRFD or
+EdgeFace; an all-disabled snapshot stays in the idle service loop without opening model
+packages or acquiring the camera. The document's gate booleans are trusted inputs from the
+provisioning/admission boundary, not self-asserted D-Bus authority.
+
+Live D-Bus changes still require the generation owner specified by the FW contract. The
+startup loader proves pre-load filtering and safe idle behavior; it does not claim dynamic
+drain/unload is delivered.
+
 See [FW usecase activation](../contracts/fw_usecase_control.md) for the wire contract and
 lifecycle requirements.

@@ -86,6 +86,16 @@ if(VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
     set_target_properties(vqec_vision_ai_feature_catalog_config PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+if(TARGET nlohmann_json::nlohmann_json)
+    add_library(vqec_vision_ai_usecase_config STATIC
+        feature_manager/vqec_vision_usecase_config.cpp)
+    target_include_directories(vqec_vision_ai_usecase_config PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/feature_manager>)
+    target_link_libraries(vqec_vision_ai_usecase_config
+        PUBLIC vqec_vision_ai_core PRIVATE nlohmann_json::nlohmann_json)
+    set_target_properties(vqec_vision_ai_usecase_config PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 add_library(vqec_vision_ai_admission STATIC
     admission/vqec_vision_activation_snapshot.cpp)
 target_include_directories(vqec_vision_ai_admission PUBLIC
