@@ -146,7 +146,11 @@ def vqec_vision_ai_tools_frdbt_run(_config):
             raise AssertionError("service process changed during live transition")
         if vqec_vision_ai_tools_frdbt_call(bus, _config, "control", "ApplyDesiredPlan", parameters) != receipt:
             raise AssertionError("retry changed the desired-plan receipt")
-        if case["desired"].get(_config["fr_usecase_id"], False):
+        fr_enabled = case["desired"].get(_config["fr_usecase_id"], False)
+        if "index_collection_path" in _config:
+            if Path(_config["index_collection_path"]).exists() != fr_enabled:
+                raise AssertionError("derived index files differ from FR runtime state")
+        if fr_enabled:
             if vqec_vision_ai_tools_frdbt_call(bus, _config, "enrollment", "GetGalleryStatus") != baseline:
                 raise AssertionError("runtime transition changed the protected gallery")
         print(f"PASS runtime transition {index + 1}", flush=True)

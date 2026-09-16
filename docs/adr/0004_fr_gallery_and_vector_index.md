@@ -38,6 +38,18 @@ third_party/zvec/sdk. The adapter uses the C API behind embedding_index_port. Ex
 collections are never trusted as authority. After authenticating the durable snapshot,
 AI APP rebuilds an empty Zvec generation to the exact durable revision.
 
+Production derived storage must be an AI-owned private volatile directory, supplied by
+deployment rather than a model path rule. The Linux Zvec adapter defaults to private
+tmpfs storage: its existing parent must belong to the service UID with mode 0700. The
+adapter pins that parent directory FD and addresses the collection through that FD;
+relative/non-normalized paths and symlink leaves fail closed. Synthetic tests explicitly
+select a fixture-only filesystem policy. No production fallback to persistent plaintext
+is permitted. The authoritative encrypted snapshot remains on durable protected storage.
+Tmpfs does not itself qualify swap/crash-dump encryption or protection against root.
+The private derived collection is destroyed when the index owner closes, releasing its
+tmpfs files after serialized vendor work finishes. Cleanup failure is reported; it does
+not authorize deletion of the durable encrypted snapshot.
+
 ## Consequences
 
 Other vector-index adapters can implement the same neutral port.
@@ -78,6 +90,7 @@ libzvec_c_api.so. On 2026-09-15 the eSDK-built integration executable passed bot
 and native QCS6490 .48 execution (zero failed checks). That historical run predates
 durable recovery. On 2026-09-16 the authorized `.98` board passed encrypted-store clean-restart recovery,
 runtime disable/re-enable and multi-template D-Bus enrollment/removal. The authoritative
-snapshot is encrypted; the persistent plaintext Zvec collection is still a release blocker.
+snapshot is encrypted; production now confines the derived collection to private tmpfs and destroys it on close;
+swap/crash-dump and hardware-key qualification remain release gates.
 See [FR validation](../testing/face_recognition_production_validation.md).
 The upstream library is a release binary; only LACAI was compiled with the eSDK.

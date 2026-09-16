@@ -4,7 +4,7 @@
 multi-template image enrollment/retry/delete and gallery preservation pass on `.98`.
 The detailed matrix and remaining release gates are maintained in
 [FR validation](../testing/face_recognition_production_validation.md); these results do
-not close golden accuracy, attendance, hardware key, plaintext derived-index protection,
+not close golden accuracy, attendance, hardware key, swap/crash-dump policy,
 durable receipt, signed provisioning or performance acceptance gates.
 
 Ngày lập: 2026-09-15. Cập nhật theo source hiện tại: 2026-09-15.

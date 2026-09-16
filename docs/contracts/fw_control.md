@@ -20,7 +20,8 @@ methods and signed-grant provisioning must not be assumed present in released FW
 | AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics, FR enrollment/matching and all protected gallery/key/index persistence + app IPK |
 
 FW must not open, copy, back up or mutate the face gallery and must not provision or
-receive its encryption key. FW enrollment/remove methods pass bounded identity metadata
+receive its encryption key. AI also confines the derived Zvec collection to private
+volatile storage and rebuilds it from the durable encrypted snapshot. FW enrollment/remove methods pass bounded identity metadata
 and an authorized image path; AI APP validates the request and commits its own gallery.
 
 BSP kit phải pin header và runtime binaries đồng bộ, device dependencies,

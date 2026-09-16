@@ -79,6 +79,13 @@ non-empty path through configured roots, decodes it to an owned DMA-BUF frame an
 dedicated SCRFD/EdgeFace graphs outside the D-Bus callback. The AI-owned encrypted store
 is wired into production composition; peer-name provisioning remains deployment work.
 
+AI APP also owns the derived vector index. Production deployment supplies a collection
+path beneath an existing service-UID-owned mode-0700 tmpfs parent. Persistent plaintext
+index paths fail closed. FW never reads/indexes those files; successful enrollment is
+durable only through the authenticated encrypted authoritative snapshot, from which AI
+rebuilds the volatile index after restart. Swap/crash-dump and hardware-key qualification
+remain release requirements.
+
 The delivered [image pipeline](../architecture/face_enrollment_image_pipeline.md) defines
 bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. Its
 dedicated graphs do not share submission state with the live camera graphs.

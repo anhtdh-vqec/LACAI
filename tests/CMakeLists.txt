@@ -858,6 +858,9 @@
     endif()
 
 if(VQEC_VISION_AI_ENABLE_ZVEC)
+    # Linux fixture root only; production index paths remain deployment inputs.
+    set(VQEC_VISION_AI_ZVEC_TEST_VOLATILE_ROOT "/dev/shm" CACHE PATH
+        "Existing tmpfs root for synthetic private-index tests")
     add_executable(vqec_vision_ai_zvec_embedding_index_test
         unit/vqec_vision_zvec_embedding_index_test.cpp)
     target_link_libraries(vqec_vision_ai_zvec_embedding_index_test
@@ -866,7 +869,8 @@ if(VQEC_VISION_AI_ENABLE_ZVEC)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME zvec_embedding_index_integration
         COMMAND vqec_vision_ai_zvec_embedding_index_test
-            "${CMAKE_CURRENT_BINARY_DIR}/zvec_synthetic_gallery")
+            "${CMAKE_CURRENT_BINARY_DIR}/zvec_synthetic_gallery"
+            "${VQEC_VISION_AI_ZVEC_TEST_VOLATILE_ROOT}")
 endif()
 
 add_executable(vqec_vision_ai_cascade_frame_store_test unit/vqec_vision_cascade_frame_store_test.cpp)

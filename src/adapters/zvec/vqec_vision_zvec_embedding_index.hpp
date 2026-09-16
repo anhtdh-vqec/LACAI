@@ -18,13 +18,19 @@ enum class zvec_existing_collection_policy {
     rebuild
 };
 
+enum class zvec_storage_policy {
+    private_volatile,
+    synthetic_filesystem_fixture
+};
+
 // Zvec is a derived index. The caller remains responsible for the authoritative,
 // encrypted gallery and must be able to rebuild this collection after loss.
 class zvec_embedding_index final : public embedding_index_port {
 public:
     explicit zvec_embedding_index(std::string _collection_path,
         zvec_existing_collection_policy _existing_policy =
-            zvec_existing_collection_policy::reject);
+            zvec_existing_collection_policy::reject,
+        zvec_storage_policy _storage_policy = zvec_storage_policy::private_volatile);
     ~zvec_embedding_index() override;
 
     zvec_embedding_index(const zvec_embedding_index&) = delete;
@@ -48,6 +54,9 @@ public:
 private:
     std::string collection_path_;
     zvec_existing_collection_policy existing_policy_;
+    zvec_storage_policy storage_policy_;
+    // Retained until vendor collection close; Linux /proc/self/fd path pins the parent.
+    int directory_fd_{-1};
     zvec_collection_t* collection_{nullptr};
     embedding_index_config config_;
     std::vector<std::uint64_t> record_ids_;

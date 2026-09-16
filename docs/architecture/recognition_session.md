@@ -30,12 +30,17 @@ reference into `overlay_box::label_`; the service authorizes the configured iden
 attribute through `output_gate` before this label reaches the production renderer.
 Resolving a human display name remains an output metadata responsibility.
 
-This owner is the runtime seam for DBus enrollment. A control adapter should call
-`add_template` only after the live cascade has supplied an accepted embedding for the
-requested source/track, and must keep request identity, peer authorization, quality
+This owner is the runtime seam for DBus enrollment. A control adapter calls
+`add_template` only after the authorized image pipeline supplies an accepted embedding
+for the requested source/model contract, and must keep request identity, peer authorization, quality
 policy and durable gallery storage outside this class. The current implementation is
 an in-process owner. The optional GIO DBus adapter maps the FW control contract and
 authenticates the configured peer. The AI-owned AES-256-GCM POSIX adapter implements
 bounded authenticated persistence, private file ownership/modes, revision CAS and atomic
 rename. Its filesystem key provider is not hardware-bound; hardware key qualification and
 display-name metadata remain tracked work in the face-recognition completion plan.
+
+The Linux Zvec adapter defaults to a service-owned mode-0700 tmpfs parent with a pinned
+directory FD; it destroys derived files on close. The encrypted authoritative gallery
+persists through FR disable/re-enable. See [FR validation](../testing/face_recognition_production_validation.md)
+for measured cases and swap/hardware-key/durability gates.

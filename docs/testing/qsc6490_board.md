@@ -335,3 +335,10 @@ natively; ffprobe decoded final H264 at 1920×1080 with metadata `30/1`.
 See [FR validation](face_recognition_production_validation.md) for the full matrix and
 open production gates. This does not certify thermal/AI FPS, accuracy, signed grants,
 TEE keys, fault recovery or released-FW DMA-BUF completion.
+
+Private-index follow-up on `.98`: Zvec now uses configured private tmpfs with mode-0700
+parent/collection, pins the parent FD, rejects unsafe paths/modes and destroys derived
+files on close. Real-library private-storage regression and D-Bus disable/re-enable/file
+enrollment rerun pass; disabled FR leaves no derived collection. The obsolete persistent
+collection was removed after the encrypted gallery rebuilt successfully. Swap/crash-dump
+and hardware-key qualification remain open.

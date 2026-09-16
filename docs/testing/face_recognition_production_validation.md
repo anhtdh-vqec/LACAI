@@ -25,12 +25,14 @@ are included in Git.
 | Case | Evidence | Result / limit |
 |---|---|---|
 | eSDK build + QEMU CTest | 120/120 passed; affected checks rerun after native-fixture path fix | PASS logic/target ABI, no BSP acceptance |
+| Private Zvec storage | Real library: unsafe-mode/symlink/relative path rejection, private tmpfs create/query, directory rename with pinned FD, close cleanup | PASS eSDK/QEMU and `.98` |
 | Native logic/contract binaries | 114 binaries on `.98`; decoder-package fixture root supplied on target | PASS after correcting build-machine fixture path |
 | Initial enabled roots | Usecase status plus `/proc/<pid>/maps` | Person, FD and FR model libraries resident |
 | Both → person only | D-Bus complete desired plan, new published generation, same PID | Person resident; FD/FR libraries absent |
 | Person only → all off | Same persistent usecase D-Bus object | All three model libraries absent; control remains responsive |
 | All off → face only | Status/generation + native model maps | FD/FR resident; person library absent |
 | Face only → both | Status/generation + live routed results | All three resident; person and face results routed independently |
+| Derived files across FR disable/re-enable | Native runner configured with `index_collection_path` | PASS absent while disabled, recreated private while enabled |
 | Gallery across disable/re-enable | `GetGalleryStatus` before/after each enabled FR generation | Revision/counts preserved |
 | Desired-plan retry | Same request/payload/expected revision | Original receipt returned |
 | Invalid desired plans | Stale revision, unknown ID, duplicate association | Rejected without plan publication |
@@ -53,6 +55,14 @@ or a thermal target was met. `loaded/running` before initial publish is false. A
 publish waits for all source-session health phases to be running; this is session readiness,
 not warmup/accuracy/permanent hardware health. Status observation during teardown and later
 source faults still needs fuller runtime-health integration.
+
+## Resource sample (not acceptance)
+
+With the final person+FR deployment, one uncontrolled five-second sample reported AI
+process CPU **49.19% of one logical core**, VmRSS **479,676 KiB**, **175 FDs**, on a board
+with eight logical CPUs. This excludes camera/RTSP processes and is not directly comparable
+to machine-normalized CPU percentages. No stage/FPS/thermal target is inferred from this
+sample. A controlled workload and transition resource/soak matrix remain required.
 
 ## Reproduce
 
@@ -82,6 +92,7 @@ on the board's same configured bus. Start it before AI binds its trusted peer; i
 | `model_libraries`, `initial_models` | Logical key → model library substring, and key → expected resident boolean |
 | `transitions` | Ordered objects containing `desired` usecase booleans and expected `models` residency |
 | `image_path`, `failure_images` | Authorized enrollment JPEG and failing-image paths, kept outside Git |
+| `index_collection_path` | Optional deployed private collection path; checks files absent when FR is disabled |
 | `template_samples` | Integer ≥2 within the test ceiling and admitted gallery capacity |
 | `keep_peer_alive` | Optional true for a live demo; retains the trusted unique connection |
 
@@ -91,17 +102,23 @@ subject and removes that subject after success; on failure reconcile the pending
 and test subject before another run. Do not run alongside an active customer enrollment.
 
 Native unit test `vqec_vision_ai_decoder_package_test <manifest-root>` accepts a target
-fixture root. Zvec integration receives a fresh synthetic directory argument. Never run
+fixture root. Zvec integration receives a fresh synthetic directory plus an existing tmpfs fixture root
+(e.g. the board's `/run`) as arguments. CTest uses configured
+`VQEC_VISION_AI_ZVEC_TEST_VOLATILE_ROOT`; its Linux fixture default is `/dev/shm`. Never run
 its rebuild/destruction test against the real gallery.
 
 ## Open release gates and next steps
 
-1. **Biometric at-rest protection:** authoritative snapshot is authenticated/encrypted;
-   `.98` confirms directory 0700 and key/gallery/lock 0600. Zvec derived files are plaintext
-   and currently live in a persistent collection directory with mode 0755. This must be
-   corrected: AI-owned private volatile/encrypted derived storage, safe directory identity,
-   swap/crash-dump policy and deletion/rebuild tests. Filesystem key beside ciphertext is
-   not hardware-bound; hardware keystore/TEE, rotation and backup/recovery need qualification.
+1. **Biometric protection qualification:** initial testing found persistent plaintext Zvec
+   files with mode 0755. The adapter now defaults to an absolute normalized collection
+   beneath a service-owned mode-0700 tmpfs parent, validates UID/mode/filesystem, pins the
+   parent FD and rejects symlinks. It destroys derived files on close. `.98` migrated to
+   configured `/run/lacai_fr_index`; the old disposable persistent collection was removed
+   after authenticated rebuild and original-gallery preservation passed. Encrypted
+   snapshot/key/lock remain unchanged in protected durable storage (0700/0600). Tmpfs is
+   plaintext RAM and can be swapped or captured in a dump; BSP swap/crash-dump isolation,
+   hardware keystore/TEE, key rotation and backup/recovery still require qualification.
+
 2. **Durable control:** persist authenticated desired plans and enrollment request receipts;
    restart/retry after unknown outcomes must not silently reenroll. Today live desired
    revisions and receipts are process-local; clean restart restores the startup snapshot.

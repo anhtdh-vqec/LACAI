@@ -1,5 +1,13 @@
 # Architecture alignment review và danh sách vấn đề còn lại
 
+2026-09-16 follow-up: same-process desired-plan drain/rebuild/publication and private
+volatile Zvec lifecycle are now delivered and compatibility-tested on `.98`. The initial
+persistent plaintext index was removed after encrypted-gallery recovery passed. Current
+measured cases, resource sample and remaining release gates are consolidated in
+[FR validation](../testing/face_recognition_production_validation.md). Historical findings
+below retain their review context; signed provisioning, durable receipts, asynchronous
+control, hardware-key/swap policy and workload qualification remain open.
+
 Ngày: 2026-09-15. Cập nhật theo source cascade/runtime hiện tại.
 Phạm vi: Markdown trong docs, root rules/README và module READMEs, đối chiếu source/CMake
 ở các boundary liên quan. Đây là architecture/documentation review, không phải audit mọi

@@ -6,12 +6,18 @@
 #include <cmath>
 #include <charconv>
 #include <cstring>
+#include <cstdio>
+#include <filesystem>
 #include <limits>
 #include <new>
 #include <string>
 #include <utility>
 
 #include <sys/stat.h>
+#include <sys/vfs.h>
+#include <fcntl.h>
+#include <linux/magic.h>
+#include <unistd.h>
 
 #include <zvec/c_api.h>
 
@@ -24,6 +30,68 @@ constexpr char g_collection_name[] = "lacai_face_gallery";
 constexpr char g_record_id_field[] = "record_id";
 constexpr char g_subject_ref_field[] = "subject_ref";
 constexpr char g_embedding_field[] = "embedding";
+// Linux descriptor-path ABI; actual storage roots are validated deployment inputs.
+constexpr char g_directory_descriptor_root[] = "/proc/self/fd/";
+constexpr mode_t g_private_directory_mode = S_IRWXU;
+constexpr mode_t g_directory_mode_mask = S_IRWXU | S_IRWXG | S_IRWXO |
+    S_ISUID | S_ISGID | S_ISVTX;
+
+class owned_directory_fd {
+public:
+    explicit owned_directory_fd(int _fd) noexcept : fd_(_fd) {}
+    ~owned_directory_fd() noexcept {
+        if (fd_ >= 0) {
+            ::close(fd_);
+        }
+    }
+    owned_directory_fd(const owned_directory_fd&) = delete;
+    owned_directory_fd& operator=(const owned_directory_fd&) = delete;
+    int vqec_vision_ai_zvec_zvidx_get_directory_fd() const noexcept { return fd_; }
+    int vqec_vision_ai_zvec_zvidx_release_directory_fd() noexcept {
+        const int released = fd_;
+        fd_ = -1;
+        return released;
+    }
+private:
+    int fd_{-1};
+};
+
+status vqec_vision_ai_zvec_zvidx_bind_private_directory(
+    const std::string& _path, std::string& _access_path, int& _directory_fd) {
+    const std::filesystem::path path(_path);
+    if (!path.is_absolute() || path.lexically_normal() != path ||
+        path.filename().empty() || path.filename() == "." || path.filename() == ".." ||
+        _path.find('\0') != std::string::npos) {
+        return {status_code::invalid_argument, "invalid private Zvec collection path"};
+    }
+    owned_directory_fd parent(::open(path.parent_path().c_str(),
+        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    const int parent_fd = parent.vqec_vision_ai_zvec_zvidx_get_directory_fd();
+    if (parent_fd < 0) {
+        return {status_code::unauthorized, "private Zvec parent cannot be opened"};
+    }
+    struct stat directory{};
+    struct statfs filesystem{};
+    if (::fstat(parent_fd, &directory) != 0 || ::fstatfs(parent_fd, &filesystem) != 0 ||
+        directory.st_uid != ::geteuid() ||
+        (directory.st_mode & g_directory_mode_mask) != g_private_directory_mode ||
+        filesystem.f_type != TMPFS_MAGIC) {
+        return {status_code::unauthorized,
+            "Zvec parent must be service-owned mode-0700 tmpfs"};
+    }
+    struct stat leaf{};
+    if (::fstatat(parent_fd, path.filename().c_str(), &leaf, AT_SYMLINK_NOFOLLOW) == 0) {
+        if (!S_ISDIR(leaf.st_mode) || leaf.st_uid != ::geteuid()) {
+            return {status_code::unauthorized, "invalid private Zvec collection identity"};
+        }
+    } else if (errno != ENOENT) {
+        return {status_code::io_error, "private Zvec collection inspection failed"};
+    }
+    _access_path = std::string(g_directory_descriptor_root) +
+        std::to_string(parent_fd) + "/" + path.filename().string();
+    _directory_fd = parent.vqec_vision_ai_zvec_zvidx_release_directory_fd();
+    return {};
+}
 
 bool vqec_vision_ai_zvec_zvidx_valid_revision_change(
     std::uint64_t _current, std::uint64_t _expected,
@@ -180,14 +248,25 @@ status vqec_vision_ai_zvec_zvidx_validate_query(
 }  // namespace
 
 zvec_embedding_index::zvec_embedding_index(std::string _collection_path,
-    zvec_existing_collection_policy _existing_policy)
-    : collection_path_(std::move(_collection_path)), existing_policy_(_existing_policy) {}
+    zvec_existing_collection_policy _existing_policy, zvec_storage_policy _storage_policy)
+    : collection_path_(std::move(_collection_path)), existing_policy_(_existing_policy),
+      storage_policy_(_storage_policy) {}
 
 zvec_embedding_index::~zvec_embedding_index() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (collection_ != nullptr) {
-        zvec_collection_close(collection_);
+        if (directory_fd_ >= 0 && storage_policy_ == zvec_storage_policy::private_volatile) {
+            if (zvec_collection_destroy(collection_) != ZVEC_OK) {
+                std::fprintf(stderr, "private Zvec derived cleanup failed\n");
+                (void)zvec_collection_close(collection_);
+            }
+        } else {
+            (void)zvec_collection_close(collection_);
+        }
         collection_ = nullptr;
+    }
+    if (directory_fd_ >= 0) {
+        ::close(directory_fd_);
     }
 }
 
@@ -213,12 +292,34 @@ status zvec_embedding_index::vqec_vision_ai_ports_emidx_configure(
     // Allocate bookkeeping before creating persistent state.
     config_ = _config;
     record_ids_.reserve(_config.capacity_);
+    std::string access_path = collection_path_;
+    if (storage_policy_ == zvec_storage_policy::private_volatile) {
+        const auto bound = vqec_vision_ai_zvec_zvidx_bind_private_directory(
+            collection_path_, access_path, directory_fd_);
+        if (bound.code_ != status_code::ok) {
+            return bound;
+        }
+    } else if (storage_policy_ != zvec_storage_policy::synthetic_filesystem_fixture) {
+        return {status_code::invalid_argument, "invalid Zvec storage policy"};
+    }
     const auto create_status = vqec_vision_ai_zvec_zvidx_create_collection(
-        collection_path_, _config.dimensions_, existing_policy_, collection_);
+        access_path, _config.dimensions_, existing_policy_, collection_);
     if (create_status.code_ != status_code::ok) {
         // The revision is not persisted by this adapter. Reusing an old collection
         // without an authoritative revision handshake would permit stale matches.
+        if (collection_ != nullptr) {
+            (void)zvec_collection_close(collection_);
+            collection_ = nullptr;
+        }
+        if (directory_fd_ >= 0) {
+            ::close(directory_fd_);
+            directory_fd_ = -1;
+        }
         return create_status;
+    }
+    if (directory_fd_ >= 0 && ::chmod(access_path.c_str(), g_private_directory_mode) != 0) {
+        is_faulted_ = true;
+        return {status_code::io_error, "private Zvec collection permissions failed"};
     }
     revision_ = _config.initial_revision_;
     is_configured_ = true;

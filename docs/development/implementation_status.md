@@ -7,7 +7,7 @@ replacement. `.98` passed both → person → all-off → FR → both with nativ
 residency checks, all-method sender rejection, multi-template file enrollment, terminal
 retry, payload conflict and deletion preserving the original gallery. eSDK/QEMU: 120/120;
 native logic suite: 114 cases. See [FR validation](../testing/face_recognition_production_validation.md)
-for reproducibility and release blockers, including plaintext derived Zvec storage,
+for reproducibility and release blockers, including swap/crash-dump/hardware-key protection,
 durable receipts, signed provisioning, asynchronous control and performance qualification.
 
 Current source inventory, checked against `src/`, public headers, test sources and
@@ -411,3 +411,10 @@ neutral cascade binding. Detection decoders remain registered only for primary m
 The service owns secondary graph lifecycle and binds the coordinator to the catalog-derived
 primary slot before primary activation. The current production cascade owner explicitly
 supports one active source and one secondary model per source and fails closed otherwise.
+
+2026-09-16 private derived-index follow-up: production Zvec now requires a service-UID-
+owned mode-0700 tmpfs parent, pins its directory FD and destroys the private collection
+on owner close. Non-normalized/relative paths, symlink parent/leaf and unsafe permissions
+fail closed; production exposes no persistent-filesystem fixture switch. Real-library
+private-storage tests pass eSDK/QEMU and `.98`; detailed deployment migration and
+runtime cleanup evidence is in [FR validation](../testing/face_recognition_production_validation.md).
