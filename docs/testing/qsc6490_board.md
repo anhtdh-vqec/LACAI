@@ -98,6 +98,26 @@ SCRFD and YOLOv8n on HTP (latency varies with board
 load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
 Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
+
+## 2026-09-16 FR cascade run
+
+The board was reachable at `.99` using the approved test account. The production binary
+was rebuilt with the eSDK and `VQEC_VISION_AI_ENABLE_FASTCV=ON`; the required Zvec shared
+libraries were staged outside the repository under `/opt/anhtdh/lib`. A 300-step run used
+the face deployment/catalog/package registry and the live camera simulator on
+`/run/camera_ai`:
+
+```text
+steps=305 routed=24 delivered=0 denied=0 failed=0
+cascade_tasks=1 cascade_embeddings=1 cascade_failed=0 first_error=0
+```
+
+SCRFD and EdgeFace prepared and executed on the board, and the cascade produced one
+embedding without a graph or ownership failure. The run had an empty gallery, so no
+identity label was expected. The service's `e2e_avg_us` remains unusable for latency
+acceptance because the current camera pipeline PTS is not mapped to the service steady
+clock; this is tracked separately from the successful execution evidence. No claim of
+25--30 FPS FR output or attendance readiness is made from this run.
 Newly written executables on the board's `/opt` overlay occasionally need a `sync` (or a
 copy to `/tmp`) before exec; the native test binaries and service binary run there
 directly.
