@@ -23,16 +23,20 @@ constexpr auto g_format_field = "format";
 constexpr auto g_nv12_format = "NV12";
 constexpr auto g_width_field = "width";
 constexpr auto g_height_field = "height";
+constexpr auto g_pixel_aspect_ratio_field = "pixel-aspect-ratio";
 constexpr auto g_emit_signals_property = "emit-signals";
 constexpr auto g_sync_property = "sync";
 constexpr auto g_max_buffers_property = "max-buffers";
 constexpr auto g_drop_property = "drop";
 constexpr auto g_engine_property = "engine";
+constexpr auto g_destination_property = "destination";
+constexpr auto g_background_property = "background";
 // GStreamer videoscale 1.x property. Enrollment preserves source aspect ratio on the
 // requested deployment canvas before catalog-owned model preprocessing.
 constexpr auto g_add_borders_property = "add-borders";
 constexpr unsigned g_nv12_plane_count = 2;
 constexpr unsigned g_single_image_buffer_count = 1;
+constexpr std::uint32_t g_opaque_black_rgba = 0x000000ffU;
 
 struct sample_owner {
     explicit sample_owner(GstSample* _sample) noexcept : sample_(_sample) {}
@@ -79,6 +83,34 @@ status vqec_vision_ai_qcom_feimg_enable_borders(GObject* _object) {
     g_object_set(_object, g_add_borders_property, TRUE, nullptr);
     return {};
 }
+
+status vqec_vision_ai_qcom_feimg_set_full_destination(
+    GObject* _object, std::uint32_t _width, std::uint32_t _height) {
+    const auto* destination_specification = g_object_class_find_property(
+        G_OBJECT_GET_CLASS(_object), g_destination_property);
+    const auto* background_specification = g_object_class_find_property(
+        G_OBJECT_GET_CLASS(_object), g_background_property);
+    if (destination_specification == nullptr || background_specification == nullptr ||
+        (destination_specification->flags & G_PARAM_WRITABLE) == 0 ||
+        !G_IS_PARAM_SPEC_UINT(background_specification) ||
+        (background_specification->flags & G_PARAM_WRITABLE) == 0) {
+        return {status_code::incompatible_plugin,
+            "image transform destination policy is absent"};
+    }
+    GValue destination = G_VALUE_INIT;
+    g_value_init(&destination, GST_TYPE_ARRAY);
+    for (const auto coordinate : {0U, 0U, _width, _height}) {
+        GValue value = G_VALUE_INIT;
+        g_value_init(&value, G_TYPE_INT);
+        g_value_set_int(&value, static_cast<int>(coordinate));
+        gst_value_array_append_value(&destination, &value);
+        g_value_unset(&value);
+    }
+    g_object_set_property(_object, g_destination_property, &destination);
+    g_value_unset(&destination);
+    g_object_set(_object, g_background_property, g_opaque_black_rgba, nullptr);
+    return {};
+}
 }
 
 qcom_face_enrollment_image_source::qcom_face_enrollment_image_source(
@@ -119,11 +151,15 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     GstElement* output_transform = config_.output_transform_factory_.empty() ? nullptr :
         gst_element_factory_make(config_.output_transform_factory_.c_str(), nullptr);
     GstElement* caps_filter = gst_element_factory_make(g_caps_filter_factory, nullptr);
+    GstElement* output_caps_filter = output_transform == nullptr ? nullptr :
+        gst_element_factory_make(g_caps_filter_factory, nullptr);
     GstElement* sink = gst_element_factory_make(g_app_sink_factory, nullptr);
     if (pipeline == nullptr || source == nullptr || decoder == nullptr || converter == nullptr || scaler == nullptr ||
         caps_filter == nullptr || sink == nullptr ||
+        (output_transform != nullptr && output_caps_filter == nullptr) ||
         (!config_.output_transform_factory_.empty() && output_transform == nullptr)) {
-        for (auto* element : {source, decoder, converter, scaler, output_transform, caps_filter, sink}) {
+        for (auto* element : {source, decoder, converter, scaler, output_transform,
+                              caps_filter, output_caps_filter, sink}) {
             if (element != nullptr) gst_object_unref(element);
         }
         if (pipeline != nullptr) gst_object_unref(pipeline);
@@ -133,7 +169,7 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     const auto borders = vqec_vision_ai_qcom_feimg_enable_borders(G_OBJECT(scaler));
     if (borders.code_ != status_code::ok) {
         for (auto* element : {source, decoder, converter, scaler, output_transform,
-                              caps_filter, sink}) {
+                              caps_filter, output_caps_filter, sink}) {
             gst_object_unref(element);
         }
         gst_object_unref(pipeline);
@@ -142,17 +178,25 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
     if (output_transform != nullptr && !config_.output_transform_engine_.empty()) {
         const auto selected = vqec_vision_ai_qcom_feimg_set_enum(
             G_OBJECT(output_transform), g_engine_property, config_.output_transform_engine_);
-        if (selected.code_ != status_code::ok) {
+        const auto destination = vqec_vision_ai_qcom_feimg_set_full_destination(
+            G_OBJECT(output_transform), _request.width_, _request.height_);
+        if (selected.code_ != status_code::ok || destination.code_ != status_code::ok) {
             for (auto* element : {source, decoder, converter, scaler, output_transform,
-                                  caps_filter, sink}) gst_object_unref(element);
+                                  caps_filter, output_caps_filter, sink}) {
+                gst_object_unref(element);
+            }
             gst_object_unref(pipeline);
-            return selected;
+            return selected.code_ != status_code::ok ? selected : destination;
         }
     }
     GstCaps* caps = gst_caps_new_simple(g_raw_video_media, g_format_field, G_TYPE_STRING, g_nv12_format,
                                         g_width_field, G_TYPE_INT, static_cast<int>(_request.width_),
-                                        g_height_field, G_TYPE_INT, static_cast<int>(_request.height_), nullptr);
+                                        g_height_field, G_TYPE_INT, static_cast<int>(_request.height_),
+                                        g_pixel_aspect_ratio_field, GST_TYPE_FRACTION, 1, 1, nullptr);
     g_object_set(caps_filter, g_caps_property, caps, nullptr);
+    if (output_caps_filter != nullptr) {
+        g_object_set(output_caps_filter, g_caps_property, caps, nullptr);
+    }
     gst_caps_unref(caps);
     g_object_set(sink, g_emit_signals_property, FALSE, g_sync_property, FALSE,
                  g_max_buffers_property, g_single_image_buffer_count, g_drop_property, TRUE, nullptr);
@@ -161,12 +205,14 @@ status qcom_face_enrollment_image_source::vqec_vision_ai_ports_feimg_load(
                          caps_filter, sink, nullptr);
     } else {
         gst_bin_add_many(GST_BIN(pipeline), source, decoder, scaler, converter,
-                         output_transform, caps_filter, sink, nullptr);
+                         output_transform, caps_filter, output_caps_filter, sink, nullptr);
     }
     const bool linked = output_transform == nullptr ?
         gst_element_link_many(source, decoder, scaler, converter, caps_filter, sink, nullptr) :
-        gst_element_link_many(source, decoder, scaler, converter, output_transform,
-                              caps_filter, sink, nullptr);
+        // Force videoscale to satisfy the square-pixel target canvas, then make the vendor
+        // allocation transform consume and publish that exact geometry.
+        gst_element_link_many(source, decoder, scaler, converter, caps_filter,
+                              output_transform, output_caps_filter, sink, nullptr);
     if (!linked) {
         gst_object_unref(pipeline);
         return {status_code::graph_link_failed, "JPEG image decode graph cannot be linked"};
