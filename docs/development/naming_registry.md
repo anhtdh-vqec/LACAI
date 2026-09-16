@@ -316,7 +316,6 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_tensor_contract.cpp | tnctr | vqec_vision_ai_core_tnctr_ |
 | src/core/vqec_vision_inference_execution.cpp | inexe | vqec_vision_ai_core_inexe_ |
 | src/core/vqec_vision_tensor_pool.cpp | tnpl | vqec_vision_ai_core_tnpl_ |
-| src/core/vqec_vision_secondary_inference.cpp | secin | vqec_vision_ai_core_secin_ |
 | include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
 | src/core/vqec_vision_image_alignment.cpp | imaln | vqec_vision_ai_core_imaln_ |
 | include/vqec/vision/ai/contracts/vqec_vision_color.hpp | color | (contract declaration; implemented in core) |
@@ -338,8 +337,6 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_model_io_manifest_test.cpp | iomtst | vqec_vision_ai_unit_iomtst_ |
 | tests/unit/vqec_vision_model_package_test.cpp | mpktst | vqec_vision_ai_unit_mpktst_ |
 | tests/unit/vqec_vision_model_package_registry_test.cpp | mprtst | vqec_vision_ai_unit_mprtst_ |
-| src/runtime/scheduler/vqec_vision_secondary_inference_scheduler.cpp | secsd | vqec_vision_ai_sched_secsd_ |
-| tests/unit/vqec_vision_secondary_inference_test.cpp | sitst | vqec_vision_ai_unit_sitst_ |
 | tests/unit/vqec_vision_lifecycle_invariants_test.cpp | litst | vqec_vision_ai_unit_litst_ |
 | tests/unit/vqec_vision_inference_execution_test.cpp | inxtst | vqec_vision_ai_unit_inxtst_ |
 | tests/unit/vqec_vision_tensor_pool_test.cpp | tptst | vqec_vision_ai_unit_tptst_ |

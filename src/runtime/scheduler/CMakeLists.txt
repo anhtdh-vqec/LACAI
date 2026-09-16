@@ -2,8 +2,7 @@
 # definitions; only the build definition moved next to the module.
 
 add_library(vqec_vision_ai_scheduler STATIC
-    vqec_vision_model_cadence.cpp
-    vqec_vision_secondary_inference_scheduler.cpp)
+    vqec_vision_model_cadence.cpp)
 target_include_directories(vqec_vision_ai_scheduler PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(vqec_vision_ai_scheduler PUBLIC vqec_vision_ai_core)

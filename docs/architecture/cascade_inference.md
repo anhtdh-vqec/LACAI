@@ -16,7 +16,8 @@ landmarks, then recognition consumes one aligned 112x112 crop for each admitted 
 Configuring the recognition graph as another full-frame model would lose alignment,
 repeat useless work and break source-frame correlation.
 
-The legacy `secondary_inference_scheduler` only bounds opaque queued requests and is not the
+The legacy `secondary_inference_scheduler` (and its `secondary_inference` contract) was
+removed in the clean-base CB-D step: it only bounded opaque queued requests and is not the
 FD-to-FR composition owner. The delivered cascade path retains the exact RAW frame before
 primary submission, then binds each landmark task to a frame-store completion ticket. A
 numeric frame ID or a later preview frame must never substitute for those retained pixels.

@@ -1,5 +1,14 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-D update: the legacy `secondary_inference` contract and
+`secondary_inference_scheduler` were removed (ADR 0006). They duplicated the delivered
+retained-frame `cascade_coordinator` and left two cascade-scheduling designs in the tree.
+`inference_worker` and `recovery_controller` are retained as explicit reserved modules with
+named future wiring points and gates; they remain non-integrated and must not be presented
+as delivered capability. CMake targets, CTest registration, naming registry and the
+cascade/FR planning references were updated together. eSDK/QEMU suite passes 122/122 after
+the removal.
+
 2026-09-16 clean-base CB-C update: duplicated neutral validation now has one owner.
 `vqec_vision_identifier.hpp` gained the shared lowercase SHA-256 hex check, used by the
 model catalog, model package and model-update validators; `model_package` no longer carries

@@ -551,12 +551,6 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME recovery_controller_backoff
         COMMAND vqec_vision_ai_recovery_controller_test)
-    add_executable(vqec_vision_ai_secondary_inference_test
-        unit/vqec_vision_secondary_inference_test.cpp)
-    target_link_libraries(vqec_vision_ai_secondary_inference_test
-        PRIVATE vqec_vision_ai_scheduler)
-    set_target_properties(vqec_vision_ai_secondary_inference_test
-        PROPERTIES CXX_EXTENSIONS OFF)
     add_executable(vqec_vision_ai_preprocess_spec_test
         unit/vqec_vision_preprocess_spec_test.cpp)
     target_link_libraries(vqec_vision_ai_preprocess_spec_test PRIVATE vqec_vision_ai_core)
@@ -575,8 +569,6 @@
     set_target_properties(vqec_vision_ai_model_package_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME model_package_resolution COMMAND vqec_vision_ai_model_package_test)
 
-    add_test(NAME secondary_inference_scheduling
-        COMMAND vqec_vision_ai_secondary_inference_test)
     add_executable(vqec_vision_ai_lifecycle_invariants_test
         unit/vqec_vision_lifecycle_invariants_test.cpp)
     target_link_libraries(vqec_vision_ai_lifecycle_invariants_test

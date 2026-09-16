@@ -106,12 +106,13 @@ Gate: production khởi động từ config; missing/invalid policy reject; boar
 - Even-dimension (~10 nơi) và `packed_nv12` (~4 nơi).
 Gate: mỗi validator một owner; unit test missing/invalid/boundary.
 
-## Workstream D — Hạ tầng chết (P1)
+## Workstream D — Hạ tầng chết (P1) — đã xử lý (CB-D)
 
 `inference_worker`, `secondary_inference_scheduler`, `recovery_controller` build nhưng
 không được wire; tồn tại 2 thiết kế secondary và 3 implementation bounded-concurrency.
-Chọn wire hoặc xoá (ADR deprecation + gỡ target CMake).
-Gate: còn đúng một đường thực thi mỗi concern.
+Quyết định (ADR 0006): xoá `secondary_inference_scheduler` + contract `secondary_inference`
+đã bị `cascade_coordinator` thay thế; giữ `inference_worker` và `recovery_controller` như
+reserved có điểm wire tường minh. Gate: còn đúng một đường thực thi mỗi concern.
 
 ## Workstream E — Tách monolith (P1)
 

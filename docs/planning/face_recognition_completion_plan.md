@@ -149,8 +149,10 @@ Vị trí chính: `src/app/vqec_vision_production_platform.cpp`,
 
 ## 7. M2 — Contracts cascade và quyền sở hữu
 
-Vị trí chính: `vqec_vision_secondary_inference.hpp`, `vqec_vision_image_processor.hpp`,
-`vqec_vision_embedding.hpp`, catalog/deployment schemas, scheduler.
+Vị trí chính: `vqec_vision_image_processor.hpp`,
+`vqec_vision_embedding.hpp`, catalog/deployment schemas, `cascade_coordinator` và
+frame store. Neutral `secondary_inference` contract/scheduler đã bị xoá ở clean-base CB-D
+vì `cascade_coordinator` đã thay thế.
 
 - [x] Thêm role primary/secondary, dependency và preprocess/alignment capability vào catalog.
   Secondary models không nằm trong mask gửi full-frame của primary session.
