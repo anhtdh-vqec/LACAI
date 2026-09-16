@@ -390,6 +390,11 @@ built with the approved eSDK toolchain and verified natively on `.98`:
    - Fix: Added fast-path direct `float32*` array indexing in `yolov8_decoder` and `anchor_distance_decoder`,
      reducing decoder CPU overhead while preserving exact schema validation and typed fallbacks.
 
+6. **Phase 6 (Live Video Stream Frame-Stall Bugfix in `qtiv_renderer`)**:
+   - Defect: Caching virtual memory mappings keyed purely by the kernel integer file descriptor (`slot.fd_ == frame_fd`) was flawed because Linux reuses the lowest available FD immediately upon `close(fd)` of the previous frame. Subsequent camera frames received over SCM_RIGHTS were assigned the recycled FD number, causing `copy_nv12` to repeatedly copy pixels from the stale mapping of the first frame. The stream rendered 30 FPS H.264 packets with updating bounding boxes but froze the camera background pixels on frame 1 ("giật yên tại 1 frame").
+   - Fix: Replaced the unsafe FD-based mapping cache with an RAII `vqec_vision_ai_qcom_qtvr_mmap_guard` that maps each incoming frame freshly and unmaps it reliably upon exit, while retaining the optimized contiguous 2-plane memory copy.
+   - Verification on `.98`: Live video frames now dynamically update with real movement (verified with 21.5% inter-frame pixel changes across a 2-second interval). Output stream sustained at 27.9–30.1 FPS with 63.9%–66.3% single-core CPU on the full dual-model + FR pipeline.
+
 ### Measured Board Evidence (.98)
 
 - **RTSP Stream Output Rate (Measured via FFmpeg TCP probe over 10 seconds)**:
@@ -428,6 +433,6 @@ Legacy `ai_app` was observed at ~15%–20% of one core for person detection beca
 
 LACAI runs models at **full 30 FPS** (matching preview rate, per user requirement) using Qualcomm Linux standard plugins (`qtimlvconverter` + `qtimlqnn`) on CPU FastCV. At full 30 FPS:
 - Single-model person flow: **~36% of 1 core** (~4.5% SoC load).
-- Output stream: **Steady 30.1 FPS with zero frame drops**.
-
+- Dual-model + FR flow: **~64% of 1 core** (~8.0% SoC load).
+- Output stream: **Steady 28–30.1 FPS live real-time video with zero frame drops**.
 

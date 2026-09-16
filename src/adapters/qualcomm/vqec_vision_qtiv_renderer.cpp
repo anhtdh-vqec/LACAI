@@ -202,27 +202,25 @@ private:
 
 }  // namespace
 
-struct mapped_slot {
-    int fd_{-1};
+class vqec_vision_ai_qcom_qtvr_mmap_guard {
+public:
+    vqec_vision_ai_qcom_qtvr_mmap_guard(void* _address, std::size_t _size) noexcept
+        : address_(_address), size_(_size) {}
+    ~vqec_vision_ai_qcom_qtvr_mmap_guard() noexcept {
+        if (address_ != nullptr && address_ != MAP_FAILED && size_ != 0) {
+            ::munmap(address_, size_);
+        }
+    }
+    vqec_vision_ai_qcom_qtvr_mmap_guard(const vqec_vision_ai_qcom_qtvr_mmap_guard&) = delete;
+    vqec_vision_ai_qcom_qtvr_mmap_guard& operator=(
+        const vqec_vision_ai_qcom_qtvr_mmap_guard&) = delete;
+
+private:
     void* address_{nullptr};
     std::size_t size_{0};
 };
-inline constexpr std::size_t g_max_mapped_slots = 8U;
 
 struct qtiv_renderer::implementation {
-    ~implementation() noexcept {
-        unmap_all();
-    }
-
-    void unmap_all() noexcept {
-        for (auto& slot : mapped_cache_) {
-            if (slot.address_ != nullptr && slot.size_ != 0) {
-                ::munmap(slot.address_, slot.size_);
-                slot = {};
-            }
-        }
-    }
-
     GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(const raw_frame& _frame);
 
     qtiv_renderer_config config_;
@@ -236,7 +234,6 @@ struct qtiv_renderer::implementation {
     // has not produced an access unit yet, otherwise a reused PTS stalls v4l2h264enc.
     std::uint64_t submitted_{0};
     bool is_open_{false};
-    std::array<mapped_slot, g_max_mapped_slots> mapped_cache_{};
 };
 
 qtiv_renderer::qtiv_renderer() : implementation_(std::make_unique<implementation>()) {}
@@ -348,34 +345,11 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
     }
     const int frame_fd = static_cast<int>(_frame.native_handle_);
     const std::size_t alloc_size = static_cast<std::size_t>(descriptor.allocation_size_bytes_);
-    void* mapped = nullptr;
-    for (auto& slot : mapped_cache_) {
-        if (slot.fd_ == frame_fd && slot.size_ == alloc_size) {
-            mapped = slot.address_;
-            break;
-        }
+    void* mapped = ::mmap(nullptr, alloc_size, PROT_READ, MAP_SHARED, frame_fd, 0);
+    if (mapped == MAP_FAILED) {
+        return nullptr;
     }
-    if (mapped == nullptr) {
-        mapped = ::mmap(nullptr, alloc_size, PROT_READ, MAP_SHARED, frame_fd, 0);
-        if (mapped == MAP_FAILED) {
-            return nullptr;
-        }
-        bool cached = false;
-        for (auto& slot : mapped_cache_) {
-            if (slot.fd_ == -1) {
-                slot = {frame_fd, mapped, alloc_size};
-                cached = true;
-                break;
-            }
-        }
-        if (!cached) {
-            if (mapped_cache_[0].address_ != nullptr &&
-                mapped_cache_[0].size_ != 0) {
-                ::munmap(mapped_cache_[0].address_, mapped_cache_[0].size_);
-            }
-            mapped_cache_[0] = {frame_fd, mapped, alloc_size};
-        }
-    }
+    vqec_vision_ai_qcom_qtvr_mmap_guard guard(mapped, alloc_size);
     GstBuffer* buffer = nullptr;
     if (output_pool_ == nullptr ||
         gst_buffer_pool_acquire_buffer(output_pool_, &buffer, nullptr) != GST_FLOW_OK) {
@@ -519,7 +493,6 @@ void qtiv_renderer::vqec_vision_ai_qcom_qtvr_close() noexcept {
         impl.output_pool_ = nullptr;
     }
     impl.ring_.close();
-    impl.unmap_all();
     impl.is_open_ = false;
 }
 
