@@ -246,8 +246,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_configure(
         return {status_code::invalid_state, "production platform is already configured"};
     }
     if (_config.model_packages_.bindings_.empty() || _config.backend_library_.empty() ||
-        _config.system_library_.empty() ||
+        _config.system_library_.empty() || _config.socket_dir_.empty() ||
+        _config.nv12_format_value_ == 0 ||
         _config.tracker_contract_.empty() || _config.event_schema_id_.empty() ||
+        _config.event_schema_version_.empty() || _config.consumer_id_prefix_.empty() ||
         _config.preprocess_output_timeout_ns_ == 0 ||
         _config.preprocess_output_timeout_ns_ == UINT64_MAX) {
         return {status_code::invalid_argument, "invalid production platform configuration"};

@@ -822,6 +822,16 @@
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
             --steps 5)
         set_tests_properties(service_production_fail_closed PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
+        # Qualcomm production must reject a run that omits the required library, camera and
+        # tracker/event configuration instead of substituting built-in defaults.
+        add_test(NAME service_production_qualcomm_requires_config
+            COMMAND vqec_ai_vision_applications
+            --mode production --platform qualcomm
+            --deployment ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_deployment.json
+            --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
+            --steps 5)
+        set_tests_properties(service_production_qualcomm_requires_config
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
         # Production mode runs end to end through the explicitly selected fake platform.
         add_test(NAME service_production_fake_smoke COMMAND vqec_ai_vision_applications
             --mode production --platform fake

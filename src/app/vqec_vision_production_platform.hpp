@@ -34,6 +34,9 @@ namespace vqec::vision::ai {
 // It does not start, load, submit or drain anything; activation is driven by the neutral
 // runtime. All owners must outlive the runtime bundle and the bundle must reach stopped
 // before this owner is destroyed.
+// The platform does not carry deployment defaults: every field below is supplied by
+// validated startup configuration. Empty/zero values are rejected by configure(), so a
+// missing policy fails closed instead of silently using a built-in product default.
 struct production_platform_config {
     // Exact per-model package/artifact bindings, cross-validated with the model catalog.
     model_package_registry model_packages_;
@@ -41,14 +44,14 @@ struct production_platform_config {
     std::string system_library_;
     inference_execution_policy execution_policy_;
     // Released FW camera route inputs.
-    std::string socket_dir_{"/run/camera_ai"};
+    std::string socket_dir_;
     std::uint32_t producer_uid_{0};
-    std::uint32_t nv12_format_value_{23};
+    std::uint32_t nv12_format_value_{0};
     std::uint64_t preprocess_output_timeout_ns_{0};
-    std::string tracker_contract_{"reference.tracker.v1"};
-    std::string event_schema_id_{"reference.zone"};
-    std::string event_schema_version_{"1"};
-    std::string consumer_id_prefix_{"lacai_ai"};
+    std::string tracker_contract_;
+    std::string event_schema_id_;
+    std::string event_schema_version_;
+    std::string consumer_id_prefix_;
     // AI-owned encoded output. Empty disables rendering. A non-empty ring configures a
     // single-source preview; a multi-source deployment is rejected until FW provides a
     // versioned per-source output registry.

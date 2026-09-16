@@ -74,12 +74,19 @@ inline constexpr std::uint64_t g_config_revision = 1;
 inline constexpr std::uint64_t g_policy_expiry_ns = 1000000000000000000ULL;
 inline constexpr std::uint64_t g_initial_gallery_revision = 1;
 inline constexpr std::size_t g_fr_max_subjects = recognition_limits::g_max_subjects;
-inline constexpr char g_model_root[] = "/opt/vqec/models/";
-inline constexpr char g_backend_library[] = "/usr/lib/libQnnHtp.so";
-inline constexpr char g_system_library[] = "/usr/lib/libQnnSystem.so";
+// Device-free harness fixture values only. They are used to synthesize reference-model
+// outputs for `--platform reference` and are never read by the Qualcomm production path.
 inline constexpr std::uint64_t g_output_bytes = 16;
 inline constexpr char g_box_tensor_name[] = "boxes";
 inline constexpr std::uint32_t g_box_elements = 4;
+// Absolute placeholder paths so the neutral plan validator accepts device-free reference
+// graphs. They are deliberately non-existent: no harness run loads a vendor library or a
+// model artifact, and the Qualcomm production path requires explicit configuration.
+inline constexpr char g_fixture_model_root[] = "/nonexistent/lacai-harness/models/";
+inline constexpr char g_fixture_backend_library[] = "/nonexistent/lacai-harness/libQnnHtp.so";
+inline constexpr char g_fixture_system_library[] =
+    "/nonexistent/lacai-harness/libQnnSystem.so";
+// Released FW/AI memory contract identifiers: named protocol constants, not policy.
 inline constexpr char g_fw_dmabuf_contract[] = "fw.dmabuf.v1";
 inline constexpr char g_qcom_dmabuf_contract[] = "qcom.dmabuf.v1";
 }  // namespace service_harness
@@ -456,8 +463,9 @@ bool vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
     return true;
 }
 
-std::string vqec_vision_ai_appl_svcmn_dev_model_path(const std::string& _model_id) {
-    return std::string(service_harness::g_model_root) + _model_id + ".bin";
+std::string vqec_vision_ai_appl_svcmn_dev_model_path(
+    const std::string& _model_root, const std::string& _model_id) {
+    return _model_root + _model_id + ".bin";
 }
 
 // Builds the parsed output metadata the runtime validates against the catalog identity.
@@ -500,9 +508,16 @@ struct parsed_arguments {
     std::string model_package_registry_path;
     std::string model_package;
     std::string model_library;
-    std::string camera_socket_dir{"/run/camera_ai"};
+    std::string qnn_backend_library;
+    std::string qnn_system_library;
+    std::string model_root;
+    std::string camera_socket_dir;
     std::uint32_t camera_producer_uid{0};
-    std::uint32_t nv12_format_value{23};
+    std::uint32_t nv12_format_value{0};
+    std::string tracker_contract;
+    std::string event_schema_id;
+    std::string event_schema_version;
+    std::string consumer_id_prefix;
     std::string output_ring_id;
     std::uint32_t output_bitrate_bps{0};
     std::uint32_t output_keyframe_interval_frames{0};
@@ -635,6 +650,20 @@ bool vqec_vision_ai_appl_svcmn_parse(int _argc, char** _argv, parsed_arguments& 
             _args.model_package = _argv[++index];
         } else if (option == "--model-library" && has_value) {
             _args.model_library = _argv[++index];
+        } else if (option == "--qnn-backend-library" && has_value) {
+            _args.qnn_backend_library = _argv[++index];
+        } else if (option == "--qnn-system-library" && has_value) {
+            _args.qnn_system_library = _argv[++index];
+        } else if (option == "--model-root" && has_value) {
+            _args.model_root = _argv[++index];
+        } else if (option == "--tracker-contract" && has_value) {
+            _args.tracker_contract = _argv[++index];
+        } else if (option == "--event-schema-id" && has_value) {
+            _args.event_schema_id = _argv[++index];
+        } else if (option == "--event-schema-version" && has_value) {
+            _args.event_schema_version = _argv[++index];
+        } else if (option == "--consumer-id-prefix" && has_value) {
+            _args.consumer_id_prefix = _argv[++index];
         } else if (option == "--camera-socket-dir" && has_value) {
             _args.camera_socket_dir = _argv[++index];
         } else if (option == "--camera-producer-uid" && has_value) {
@@ -1008,13 +1037,17 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         production_platform_config production_config;
         production_config.model_packages_ = model_packages;
         production_config.execution_policy_ = args.execution_policy;
-        production_config.backend_library_ = service_harness::g_backend_library;
-        production_config.system_library_ = service_harness::g_system_library;
+        production_config.backend_library_ = args.qnn_backend_library;
+        production_config.system_library_ = args.qnn_system_library;
         production_config.socket_dir_ = args.camera_socket_dir;
         production_config.producer_uid_ = args.camera_producer_uid;
         production_config.nv12_format_value_ = args.nv12_format_value;
         production_config.preprocess_output_timeout_ns_ =
             submission_limits::g_default_job_timeout_ns;
+        production_config.tracker_contract_ = args.tracker_contract;
+        production_config.event_schema_id_ = args.event_schema_id;
+        production_config.event_schema_version_ = args.event_schema_version;
+        production_config.consumer_id_prefix_ = args.consumer_id_prefix;
         production_config.output_ring_id_ = args.output_ring_id;
         production_config.output_bitrate_bps_ = args.output_bitrate_bps;
         production_config.output_keyframe_interval_frames_ =
@@ -1196,9 +1229,19 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 model_activation.paths_.target_id_ = model->target_id_;
                 model_activation.paths_.artifact_ref_ = model->artifact_ref_;
                 model_activation.paths_.model_path_ =
-                    vqec_vision_ai_appl_svcmn_dev_model_path(model->model_id_);
-                model_activation.paths_.backend_path_ = service_harness::g_backend_library;
-                model_activation.paths_.system_path_ = service_harness::g_system_library;
+                    vqec_vision_ai_appl_svcmn_dev_model_path(
+                        args.model_root.empty() ? service_harness::g_fixture_model_root
+                                                : args.model_root,
+                        model->model_id_);
+                // Reference platform only records the configured paths; the reference graph
+                // loads no vendor library. Missing values fall back to device-free fixture
+                // placeholders and never to a production default.
+                model_activation.paths_.backend_path_ =
+                    args.qnn_backend_library.empty() ? service_harness::g_fixture_backend_library
+                                                     : args.qnn_backend_library;
+                model_activation.paths_.system_path_ =
+                    args.qnn_system_library.empty() ? service_harness::g_fixture_system_library
+                                                    : args.qnn_system_library;
                 model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
             }
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
@@ -1212,8 +1255,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             model_activation.binding_.sync_mode_ = source_sync_mode::implicit_ready;
             model_activation.binding_.color_profile_ = source_color_profile::bt709_limited;
             model_activation.binding_.chroma_site_ = source_chroma_site::mpeg2;
-            model_activation.binding_.fw_memory_contract_ = "fw.dmabuf.v1";
-            model_activation.binding_.backend_memory_contract_ = "qcom.dmabuf.v1";
+            model_activation.binding_.fw_memory_contract_ =
+                service_harness::g_fw_dmabuf_contract;
+            model_activation.binding_.backend_memory_contract_ =
+                service_harness::g_qcom_dmabuf_contract;
             model_activation.binding_.preprocess_contract_ = model->preprocess_contract_;
             model_activation.cycle_id_ = static_cast<std::uint64_t>(source_slot) *
                     service_harness::g_cycle_id_stride + model_slot + 1U;

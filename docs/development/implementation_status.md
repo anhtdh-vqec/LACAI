@@ -1,5 +1,20 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-B update: the Qualcomm production executable no longer carries
+deployment defaults. `production_platform_config` starts empty and `configure()` rejects
+missing backend/system library, camera socket dir, NV12 format value,
+tracker contract, event schema id/version or consumer id prefix. `service_main` gained
+`--qnn-backend-library`, `--qnn-system-library`, `--model-root`, `--tracker-contract`,
+`--event-schema-id`, `--event-schema-version` and `--consumer-id-prefix`; the previous
+`/usr/lib/libQnnHtp.so`, `/usr/lib/libQnnSystem.so`, `/opt/vqec/models/`, `/run/camera_ai`,
+NV12 `23` and `reference.*` defaults are gone. The device-free reference/fake path uses
+named non-existent fixture paths, and the duplicated `"fw.dmabuf.v1"`/`"qcom.dmabuf.v1"`
+literals were replaced with the named constants. A new
+`service_production_qualcomm_requires_config` CTest fails closed when qualcomm production
+omits this configuration. eSDK/QEMU suite passes 122/122. Board `.98`: production qualcomm
+ran with explicit configuration (`first_error=0`, D-Bus 5/5, cascade embedded=10
+cascade_failed=0) and published H.264 1920x1080 30/1 (178 frames in 6 s).
+
 2026-09-16 clean-base CB-03 update: the runtime latency metric no longer mixes clock
 domains. `submission_ticket` now carries `submitted_steady_ns_` (monotonic time captured at
 reserve) separately from `pipeline_pts_ns_` (vendor/pipeline PTS for encoder correlation),
