@@ -43,6 +43,7 @@
 #include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
+#include "vqec_vision_overlay_preparation.hpp"
 #include "vqec_vision_exact_embedding_index.hpp"
 #include "vqec_vision_recognition_session.hpp"
 #include "vqec_vision_face_enrollment_controller.hpp"
@@ -508,6 +509,7 @@ using model_observation_cache =
 
 void vqec_vision_ai_appl_svcmn_merge_observations(
     const model_observation_cache& _models, std::uint16_t _model_count,
+    std::uint64_t _now_ns, std::uint64_t _max_age_ns,
     observation_batch& _merged) {
     observation_batch merged;
     for (std::uint16_t slot = 0;
@@ -517,9 +519,16 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
         if (batch.frame_.source_epoch_ == 0) {
             continue;
         }
+        if (_max_age_ns != 0 && _now_ns != 0 &&
+            batch.frame_.source_pts_ns_ != UINT64_MAX && _now_ns > batch.frame_.source_pts_ns_ &&
+            _now_ns - batch.frame_.source_pts_ns_ > _max_age_ns) {
+            continue;
+        }
         if (merged.frame_.source_epoch_ == 0) {
             merged.frame_ = batch.frame_;
             merged.geometry_ = batch.geometry_;
+        } else if (merged.frame_.source_epoch_ != batch.frame_.source_epoch_) {
+            continue;
         }
         for (const auto& item : batch.observations_) {
             if (merged.observations_.size() >= observation_limits::g_max_observations) {
@@ -1260,6 +1269,13 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     policy.rules_.push_back(std::move(rule));
                 }
             }
+            for (const auto& source : deployment.sources_) {
+                output_scope_rule preview_rule;
+                preview_rule.source_id_ = source.source_id_;
+                preview_rule.feature_id_ = "preview";
+                preview_rule.attributes_.push_back("overlay");
+                policy.rules_.push_back(std::move(preview_rule));
+            }
             if (fr_effectively_enabled) {
                 vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
                     policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
@@ -1323,6 +1339,13 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         policy.revision_ = service_harness::g_policy_revision;
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
+        for (const auto& source : deployment.sources_) {
+            output_scope_rule preview_rule;
+            preview_rule.source_id_ = source.source_id_;
+            preview_rule.feature_id_ = "preview";
+            preview_rule.attributes_.push_back("overlay");
+            policy.rules_.push_back(std::move(preview_rule));
+        }
         vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
             policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
         const auto applied =
@@ -1831,6 +1854,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                         latest_model_observations[taken.source_index_],
                         static_cast<std::uint16_t>(
                             deployment.sources_[taken.source_index_].model_ids_.size()),
+                        now_ns, 500000000ULL,
                         latest_overlay_observations[taken.source_index_]);
                 }
                 std::printf("routed source=%u model=%u tracked=%zu delivered=%u "
@@ -1895,8 +1919,42 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     latest_model_observations[source_slot] = {};
                     overlay = {};
                 }
+                if (overlay.frame_.source_pts_ns_ != UINT64_MAX &&
+                    preview_frame.descriptor_.pts_ns_ != UINT64_MAX &&
+                    preview_frame.descriptor_.pts_ns_ != 0 &&
+                    preview_frame.descriptor_.pts_ns_ > overlay.frame_.source_pts_ns_ &&
+                    preview_frame.descriptor_.pts_ns_ - overlay.frame_.source_pts_ns_ > 500000000ULL) {
+                    overlay = {};
+                }
+                prepared_overlay prepared;
+                if (output_policy_applied && !overlay.observations_.empty()) {
+                    overlay_preparation_context prep_ctx;
+                    prep_ctx.source_id_ = deployment.sources_[source_slot].source_id_;
+                    prep_ctx.feature_id_ = "preview";
+                    prep_ctx.policy_revision_ =
+                        output_policy_gate.vqec_vision_ai_core_otgat_get_revision();
+                    prep_ctx.prepared_monotonic_ns_ = now_ns;
+                    prep_ctx.max_age_ns_ = 500000000ULL;
+                    prep_ctx.attributes_ = {"overlay"};
+                    const auto prep_status = vqec_vision_ai_outpt_ovrpr_prepare_authorized(
+                        overlay, prep_ctx, output_policy_gate, prepared);
+                    if (prep_status.code_ != status_code::ok) {
+                        prepared = {};
+                    }
+                }
+                if (prepared.overlay_.frame_.source_epoch_ == 0) {
+                    prepared.overlay_.frame_.camera_id_ = source_slot;
+                    prepared.overlay_.frame_.channel_id_ = 0;
+                    prepared.overlay_.frame_.source_epoch_ = preview_frame.descriptor_.session_epoch_;
+                    prepared.overlay_.frame_.frame_id_ = preview_frame.descriptor_.buffer_id_;
+                    prepared.overlay_.frame_.source_pts_ns_ = preview_frame.descriptor_.pts_ns_;
+                    prepared.overlay_.geometry_.width_ = preview_frame.descriptor_.width_;
+                    prepared.overlay_.geometry_.height_ = preview_frame.descriptor_.height_;
+                    prepared.overlay_.prepared_monotonic_ns_ = now_ns;
+                    prepared.overlay_.ttl_ns_ = 500000000ULL;
+                }
                 const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
-                    source_slot, preview_frame, overlay);
+                    source_slot, preview_frame, prepared);
                 if (rendered.code_ != status_code::ok &&
                     rendered.code_ != status_code::pending) {
                     std::fprintf(stderr, "render failed (%d): %s\n",

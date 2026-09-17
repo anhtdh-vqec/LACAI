@@ -61,10 +61,11 @@ status vqec_vision_ai_core_pvctr_validate_overlay(
     if (_expected_revision == 0 || _batch.policy_revision_ != _expected_revision) {
         return {status_code::unauthorized, "preview policy revision mismatch"};
     }
-    if (_max_age_ns == 0 || _batch.prepared_monotonic_ns_ > _now_monotonic_ns) {
+    const std::uint64_t max_age = _max_age_ns != 0 ? _max_age_ns : _batch.ttl_ns_;
+    if (max_age == 0 || _batch.prepared_monotonic_ns_ > _now_monotonic_ns) {
         return {status_code::invalid_argument, "invalid preview freshness clock or budget"};
     }
-    if (_now_monotonic_ns - _batch.prepared_monotonic_ns_ > _max_age_ns) {
+    if (_now_monotonic_ns - _batch.prepared_monotonic_ns_ > max_age) {
         return {status_code::timeout, "expired preview overlay"};
     }
     if (_batch.boxes_.size() > preview_limits::g_max_overlay_boxes) {

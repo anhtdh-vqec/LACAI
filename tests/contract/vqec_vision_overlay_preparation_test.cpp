@@ -52,5 +52,34 @@ int main() {
     context.max_age_ns_ = 0;
     assert(vqec_vision_ai_outpt_ovrpr_prepare(observations, context, gate, overlay).code_ ==
            status_code::invalid_argument);
+
+    // Regression: TTL is recorded and enforced
+    assert(prepared.overlay_.ttl_ns_ == 100);
+    assert(vqec_vision_ai_core_pvctr_validate_overlay(
+               prepared.overlay_, frame, geometry, 2, 20 + 101, 100).code_ ==
+           status_code::timeout);
+
+    // Regression: Frame PTS correlation
+    preview_frame_key mismatched_frame = frame;
+    mismatched_frame.source_pts_ns_ = 1000;
+    assert(vqec_vision_ai_core_pvctr_validate_overlay(
+               prepared.overlay_, mismatched_frame, geometry, 2, 25, 100).code_ ==
+           status_code::invalid_state);
+
+    // Regression: Session epoch correlation
+    preview_frame_key mismatched_epoch = frame;
+    mismatched_epoch.source_epoch_ = 99;
+    assert(vqec_vision_ai_core_pvctr_validate_overlay(
+               prepared.overlay_, mismatched_epoch, geometry, 2, 25, 100).code_ ==
+           status_code::invalid_state);
+
+    // Regression: Out-of-bounds bounding boxes rejected
+    context.policy_revision_ = 2;
+    context.max_age_ns_ = 100;
+    context.attributes_ = {"bbox"};
+    observation_batch oob_observations = observations;
+    oob_observations.observations_[0].box_.x_ = 1000.0F;
+    assert(vqec_vision_ai_outpt_ovrpr_prepare(oob_observations, context, gate, overlay).code_ ==
+           status_code::invalid_argument);
     return 0;
 }

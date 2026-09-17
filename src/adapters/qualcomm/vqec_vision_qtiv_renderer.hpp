@@ -6,6 +6,7 @@
 #include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
@@ -43,10 +44,19 @@ public:
 
     // Builds the encode pipeline and opens the FW ring. Cold path; no frame is submitted.
     [[nodiscard]] status vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& _config);
-    // Attaches one ROI meta per observation, encodes the frame and writes one AU to the
-    // ring. The frame owner must stay valid for the call.
+    // Attaches ROI meta from the prepared, authorized overlay payload, encodes the frame and
+    // writes one AU to the ring. Stale or mismatched observations are dropped.
+    [[nodiscard]] status vqec_vision_ai_qcom_qtvr_render(
+        const raw_frame& _frame, const prepared_overlay& _payload);
+    // Adapts raw observations into a default prepared overlay and renders.
     [[nodiscard]] status vqec_vision_ai_qcom_qtvr_render(
         const raw_frame& _frame, const observation_batch& _observations);
+    void vqec_vision_ai_qcom_qtvr_set_demand(bool _has_demand) noexcept;
+    [[nodiscard]] bool vqec_vision_ai_qcom_qtvr_has_demand() const noexcept;
+    void vqec_vision_ai_qcom_qtvr_set_demand_gating(bool _enabled) noexcept;
+    [[nodiscard]] bool vqec_vision_ai_qcom_qtvr_is_demand_gating_enabled() const noexcept;
+    void vqec_vision_ai_qcom_qtvr_set_max_observation_age(std::uint64_t _max_age_ns) noexcept;
+    [[nodiscard]] std::uint64_t vqec_vision_ai_qcom_qtvr_get_max_observation_age() const noexcept;
     [[nodiscard]] std::uint64_t vqec_vision_ai_qcom_qtvr_get_written() const noexcept;
     void vqec_vision_ai_qcom_qtvr_close() noexcept;
 

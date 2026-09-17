@@ -38,6 +38,7 @@ status vqec_vision_ai_outpt_ovrpr_prepare_authorized_scopes(
     candidate.geometry_ = _observations.geometry_;
     candidate.policy_revision_ = revision;
     candidate.prepared_monotonic_ns_ = _prepared_monotonic_ns;
+    candidate.ttl_ns_ = _max_age_ns;
     candidate.boxes_.reserve(_observations.observations_.size());
     for (const auto& observation : _observations.observations_) {
         auto box = observation.box_;

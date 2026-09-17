@@ -705,6 +705,19 @@ const model_outputs* production_platform::vqec_vision_ai_appl_pdplt_outputs(
 
 status production_platform::vqec_vision_ai_appl_pdplt_render(
     std::uint16_t _source_slot, const raw_frame& _frame,
+    const prepared_overlay& _payload) {
+    (void)_source_slot;
+    if (implementation_ == nullptr || !implementation_->is_prepared_) {
+        return {status_code::invalid_state, "production platform is not prepared"};
+    }
+    if (implementation_->renderer_ == nullptr) {
+        return {};
+    }
+    return implementation_->renderer_->vqec_vision_ai_qcom_qtvr_render(_frame, _payload);
+}
+
+status production_platform::vqec_vision_ai_appl_pdplt_render(
+    std::uint16_t _source_slot, const raw_frame& _frame,
     const observation_batch& _observations) {
     (void)_source_slot;
     if (implementation_ == nullptr || !implementation_->is_prepared_) {

@@ -11,6 +11,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_package_registry.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
@@ -150,9 +151,12 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_pdplt_create_offline_model(
         std::uint16_t _source_slot, const std::string& _model_id,
         std::unique_ptr<production_offline_model>& _owner);
-    // Renders one source frame with the tracked observations and writes the encoded AU to
+    // Renders one source frame with the prepared overlay and writes the encoded AU to
     // the FW ring. No-op with ok when output is disabled. Borrowed frame; call on the
     // serialized runtime owner.
+    [[nodiscard]] status vqec_vision_ai_appl_pdplt_render(
+        std::uint16_t _source_slot, const raw_frame& _frame,
+        const prepared_overlay& _payload);
     [[nodiscard]] status vqec_vision_ai_appl_pdplt_render(
         std::uint16_t _source_slot, const raw_frame& _frame,
         const observation_batch& _observations);

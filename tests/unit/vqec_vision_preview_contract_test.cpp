@@ -20,12 +20,14 @@ int main() {
     };
     const preview_frame_key frame{0, 0, 1, 0, 0};
     const preview_geometry geometry{1920, 1080};
-    const overlay_batch baseline{frame, geometry, 7, 100,
+    const overlay_batch baseline{frame, geometry, 7, 100, 100,
         {{0, 0, 1920, 1080, 0xffffffffU, "person"}}};
     const auto overlay = [&](const overlay_batch& _batch) {
         return vqec_vision_ai_core_pvctr_validate_overlay(_batch, frame, geometry, 7, 200, 100);
     };
     check(overlay(baseline), status_code::ok);
+    check(vqec_vision_ai_core_pvctr_validate_overlay(baseline, frame, geometry, 7, 200, 0),
+        status_code::ok);
     auto batch = baseline;
     batch.boxes_.clear();
     check(overlay(batch), status_code::ok);

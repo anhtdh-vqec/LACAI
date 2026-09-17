@@ -222,7 +222,10 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_feature_catalog_config
         vqec_vision_ai_usecase_config
         vqec_vision_ai_usecase_control
-        vqec_vision_ai_encrypted_gallery_store)
+        vqec_vision_ai_encrypted_gallery_store
+        vqec_vision_ai_overlay_preparation)
+    target_include_directories(vqec_ai_vision_applications PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs>)
     if(TARGET vqec_vision_ai_usecase_control_dbus)
         target_link_libraries(vqec_ai_vision_applications PRIVATE
             vqec_vision_ai_usecase_control_dbus)

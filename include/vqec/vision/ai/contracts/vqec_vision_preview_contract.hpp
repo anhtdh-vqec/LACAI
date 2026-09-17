@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
@@ -37,7 +38,13 @@ struct overlay_batch {
     preview_geometry geometry_;
     std::uint64_t policy_revision_{0};
     std::uint64_t prepared_monotonic_ns_{0};
+    std::uint64_t ttl_ns_{0};
     std::vector<overlay_box> boxes_;
+};
+
+struct prepared_overlay {
+    overlay_batch overlay_;
+    std::vector<output_authorization> rendered_scopes_;
 };
 
 // Read-only borrow. Size validation cannot establish actual allocation capacity.

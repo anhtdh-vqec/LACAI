@@ -2,7 +2,9 @@
 
 #include <atomic>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
+#include <ctime>
 #include <limits>
 
 #include <fcntl.h>
@@ -186,7 +188,8 @@ public:
     }
 
     bool push(const std::uint8_t* _data, std::size_t _size, std::uint32_t _width,
-        std::uint32_t _height, std::uint64_t _timestamp_ns, bool _keyframe) {
+        std::uint32_t _height, std::uint64_t _frame_id, std::uint64_t _timestamp_ns,
+        std::uint64_t _media_pts_ns, bool _keyframe) {
         if (mapping_ == nullptr || _data == nullptr || _size == 0 ||
             _size > ring_layout::g_payload_size) {
             return false;
@@ -207,11 +210,11 @@ public:
         vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_is_keyframe,
             static_cast<std::uint32_t>(_keyframe ? 1U : 0U));
         vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_frame_id,
-            static_cast<std::uint64_t>(sequence_ + 1U));
+            _frame_id != 0 ? _frame_id : static_cast<std::uint64_t>(sequence_ + 1U));
         vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_timestamp_ns,
             _timestamp_ns);
         vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_media_pts_ns,
-            _timestamp_ns);
+            _media_pts_ns != 0 ? _media_pts_ns : _timestamp_ns);
         vqec_vision_ai_qcom_qtvr_store(slot, base + ring_layout::g_s_sequence, sequence_);
         std::memcpy(slot + base + ring_layout::g_s_codec, "H264", 4);
         std::memcpy(slot + base + ring_layout::g_slot_header_size, _data, _size);
@@ -288,6 +291,9 @@ struct qtiv_renderer::implementation {
     // Monotonic push counter for PTS; it must advance on every push even when the encoder
     // has not produced an access unit yet, otherwise a reused PTS stalls v4l2h264enc.
     std::uint64_t submitted_{0};
+    bool demand_gating_enabled_{false};
+    bool has_demand_{true};
+    std::uint64_t max_observation_age_ns_{500000000ULL};
     bool is_open_{false};
 };
 
@@ -456,28 +462,65 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
 }
 
 status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
-    const raw_frame& _frame, const observation_batch& _observations) {
+    const raw_frame& _frame, const prepared_overlay& _payload) {
     if (implementation_ == nullptr || !implementation_->is_open_) {
         return {status_code::invalid_state, "qtiv renderer is not initialized"};
     }
     auto& impl = *implementation_;
+    if (impl.demand_gating_enabled_ && !impl.has_demand_) {
+        return {status_code::pending, "no preview demand"};
+    }
+
+    struct timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    const std::uint64_t now_ns = static_cast<std::uint64_t>(ts.tv_sec) * 1000000000ULL +
+        static_cast<std::uint64_t>(ts.tv_nsec);
+
+    bool drop_boxes = false;
+    if (_payload.overlay_.frame_.source_epoch_ != 0 &&
+        _payload.overlay_.frame_.source_epoch_ != _frame.descriptor_.session_epoch_) {
+        drop_boxes = true;
+    }
+    const std::uint64_t max_age = _payload.overlay_.ttl_ns_ != 0 ?
+        _payload.overlay_.ttl_ns_ : impl.max_observation_age_ns_;
+    if (_payload.overlay_.prepared_monotonic_ns_ != 0 &&
+        now_ns > _payload.overlay_.prepared_monotonic_ns_ &&
+        now_ns - _payload.overlay_.prepared_monotonic_ns_ > max_age) {
+        drop_boxes = true;
+    }
+    if (_payload.overlay_.frame_.source_pts_ns_ != UINT64_MAX &&
+        _frame.descriptor_.pts_ns_ != UINT64_MAX && _frame.descriptor_.pts_ns_ != 0 &&
+        _frame.descriptor_.pts_ns_ > _payload.overlay_.frame_.source_pts_ns_ &&
+        _frame.descriptor_.pts_ns_ - _payload.overlay_.frame_.source_pts_ns_ > impl.max_observation_age_ns_) {
+        drop_boxes = true;
+    }
+
     GstBuffer* buffer = impl.vqec_vision_ai_qcom_qtvr_copy_nv12(_frame);
     if (buffer == nullptr) {
         return {status_code::io_error,
             "cannot copy the NV12 frame into the Qualcomm render surface"};
     }
-    for (const auto& item : _observations.observations_) {
-        GstVideoRegionOfInterestMeta* roi = gst_buffer_add_video_region_of_interest_meta(
-            buffer, item.box_.label_.c_str(),
-            static_cast<guint>(item.box_.x_), static_cast<guint>(item.box_.y_),
-            static_cast<guint>(item.box_.width_), static_cast<guint>(item.box_.height_));
-        if (roi == nullptr) {
-            continue;
+    if (!drop_boxes) {
+        for (const auto& item : _payload.overlay_.boxes_) {
+            if (!std::isfinite(item.x_) || !std::isfinite(item.y_) ||
+                !std::isfinite(item.width_) || !std::isfinite(item.height_) ||
+                item.x_ < 0 || item.y_ < 0 || item.width_ <= 0 || item.height_ <= 0 ||
+                item.x_ + item.width_ > _frame.descriptor_.width_ ||
+                item.y_ + item.height_ > _frame.descriptor_.height_) {
+                continue;
+            }
+            GstVideoRegionOfInterestMeta* roi = gst_buffer_add_video_region_of_interest_meta(
+                buffer, item.label_.c_str(),
+                static_cast<guint>(item.x_), static_cast<guint>(item.y_),
+                static_cast<guint>(item.width_), static_cast<guint>(item.height_));
+            if (roi == nullptr) {
+                continue;
+            }
+            GstStructure* structure = gst_structure_new("ObjectDetection",
+                "confidence", G_TYPE_DOUBLE, static_cast<gdouble>(1.0),
+                "color", G_TYPE_UINT, item.rgba_ != 0 ? item.rgba_ : impl.config_.box_color_rgba_, nullptr);
+            gst_video_region_of_interest_meta_add_param(roi, structure);
         }
-        GstStructure* structure = gst_structure_new("ObjectDetection",
-            "confidence", G_TYPE_DOUBLE, static_cast<gdouble>(item.confidence_),
-            "color", G_TYPE_UINT, impl.config_.box_color_rgba_, nullptr);
-        gst_video_region_of_interest_meta_add_param(roi, structure);
     }
     GST_BUFFER_PTS(buffer) = impl.submitted_ * GST_SECOND / impl.config_.fps_;
     GST_BUFFER_DURATION(buffer) = GST_SECOND / impl.config_.fps_;
@@ -499,8 +542,14 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
             const GstClockTime encoded_pts = GST_BUFFER_PTS(encoded);
             const std::uint64_t timestamp_ns =
                 GST_CLOCK_TIME_IS_VALID(encoded_pts) ? encoded_pts : 0U;
+            const std::uint64_t frame_pts =
+                _frame.descriptor_.pts_ns_ != UINT64_MAX && _frame.descriptor_.pts_ns_ != 0 ?
+                    _frame.descriptor_.pts_ns_ : timestamp_ns;
             if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data), out_map.size,
-                    _frame.descriptor_.width_, _frame.descriptor_.height_, timestamp_ns,
+                    _frame.descriptor_.width_, _frame.descriptor_.height_,
+                    _frame.descriptor_.buffer_id_,
+                    frame_pts,
+                    frame_pts,
                     keyframe)) {
                 ++impl.written_;
             } else {
@@ -520,6 +569,62 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         return {status_code::pending, "encoder produced no access unit"};
     }
     return result;
+}
+
+status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
+    const raw_frame& _frame, const observation_batch& _observations) {
+    if (implementation_ == nullptr || !implementation_->is_open_) {
+        return {status_code::invalid_state, "qtiv renderer is not initialized"};
+    }
+    struct timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    const std::uint64_t now_ns = static_cast<std::uint64_t>(ts.tv_sec) * 1000000000ULL +
+        static_cast<std::uint64_t>(ts.tv_nsec);
+
+    prepared_overlay prepared;
+    prepared.overlay_.frame_ = _observations.frame_;
+    prepared.overlay_.geometry_ = _observations.geometry_;
+    prepared.overlay_.prepared_monotonic_ns_ = now_ns;
+    prepared.overlay_.ttl_ns_ = implementation_->max_observation_age_ns_;
+    prepared.overlay_.boxes_.reserve(_observations.observations_.size());
+    for (const auto& obs : _observations.observations_) {
+        auto box = obs.box_;
+        if (box.label_.empty()) {
+            box.label_ = obs.class_id_;
+        }
+        prepared.overlay_.boxes_.push_back(std::move(box));
+    }
+    return vqec_vision_ai_qcom_qtvr_render(_frame, prepared);
+}
+
+void qtiv_renderer::vqec_vision_ai_qcom_qtvr_set_demand(bool _has_demand) noexcept {
+    if (implementation_ != nullptr) {
+        implementation_->has_demand_ = _has_demand;
+    }
+}
+
+bool qtiv_renderer::vqec_vision_ai_qcom_qtvr_has_demand() const noexcept {
+    return implementation_ != nullptr && implementation_->has_demand_;
+}
+
+void qtiv_renderer::vqec_vision_ai_qcom_qtvr_set_demand_gating(bool _enabled) noexcept {
+    if (implementation_ != nullptr) {
+        implementation_->demand_gating_enabled_ = _enabled;
+    }
+}
+
+bool qtiv_renderer::vqec_vision_ai_qcom_qtvr_is_demand_gating_enabled() const noexcept {
+    return implementation_ != nullptr && implementation_->demand_gating_enabled_;
+}
+
+void qtiv_renderer::vqec_vision_ai_qcom_qtvr_set_max_observation_age(std::uint64_t _max_age_ns) noexcept {
+    if (implementation_ != nullptr) {
+        implementation_->max_observation_age_ns_ = _max_age_ns;
+    }
+}
+
+std::uint64_t qtiv_renderer::vqec_vision_ai_qcom_qtvr_get_max_observation_age() const noexcept {
+    return implementation_ != nullptr ? implementation_->max_observation_age_ns_ : 0;
 }
 
 std::uint64_t qtiv_renderer::vqec_vision_ai_qcom_qtvr_get_written() const noexcept {
