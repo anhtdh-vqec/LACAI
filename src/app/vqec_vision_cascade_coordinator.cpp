@@ -310,6 +310,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
     }
     const auto batch_start_tp = std::chrono::steady_clock::now();
     std::size_t accepted = 0;
+    bool recovery_required = false;
     for (const auto& observation : _tracked.observations_) {
         const auto elapsed_ns = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -339,12 +340,13 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
             ++metrics_.tasks_failed_;
             continue;
         }
-        metrics_.active_tasks_ = 1;
+        ++metrics_.active_tasks_;
         alignment_result result;
         std::uint64_t align_ticket = 0;
         const auto aligned = aligner_->vqec_vision_ai_ports_imaln_align(
             request, frame, template_, result, align_ticket);
-        bool task_ok = aligned.code_ == status_code::ok;
+        const bool alignment_submitted = aligned.code_ == status_code::ok;
+        bool task_ok = alignment_submitted;
         if (!task_ok && last_task_error_.code_ == status_code::ok) {
             last_task_error_ = aligned;
             metrics_.root_backend_error_code_ = aligned.code_;
@@ -435,20 +437,28 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                 }
             }
         }
-        if (!align_complete) {
+        const bool must_quarantine = alignment_submitted && !align_complete;
+        if (must_quarantine) {
+            recovery_required = true;
             ++metrics_.quarantine_count_;
             if (last_task_error_.code_ == status_code::ok) {
                 last_task_error_ = {status_code::timeout,
                     "alignment backend did not complete; frame quarantined"};
             }
         }
-        const bool complete_ok =
+        // A failed call that never submitted work may release its acquired lease. Once
+        // align() succeeds, only an explicit completion signal permits release. Keeping
+        // the lease outstanding intentionally blocks retire/drain and forces recovery.
+        const bool may_complete = !alignment_submitted || align_complete;
+        const bool complete_ok = may_complete &&
             _lease.vqec_vision_ai_ports_cflse_complete(frame_ticket).code_ == status_code::ok;
         if (!complete_ok && last_task_error_.code_ == status_code::ok) {
             last_task_error_ = {status_code::invalid_state,
                 "cascade frame lease completion failed"};
         }
-        metrics_.active_tasks_ = 0;
+        if (complete_ok && metrics_.active_tasks_ > 0) {
+            --metrics_.active_tasks_;
+        }
         if (task_ok && complete_ok) {
             ++_report.accepted_;
             ++metrics_.tasks_accepted_;
@@ -475,7 +485,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
         ++_report.failed_;
         ++metrics_.tasks_failed_;
     }
-    return {};
+    return recovery_required ?
+        status{status_code::timeout,
+            "alignment completion is pending; retained frame requires recovery"} :
+        status{};
 }
 
 }  // namespace vqec::vision::ai

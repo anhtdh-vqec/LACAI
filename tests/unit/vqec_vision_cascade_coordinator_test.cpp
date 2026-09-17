@@ -36,7 +36,8 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_cflse_retire(
         const preview_frame_key&) override {
         ++retire_calls_;
-        return {};
+        return issued_.empty() ? status{} :
+            status{status_code::invalid_state, "fixture has an outstanding frame ticket"};
     }
     [[nodiscard]] status vqec_vision_ai_ports_cflse_complete(std::uint64_t _ticket) override {
         for (auto iterator = issued_.begin(); iterator != issued_.end(); ++iterator) {
@@ -344,7 +345,7 @@ int main() {
             lease.retire_calls_ == 1);
     }
 
-    // A pending alignment completion fails the task but still releases the frame ticket.
+    // A pending alignment completion fails the task and retains the frame ticket.
     {
         fake_aligner aligner;
         aligner.completion_pending_ = true;
@@ -353,9 +354,11 @@ int main() {
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 2)).code_ == status_code::ok);
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
-                  0, make_batch(1), aligned, embeddings, report).code_ == status_code::ok);
+                  0, make_batch(1), aligned, embeddings, report).code_ ==
+            status_code::timeout);
         check(report.accepted_ == 0 && report.failed_ == 1 && aligned.empty() &&
-            lease.complete_calls_ == 1 && lease.retire_calls_ == 1);
+            lease.complete_calls_ == 0 && lease.retire_calls_ == 1 &&
+            lease.issued_.size() == 1);
     }
 
     // Align + embedding: the aligned face is quantized, submitted, polled and decoded.
@@ -453,11 +456,14 @@ int main() {
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 1)).code_ == status_code::ok);
         check(coordinator.vqec_vision_ai_appl_cscrd_process(
-                  1000, make_batch(1), aligned, embeddings, report).code_ == status_code::ok);
+                  1000, make_batch(1), aligned, embeddings, report).code_ ==
+            status_code::timeout);
         check(report.accepted_ == 0 && report.failed_ == 1 && aligned.empty());
-        check(lease.complete_calls_ == 1 && lease.retire_calls_ == 1);
+        check(lease.complete_calls_ == 0 && lease.retire_calls_ == 1 &&
+            lease.issued_.size() == 1);
         const auto metrics = coordinator.vqec_vision_ai_appl_cscrd_get_metrics();
-        check(metrics.quarantine_count_ == 1 && metrics.tasks_failed_ == 1);
+        check(metrics.quarantine_count_ == 1 && metrics.tasks_failed_ == 1 &&
+            metrics.active_tasks_ == 1);
     }
 
     std::cout << "cascade coordinator failures: " << failures << '\n';
