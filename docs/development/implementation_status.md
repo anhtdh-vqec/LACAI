@@ -1,5 +1,18 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-E2 update: two cohesive startup/report phases were extracted from
+`run_generation`. `vqec_vision_ai_appl_svcmn_resolve_startup` now owns catalog load, usecase
+composition, the idle no-source loop, FR/enrollment argument validation, model package
+resolution and fail-closed platform selection, returning a `service_startup_resolution`.
+`vqec_vision_ai_appl_svcmn_report_and_decide` owns the metrics/report print and the exit-code
+policy. `run_generation` dropped from ~1272 to 1087 lines and no longer mixes startup
+validation and exit policy with the run loop. Behavior is unchanged (same exit codes, same
+smoke tests). The remaining run loop and the recognition/feature setup blocks are still in
+`service_main.cpp`; further decomposition remains open. eSDK/QEMU suite passes 123/123.
+Board `.98`: native 115 (two known environment-fixture failures) and a live compatibility
+run published H.264 1920x1080 30/1 (167 frames in 6 s) with `first_error=0`, D-Bus 5/5 and
+cascade `embedded=4 cascade_failed=0`.
+
 2026-09-16 clean-base CB-F update: small correctness/security fixes.
 - Removed the contracts -> ports layering inversion in `vqec_vision_recognition.hpp`: the
   embedding-index data types and limits (`embedding_metric`, `embedding_index_config`,

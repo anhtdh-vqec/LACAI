@@ -533,6 +533,256 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
 
 }  // namespace
 
+// Resolves validated startup metadata before any platform owner is constructed: catalogs,
+// the effective deployment (including usecase composition) and the model package registry.
+// A false should_run means the caller must return exit_code; this covers load failures, the
+// idle no-source loop and fail-closed platform selection.
+struct service_startup_resolution {
+    bool should_run{false};
+    int exit_code{0};
+    model_catalog catalog;
+    deployment_config deployment;
+    feature_catalog features;
+    model_package_registry model_packages;
+    bool use_reference_platform{false};
+    bool use_production_platform{false};
+    bool fr_effectively_enabled{false};
+};
+
+service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
+    const parsed_arguments& _args, const deployment_config* _effective_deployment,
+    usecase_control_manager* _control_manager, const std::function<void()>& _poll_control,
+    std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision) {
+    service_startup_resolution result;
+    if (!vqec_vision_ai_appl_svcmn_load_model_catalog(_args.catalog_path, result.catalog) ||
+        !vqec_vision_ai_appl_svcmn_load_deployment(
+            _args.deployment_path, result.deployment)) {
+        result.exit_code = 1;
+        return result;
+    }
+    if (!_args.feature_catalog_path.empty() &&
+        !vqec_vision_ai_appl_svcmn_load_feature_catalog(
+            _args.feature_catalog_path, result.features)) {
+        result.exit_code = 1;
+        return result;
+    }
+    if (_effective_deployment != nullptr) {
+        result.deployment = *_effective_deployment;
+    } else if (!_args.usecase_snapshot_path.empty()) {
+        usecase_control_snapshot control;
+        if (!vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
+                _args.usecase_snapshot_path, control)) {
+            result.exit_code = 1;
+            return result;
+        }
+        if (control.deployment_revision_ != result.deployment.revision_) {
+            std::fprintf(stderr,
+                "usecase snapshot deployment revision does not match deployment\n");
+            result.exit_code = 1;
+            return result;
+        }
+        usecase_activation_snapshot activation_snapshot;
+        deployment_config effective_deployment;
+        const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
+            result.deployment, result.catalog, control.catalog_, control.requests_,
+            activation_snapshot, effective_deployment);
+        if (composed.code_ != status_code::ok) {
+            std::fprintf(stderr, "usecase composition rejected (%d): %s\n",
+                static_cast<int>(composed.code_), composed.message_.c_str());
+            result.exit_code = 1;
+            return result;
+        }
+        result.deployment = std::move(effective_deployment);
+        std::printf("usecase plan control_revision=%llu entitlement_revision=%llu "
+                    "active_sources=%zu\n",
+            static_cast<unsigned long long>(control.control_revision_),
+            static_cast<unsigned long long>(control.entitlement_revision_),
+            result.deployment.sources_.size());
+    }
+    if (result.deployment.sources_.empty()) {
+        if (_control_manager != nullptr) {
+            const auto published = _pending_control_revision == 0
+                ? (_runtime_generation == 1
+                    ? _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_initial(
+                          _runtime_generation)
+                    : status{})
+                : _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_pending(
+                      _pending_control_revision, _runtime_generation);
+            if (published.code_ != status_code::ok) {
+                result.exit_code = 1;
+                return result;
+            }
+        }
+        std::uint64_t idle_steps = 0;
+        while (!g_stop_requested &&
+               (_args.max_steps == 0 || idle_steps < _args.max_steps)) {
+            if (_poll_control) {
+                _poll_control();
+            }
+            if (_control_manager != nullptr &&
+                _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
+                result.exit_code = g_reconcile_generation_exit_code;
+                return result;
+            }
+            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+            ++idle_steps;
+        }
+        result.exit_code = 0;
+        return result;
+    }
+    const bool has_fr_arguments = !_args.fr_gallery_path.empty() ||
+        !_args.fr_protected_directory.empty() || !_args.fr_gallery_file_name.empty() ||
+        !_args.fr_key_file_name.empty() || !_args.fr_lock_file_name.empty() ||
+        !_args.fr_gallery_id.empty() || _args.fr_preprocess_revision != 0 ||
+        _args.fr_store_max_bytes != 0 || _args.fr_similarity_set ||
+        _args.fr_margin_set || _args.fr_templates_set || _args.fr_top_k_set ||
+        !_args.fr_feature_id.empty() || !_args.fr_identity_attribute.empty() ||
+        _args.enrollment_dbus;
+    const bool has_complete_fr_arguments = !_args.fr_gallery_path.empty() &&
+        !_args.fr_protected_directory.empty() && !_args.fr_gallery_file_name.empty() &&
+        !_args.fr_key_file_name.empty() && !_args.fr_lock_file_name.empty() &&
+        !_args.fr_gallery_id.empty() && _args.fr_preprocess_revision != 0 &&
+        _args.fr_store_max_bytes != 0 &&
+        _args.fr_similarity_set && _args.fr_margin_set && _args.fr_templates_set &&
+        _args.fr_top_k_set && !_args.fr_feature_id.empty() &&
+        !_args.fr_identity_attribute.empty();
+    if (has_fr_arguments && !has_complete_fr_arguments) {
+        std::fprintf(stderr,
+            "FR requires derived index path, protected-store directory/files, gallery "
+            "identity/preprocess revision/quota, similarity, margin, max templates, "
+            "top-k, feature id and identity attribute\n");
+        result.exit_code = 1;
+        return result;
+    }
+    bool has_active_secondary_model = false;
+    for (const auto& source : result.deployment.sources_) {
+        for (const auto& model : result.catalog.models_) {
+            if (model.role_ == model_role::secondary &&
+                vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
+                has_active_secondary_model = true;
+                break;
+            }
+        }
+        if (has_active_secondary_model) {
+            break;
+        }
+    }
+    result.fr_effectively_enabled =
+        has_complete_fr_arguments && has_active_secondary_model;
+    const bool has_complete_image_enrollment = !_args.enrollment_image_roots.empty() &&
+        _args.enrollment_max_image_bytes != 0 && _args.enrollment_image_timeout_ms != 0 &&
+        !_args.enrollment_jpeg_decoder.empty() && !_args.enrollment_converter.empty() &&
+        !_args.enrollment_scaler.empty() && !_args.enrollment_transform.empty() &&
+        !_args.enrollment_transform_engine.empty();
+    if (_args.enrollment_dbus && !has_complete_image_enrollment) {
+        std::fprintf(stderr,
+            "enrollment DBus requires image roots, byte/time limits and every image "
+            "pipeline factory\n");
+        result.exit_code = 1;
+        return result;
+    }
+    if (!_args.model_package_registry_path.empty()) {
+        if (!_args.model_package.empty() || !_args.model_library.empty()) {
+            std::fprintf(stderr,
+                "model package registry cannot be combined with legacy package arguments\n");
+            result.exit_code = 1;
+            return result;
+        }
+        if (!vqec_vision_ai_appl_svcmn_load_model_packages(
+                _args.model_package_registry_path, result.model_packages)) {
+            result.exit_code = 1;
+            return result;
+        }
+    } else if (!_args.model_package.empty() || !_args.model_library.empty()) {
+        if (result.catalog.models_.size() != 1 || _args.model_package.empty() ||
+            _args.model_library.empty()) {
+            std::fprintf(stderr,
+                "legacy model package arguments require exactly one catalog model\n");
+            result.exit_code = 1;
+            return result;
+        }
+        const auto& model = result.catalog.models_.front();
+        result.model_packages.schema_version_ = model_package_registry_limits::g_schema_version;
+        result.model_packages.bindings_.push_back({model.model_id_, model.model_version_,
+            model.target_id_, model.artifact_ref_, _args.model_package,
+            _args.model_library});
+    }
+    if (result.deployment.sources_.size() > deployment_limits::g_max_sources) {
+        std::fprintf(stderr, "deployment source count exceeds runtime support\n");
+        result.exit_code = 1;
+        return result;
+    }
+    // Platform selection. Production requires an explicit device-free platform; an unset
+    // or unwired platform fails closed instead of substituting the development harness.
+    // `fake` proves wiring only; `reference` wires the real reference tracker and zone
+    // feature. Both are selected by name and never fall back implicitly.
+    result.use_reference_platform = _args.platform == "reference";
+    result.use_production_platform = _args.platform == "qualcomm";
+    const bool platform_named = _args.platform == "fake" || _args.platform == "reference" ||
+        _args.platform == "qualcomm";
+    if (_args.enrollment_dbus &&
+        (!_args.production_mode || !result.use_production_platform)) {
+        std::fprintf(stderr,
+            "file enrollment DBus requires production mode with the Qualcomm platform\n");
+        result.exit_code = 1;
+        return result;
+    }
+    if (_args.production_mode && !platform_named) {
+        std::fprintf(stderr,
+            "production mode: --platform %s is not wired; use --platform fake or "
+            "--platform reference for a device-free platform. Refusing fixture fallback\n",
+            _args.platform.c_str());
+        result.exit_code = 3;
+        return result;
+    }
+    result.should_run = true;
+    return result;
+}
+
+// Prints the end-of-generation metrics/report and decides the process exit code. Kept out
+// of run_generation so the report policy is reviewable on its own. route_latency_* is the
+// steady-clock interval from job reservation to result routing; it is not camera-to-output
+// latency and excludes FW capture and preview encode.
+int vqec_vision_ai_appl_svcmn_report_and_decide(const runtime_executor_metrics& _metrics,
+    bool _stopped, bool _enrollment_ok, bool _cascade_ok, std::uint32_t _routed_sources,
+    bool _generation_published, status_code _first_error_code, bool _reconcile_requested,
+    std::uint32_t _require_sources) {
+    const auto route_avg_us = _metrics.end_to_end_samples_ == 0 ? 0ULL :
+        _metrics.end_to_end_ns_sum_ / (1000ULL * _metrics.end_to_end_samples_);
+    std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
+        "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
+        "route_latency_avg_us=%llu route_latency_min_us=%llu route_latency_max_us=%llu "
+        "samples=%u\n",
+        static_cast<unsigned long long>(_metrics.steps_),
+        static_cast<unsigned long long>(_metrics.results_routed_),
+        static_cast<unsigned long long>(_metrics.events_delivered_),
+        static_cast<unsigned long long>(_metrics.events_denied_),
+        static_cast<unsigned long long>(_metrics.events_failed_),
+        static_cast<unsigned long long>(_metrics.cascade_tasks_accepted_),
+        static_cast<unsigned long long>(_metrics.cascade_embeddings_),
+        static_cast<unsigned long long>(_metrics.cascade_tasks_failed_),
+        static_cast<unsigned long long>(route_avg_us),
+        static_cast<unsigned long long>(_metrics.end_to_end_samples_ == 0 ? 0ULL :
+            _metrics.end_to_end_ns_min_ / 1000ULL),
+        static_cast<unsigned long long>(_metrics.end_to_end_ns_max_ / 1000ULL),
+        _metrics.end_to_end_samples_);
+    std::printf("service stopped=%s routed_sources=%u first_error=%d\n",
+        _stopped ? "true" : "false", _routed_sources,
+        static_cast<int>(_first_error_code));
+    // Owners (feature manager, fan-outs, registries, reference platform) outlive the
+    // bundle; the bundle's composition must be stopped before they are destroyed.
+    if (!_stopped || !_enrollment_ok || !_cascade_ok) {
+        return g_recovery_required_exit_code;
+    }
+    if (!_generation_published || _first_error_code != status_code::ok) {
+        return 1;
+    }
+    if (_reconcile_requested) {
+        return g_reconcile_generation_exit_code;
+    }
+    return _routed_sources >= _require_sources ? 0 : 1;
+}
+
 int vqec_vision_ai_appl_svcmn_run_generation(
     int _argc, char** _argv, const deployment_config* _effective_deployment,
     usecase_control_manager* _control_manager,
@@ -574,173 +824,19 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
     std::signal(SIGTERM, vqec_vision_ai_appl_svcmn_on_signal);
 
-    model_catalog catalog;
-    deployment_config deployment;
-    feature_catalog features;
-    if (!vqec_vision_ai_appl_svcmn_load_model_catalog(args.catalog_path, catalog) ||
-        !vqec_vision_ai_appl_svcmn_load_deployment(args.deployment_path, deployment)) {
-        return 1;
+    auto startup = vqec_vision_ai_appl_svcmn_resolve_startup(
+        args, _effective_deployment, _control_manager, _poll_control, _runtime_generation,
+        _pending_control_revision);
+    if (!startup.should_run) {
+        return startup.exit_code;
     }
-    if (!args.feature_catalog_path.empty() &&
-        !vqec_vision_ai_appl_svcmn_load_feature_catalog(args.feature_catalog_path, features)) {
-        return 1;
-    }
-    if (_effective_deployment != nullptr) {
-        deployment = *_effective_deployment;
-    } else if (!args.usecase_snapshot_path.empty()) {
-        usecase_control_snapshot control;
-        if (!vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
-                args.usecase_snapshot_path, control)) {
-            return 1;
-        }
-        if (control.deployment_revision_ != deployment.revision_) {
-            std::fprintf(stderr,
-                "usecase snapshot deployment revision does not match deployment\n");
-            return 1;
-        }
-        usecase_activation_snapshot activation_snapshot;
-        deployment_config effective_deployment;
-        const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
-            deployment, catalog, control.catalog_, control.requests_,
-            activation_snapshot, effective_deployment);
-        if (composed.code_ != status_code::ok) {
-            std::fprintf(stderr, "usecase composition rejected (%d): %s\n",
-                static_cast<int>(composed.code_), composed.message_.c_str());
-            return 1;
-        }
-        deployment = std::move(effective_deployment);
-        std::printf("usecase plan control_revision=%llu entitlement_revision=%llu "
-                    "active_sources=%zu\n",
-            static_cast<unsigned long long>(control.control_revision_),
-            static_cast<unsigned long long>(control.entitlement_revision_),
-            deployment.sources_.size());
-    }
-    if (deployment.sources_.empty()) {
-        if (_control_manager != nullptr) {
-            const auto published = _pending_control_revision == 0
-                ? (_runtime_generation == 1
-                    ? _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_initial(
-                          _runtime_generation)
-                    : status{})
-                : _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_pending(
-                      _pending_control_revision, _runtime_generation);
-            if (published.code_ != status_code::ok) {
-                return 1;
-            }
-        }
-        std::uint64_t idle_steps = 0;
-        while (!g_stop_requested &&
-               (args.max_steps == 0 || idle_steps < args.max_steps)) {
-            if (_poll_control) {
-                _poll_control();
-            }
-            if (_control_manager != nullptr &&
-                _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
-                return g_reconcile_generation_exit_code;
-            }
-            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-            ++idle_steps;
-        }
-        return 0;
-    }
-    const bool has_fr_arguments = !args.fr_gallery_path.empty() ||
-        !args.fr_protected_directory.empty() || !args.fr_gallery_file_name.empty() ||
-        !args.fr_key_file_name.empty() || !args.fr_lock_file_name.empty() ||
-        !args.fr_gallery_id.empty() || args.fr_preprocess_revision != 0 ||
-        args.fr_store_max_bytes != 0 || args.fr_similarity_set ||
-        args.fr_margin_set || args.fr_templates_set || args.fr_top_k_set ||
-        !args.fr_feature_id.empty() || !args.fr_identity_attribute.empty() ||
-        args.enrollment_dbus;
-    const bool has_complete_fr_arguments = !args.fr_gallery_path.empty() &&
-        !args.fr_protected_directory.empty() && !args.fr_gallery_file_name.empty() &&
-        !args.fr_key_file_name.empty() && !args.fr_lock_file_name.empty() &&
-        !args.fr_gallery_id.empty() && args.fr_preprocess_revision != 0 &&
-        args.fr_store_max_bytes != 0 &&
-        args.fr_similarity_set && args.fr_margin_set && args.fr_templates_set &&
-        args.fr_top_k_set && !args.fr_feature_id.empty() &&
-        !args.fr_identity_attribute.empty();
-    if (has_fr_arguments && !has_complete_fr_arguments) {
-        std::fprintf(stderr,
-            "FR requires derived index path, protected-store directory/files, gallery "
-            "identity/preprocess revision/quota, similarity, margin, max templates, "
-            "top-k, feature id and identity attribute\n");
-        return 1;
-    }
-    bool has_active_secondary_model = false;
-    for (const auto& source : deployment.sources_) {
-        for (const auto& model : catalog.models_) {
-            if (model.role_ == model_role::secondary &&
-                vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
-                has_active_secondary_model = true;
-                break;
-            }
-        }
-        if (has_active_secondary_model) {
-            break;
-        }
-    }
-    const bool fr_effectively_enabled =
-        has_complete_fr_arguments && has_active_secondary_model;
-    const bool has_complete_image_enrollment = !args.enrollment_image_roots.empty() &&
-        args.enrollment_max_image_bytes != 0 && args.enrollment_image_timeout_ms != 0 &&
-        !args.enrollment_jpeg_decoder.empty() && !args.enrollment_converter.empty() &&
-        !args.enrollment_scaler.empty() && !args.enrollment_transform.empty() &&
-        !args.enrollment_transform_engine.empty();
-    if (args.enrollment_dbus && !has_complete_image_enrollment) {
-        std::fprintf(stderr,
-            "enrollment DBus requires image roots, byte/time limits and every image "
-            "pipeline factory\n");
-        return 1;
-    }
-    model_package_registry model_packages;
-    if (!args.model_package_registry_path.empty()) {
-        if (!args.model_package.empty() || !args.model_library.empty()) {
-            std::fprintf(stderr,
-                "model package registry cannot be combined with legacy package arguments\n");
-            return 1;
-        }
-        if (!vqec_vision_ai_appl_svcmn_load_model_packages(
-                args.model_package_registry_path, model_packages)) {
-            return 1;
-        }
-    } else if (!args.model_package.empty() || !args.model_library.empty()) {
-        if (catalog.models_.size() != 1 || args.model_package.empty() ||
-            args.model_library.empty()) {
-            std::fprintf(stderr,
-                "legacy model package arguments require exactly one catalog model\n");
-            return 1;
-        }
-        const auto& model = catalog.models_.front();
-        model_packages.schema_version_ = model_package_registry_limits::g_schema_version;
-        model_packages.bindings_.push_back({model.model_id_, model.model_version_,
-            model.target_id_, model.artifact_ref_, args.model_package, args.model_library});
-    }
-
-    if (deployment.sources_.size() > deployment_limits::g_max_sources) {
-        std::fprintf(stderr, "deployment source count exceeds runtime support\n");
-        return 1;
-    }
-    // Platform selection. Production requires an explicit device-free platform; an unset
-    // or unwired platform fails closed instead of substituting the development harness.
-    // `fake` proves wiring only; `reference` wires the real reference tracker and zone
-    // feature. Both are selected by name and never fall back implicitly.
-    const bool use_reference_platform = args.platform == "reference";
-    const bool use_production_platform = args.platform == "qualcomm";
-    const bool platform_named = args.platform == "fake" || args.platform == "reference" ||
-        args.platform == "qualcomm";
-    if (args.enrollment_dbus && (!args.production_mode || !use_production_platform)) {
-        std::fprintf(stderr,
-            "file enrollment DBus requires production mode with the Qualcomm platform\n");
-        return 1;
-    }
-    if (args.production_mode && !platform_named) {
-        std::fprintf(stderr,
-            "production mode: --platform %s is not wired; use --platform fake or "
-            "--platform reference for a device-free platform. Refusing fixture fallback\n",
-            args.platform.c_str());
-        return 3;
-    }
-
+    model_catalog catalog = std::move(startup.catalog);
+    deployment_config deployment = std::move(startup.deployment);
+    feature_catalog features = std::move(startup.features);
+    model_package_registry model_packages = std::move(startup.model_packages);
+    const bool use_reference_platform = startup.use_reference_platform;
+    const bool use_production_platform = startup.use_production_platform;
+    const bool fr_effectively_enabled = startup.fr_effectively_enabled;
     // Platform owners: registered for every catalog contract so the composition has a
     // concrete decoder/tracker/feature set. Selected explicitly, never implicitly.
     const auto source_width = deployment.sources_.front().profile_.width_;
@@ -1768,42 +1864,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
     }
-    const auto route_avg_us = metrics.end_to_end_samples_ == 0 ? 0ULL :
-        metrics.end_to_end_ns_sum_ / (1000ULL * metrics.end_to_end_samples_);
-    // route_latency is the steady-clock interval from job reservation to result routing. It
-    // is not camera-to-output latency and does not include FW capture or preview encode.
-    std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
-        "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
-        "route_latency_avg_us=%llu route_latency_min_us=%llu route_latency_max_us=%llu "
-        "samples=%u\n",
-        static_cast<unsigned long long>(metrics.steps_),
-        static_cast<unsigned long long>(metrics.results_routed_),
-        static_cast<unsigned long long>(metrics.events_delivered_),
-        static_cast<unsigned long long>(metrics.events_denied_),
-        static_cast<unsigned long long>(metrics.events_failed_),
-        static_cast<unsigned long long>(metrics.cascade_tasks_accepted_),
-        static_cast<unsigned long long>(metrics.cascade_embeddings_),
-        static_cast<unsigned long long>(metrics.cascade_tasks_failed_),
-        static_cast<unsigned long long>(route_avg_us),
-        static_cast<unsigned long long>(metrics.end_to_end_samples_ == 0 ? 0ULL :
-            metrics.end_to_end_ns_min_ / 1000ULL),
-        static_cast<unsigned long long>(metrics.end_to_end_ns_max_ / 1000ULL),
-        metrics.end_to_end_samples_);
-    std::printf("service stopped=%s routed_sources=%u first_error=%d\n",
-        stopped ? "true" : "false", routed_sources, static_cast<int>(first_error_code));
-    // Owners (feature manager, fan-outs, registries, reference platform) outlive the
-    // bundle; the bundle's composition must be stopped before they are destroyed.
-    if (!stopped || enrollment_stopped.code_ != status_code::ok ||
-        cascade_stopped.code_ != status_code::ok) {
-        return g_recovery_required_exit_code;
-    }
-    if (!generation_published || first_error_code != status_code::ok) {
-        return 1;
-    }
-    if (reconcile_requested) {
-        return g_reconcile_generation_exit_code;
-    }
-    return routed_sources >= args.require_sources ? 0 : 1;
+    return vqec_vision_ai_appl_svcmn_report_and_decide(metrics, stopped,
+        enrollment_stopped.code_ == status_code::ok,
+        cascade_stopped.code_ == status_code::ok, routed_sources, generation_published,
+        first_error_code, reconcile_requested, args.require_sources);
 }
 
 int main(int _argc, char** _argv) {
