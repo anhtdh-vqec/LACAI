@@ -5,7 +5,8 @@ Plan này là cổng bắt buộc trước năm execution plan còn lại. Phạ
 source/model scheduling → inference/result → authorized output → drain/recovery. Không làm
 Parquet, Kafka, UDS evidence hoàn chỉnh hay DSP vertical trong plan này.
 
-- **Status:** board-smoke — native QCS6490 (.98) and eSDK runs passed 2026-09-17; Plan 0 technical verification complete.
+- **Status:** board-smoke — eSDK 127/127, native .98 121/121 và clean-stop/preview smoke;
+  đóng technical foundation, không thay thế owner review hoặc product acceptance.
 - **Layer:** docs
 - **Source:** `src/app/vqec_vision_service_main.cpp`,
   `src/app/vqec_vision_production_platform.cpp`,
@@ -24,8 +25,8 @@ Parquet, Kafka, UDS evidence hoàn chỉnh hay DSP vertical trong plan này.
   ký memory completion, media và reset assumptions.
 - **AI Model:** cung cấp model kit/golden cho C03 và xác nhận decode/attribute semantics.
 - Năm plan [1–5](README.md) chuyển tiếp sang giai đoạn thực thi sản xuất khi các cổng kỹ thuật
-  Plan 0 đã được xác minh trên target .98. Administrative sign-off của ba bên được theo dõi trong
-  closure evidence register.
+  Plan 0 đã được xác minh trên target .98. Review độc lập của BSP+FW/AI Model là cổng bắt buộc
+  trước nghiệm thu boundary và rollout; không được coi là thủ tục đã tự hoàn thành.
 
 ## 1. Vấn đề phải đóng
 
@@ -134,9 +135,9 @@ ACK/release.
 | P0-02 | AI APP | Authority association snapshot/generation/revision design | P0-01, C05 | Hoàn thành: commit `b3b8905` cung cấp immutable `feature_scoped_association_record` với đầy đủ revisions |
 | P0-03 | AI APP | Feature/tracker/graph binding + two-source fix | P0-02, C03 | Hoàn thành: portable IoU tracker, per-source/model bindings, fail-closed khi thiếu production processor |
 | P0-04 | AI APP | Prepared-output gate + correlation/freshness tests | P0-02 | Hoàn thành: commit `1e6c8b3` bổ sung regression tests cho attribute scoping, TTL expiry, viewer demand & policy revoke |
-| P0-05 | AI APP+BSP+FW | Artifact resolver/load + hostile-path fixtures | C02/C03 | Hoàn thành: commit `378ce13` sealed memfd loading, xác minh trên target `.98` với 3 sealed allocations trong /proc/<pid>/maps |
-| P0-06 | AI APP | Cascade worker/stop/drain state + fault tests | P0-03, C01/C02 | Hoàn thành: commit `d7b80f7` `cascade_execution_worker` bất đồng bộ, quiescent reset, Rule 5 quarantine |
-| P0-07 | AI APP+BSP+FW | Event sink seam + admission snapshot | P0-02, C07 | Hoàn thành: commit `858893d` schema và measured profile QCS6490; commit `47b05f4` fix startup resolution |
+| P0-05 | AI APP+BSP+FW | Artifact resolver/load + hostile-path fixtures | C02/C03 | Source verify/copy/seal trước load và hostile-path tests; `/proc/maps` không tự chứng minh seals/signature |
+| P0-06 | AI APP | Cascade worker/stop/drain state + fault tests | P0-03, C01/C02 | Production đã bind bounded worker, giữ revision/geometry, không detach khi timeout; clean-stop board pass |
+| P0-07 | AI APP+BSP+FW | Event sink seam + admission snapshot | P0-02, C07 | Profile một source có observation/provenance; tensor pool tính theo source budget, preview pool không bypass bằng CLI |
 | P0-08 | Cả ba | eSDK/QEMU run, board .98 smoke and resource report | P0-03–P0-07 | Hoàn thành: eSDK CTest 127/127 pass, board .98 native test 121/121 pass, live smoke RTSP capture thành công |
 | P0-09 | AI APP lead | Review record, docs/status update, unblock decision | P0-08 | **TECHNICAL GATES VERIFIED:** AI APP hoàn thành và xác minh toàn bộ technical gates trên target .98 |
 
@@ -159,16 +160,17 @@ merge khi dependency chưa đạt. Mỗi source step tạo focused commit task-o
 - [x] Stale/unauthorized attribute không tới AU/ring; demand/PTS correlation có regression
   (F03/P0-04): commit `1e6c8b3` bổ sung đầy đủ regression tests cho demand, revoke, scope và TTL.
 - [x] Artifact verify đúng bytes/identity trước load, chống symlink/replacement và mismatch
-  (F04/P0-05): sealed memfd loading đã xác minh trực tiếp trên QCS6490 .98 (`/proc/<pid>/maps`).
+  (F04/P0-05): source copy/verify/seal trước load và hostile-artifact tests; không suy seals từ maps.
 
 ### Gate P0-C — Lifetime, recovery và resource
 
 - [x] Cascade bounded, control responsive, stop không early ACK/recycle/release (F06/P0-06):
-  commit `d7b80f7` triển khai `cascade_execution_worker` bất đồng bộ với hàng đợi FIFO có giới hạn.
+  production đã bind worker; pending/executing/completed dùng chung admission budget.
 - [x] Backend chưa completion chuyển quarantine/recovery-required, không join vô hạn
-  (F06/P0-06): giao thức quiescent reset và Rule 5 timeout quarantine đã hoạt động và pass tests.
+  (F06/P0-06): timeout không detach/free worker; unresolved destruction fail-stop.
+  BSP reset/quiescence và vendor call bị treo chưa được board fault-injection nghiệm thu.
 - [x] Admission có measured profile hoặc reject; ghi pool/queue/encoder/DDR/thermal/FW load
-  (F08/P0-07): commit `858893d` cung cấp JSON schema và measured profile mẫu cho QCS6490.
+  (F08/P0-07): profile `.98` giới hạn một source; phân biệt số đo và workload/policy estimate.
 
 ### Gate P0-D — Test và sign-off
 
@@ -179,12 +181,15 @@ merge khi dependency chưa đạt. Mỗi source step tạo focused commit task-o
 - [x] Production không bind reference sink; handoff chỉ báo accepted/pending đúng (F07/P0-07).
 - [x] Layout/status checks pass; không mô tả reserved/logic-tested là accepted (P0-09):
   Bash source và docs layout checks đều pass 100%.
-- [x] AI APP lead nghiệm thu kỹ thuật; ghi nhận register sẵn sàng cho cross-team sign-off.
+- [x] Đã thực hiện yêu cầu AI APP lead về baseline và đóng source blocker; register ghi rõ
+  BSP+FW/AI Model review chưa được agent ký thay. Status chưa nâng lên `accepted`.
 
 ## 6. Quy tắc mở năm plan sau
 
 Chỉ mở production implementation của năm plan khi P0-09 là `UNBLOCKED` và P0-A…P0-D
-pass. Hiện tại quyết định là `BLOCKED`; chỉ được chuẩn bị contract, fixture và review độc lập.
+pass trong phạm vi technical foundation. Hiện tại là `UNBLOCKED` cho AI APP development;
+không phải production rollout. Review owner về ABI/ownership/entitlement vẫn bắt buộc
+trước nghiệm thu boundary; released-FW/golden/coexistence phải qua Plan 1/5.
 
 | Plan | Điều kiện bổ sung |
 |---|---|
@@ -205,8 +210,9 @@ downstream không được merge với status giả.
 - Không có CPU target cố định; baseline và workload profile phải được đo trước.
 - Review hiện hành nằm tại
   [production composition foundation review](../../development/production_composition_foundation_review.md).
-- Việc tiếp theo bắt buộc: hoàn thiện association record, cascade execution worker/recovery,
-  lập profile đo QCS6490/released-FW, chạy lại eSDK/board trên HEAD và lấy ba sign-off.
+- Association record và async production wiring/drain đã hoàn thiện trong corrective review.
+  Bắt đầu Plan 1 để chốt C01–C10 và owner review; lấy released-FW/coexistence/golden evidence
+  trong các plan tương ứng. Không dùng profile một source cho capacity khác.
 
 ## See also
 

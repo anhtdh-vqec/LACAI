@@ -1,6 +1,24 @@
 # Implementation status — 2026-09-17
 
-2026-09-17 Plan 0 audit and corrective source update (decision: **BLOCKED**):
+2026-09-17 subsequent Plan 0 corrective verification (AI APP development: **UNBLOCKED**):
+
+- Corrective source candidate: local commit `5237c18`; exact binary/profile hashes in review.
+- Production scoped feature projection is now passed through reconciliation with exact
+  model slot, attribute scopes and immutable config/policy revisions.
+- Production cascade is wired to a bounded worker, preserving frame/geometry/observations
+  and captured output revision. FR-only binds its policy gate; clean shutdown joins workers
+  and releases completed pump primary owners only after graph reconciliation.
+- Admission sums source tensor budgets and rejects preview pool CLI/deployment mismatch.
+  The observed `.98` profile admits one source, not the 16-source schema ceiling.
+- Approved eSDK/QEMU: 127/127. QCS6490 `.98`: native 121/121; live exit 0,
+  `service stopped=true`, `first_error=0`, 282 cascade tasks/embeddings, no cascade failure
+  or stale-policy FR denial. Ring reader probe: H.264 1920x1080 30/1.
+- Status is board-smoke, not product acceptance. Independent BSP+FW/AI Model reviews,
+  released-FW coexistence, golden results and sustained DDR/thermal/resource measurement
+  remain mandatory downstream gates. See the
+  [exact-candidate review](production_composition_foundation_review.md).
+
+Earlier 2026-09-17 audit (historical decision: **BLOCKED**, superseded above):
 - F01: source/usecase gate projection no longer combines desired, entitlement and admission
   across unrelated associations. A complete immutable feature/model/attribute/policy record
   and trusted provisioning remain open.

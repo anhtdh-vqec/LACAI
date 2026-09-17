@@ -4,8 +4,8 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** source-delivered — board `.98` native 117/117 and a live H.264 1920x1080 30/1
-production smoke ran from this layout. **Layer:** docs. **Source:** n/a (references
+**Status:** board-smoke — board `.98` native 121/121 and live H.264 1920x1080 30/1
+corrective smoke ran from this layout on 2026-09-17. **Layer:** docs. **Source:** n/a (references
 `tools/vqec_vision_board_native_tests.sh` and the board workspace).
 
 ## Standard root and layout
@@ -70,9 +70,14 @@ LD_LIBRARY_PATH=/opt/lacai/lib sh tools/vqec_vision_board_native_tests.sh \
 - Relative arguments are resolved to absolute by the runner, but absolute paths are
   recommended.
 
-The historical 2026-09-17 runner result was `PASS=117 FAIL=0`. The current source has a
-new IoU tracker test and requires a new staged native run; do not use 117 as an acceptance
-target for the present binary set.
+The historical 2026-09-17 runner result was `PASS=117 FAIL=0`; do not use 117 as an
+acceptance target for the current binary set.
+
+The subsequent Plan 0 corrective run on 2026-09-17 staged the current native binary set
+and example-profile fixture: `PASS=121 FAIL=0`. See the
+[exact-candidate review](../development/production_composition_foundation_review.md).
+Candidate smoke may temporarily stage `bin/vqec_ai_vision_applications.plan0` without
+replacing the canonical service; hash it, record its profile and clean it up after testing.
 
 ## Production smoke workflow
 
@@ -105,7 +110,7 @@ dbus-run-session -- sh -c '
     --model-package-registry /opt/lacai/config/model_registry.json \
     --qnn-backend-library /usr/lib/libQnnHtp.so \
     --qnn-system-library /usr/lib/libQnnSystem.so \
-    --model-root /opt/vqec/models/ \
+    --model-root /opt/lacai/models/ \
     --hardware-profile /opt/lacai/config/hardware_admission_profile.json \
     --tracker-contract portable.iou.tracker.v1 \
     --event-schema-id reference.zone --event-schema-version 1 \
@@ -113,7 +118,7 @@ dbus-run-session -- sh -c '
     --camera-socket-dir /run/camera_ai --camera-producer-uid 0 --nv12-format 23 \
     --output-ring-id encoded_ai_detect0_cam0_ch0 \
     --output-bitrate 4000000 --output-keyframe-interval 30 \
-    --output-box-color-rgba 0x00ff00ff --output-surface-count 4 \
+    --output-box-color-rgba 0x00ff00ff --output-surface-count 2 \
     --output-colorimetry bt709 --output-interlace-mode progressive \
     --fr-gallery-path /run/lacai_fr_index/face_protected_1 \
     --fr-protected-directory /opt/lacai/protected_gallery \

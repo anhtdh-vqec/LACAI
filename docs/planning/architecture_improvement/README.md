@@ -1217,7 +1217,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 
 | Plan | Chủ trì | Bắt đầu khi | Kết quả chính |
 |---|---|---|---|
-| [Plan 0. Production composition foundation](production_composition_foundation_plan.md) | AI APP lead | Ngay lập tức; blocking | Authority → inference → output → recovery thống nhất |
+| [Plan 0. Production composition foundation](production_composition_foundation_plan.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | Plan 0 pass | C01–C10, stable IDs, owner/sign-off matrix |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
