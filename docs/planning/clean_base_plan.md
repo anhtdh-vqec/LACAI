@@ -1,5 +1,10 @@
 # Kế hoạch làm sạch base — 2026-09-16
 
+Trạng thái 2026-09-17: **CB-01, CB-02, CB-03, CB-B, CB-C, CB-D, CB-E1, CB-E2, CB-F, CB-G/CB-T
+đã hoàn thành**, mỗi bước có eSDK/QEMU + board `.98`. Còn **CB-E2 (phần còn lại)**: tách
+tiếp vòng lặp run và block recognition/feature khỏi `service_main.cpp` (hiện 1987 dòng,
+`run_generation` 1087 dòng). Xem `implementation_status.md` để biết bằng chứng từng bước.
+
 Mục tiêu: dọn toàn bộ nợ cấu trúc/đúng đắn còn lại để có một **base sạch** trước khi
 phát triển feature/tracker/production usecase. Phạm vi **không** gồm: 14 feature package,
 tracker production, attribute producer, pose/OCR, attendance, liveness/PAD, TEE/hardware
