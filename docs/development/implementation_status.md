@@ -1,5 +1,17 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-E3 update: two more phases were extracted from `run_generation`.
+`vqec_vision_ai_appl_svcmn_build_model_activations` now owns the per-source/model activation
+loop (borrowing the platform owners that still outlive the bundle), and
+`vqec_vision_ai_appl_svcmn_append_fr_policy_rules` removes the duplicated FR output-scope
+rule construction shared by the feature-wiring and FR-only policy paths. `run_generation`
+dropped to 1005 lines; behavior and exit codes are unchanged. The remaining run loop,
+platform-owner setup and recognition/feature setup blocks stay in `service_main.cpp`
+because their owners must outlive the runtime bundle; further reduction needs the larger
+"service runtime owner struct" redesign rather than a local extraction. eSDK/QEMU suite
+passes 123/123. Board `.98`: H.264 1920x1080 30/1 (177 frames in 6 s), `first_error=0`,
+D-Bus 5/5, cascade `embedded=4 cascade_failed=0`.
+
 2026-09-16 clean-base CB-G/CB-T update: CI and board evidence truth.
 - `host-sanitizers`, `clang-tidy`, `fuzz` and `esdk-neutral` now configure with
   `VQEC_VISION_AI_ENABLE_ZVEC=OFF`, so a clean runner no longer hits the Zvec `FATAL_ERROR`

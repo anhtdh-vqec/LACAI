@@ -783,6 +783,118 @@ int vqec_vision_ai_appl_svcmn_report_and_decide(const runtime_executor_metrics& 
     return _routed_sources >= _require_sources ? 0 : 1;
 }
 
+// Fills the runtime activation entries for every source/model slot. The platform owners and
+// the reference graph vector are borrowed here and must outlive the runtime bundle; this
+// function only assigns pointers/metadata into _activation. Returns a status; detailed
+// diagnostics are printed at the point of failure.
+status vqec_vision_ai_appl_svcmn_build_model_activations(
+    const parsed_arguments& _args, const deployment_config& _deployment,
+    const model_catalog& _catalog, production_platform& _production,
+    const std::vector<raw_source_port*>& _sources, bool _use_production_platform,
+    const std::string& _tracker_contract,
+    std::vector<std::unique_ptr<reference_inference_graph>>& _reference_graphs,
+    runtime_composition_activation& _activation) {
+    for (std::uint16_t source_slot = 0; source_slot < _activation.source_count_;
+         ++source_slot) {
+        const auto& source = _deployment.sources_[source_slot];
+        auto& source_activation = _activation.sources_[source_slot];
+        source_activation.source_id_ = source.source_id_;
+        source_activation.source_ = _sources[source_slot];
+        source_activation.model_count_ =
+            static_cast<std::uint16_t>(source.model_ids_.size());
+        for (std::uint16_t model_slot = 0; model_slot < source_activation.model_count_;
+             ++model_slot) {
+            const auto* model = vqec_vision_ai_appl_svcmn_find_model(
+                _catalog, source.model_ids_[model_slot]);
+            if (model == nullptr) {
+                std::fprintf(stderr, "deployment references unknown model: %s\n",
+                    source.model_ids_[model_slot].c_str());
+                return {status_code::invalid_argument, "unknown deployment model"};
+            }
+            auto& model_activation = source_activation.models_[model_slot];
+            model_activation.model_id_ = model->model_id_;
+            if (_use_production_platform) {
+                inference_graph_port* graph =
+                    _production.vqec_vision_ai_appl_pdplt_graph(
+                        source_slot, model->model_id_);
+                image_processor_port* processor =
+                    _production.vqec_vision_ai_appl_pdplt_processor(
+                        source_slot, model->model_id_);
+                const model_outputs* outputs =
+                    _production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
+                if (graph == nullptr || processor == nullptr || outputs == nullptr) {
+                    std::fprintf(stderr, "production platform has no graph for model %s\n",
+                        model->model_id_.c_str());
+                    return {status_code::invalid_argument, "missing production model graph"};
+                }
+                model_activation.graph_ = graph;
+                model_activation.processor_ = processor;
+                model_activation.outputs_ = *outputs;
+                model_activation.paths_ =
+                    _production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);
+            } else {
+                _reference_graphs.push_back(std::make_unique<reference_inference_graph>());
+                model_activation.graph_ = _reference_graphs.back().get();
+                model_activation.paths_.model_id_ = model->model_id_;
+                model_activation.paths_.target_id_ = model->target_id_;
+                model_activation.paths_.artifact_ref_ = model->artifact_ref_;
+                model_activation.paths_.model_path_ =
+                    vqec_vision_ai_appl_svcmn_dev_model_path(
+                        _args.model_root.empty() ? service_harness::g_fixture_model_root
+                                                 : _args.model_root,
+                        model->model_id_);
+                // Reference platform only records the configured paths; the reference graph
+                // loads no vendor library. Missing values fall back to device-free fixture
+                // placeholders and never to a production default.
+                model_activation.paths_.backend_path_ =
+                    _args.qnn_backend_library.empty()
+                        ? service_harness::g_fixture_backend_library
+                        : _args.qnn_backend_library;
+                model_activation.paths_.system_path_ =
+                    _args.qnn_system_library.empty()
+                        ? service_harness::g_fixture_system_library
+                        : _args.qnn_system_library;
+                model_activation.outputs_ =
+                    vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
+            }
+            model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
+            model_activation.tracker_contract_ = _tracker_contract;
+            model_activation.binding_.width_ = source.profile_.width_;
+            model_activation.binding_.height_ = source.profile_.height_;
+            model_activation.binding_.fps_numerator_ = source.profile_.fps_numerator_;
+            model_activation.binding_.fps_denominator_ = source.profile_.fps_denominator_;
+            model_activation.binding_.memory_kind_ = source_memory_kind::dmabuf;
+            model_activation.binding_.layout_ = source_memory_layout::linear_nv12;
+            model_activation.binding_.sync_mode_ = source_sync_mode::implicit_ready;
+            model_activation.binding_.color_profile_ = source_color_profile::bt709_limited;
+            model_activation.binding_.chroma_site_ = source_chroma_site::mpeg2;
+            model_activation.binding_.fw_memory_contract_ =
+                service_harness::g_fw_dmabuf_contract;
+            model_activation.binding_.backend_memory_contract_ =
+                service_harness::g_qcom_dmabuf_contract;
+            model_activation.binding_.preprocess_contract_ = model->preprocess_contract_;
+            model_activation.cycle_id_ = static_cast<std::uint64_t>(source_slot) *
+                    service_harness::g_cycle_id_stride + model_slot + 1U;
+            model_activation.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
+        }
+    }
+    return {};
+}
+
+// Appends one FR output-scope rule per deployment source. Shared by the feature-wiring and
+// FR-only policy paths so the FR entitlement rule is defined once.
+void vqec_vision_ai_appl_svcmn_append_fr_policy_rules(output_policy& _policy,
+    const deployment_config& _deployment, const std::string& _feature_id,
+    const std::string& _attribute_id) {
+    for (const auto& source : _deployment.sources_) {
+        output_scope_rule rule;
+        rule.source_id_ = source.source_id_;
+        rule.feature_id_ = _feature_id;
+        rule.attributes_.push_back(_attribute_id);
+        _policy.rules_.push_back(std::move(rule));
+    }
+}
+
 int vqec_vision_ai_appl_svcmn_run_generation(
     int _argc, char** _argv, const deployment_config* _effective_deployment,
     usecase_control_manager* _control_manager,
@@ -1003,83 +1115,11 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
     activation.use_session_workers_ = args.use_session_workers;
     activation.use_model_workers_ = args.use_model_workers;
-    for (std::uint16_t source_slot = 0; source_slot < activation.source_count_; ++source_slot) {
-        const auto& source = deployment.sources_[source_slot];
-        auto& source_activation = activation.sources_[source_slot];
-        source_activation.source_id_ = source.source_id_;
-        source_activation.source_ = sources[source_slot];
-        source_activation.model_count_ = static_cast<std::uint16_t>(source.model_ids_.size());
-        for (std::uint16_t model_slot = 0; model_slot < source_activation.model_count_;
-             ++model_slot) {
-            const auto* model = vqec_vision_ai_appl_svcmn_find_model(
-                catalog, source.model_ids_[model_slot]);
-            if (model == nullptr) {
-                std::fprintf(stderr, "deployment references unknown model: %s\n",
-                    source.model_ids_[model_slot].c_str());
-                return 1;
-            }
-            auto& model_activation = source_activation.models_[model_slot];
-            model_activation.model_id_ = model->model_id_;
-            if (use_production_platform) {
-                inference_graph_port* graph =
-                    production.vqec_vision_ai_appl_pdplt_graph(source_slot, model->model_id_);
-                image_processor_port* processor =
-                    production.vqec_vision_ai_appl_pdplt_processor(
-                        source_slot, model->model_id_);
-                const model_outputs* outputs =
-                    production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
-                if (graph == nullptr || processor == nullptr || outputs == nullptr) {
-                    std::fprintf(stderr, "production platform has no graph for model %s\n",
-                        model->model_id_.c_str());
-                    return 1;
-                }
-                model_activation.graph_ = graph;
-                model_activation.processor_ = processor;
-                model_activation.outputs_ = *outputs;
-                model_activation.paths_ =
-                    production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);
-            } else {
-                reference_graphs.push_back(std::make_unique<reference_inference_graph>());
-                model_activation.graph_ = reference_graphs.back().get();
-                model_activation.paths_.model_id_ = model->model_id_;
-                model_activation.paths_.target_id_ = model->target_id_;
-                model_activation.paths_.artifact_ref_ = model->artifact_ref_;
-                model_activation.paths_.model_path_ =
-                    vqec_vision_ai_appl_svcmn_dev_model_path(
-                        args.model_root.empty() ? service_harness::g_fixture_model_root
-                                                : args.model_root,
-                        model->model_id_);
-                // Reference platform only records the configured paths; the reference graph
-                // loads no vendor library. Missing values fall back to device-free fixture
-                // placeholders and never to a production default.
-                model_activation.paths_.backend_path_ =
-                    args.qnn_backend_library.empty() ? service_harness::g_fixture_backend_library
-                                                     : args.qnn_backend_library;
-                model_activation.paths_.system_path_ =
-                    args.qnn_system_library.empty() ? service_harness::g_fixture_system_library
-                                                    : args.qnn_system_library;
-                model_activation.outputs_ = vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
-            }
-            model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
-            model_activation.tracker_contract_ = tracker_contract;
-            model_activation.binding_.width_ = source.profile_.width_;
-            model_activation.binding_.height_ = source.profile_.height_;
-            model_activation.binding_.fps_numerator_ = source.profile_.fps_numerator_;
-            model_activation.binding_.fps_denominator_ = source.profile_.fps_denominator_;
-            model_activation.binding_.memory_kind_ = source_memory_kind::dmabuf;
-            model_activation.binding_.layout_ = source_memory_layout::linear_nv12;
-            model_activation.binding_.sync_mode_ = source_sync_mode::implicit_ready;
-            model_activation.binding_.color_profile_ = source_color_profile::bt709_limited;
-            model_activation.binding_.chroma_site_ = source_chroma_site::mpeg2;
-            model_activation.binding_.fw_memory_contract_ =
-                service_harness::g_fw_dmabuf_contract;
-            model_activation.binding_.backend_memory_contract_ =
-                service_harness::g_qcom_dmabuf_contract;
-            model_activation.binding_.preprocess_contract_ = model->preprocess_contract_;
-            model_activation.cycle_id_ = static_cast<std::uint64_t>(source_slot) *
-                    service_harness::g_cycle_id_stride + model_slot + 1U;
-            model_activation.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
-        }
+    const auto built_activations = vqec_vision_ai_appl_svcmn_build_model_activations(
+        args, deployment, catalog, production, sources, use_production_platform,
+        tracker_contract, reference_graphs, activation);
+    if (built_activations.code_ != status_code::ok) {
+        return 1;
     }
 
     // Optional feature activation. Only single_model features are wired by this harness;
@@ -1154,13 +1194,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 policy.rules_.push_back(std::move(rule));
             }
             if (fr_effectively_enabled) {
-                for (const auto& source : deployment.sources_) {
-                    output_scope_rule rule;
-                    rule.source_id_ = source.source_id_;
-                    rule.feature_id_ = args.fr_feature_id;
-                    rule.attributes_.push_back(args.fr_identity_attribute);
-                    policy.rules_.push_back(std::move(rule));
-                }
+                vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
+                    policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
             }
             const auto applied =
                 output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
@@ -1221,13 +1256,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         policy.revision_ = service_harness::g_policy_revision;
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
-        for (const auto& source : deployment.sources_) {
-            output_scope_rule rule;
-            rule.source_id_ = source.source_id_;
-            rule.feature_id_ = args.fr_feature_id;
-            rule.attributes_.push_back(args.fr_identity_attribute);
-            policy.rules_.push_back(std::move(rule));
-        }
+        vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
+            policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
         const auto applied =
             output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
         if (applied.code_ != status_code::ok) {
