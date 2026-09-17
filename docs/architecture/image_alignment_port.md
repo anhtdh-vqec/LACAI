@@ -1,8 +1,8 @@
 # Image alignment port
 
-Status: contract defined and unit-tested; no backend implements it and no orchestration
-consumes it yet. This is the boundary required by ADR 0005 for secondary (cascade) face
-crops; it does not itself make FD→FR run.
+Status: contract defined and unit-tested; the Qualcomm FastCV aligner implements it and
+the cascade coordinator consumes it. This is the boundary required by ADR 0005 for
+secondary (cascade) face crops; golden crop/embedding parity remains open.
 
 ## Purpose
 

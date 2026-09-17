@@ -3,7 +3,7 @@
 Status: interface, Qualcomm forwarding adapter and single-model app migration delivered;
 multi-model fan-out/session integration is also source-delivered. Neutral execution
 capability/policy contracts and the port capability/policy query are source-delivered
-(A1/A3); the owned QNN engine and device verification remain pending.
+(A1/A3); the owned QNN engine is board-qualified for SCRFD/YOLOv8n on HTP.
 
 ## Execution capability and policy
 
@@ -55,4 +55,4 @@ ports only and therefore build as portable orchestration source. Platform compos
 concrete adapters and must keep them alive until explicit stop/unload. The implemented
 multi_model_session binds 1..16 graph ports to one RAW-source port; multi_model_pump uses
 numeric cadence slots and shares each received owner across accepted graphs. Executable
-owner construction and live integration remain pending. See [multi-model session](multi_model_session.md).
+owner construction and live integration are delivered; released-FW qualification remains pending. See [multi-model session](multi_model_session.md).

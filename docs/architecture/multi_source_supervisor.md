@@ -1,7 +1,7 @@
 # Multi-source supervisor
 
-Status: source implementation delivered; Linux SDK compilation, integration and board
-qualification are pending.
+Status: source implementation delivered; eSDK compilation, service composition and
+threaded execution are delivered, board qualification remains pending.
 
 `multi_source_supervisor` is the process-level fairness and fault-isolation layer above
 one `source_session_port` per admitted FW RAW source. The port may be implemented by the
@@ -91,5 +91,5 @@ transactional session-owner construction remain pending. The portable `multi_mod
 now fans one received frame out to due running graphs while holding one shared lease until
 every graph releases it. `multi_model_session` configures, starts and drains those graphs
 around one FW acquisition and exposes the pump's numeric result slot through
-`source_session_port`. Executable composition, live integration and recovery are still
-pending. RTSP URI, credentials, codec and decoder state remain outside AI APP.
+`source_session_port`. Executable composition and live integration are delivered;
+automatic recovery remains pending. RTSP URI, credentials, codec and decoder state remain outside AI APP.

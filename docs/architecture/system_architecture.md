@@ -2,7 +2,7 @@
 
 Baseline thống nhất: 2026-09-15. Đây là định hướng kiến trúc hiện hành; mức triển khai
 và bằng chứng nằm ở [implementation status](../development/implementation_status.md).
-Phân loại toàn bộ tài liệu: [documentation map](../README.md).
+Phân loại toàn bộ tài liệu: [documentation map](../../README.md).
 Vấn đề còn lại: [architecture alignment review](../development/architecture_alignment_review.md).
 
 Mục tiêu giữ nguyên: một AI APP thay thế ai_app trong FW, nhận RAW lease, chạy model và
@@ -64,7 +64,7 @@ FW RAW NV12/FD -> source scheduling -> preprocess/inference -> tracks
                               v                                     v
                      AI-owned preview surface <---------- overlay commands
                               |
-                         overlay renderer -> H264 encoder -> FW v4 ring sink
+                         overlay renderer -> H264 encoder -> FW v5 ring sink
                                                                   |
                                                 released RTSP -> MediaMTX -> UI
 

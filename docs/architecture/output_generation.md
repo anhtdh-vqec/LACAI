@@ -24,7 +24,7 @@ on the runtime control owner; this primitive is deliberately not an atomic singl
 This source does not open rings, own hardware, publish bindings, authorize output or
 prove runtime wiring. Lead/lifecycle owner review and reconnect integration tests remain
 required. Unit source covers monotonic issuance, burned IDs, type restrictions and
-exhaustion with unchanged destination; it has not been compiled or executed.
+exhaustion with unchanged destination; it is compiled and unit-tested.
 The encoded dispatch contract test also composes the issuer with a replacement fake
 sink: old binding rejected, independently constructed new-frame output accepted, old
 binding still rejected afterward. This is test-source integration, not runtime wiring

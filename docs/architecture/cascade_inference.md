@@ -122,7 +122,7 @@ The runtime-reported ABI is now recorded in the in-repo metadata packages
 `manifests/models/scrfd_500m_bnkps/` (input `input_1`, outputs `score_*`/`bbox_*`/`kps_*`)
 and `manifests/models/edgeface_s_gamma_05/` (input `input`, output `embedding`). Their `.so`
 artifacts and any golden data stay outside Git. The strict package loader consumes both
-decoder contracts. A compatibility camera FD-to-embedding run is recorded on `.99`; golden
+decoder contracts. A compatibility camera FD-to-embedding run is recorded on `.98`; golden
 crop/input/embedding parity and released-FW acceptance remain open.
 
 ## Implementation sequence

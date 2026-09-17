@@ -1,6 +1,6 @@
 # Camera third-stream to Qualcomm graph pump
 
-Source candidate, no live FW/board execution. This is composition wiring in src/app,
+Source-delivered composition wiring in src/app; no live FW execution yet.
 not a vendor dependency in neutral runtime/core and not an executable service.
 
 Supervisor owns raw_source_port/inference_graph_port implementations; the platform adapter

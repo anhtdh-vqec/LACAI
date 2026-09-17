@@ -92,7 +92,7 @@ inferred from a model name or a matching total tensor byte count.
 | Class | Declared | Implemented in this base | Rejection point |
 |---|---|---|---|
 | Single image input, fixed shape | yes | QNN engine + reference; pump preprocessing path | n/a |
-| Multi-input graph | contract only | no | `multi_model_pump::resolve_targets` -> `unsupported` |
+| Multi-input graph | contract only | no | `vqec_vision_ai_appl_mmump_resolve_targets` -> `unsupported` |
 | Dynamic shape (zero/absent dim) | contract only | no | `qnn_engine::prepare` -> `unsupported` (zero-byte shape) |
 | Per-tensor quantization | yes | engine maps scale/offset; graph-native typed output | n/a |
 | Per-axis quantization | not modeled | no | input/output identity mismatch -> reject |

@@ -40,4 +40,4 @@ No compute admission, installed/desired state, graph cancellation, delivery queu
 payload redaction, transport or feature implementation is supplied. Not yet wired to
 camera tensor output (raw tensors do not provide trustworthy attribute scopes).
 It cannot authorize biometric/raw-tensor export simply because inference is permitted.
-Tests cover CAS/revoke/expiry/rollback and human/traffic attribute isolation; no build yet.
+Tests cover CAS/revoke/expiry/rollback and human/traffic attribute isolation; the gate is built and tested; signed grants remain pending.

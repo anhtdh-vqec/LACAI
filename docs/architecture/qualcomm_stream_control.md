@@ -46,6 +46,6 @@ block internally; no bounded hardware teardown guarantee is supplied.
 
 Synthetic standard-GStreamer lifecycle/ownership fixtures and graph guard test sources are
 registered in CMake under the applicable options and pass on the QCS6490 target as part
-of the 57/57 board smoke run. Real plugin model start/EOS, negotiated caps, SDK faults
-and board synchronization remain unverified. A service event loop and concrete model
-decoder are still missing.
+of the 117/117 board native run. Real plugin model start/EOS, negotiated caps, SDK faults
+and board synchronization remain unverified; the service event loop and concrete decoders
+are delivered.

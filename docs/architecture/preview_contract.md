@@ -1,7 +1,7 @@
 # Preview metadata boundary — R1 first slice
 
-Status: source-only pure validation. No surface allocation, rendering, encoding,
-ring SDK, dispatch, hardware completion or authorization integration is implemented.
+Status: pure validation plus the preview surface/pool, encoded dispatch and Qualcomm QTI
+renderer/ring production are delivered; released-FW hardware-completion evidence remains open.
 External baseline: [FW release compatibility](../contracts/fw_release_compatibility.md).
 
 ## Identity and coordinates

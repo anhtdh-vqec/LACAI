@@ -15,10 +15,10 @@ Source paths in this document are relative to that FW repository, not this repo.
 | FW02 | NV12/FD, SOCK_SEQPACKET, 104-byte header, one SCM_RIGHTS FD; 8-byte buf_id ACK | camera adapter source exists | Padding/offset, malformed packet, slow reader, disconnect, exact session ACK |
 | FW03 | AI draws onto process-owned full-resolution NV12, never shared source in-place | output renderer missing | Source unchanged; coordinate/label/tracking golden at each profile |
 | FW04 | AI produces H264 byte-stream/AU, keyframe + SPS/PPS metadata | encoder missing | First viewer, GOP join, frame/PTS association, overload, profile change |
-| FW05 | detect0/detect1 rings and v4 shared-memory ABI | guarded ring adapter source exists; runtime/open integration missing | Released RTSP reader consumes new writer without modification |
+| FW05 | detect0/detect1 rings and v5 shared-memory ABI | AI writer v5 source delivered and live on `.98`; released RTSP reader conformance pending | Released RTSP reader consumes the AI writer without modification |
 | FW06 | Consumer demand enables frame submission to preview encoder; inference is independent | output runtime missing | Cold boot, no viewer, first/last viewer, dead reader; main/sub unaffected |
 | FW07 | AI D-Bus model methods/signal and persisted task config | compatibility server missing | Request/reply/signal fixtures + restart persistence and failure cases |
-| FW08 | LACAI executable `vqec_ai_vision_applications`, package manifest, unique lease and ring per instance | service/package missing | Launcher resolves executable and runtime values from the versioned manifest |
+| FW08 | LACAI executable `vqec_ai_vision_applications`, package manifest, unique lease and ring per instance | service source delivered; installable package/manifest pending | Launcher resolves executable and runtime values from the versioned manifest |
 | FW09 | Effective input profile changes rebuild media adapters; stale frame drain keeps live edge | session supervisor and model cadence source exist; profile/reconnect recovery missing | Resolution/FPS changes and source restart do not leak leases or reuse stale results |
 
 ## Camera input and ownership
@@ -50,8 +50,9 @@ third_ai_consumers and third_ai_enabled.
   require an FW-owned versioned output registry/ring contract and backend/UI routing update.
 - Header stream_id `ai`, codec `H264`, format `byte-stream`, stride 0; actual width/height,
   frame_id, timestamp_ns, is_keyframe, cached h264_sps/h264_pps and encoded payload.
-- Shared ring magic 0x43414952, version 4. Existing AI writer uses 16 slots with
-  2 * 1024 * 1024 bytes per payload. Keep compatible layout across profile rebuilds.
+- Shared ring ABI: version 5, 16 slots, 1 MiB payload, 4096-byte header, 1232-byte slot
+  header. The AI writer (`vqec_vision_fw_ring_layout.hpp`) sets magic `0x4C414341`;
+  version 4 / 2 MiB is obsolete. Keep the layout stable across profile rebuilds.
 - Preserve consumer registration, sequence, seqlock, wakeup and parameter-set behavior;
   matching struct field names alone does not establish cross-process ABI compatibility.
 - Use a pinned FW contract/ring SDK with agreed toolchain/ABI. Do not copy pthread/
@@ -117,8 +118,10 @@ application/ai_app/ai_models/ai_pipeline.json; shared/common/src/rpc_endpoint_ca
 Launch `vqec_ai_vision_applications` through a versioned package/deployment manifest.
 Do not hardcode executable paths, camera selection, profile, output ring, consumer identity
 or model-relative paths in FW. The manifest supplies these values and defines migration
-compatibility. Inventory exact CLI flags before composing the service.
-Evidence: scripts/run_services.py, application/ai_app/README.md and apps/dmabuf_main.cpp.
+compatibility. The service takes them as explicit CLI inputs and refuses to start the
+Qualcomm production composition when any required value is missing rather than substituting
+a built-in default. Evidence: scripts/run_services.py, application/ai_app/README.md and
+apps/dmabuf_main.cpp.
 
 FW BSP/FW software review requests (not implemented here):
 

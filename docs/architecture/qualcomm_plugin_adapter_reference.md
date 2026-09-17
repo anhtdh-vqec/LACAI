@@ -122,5 +122,5 @@ FW/BSP recovery path.
    private SDK headers into neutral LACAI layers.
 
 The current LACAI Qualcomm implementation is a private plugin-backed adapter with
-source binding, bounded submission/result handling and drain bookkeeping. It is not
-yet a board-qualified service or an end-to-end `vqec_ai_vision_applications` binary.
+source binding, bounded submission/result handling and drain bookkeeping. It backs the end-to-end `vqec_ai_vision_applications` binary, which runs on QCS6490 `.98`;
+released-FW qualification remains open.

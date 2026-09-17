@@ -1,7 +1,7 @@
 # Multi-model result router
 
-Status: portable source and contract test cross-compiled for the eSDK target; target test
-binary is not executed on the x86 development host.
+Status: portable source and contract test built with the eSDK; it runs under eSDK/QEMU and
+natively on QCS6490 `.98`.
 
 `multi_model_result_router` is the portable serialized boundary between one
 `multi_model_pump` and the decode/tracking stage assigned to each model. It uses the

@@ -77,11 +77,11 @@ is not overloaded with buf_id/epoch. The retained owner contains frame correlati
 the future runtime must explicitly map source PTS to pipeline running time and carry
 job identity to outputs. This bridge neither creates caps nor guesses colorimetry.
 
-The graph now permits explicit READY model loading but no PAUSED/PLAYING or submit.
-To stream, still implement source color/sync
-binding, bounded submit, bus/error handling, negotiated caps, output extraction and
-drain/recovery. The FW may independently recycle buffers on disconnect; this bridge
-does not fix the FW-AI-01 production gate.
+The graph now permits explicit READY model loading; PLAYING, source color/sync
+binding, bounded submit and result/input-completion polling are delivered through the
+inference graph lifecycle and submission window. Remaining work is released-FW DMA
+completion evidence and BSP recovery, not the wiring. The FW may independently recycle
+buffers on disconnect; this bridge does not fix the FW-AI-01 production gate.
 
 Contract test source uses an ordinary temporary file FD to test wrapping, views,
 refcounts and close behavior. It is NOT proof that that FD is DMA-BUF or hardware

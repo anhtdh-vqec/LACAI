@@ -31,6 +31,11 @@ the service wrote the ring without unlinking or clobbering. This is compatibilit
 and synthetic-reader evidence: released-FW reader integration, DMA completion and thermal
 qualification remain open.
 
+The rest of this document describes the **obsolete** SDK-based `ring_sink` wrapper. It was
+written against FW commit `139d335` (v4 / 2 MiB). Its 2 MiB field below does NOT match the
+canonical v5 ring (1 MiB). It is not the production writer and is not built in the default
+configuration.
+
 Source-only optional adapter against the reviewed camera_ai_common API. No SDK files
 copied; no configure/build/board test run. Baseline FW commit:
 139d335913e19e5a33a36fa8f8d706009892db44.

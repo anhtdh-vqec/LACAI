@@ -120,12 +120,12 @@ uses distinct job tickets under its explicit repeated-task sequence policy.
 ## Metrics
 
 `vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
-events delivered/denied/failed and cascade accepted/embedded/failed) plus an experimental
-routed-result latency accumulator.
-The current accumulator compares the internal pipeline PTS with executor steady time; it
-is meaningful only when an adapter explicitly maps those domains. The owned QNN graph uses
-an identity anchor instead, so its printed `e2e_*` values must not be interpreted as
-latency. A clock-domain contract, submit/capture timestamps, per-stage histograms and a
+events delivered/denied/failed and cascade accepted/embedded/failed) plus a routed-result
+latency accumulator. The accumulator uses the submission ticket's `submitted_steady_ns_`
+(reservation) and the executor steady clock, so it is `route_latency_*` — the steady
+interval from job reservation to result routing. It is not camera-to-output latency and
+excludes FW capture and preview encode. The ticket keeps `pipeline_pts_ns_` separately for
+encoder correlation; the two clock domains are never mixed. Per-stage histograms and a
 metrics sink/transport remain open.
 
 ## Limits

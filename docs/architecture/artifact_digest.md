@@ -28,4 +28,4 @@ release tooling). No dependency download. No OpenSSL types leak into the public 
 Implementation uses the official
 [EVP digest API](https://docs.openssl.org/3.0/man3/EVP_DigestInit/).
 Provider/init/update/final failures return errors; no alternate hash or insecure fallback.
-This does not claim FIPS validation. No build, C++ test or board execution yet.
+This does not claim FIPS validation. The helper is compiled and unit-tested; board hash evidence remains pending.

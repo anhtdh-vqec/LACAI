@@ -30,5 +30,7 @@ required command-line deployment inputs; missing policy fails startup.
 
 The POSIX authorizer opens the requested file with `O_NOFOLLOW`, verifies regular-file
 type, byte ceiling, JPEG signature and canonical containment under configured roots, then
-returns a retained `/proc/self/fd` path. The open inode remains owned through decode, so a
-rename or symlink swap after authorization cannot redirect `filesrc` to another file.
+returns a retained `/proc/self/fd` path. It rejects the filesystem root `/` as an allowed
+root at configuration time, so a misconfigured root cannot authorize every absolute path.
+The open inode remains owned through decode, so a rename or symlink swap after authorization
+cannot redirect `filesrc` to another file.

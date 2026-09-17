@@ -29,11 +29,11 @@ performance measured trên target. Không dùng OpenCV hoặc GStreamer trong co
 | Planned file trong src/adapters/qualcomm | Trách nhiệm |
 |---|---|
 | vqec_vision_sdk_loader.cpp | allowed paths, symbols, versions, provider compatibility, RAII libs |
-| vqec_vision_buffer_manager.cpp | AI-owned allocation/import/map/cache scope, pools, completion ownership |
+| vqec_vision_buffer_manager.cpp (chưa tạo) | planned AI-owned allocation/import/map/cache scope, pools, completion ownership |
 | vqec_vision_fastcv_processor.cpp | crop/resize/color/rotate/normalize qua capability thực có; geometry metadata |
 | vqec_vision_qnn_engine.cpp | backend/device/context/graph/tensor bind/execute/completion/profiling |
 | vqec_vision_backend_factory.cpp | capability probe + construct backend theo board manifest |
-| vqec_vision_c2d_processor.cpp | optional hardware blit/import path sau benchmark + ADR |
+| vqec_vision_c2d_processor.cpp (chưa tạo) | planned optional hardware blit/import path sau benchmark + ADR |
 
 Private vendor headers ở thư mục này, không ở include/vqec/vision/ai/contracts.
 Tên public override theo interface owner; helper dùng qcom + file_id registry.
