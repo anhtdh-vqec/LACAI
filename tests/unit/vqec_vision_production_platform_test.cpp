@@ -17,6 +17,8 @@ production_platform_config vqec_vision_ai_unit_pdptst_make_valid_config() {
     config.model_packages_.bindings_.push_back(std::move(binding));
     config.backend_library_ = "/usr/lib/libQnnHtp.so";
     config.system_library_ = "/usr/lib/libQnnSystem.so";
+    config.model_root_ = "/tmp";
+    config.max_artifact_bytes_ = production_platform_limits::g_default_max_artifact_bytes;
     config.execution_policy_.mode_ = inference_execution_mode::synchronous;
     config.execution_policy_.profile_ = inference_perf_profile::balanced;
     config.socket_dir_ = "/run/camera_ai";
@@ -81,6 +83,25 @@ int main() {
     // 2. Configuration validation
     production_platform_config invalid_config;
     assert(platform.vqec_vision_ai_appl_pdplt_configure(invalid_config).code_ ==
+           status_code::invalid_argument);
+
+    auto bad_root = vqec_vision_ai_unit_pdptst_make_valid_config();
+    bad_root.model_root_ = "";
+    production_platform platform_bad_root;
+    assert(platform_bad_root.vqec_vision_ai_appl_pdplt_configure(bad_root).code_ ==
+           status_code::invalid_argument);
+
+    auto bad_bytes = vqec_vision_ai_unit_pdptst_make_valid_config();
+    bad_bytes.max_artifact_bytes_ = 0;
+    production_platform platform_bad_bytes;
+    assert(platform_bad_bytes.vqec_vision_ai_appl_pdplt_configure(bad_bytes).code_ ==
+           status_code::invalid_argument);
+
+    auto excess_bytes = vqec_vision_ai_unit_pdptst_make_valid_config();
+    excess_bytes.max_artifact_bytes_ =
+        production_platform_limits::g_max_artifact_bytes_ceiling + 1;
+    production_platform platform_excess_bytes;
+    assert(platform_excess_bytes.vqec_vision_ai_appl_pdplt_configure(excess_bytes).code_ ==
            status_code::invalid_argument);
 
     auto valid_config = vqec_vision_ai_unit_pdptst_make_valid_config();

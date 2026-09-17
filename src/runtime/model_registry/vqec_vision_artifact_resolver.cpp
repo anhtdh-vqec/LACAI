@@ -57,14 +57,25 @@ status vqec_vision_ai_mreg_artsr_resolve_model(
         !vqec_vision_ai_mreg_artsr_is_clean_absolute(_config.system_library_) ||
         _config.max_artifact_bytes_ == 0 ||
         _config.max_artifact_bytes_ > 4ULL * 1024 * 1024 * 1024 ||
-        !vqec_vision_ai_mreg_artsr_is_clean_relative(_artifact_relative_path) ||
         _model.model_id_.empty() || _model.target_id_.empty() ||
-        _model.artifact_ref_.empty()) {
+        _model.artifact_ref_.empty() || _model.artifact_sha256_.size() != 64) {
         return {status_code::invalid_argument,
             "invalid resolver config, relative path or model identity"};
     }
-    const std::string full_path =
-        _config.model_root_ + "/" + _artifact_relative_path;
+    std::string root = _config.model_root_;
+    while (root.size() > 1 && root.back() == '/') {
+        root.pop_back();
+    }
+    std::string rel_path = _artifact_relative_path;
+    if (rel_path.compare(0, root.size(), root) == 0 &&
+        rel_path.size() > root.size() &&
+        rel_path[root.size()] == '/') {
+        rel_path = rel_path.substr(root.size() + 1);
+    }
+    if (!vqec_vision_ai_mreg_artsr_is_clean_relative(rel_path)) {
+        return {status_code::invalid_argument, "invalid resolver relative path"};
+    }
+    const std::string full_path = (root == "/" ? "" : root) + "/" + rel_path;
     fd_owner fd{::open(full_path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW)};
     if (fd.value_ < 0) {
         return {errno == ELOOP ? status_code::unauthorized : status_code::io_error,
@@ -87,7 +98,7 @@ status vqec_vision_ai_mreg_artsr_resolve_model(
                                         link_buffer.size() - 1);
     std::array<char, 4096> root_buffer{};
     if (link_length <= 0 ||
-        ::realpath(_config.model_root_.c_str(), root_buffer.data()) == nullptr) {
+        ::realpath(root.c_str(), root_buffer.data()) == nullptr) {
         return {status_code::io_error,
             "cannot canonicalize the model artifact or allowed root"};
     }

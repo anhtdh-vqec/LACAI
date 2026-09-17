@@ -15,6 +15,7 @@ namespace service_options_limits {
 // default, not a per-call literal; the deployment may override it at startup.
 inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 1000000;
 inline constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
+inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
 }  // namespace service_options_limits
 
 // Parsed process arguments. This is the cold-path startup contract between main() and the
@@ -49,6 +50,7 @@ struct parsed_arguments {
     std::string qnn_backend_library;
     std::string qnn_system_library;
     std::string model_root;
+    std::uint64_t max_artifact_bytes{0};
     std::string camera_socket_dir;
     std::uint32_t camera_producer_uid{0};
     std::uint32_t nv12_format_value{0};

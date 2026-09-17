@@ -91,6 +91,17 @@ int main() {
                   bad_profile),
             "unknown perf profile rejected");
     }
+    {
+        parsed_arguments args;
+        check(vqec_vision_ai_unit_sotst_parse(
+                  {"app", "--deployment", "d", "--model-catalog", "c",
+                      "--model-root", "/opt/lacai/models",
+                      "--max-artifact-bytes", "134217728"},
+                  args),
+            "model root and max artifact bytes parse");
+        check(args.model_root == "/opt/lacai/models", "model_root captured");
+        check(args.max_artifact_bytes == 134217728ULL, "max_artifact_bytes captured");
+    }
 
     std::cout << "service options failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;

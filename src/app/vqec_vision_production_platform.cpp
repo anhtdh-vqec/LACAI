@@ -22,6 +22,9 @@
 #include "vqec_vision_anchor_distance_decoder.hpp"
 #include "vqec_vision_decoder_package.hpp"
 #include "vqec_vision_embedding_decoder.hpp"
+#if defined(VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER)
+#include "vqec_vision_artifact_resolver.hpp"
+#endif
 #include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
@@ -257,7 +260,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_configure(
         return {status_code::invalid_state, "production platform is already configured"};
     }
     if (_config.model_packages_.bindings_.empty() || _config.backend_library_.empty() ||
-        _config.system_library_.empty() || _config.socket_dir_.empty() ||
+        _config.system_library_.empty() || _config.model_root_.empty() ||
+        _config.max_artifact_bytes_ == 0 ||
+        _config.max_artifact_bytes_ > production_platform_limits::g_max_artifact_bytes_ceiling ||
+        _config.socket_dir_.empty() ||
         _config.nv12_format_value_ == 0 ||
         _config.tracker_contract_.empty() || _config.event_schema_id_.empty() ||
         _config.event_schema_version_.empty() || _config.consumer_id_prefix_.empty() ||
@@ -322,6 +328,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         if (binding == nullptr) {
             return {status_code::invalid_argument, "model package binding is missing"};
         }
+        if (binding->package_dir_.find("..") != std::string::npos) {
+            return {status_code::invalid_argument, "package_dir contains path traversal"};
+        }
         const json io_manifest =
             vqec_vision_ai_appl_pdplt_load(binding->package_dir_ + "/io_manifest.json");
         std::ifstream decoder_stream(binding->package_dir_ + "/decoder.json");
@@ -343,12 +352,28 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         owner.model_id_ = model.model_id_;
         owner.role_ = model.role_;
         owner.source_slots_ = std::move(source_slots);
+#if defined(VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER)
+        artifact_resolver_config resolver_config;
+        resolver_config.model_root_ = impl.config_.model_root_;
+        resolver_config.backend_library_ = impl.config_.backend_library_;
+        resolver_config.system_library_ = impl.config_.system_library_;
+        resolver_config.max_artifact_bytes_ = impl.config_.max_artifact_bytes_;
+
+        resolved_model_paths resolved_paths;
+        const auto resolved = vqec_vision_ai_mreg_artsr_resolve_model(
+            model, binding->model_library_, resolver_config, resolved_paths);
+        if (resolved.code_ != status_code::ok) {
+            return resolved;
+        }
+        owner.paths_ = std::move(resolved_paths);
+#else
         owner.paths_.model_id_ = model.model_id_;
         owner.paths_.target_id_ = model.target_id_;
         owner.paths_.artifact_ref_ = model.artifact_ref_;
         owner.paths_.model_path_ = binding->model_library_;
         owner.paths_.backend_path_ = impl.config_.backend_library_;
         owner.paths_.system_path_ = impl.config_.system_library_;
+#endif
         owner.max_frame_allocation_bytes_ = max_frame_allocation_bytes;
 
         const auto planned = vqec_vision_ai_core_mdcat_compose_inference_plan(

@@ -35,6 +35,11 @@ namespace vqec::vision::ai {
 // It does not start, load, submit or drain anything; activation is driven by the neutral
 // runtime. All owners must outlive the runtime bundle and the bundle must reach stopped
 // before this owner is destroyed.
+namespace production_platform_limits {
+inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
+inline constexpr std::uint64_t g_max_artifact_bytes_ceiling = 4ULL * 1024 * 1024 * 1024;
+}  // namespace production_platform_limits
+
 // The platform does not carry deployment defaults: every field below is supplied by
 // validated startup configuration. Empty/zero values are rejected by configure(), so a
 // missing policy fails closed instead of silently using a built-in product default.
@@ -43,6 +48,8 @@ struct production_platform_config {
     model_package_registry model_packages_;
     std::string backend_library_;
     std::string system_library_;
+    std::string model_root_;
+    std::uint64_t max_artifact_bytes_{0};
     inference_execution_policy execution_policy_;
     // Released FW camera route inputs.
     std::string socket_dir_;

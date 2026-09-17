@@ -192,6 +192,14 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
         target_link_libraries(vqec_vision_ai_production_platform PUBLIC
             vqec_vision_ai_decoder_package)
     endif()
+    if(TARGET vqec_vision_ai_artifact_digest)
+        target_link_libraries(vqec_vision_ai_production_platform PUBLIC
+            vqec_vision_ai_artifact_digest)
+        target_include_directories(vqec_vision_ai_production_platform PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
+        target_compile_definitions(vqec_vision_ai_production_platform PRIVATE
+            VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER=1)
+    endif()
     set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
