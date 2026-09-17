@@ -17,6 +17,7 @@ Start/stop/drain/recovery orchestration boundary. Timeout is never hardware comp
 | Path | Purpose |
 |---|---|
 | `vqec_vision_deployment_config.cpp` | Bounded deployment JSON loader delegating to the neutral validator |
+| `vqec_vision_recovery_controller.{hpp,cpp}` | Reserved per-source exponential backoff for automatic recovery (ADR 0006; not production-wired) |
 
 ## Limits and next work
 

@@ -2,7 +2,7 @@
 
 Allocation-free per-source model cadence selection and bounded future job scheduling.
 
-- **Status:** source-delivered cadence scheduler — live execution unverified
+- **Status:** source-delivered cadence + cascade frame store, both tested; `inference_worker` is a reserved unwired module (ADR 0006)
 - **Naming registry:** `sched` (`mdcad`, `jobsc`)
 - **Depends on:** source/model activation slots
 - **Used by:** `multi_model_pump` and `multi_model_session`
@@ -18,6 +18,8 @@ Allocation-free per-source model cadence selection and bounded future job schedu
 | Path | Purpose |
 |---|---|
 | `vqec_vision_model_cadence.cpp` | Rational cadence, sequence-gap accounting and numeric due masks |
+| `vqec_vision_inference_worker.{hpp,cpp}` | Reserved bounded worker pool for blocking-backend offload (ADR 0006; not production-wired) |
+| `vqec_vision_cascade_frame_store.hpp` | Retained primary frames, domain-scoped completion tickets and byte accounting for the cascade |
 
 ## Limits and next work
 

@@ -23,6 +23,9 @@ scheduler tests. Proves lifecycle and composition only, never hardware correctne
 | `vqec_vision_reference_graph.cpp` | Zero-tensor graph implementing the full `inference_graph_port` lifecycle |
 | `vqec_vision_reference_sink.cpp` | Synchronous reference event/encoded sink |
 | `vqec_vision_reference_processor.cpp` | CPU NV12-to-tensor image-processor baseline |
+| `vqec_vision_reference_tracker.cpp` | Greedy IoU reference tracker (not production MOT) |
+| `vqec_vision_reference_feature.cpp` | ROI presence / line-crossing / count fixture feature |
+| `vqec_vision_reference_encoder.cpp`, `vqec_vision_reference_ring_sink.cpp` | Synthetic encoder backend and in-memory ring/sink |
 
 ## Limits and next work
 

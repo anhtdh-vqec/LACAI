@@ -9,7 +9,7 @@ are included in Git.
 
 - C++17 candidate built with `/home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux`;
   build tree `build-esdk-full`. No host C++ configuration/build was used.
-- Target deployment: QCS6490 / Qualcomm Linux 1.8, artifacts under `/opt/anhtdh`.
+- Target deployment: QCS6490 / Qualcomm Linux 1.8, artifacts under `/opt/lacai`.
 - Live roots: configured person detector and face detector; dependent face embedding model.
   Qualcomm preprocessing/alignment, QNN, QTI overlay/H264 and FW-compatible encoded ring.
 - FW camera simulation uses real camera capture and retained packed memfd copies. This

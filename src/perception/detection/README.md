@@ -23,6 +23,9 @@ model algorithms and vendor types out of `src/core` and `src/app`.
 | `vqec_vision_model_decode_stage.cpp` | Transactional decode: temporary batch, identity/geometry/limit checks, atomic publish |
 | `vqec_vision_model_decoder_registry.cpp` | Bounded contract-to-decoder mapping; validates output-manifest identity |
 | `vqec_vision_tensor_reader.cpp` | Bounded name lookup and manifest shape/value-count validation |
+| `vqec_vision_yolov8_decoder.cpp` | Channel-first xywh YOLOv8 decoder (dequant, inverse letterbox, NMS) |
+| `vqec_vision_anchor_distance_decoder.cpp` | Multi-stage SCRFD-style anchor decoder with typed landmarks |
+| `vqec_vision_dense_decoder.cpp` | Anchor-free multi-stage dense decoder |
 
 ## Limits and next work
 

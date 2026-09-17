@@ -22,6 +22,7 @@ leaking Camera Service wire or product-origin types into application code.
 | Path | Purpose |
 |---|---|
 | `vqec_vision_legacy_wire.cpp` | Portable 104-byte decoder with NV12 view validation |
+| `vqec_vision_camera_protocol.hpp` | Shared wire offsets/limits for the legacy header |
 | `vqec_vision_frame_source.cpp` | Optional Linux receiver with peer UID check |
 | `vqec_vision_received_frame` (in frame source) | Shared completion ownership; final owner ACKs on the original session |
 | `vqec_vision_camera_control.cpp`, `vqec_vision_camera_rpc.hpp` | Start/Stop lease state machine with ambiguous-outcome reconciliation |

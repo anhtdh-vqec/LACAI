@@ -11,7 +11,9 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 |---|---|
 | `deployment.example.json` | Demonstrates two identical FW RAW source references |
 | `model_package_registry.example.json` | Demonstrates distinct package/artifact bindings for two generic models |
+| `deployment.face.example.json` | One-source face-only composition (SCRFD + EdgeFace) |
 | `deployment.person_face.example.json` | One-source composition with person detection and the FR root detector active together |
+| `model_package_registry.face.example.json` | Package bindings for SCRFD and EdgeFace |
 | `model_package_registry.person_face.example.json` | Package bindings for YOLOv8n-person, SCRFD and EdgeFace |
 | `usecase_control_snapshot.person_face.example.json` | Example trusted startup snapshot enabling person detection and FR |
 

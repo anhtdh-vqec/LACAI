@@ -12,8 +12,17 @@ run explicitly writes an output directory.
 |---|---|
 | `vqec_vision_check_source_layout.ps1` | Filename, quoted-include existence and CMake source checks (Windows) |
 | `vqec_vision_check_source_layout.sh` | Portable Linux/CI counterpart with the same read-only checks |
+| `vqec_vision_board_native_tests.sh` | Reproducible native board run with manifest and Zvec fixtures |
+| `vqec_vision_prepare_zvec.sh` | Acquire the checksum-verified pinned Zvec public SDK |
 | `vqec_vision_manifest_check.cpp` | Optional model metadata diagnostic executable |
+| `vqec_vision_model_runner.cpp` | Explicit preprocess -> QNN -> decoder model runner diagnostic |
+| `vqec_vision_qnn_engine_smoke.cpp` | Board smoke: compose/execute (and `--reload-cycles`) for one model library |
 | `vqec_vision_qnn_board_smoke.sh` | Board-side `qnn-net-run` smoke for one model library |
+| `vqec_vision_fastcv_affine_smoke.cpp`, `vqec_vision_qtiv_color_smoke.cpp` | FastCV affine / QTI color board probes |
+| `vqec_vision_fw_camera_sim.py` | Compatibility FW RAW camera simulator over the wire socket |
+| `vqec_vision_ring_rtsp.py` | Mock FW RTSP service reading the v5 encoded ring |
+| `vqec_vision_ring_rtsp_test.py` | Synthetic file-backed ring-generation regression |
+| `vqec_vision_fr_runtime_dbus_test.py`, `vqec_vision_usecase_runtime_dbus_test.py` | Session-bus integration peers for FR and usecase control |
 
 ## Limits and next work
 

@@ -27,11 +27,14 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow; released-FW/thermal/latency acceptance chưa |
 | Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
 
-**Evidence snapshot 2026-09-15:** expanded eSDK QEMU suite 104/104 passed for the current
-source; Zvec real-library and frame-retention tests passed natively on `.48` in an earlier
-run. Person compatibility flow has measured throughput; face cascade has a live compatibility
-smoke on `.99`. Golden parity, post-fix multi-face and released-FW acceptance remain open.
-Older native suite counts are historical runs.
+**Evidence snapshot 2026-09-17:** expanded eSDK QEMU suite **123/123**; board `.98` native
+suite **117/117** with fixtures via `tools/vqec_vision_board_native_tests.sh`. Production
+smoke publishes H.264 1920x1080 30/1 with D-Bus FR transitions and `first_error=0`. The
+routed-result metric is `route_latency_*` (steady reservation-to-routing). Clean-base
+remediation (ring ABI, QNN reload, config, validation, CI) is complete; see
+[implementation status](docs/development/implementation_status.md). Golden parity, post-fix
+multi-face, released-FW and thermal/performance acceptance remain open. Older suite counts
+are historical runs and are not retroactively changed.
 See [implementation status](docs/development/implementation_status.md),
 [architecture alignment review](docs/development/architecture_alignment_review.md) and
 [open architecture issues](docs/development/architecture_alignment_review.md).
@@ -76,7 +79,7 @@ Xem [system architecture](docs/architecture/system_architecture.md) và
 | `src/core/` | Validation/plan/ledger/policy thuần, không I/O |
 | `src/app/` | Composition: pump, session, supervisor, pipeline, executor, service main |
 | `src/perception/` | Detection/tracking/attributes/embedding/ocr/pose |
-| `src/features/` | 13 gói feature (metadata + processor) |
+| `src/features/` | 14 gói feature (hiện chỉ README; processor/entitlement chưa có) |
 | `src/outputs/` | Overlay, encoded dispatch, feature-event dispatch |
 | `src/runtime/` | Admission, lifecycle, model registry, feature manager, scheduler |
 | `src/adapters/` | Qualcomm, camera, FW control/output, reference, platform để trống |
@@ -157,6 +160,7 @@ Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
 |---|---|---|
 | `third_party/qai_appbuilder` (submodule) | Reference cơ chế plugin QNN, không link | BSD-3-Clause |
 | `third_party/qairt` (symlink, gitignored) | QAIRT/QNN SDK dùng để build QNN engine | Qualcomm proprietary |
+| `third_party/zvec` (SDK gitignored, fetch qua script) | Vector index FR (derived) | pinned public SDK |
 | `third_party/nlohmann` | JSON parser vendored | MIT |
 
 Xem [third_party/README.md](third_party/README.md). Không commit model binary, SDK private,
@@ -164,13 +168,15 @@ dữ liệu sinh trắc học hay secret.
 
 ## Giới hạn đã biết
 
-- Live FW camera stream chưa có (board không chạy camera service); chưa có hardware-completion,
-  DMA-BUF device evidence, accuracy theo nhãn hay multi-camera/thermal/performance acceptance.
-- Decoder/tracker/feature hiện là reference device-free; model/usecase thật và renderer/
-  hardware encoder chưa có.
-- Owned QNN engine execute sync/copy (đã board-verified); async, shared/registered memory và
-  LoRA mới có contract, chưa dùng trong execute.
-- CI workflow có job eSDK đang gate sau `vars.ESDK_ROOT`; chưa có bằng chứng runner được cấu hình.
+- Camera/FW thật: chỉ có compatibility simulator; chưa có released-FW conformance,
+  hardware-completion/DMA-BUF device evidence, accuracy theo nhãn hay multi-camera/thermal/
+  performance acceptance.
+- Tracker/feature production và attribute producer chưa có; model/usecase thật dùng reference
+  tracker/zone. 14 feature package hiện chỉ là README.
+- Owned QNN engine execute sync (đã board-verified, có reload path); async, shared/registered
+  memory và LoRA mới có contract, chưa dùng trong execute.
+- CI workflow có 6 job: structural/host-sanitizers/clang-tidy/fuzz chạy mặc định; eSDK
+  neutral/expanded gate sau `vars.ESDK_ROOT` (self-hosted), chưa có bằng chứng runner được cấu hình.
 - Structural checker kiểm filename/include/CMake, không phải AST naming hay ownership validator.
 
 Current runtime D-Bus/enrollment evidence and remaining production gates:

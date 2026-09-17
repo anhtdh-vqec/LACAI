@@ -32,6 +32,10 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 | `vqec_vision_qnn_inference_graph.cpp` | `inference_graph_port` binding with tensor submission |
 | `vqec_vision_backend_factory.cpp` | Builds the owned engine+graph bundle from resolved paths; fails closed |
 | `vqec_vision_qtiv_renderer.cpp` | QTI DMA pool, NV12 plane copy, ROI overlay, H.264 encoder and FW ring writer |
+| `vqec_vision_fastcv_processor.cpp` | `qtivtransform`+`qtimlvconverter(engine=fcv)` NV12-to-tensor preprocessing |
+| `vqec_vision_fastcv_aligner.cpp` | FastCV affine/color alignment behind `image_alignment_port` |
+| `vqec_vision_qtiv_color.cpp` | QTI color conversion helper |
+| `vqec_vision_face_enrollment_image_source.cpp` | GStreamer JPEG-to-NV12 DMA-BUF image source for enrollment |
 
 ## Limits and next work
 

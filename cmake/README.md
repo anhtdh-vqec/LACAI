@@ -2,7 +2,7 @@
 
 Toolchain files, SDK discovery and target-scoped build helpers.
 
-- **Status:** split by module — the root is an option/summary file (~114 lines) that add_subdirectory-s each module
+- **Status:** split by module — the root is an option/summary file (~170 lines) that add_subdirectory-s each module
 - **Rule:** no global include/link directory settings
 
 ## Responsibility
@@ -25,6 +25,9 @@ Toolchain files, SDK discovery and target-scoped build helpers.
 | `src/adapters/camera/CMakeLists.txt` | camera wire/control/dbus/camera |
 | `src/adapters/qualcomm/CMakeLists.txt` | gst frame bridge, qualcomm, qnn engine + smoke |
 | `src/adapters/fw_output/CMakeLists.txt` | FW ring sink |
+| `src/adapters/fw_control/CMakeLists.txt` | usecase-control D-Bus, enrollment D-Bus, image-path authorizer |
+| `src/adapters/storage/CMakeLists.txt` | encrypted face-gallery store |
+| `src/adapters/zvec/CMakeLists.txt` | Zvec embedding index |
 | `src/adapters/reference/CMakeLists.txt` | `vqec_vision_ai_reference` |
 | `src/runtime/scheduler/CMakeLists.txt` | `vqec_vision_ai_scheduler`, `vqec_vision_ai_inference_worker` |
 

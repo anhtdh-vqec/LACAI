@@ -12,6 +12,7 @@ authority or an execution executor.
 
 - Load bounded Model-team catalog JSON and validate execution identity, input/preprocess,
   source envelope, cadence, concurrency and memory declarations.
+- Load the strict model decoder package (`decoder.json`) for YOLO/anchor-distance packages.
 - Cross-validate the catalog against the 1..16-source deployment and compose a plan only
   with a trusted resolver result.
 - Load bounded output-manifest identity/digest/decoder metadata.
@@ -21,6 +22,7 @@ authority or an execution executor.
 
 | Path | Purpose |
 |---|---|
+| `vqec_vision_decoder_package.cpp` | Strict per-model decoder package loader (all fields required, unknown keys rejected) |
 | `vqec_vision_model_catalog.cpp` | Bounded catalog loader + neutral cross-validation |
 | `vqec_vision_output_manifest.cpp` | Bounded output-manifest loader with duplicate/unknown-key, type and depth checks |
 | `vqec_vision_artifact_digest.cpp` | OpenSSL SHA-256 stream comparison, optional from JSON parsing |

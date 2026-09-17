@@ -81,5 +81,5 @@ idempotency and multi-template removal. See [FR validation](face_recognition_pro
 for fixture fields, native/QEMU results and outstanding release gates.
 
 Synthetic replacement regression: `PYTHONDONTWRITEBYTECODE=1 python3
-/opt/anhtdh/tools/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
+/opt/lacai/tools/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
 The development host lacks that GI namespace; this Python regression is native-tested.

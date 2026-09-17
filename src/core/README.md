@@ -32,11 +32,18 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 | `vqec_vision_encoder_window.cpp`, `vqec_vision_encoder_contract.cpp` | Preview input admission and correlated encoder completion bookkeeping |
 | `vqec_vision_preview_contract.cpp` | Overlay metadata and borrowed H264 AU envelope validation |
 | `vqec_vision_inference_execution.cpp` | Inference capability/policy/domain/shared-buffer/model-update validation |
+| `vqec_vision_model_catalog.cpp` | Model catalog v2 validation (role/dependency, cadence, geometry, memory envelopes) |
+| `vqec_vision_model_package.cpp`, `vqec_vision_model_package_registry.cpp`, `vqec_vision_model_io_manifest.cpp` | Package resolution, registry binding and IO-manifest cross-checks |
+| `vqec_vision_usecase_activation.cpp` | Transactional effective-deployment composition from usecase desired plans |
+| `vqec_vision_preprocess_spec.cpp` | Preprocess contract validation |
+| `vqec_vision_image_alignment.cpp`, `vqec_vision_color.cpp` | Alignment contract and NV12/RGB color conversion validation |
+| `vqec_vision_observation.cpp`, `vqec_vision_embedding.cpp`, `vqec_vision_face_gallery.cpp` | Typed observation, embedding and gallery contract validation |
+| `vqec_vision_tensor_pool.cpp` | Bounded tensor slot pool ownership |
 
 ## Limits and next work
 
 - Pool, encoder and submission code owns no image memory and cannot detect hardware completion.
-- `output_generation` runtime wiring and executed tests remain pending.
+- `output_generation` and `output_gate` are unit-tested; wiring the generation allocator into a running ring supervisor remains pending.
 - Trusted grant verification and serialized output dispatch integration stay outside the pure evaluator.
 - No model-kit parser, signature verification or decoder is implied.
 

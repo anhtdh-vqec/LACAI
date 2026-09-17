@@ -18,6 +18,14 @@ future config/entitlement/health bindings.
 - Expose only the reviewed external methods; no feature business rules.
 - Enforce authorization for outputs and attributes, not only UI switches.
 
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `vqec_vision_face_enrollment_dbus.cpp` | Session-bus face-enrollment server delegating to `face_enrollment_port` |
+| `vqec_vision_usecase_control_dbus.cpp` | Usecase-control D-Bus v1 adapter over `usecase_control_port` |
+| `vqec_vision_image_path_authorizer.cpp` | POSIX enrollment image-path authorization (retained FD, root rejection) |
+
 ## Limits and next work
 
 - Legacy task-enabled state is a compatibility flag, not a license grant.

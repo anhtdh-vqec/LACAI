@@ -13,7 +13,7 @@ directory holds only metadata and (later) small privacy-safe golden references.
 
 Artifact: `libscrfd_500m_bnkps_w8a16.so`, SHA-256
 `2f315dcd1996b0280c162e9bf79f0e1e64123675d4be2553ef698328dea103d9`, 1075944 bytes, W8A16,
-board path `/opt/anhtdh/models/libscrfd_500m_bnkps_w8a16.so` (QAIRT 2.43.0).
+board path `/opt/lacai/models/libscrfd_500m_bnkps_w8a16.so` (QAIRT 2.43.0).
 
 ## Runtime-reported ABI (QCS6490 HTP probe)
 

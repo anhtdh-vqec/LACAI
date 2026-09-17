@@ -4,7 +4,7 @@ Application composition: binds admitted sessions, modules and owner factories to
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
 - **Status:** source-delivered — reference/fake paths run under QEMU; Qualcomm person flow is board-smoked through compatibility FW services
-- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `enprp`, `rcfac`, `pdplt`)
+- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
 - **Used by:** `vqec_ai_vision_applications` executable
 
@@ -35,6 +35,11 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `vqec_vision_runtime_composition_factory.cpp` | Build the admission snapshot and compose catalog-bound sessions/perception groups |
 | `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
 | `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; runs harness and reference/fake/Qualcomm production selections |
+| `vqec_vision_service_options.cpp` | Cold-path `parsed_arguments` and CLI parsing for the executable |
+| `vqec_vision_cascade_coordinator.cpp` | Bounded per-frame cascade task admission over the frame-lease + alignment ports |
+| `vqec_vision_source_session_worker.cpp` | One bounded worker per source session for `--source-execution threaded` |
+| `vqec_vision_single_image_inference.cpp` | Synchronous single owned-image inference runner |
+| `vqec_vision_fake_platform.cpp`, `vqec_vision_reference_platform.cpp`, `vqec_vision_fixture_detector.cpp` | Device-free platform owners and fixture decoder |
 | `vqec_vision_production_platform.cpp` | Resolves dependency-activated catalog identities and composes FW RAW source, owned QNN graphs, primary perception, secondary cascade binding and optional Qualcomm encoded output |
 | `vqec_vision_face_enrollment_image_pipeline.cpp` | Advances one authorized JPEG enrollment through dedicated detector/embedding graphs and commits one template |
 | `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
@@ -73,7 +78,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   per-slot owners cannot fill a bounded camera producer. The cascade reuses its configured
   quantization/input workspace, avoiding a per-face graph-input deep copy. Released-FW
   interoperability, hardware-completion evidence and sustained thermal performance remain open.
-- The `.48` integration run sustained
+- The `.98` integration run sustained
   29.1 encoded FPS with 1 FPS inference. A later 30/1 cadence run using the Qualcomm
   FastCV image-processor adapter sustained 30 AI results/s and 30.1 RTSP FPS; multi-source,
   percentile latency and thermal limits remain unqualified.

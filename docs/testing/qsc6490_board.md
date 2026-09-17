@@ -65,7 +65,7 @@ Those require a pinned model/backend/system bundle and a controlled FW test sour
 ## 2026-09-14 board run (device online)
 
 Board reachable and used as the native target. Artifacts were built only with the approved
-eSDK (expanded configuration) and copied to `/opt/anhtdh` on the board.
+eSDK (expanded configuration) and copied to `/opt/lacai` on the board.
 
 - Native test binaries: **81/81 passed** (all `vqec_vision_ai_*test*` executables),
   covering camera/GStreamer/Qualcomm fixtures and the neutral runtime, worker, pool,
@@ -107,7 +107,9 @@ owned QNN path does not currently provide that mapping. The owned engine still e
 SCRFD and YOLOv8n on HTP (latency varies with board
 load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
-Board workspace `/opt/anhtdh` holds `bin/`, `config/`, `inputs/`, `models/` and `out/`.
+Board workspace `/opt/lacai` (a deployment-chosen path; the historical logs below used a
+personal directory name that is not reproduced here) holds `bin/`, `config/`, `inputs/`,
+`models/` and `out/`.
 
 ## 2026-09-16 AI-owned protected gallery on `.98`
 
@@ -189,7 +191,7 @@ assigned `.98` test board restored direct `qtiqmmfsrc` capture before the passin
 
 The board was reachable at `.99` using the approved test account. The production binary
 was rebuilt with the eSDK and `VQEC_VISION_AI_ENABLE_FASTCV=ON`; the required Zvec shared
-libraries were staged outside the repository under `/opt/anhtdh/lib`. A 300-step run used
+libraries were staged outside the repository under `/opt/lacai/lib`. A 300-step run used
 the face deployment/catalog/package registry and the live camera simulator on
 `/run/camera_ai`:
 

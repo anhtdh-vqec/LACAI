@@ -78,7 +78,7 @@ Hướng tối ưu đã chốt (áp cho FW):
 
 Nguồn: `src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp`, `src/adapters/fw_output/`,
 `docs/architecture/fw_ring_sink.md`, `docs/architecture/preview_contract.md`,
-reader FW `/opt/anhtdh/tools/vqec_vision_ring_rtsp.py`.
+reader FW `/opt/lacai/tools/vqec_vision_ring_rtsp.py`.
 Gate: live `.98` 30 FPS, reader replacement/restart không clobber, payload không vượt 1 MiB,
 không còn hai định nghĩa ABI.
 
