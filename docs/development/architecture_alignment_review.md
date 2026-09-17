@@ -60,14 +60,14 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 | A01 | P0 | FD→exact-frame alignment→EdgeFace đã nối ở source nhưng chưa chạy live/golden end-to-end | Chạy camera với approved golden capture; đối chiếu crop/input/embedding và correlation | Camera → embedding đúng frame/epoch, drain và parity; AI runtime/BSP/model |
 | A02 | P1 | FastCV aligner còn map/copy/allocate ROI và tensor cho từng mặt; QTI color khác neutral golden chưa được quyết định | Golden hóa color/border; pool destination/input/output; profile và chọn offload theo evidence | Input/crop/tensor chuẩn, real completion và copy/CPU budget; AI/BSP/model |
 | A03 | P0 | Cascade execute đồng bộ trên service progress thread; epoch đổi yêu cầu restart graph | Bounded worker/completion state machine, fair admission, stale-result cleanup và graph epoch reconciliation | Multi-face không block camera/output; stop/restart không ACK sớm; runtime |
-| A04 | P0 | Zvec tạo mới collection; revision/record IDs trong RAM | Authoritative store + journal + reopen/rebuild + crash recovery | Restart/delete/replay đúng revision, không stale match; AI/FW |
-| A05 | P0 | Primary decoder JSON/parser/schema chưa có full malformed/golden coverage | Strict numeric/type/unknown-key validation; ABI/catalog cross-check, atomic load failure | Reject invalid package trước activation, golden FD; model/app |
+| A04 | P0 | **Đã xử lý**: protected encrypted gallery + revision CAS + reopen/rebuild; Zvec derived index private tmpfs, destroyed on close | Còn lại: hardware-bound key, capacity/load benchmark | Restart/delete/replay đúng revision; AI/FW |
+| A05 | P0 | **Đã xử lý (loader)**: strict decoder_package loader rejects unknown/duplicate/out-of-range và cross-check catalog | Còn lại: golden thật của model | Reject invalid trước activation; model/app |
 | A06 | P0 | DMA-BUF retention/reference count không chứng minh hardware completion | Trace input/crop/tensor owners, fence/cache/import and drain protocol | No early ACK/reuse trong native fault tests; BSP/adapter |
 | A07 | P0 | Compatibility camera/RTSP != released FW acceptance | Validate released wire/ring/control, disconnect, demand, ACK, permissions | FW end-to-end conformance report; FW/AI |
-| A08 | P0 | FR chưa có enrollment/matching/attendance production | M6–M9: enrollment API, calibration, identity state, durable event outbox | Demo đầy đủ cả delete/restart, không chỉ top-1; AI/FW/model |
-| A09 | P1 | production_platform trực tiếp make_unique FastCV/QNN | Backend factory theo validated capability/policy, explicit unsupported result | Thay compatible backend không sửa orchestration; platform |
+| A08 | P0 | **Đã xử lý (source+board)**: protected gallery, multi-template enrollment/search, matching, clean-restart recovery | Còn lại: calibration, liveness/PAD, attendance output | Delete/restart đúng; AI/FW/model |
+| A09 | P1 | QNN build qua `qnn_backend_bundle` factory; FastCV vẫn constructed trực tiếp | Generic capability/policy selection cho mọi backend | Thay backend không sửa orchestration; platform |
 | A10 | P1 | Production còn dùng reference tracker/zone factory | Tách fixture/production registration; qualified tracker/processor contracts | Không nhận fixture success làm feature acceptance; app/features |
-| A11 | P1 | YOLO parser .value() defaults, production config hardcoded endpoints/contracts | Version compatibility schema; policy bắt buộc từ deployment/package; deprecation path | Missing policy reject, person flow migration tested; app |
+| A11 | P1 | **Đã xử lý**: production config bỏ default, CLI bắt buộc + fail-closed (CB-B); YOLO defaults đã bỏ | Còn lại: version compatibility schema | Missing policy reject; app |
 | A12 | P1 | Renderer/feature geometry vẫn dùng sources_.front(), decoder chia sẻ hạn chế | Per-source owners/output routes; chốt supported concurrency | Multi-source khác profile chạy hoặc reject trước acquisition; app |
 | A13 | P1 | Generic native capability factory chưa được production dùng toàn bộ | Reconcile capability/entitlement/admission và effective state từ execution thực | Không advertise async/shared/dynamic unsupported; runtime |
 | A14 | P1 | Anchor decoder vẫn tạo observation strings/vectors mỗi batch | Pool/reuse output, stable numeric IDs, atomic delivery không mất owner | Allocation counters bounded/measured; perception |
@@ -80,7 +80,7 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 | A21 | P1 | Nhận diện không có liveness từ SCRFD+EdgeFace | Chốt anti-spoof requirement, PAD hoặc cơ chế được duyệt và budget riêng | Accuracy + spoof acceptance nếu sản phẩm yêu cầu; product/model |
 | A22 | P1 | Feature/gallery output authorization còn phải nối tới identity payload | Revoke theo revision, cache invalidation, delete pending matches | Không publish identity đã revoke/delete; FW/features |
 | A23 | P2 | Bootstrap public ARM64 SDK chưa là deployment package portable | Target/ABI validation, redistribution notices, offline packaging và upgrade | Reproducible install/rollback theo target; build/release |
-| A24 | P2 | Tài liệu current/historical tích lũy nhiều đoạn update | Duy trì docs map, status owner, link/check review checklist | Không có hai status hiện hành trái nhau; mọi module owner |
+| A24 | P2 | **Đã chuẩn hóa** trong đợt clean-base docs: bỏ record lỗi thời, sửa contract/architecture/readme lệch code | Duy trì docs map và link check mỗi PR | Không có hai status hiện hành trái nhau; mọi module owner |
 | A25 | P2 | Structural checker không kiểm literal semantics/ownership/ABI | AST/literal lint có allowlist; CI eSDK/native evidence | Không dùng grep pass để tuyên bố sạch hardcode; tooling |
 
 ### Source anchors

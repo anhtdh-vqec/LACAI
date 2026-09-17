@@ -160,131 +160,39 @@ must not be interpreted as the current missing-feature list.
 
 ## Current summary and evidence authority
 
-2026-09-16 protected-gallery step: AI APP now owns durable gallery persistence and key
-lifecycle. The production service requires explicit protected-store configuration, loads
-an AES-256-GCM authenticated snapshot, rebuilds a fresh exact/Zvec index at its durable
-revision, and only then enables enrollment/search. Store mutations use an interprocess
-lock, on-disk revision CAS, owner-only files and same-directory fsync+rename. Corrupt or
-tampered ciphertext fails closed. `GetGalleryStatus` now exposes revision/count/health
-without identities or vectors. eSDK/QEMU covers encrypted restart recognition, stale CAS,
-tamper rejection, Zvec fresh/existing-collection rebuild and the D-Bus wire. On `.98`,
-image-path enrollment through D-Bus advanced revision 1 to 2; after a clean process
-restart `GetGalleryStatus` returned revision 2 with the same subject/template count,
-and the published RTSP stream probed as H.264 1920×1080 30/1. The filesystem key is not
-hardware-bound; power-cut, keystore/TEE, capacity/performance and released-FW board
-qualification remain release gates. The complete eSDK/QEMU suite passes 120/120.
+Current delivery/evidence claims live in this file and
+[capability matrix](capability_matrix.md). Raw dated board/QEMU runs live in
+[QCS6490 target](../testing/qsc6490_board.md) and [eSDK emulation](../testing/esdk_emulation.md)
+and are not restated here.
 
-2026-09-16 source step: enrollment image source port and Qualcomm GStreamer JPEG-to-NV12
-adapter are delivered. Plane-aware packing handles GStreamer stride padding; output size
-and wait time are configuration bounded. The Qualcomm production mode requires GBM caps,
-verifies DMA-BUF memory/layout bounds and retains the Gst sample behind neutral `raw_frame`.
-The production service now supplies the FD/FR handoff, retained-FD input admission and
-dedicated graph wiring. On `.98`, authorized JPEG enrollment completed through the real
-SCRFD/FastCV/EdgeFace/Zvec path via D-Bus, accepted one template and advanced gallery
-revision 1 to 2. In the same running process the AI-owned overlay/H.264 ring published a
-host-probed 1920x1080 30 FPS RTSP stream. That historical run used a transient gallery;
-the current protected gallery has since passed clean-restart recovery on `.98`. See
-[image source](../architecture/face_enrollment_image_source.md).
+Delivered and current:
 
-2026-09-16 combined `.98` run: one RAW acquisition drove YOLOv8n-person and SCRFD while
-EdgeFace ran as the SCRFD cascade dependency. A captured 1920x1080 H.264 frame contained
-the person box plus independent face boxes; the host probe reported 30/1 stream metadata.
-The runtime log showed alternating model slots and successful
-`cascade_accepted=1 embedded=1 cascade_failed=0` results. The combined declared tensor
-budget is 32 MiB; the previous 16 MiB profile was correctly rejected before acquisition.
-FastCV rejected valid small affine ROIs in the combined workload, so alignment now expands
-the ROI to the destination minimum and has a bounded small-patch bilinear fallback. This
-restores FR availability but is not a claim that every alignment used hardware.
+- Qualcomm production composition: one RAW acquisition drives 1..16 sources and up to 16
+  models per source; the owned QNN engine composes/finalizes/executes SCRFD, YOLOv8n-person
+  and EdgeFace on HTP, byte-identical to `qnn-net-run` for the synchronous path.
+- Cascade: retained exact-frame FastCV alignment and EdgeFace embedding.
+- Recognition: durable AES-256-GCM protected gallery, revision CAS, exact/Zvec index rebuilt
+  at the durable revision, multi-template enrollment/search through D-Bus.
+- Output: AI-owned overlay + H.264 encoded into the released FW v5 ring; compatibility
+  camera/reader probes publish H.264 1920x1080 30/1.
+- Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
+  output gates, preview pool and encoder ledgers are source-delivered.
 
-The neutral synchronous `single_image_inference` runner reuses the admitted image
-processor, graph and decoder ports for one owned file frame, with exact epoch/frame
-correlation and transactional detection publication. Production owns isolated detector
-and embedding graph instances for it; see
-[single-image inference](../architecture/single_image_inference.md).
+Current evidence: eSDK/QEMU expanded configuration 123/123; board `.98` native 117/117 with
+fixtures via `tools/vqec_vision_board_native_tests.sh`; production smoke H.264 1920x1080 30/1
+with `first_error=0`. The latency metric is `route_latency_*` (steady reservation-to-routing),
+not camera-to-output latency.
 
-The cascade coordinator now accepts an exact caller-owned frame for offline enrollment,
-using the same bounded alignment and embedding path without a camera frame-store lease.
-The bounded image pipeline owns one pending request, exact-one-face admission, gallery
-commit and terminal failure transition behind neutral detector/cascade/path ports. The
-serialized service loop advances it outside D-Bus callbacks and drains its two graph
-sessions before destroying their platform owners.
+Measured limits: sustained hot-board 20.8-24.6 FPS for FD+FR and 36-65% of one core in the
+compatibility setup; the 25-30 FPS and thermal acceptance gate is open and the 15-25% CPU
+target is not met on the FR path.
 
-The POSIX image-path authorizer is delivered with retained-FD containment, regular-file,
-size and JPEG checks plus symlink-escape rejection. Production requires allowed roots and
-all image-source policy as explicit startup arguments.
-
-The current cascade/runtime source passes the expanded eSDK QEMU suite (107/107 on
-2026-09-15); later commits must record their own validation rather than inherit this count.
-Native Zvec and retained-frame synthetic tests passed on an earlier .48 run. Person compatibility flow
-has measured 30 AI results/s; approximately 44.5% process CPU remains above the requested
-15–25% target. These are historical measured runs, not a new test run for this docs update.
-The source now composes primary FD, retained-frame alignment, secondary EdgeFace execution
-and embedding decode without model-name branches. Durable matching/restart recovery is
-now source-delivered; golden calibration and attendance remain unfinished. Generic backend selection, DMA completion,
-released-FW acceptance and allocation/copy optimization remain open.
-See [alignment issues](architecture_alignment_review.md) and [capability matrix](capability_matrix.md).
-
-## Dated evidence history (not the current capability list)
-
-2026-09-12 update (model-agnostic optimization S01/S04/S08): `qneng_probe_capabilities`
-now advertises only implemented operations (synchronous single job with graph-native
-output; async, shared/registered memory, artifact update and multi-model domains report
-unsupported), tensor identity is resolved and validated once in `prepare` and re-checked
-in full before execute, and unsupported model classes (multi-input, dynamic shape, stateful
-sequence, artifact update, batch) are rejected at activation before hardware acquisition.
-Neutral 53/53 and expanded 71/71 pass under eSDK QEMU. Board qualification, async/shared
-execution and pooled output allocation remain open; see
-[model_agnostic_optimization_plan](../planning/model_agnostic_optimization_plan.md) section 8.
-
-2026-09-14 board update: the QCS6490 target came online. The historical native suite ran
-81/81 test binaries, and QNN DSP validation passed on Hexagon V68. The LACAI-owned QNN
-engine composes, finalizes and executes SCRFD-500M-KPS and YOLOv8n-person on HTP. The
-Qualcomm production owner now also runs the live person path through compatibility FW
-camera/RTSP services on `.48`; visual inspection confirmed correct color and visible boxes.
-Board evidence and limits are in [QCS6490 target](../testing/qsc6490_board.md). Accuracy,
-async/shared memory, released-FW DMA completion, zero-copy and performance remain unqualified.
-
-2026-09-15 live update: the production person path sustains 30 AI results/s and 30 encoded
-frames/s with package labels rendered as `person`. FastCV preprocessing and QNN HTP are
-active. Steady process CPU measured about 44.5%; profiling attributes the remaining cost
-mainly to FastCV color/resize, the compatibility NV12-to-QTI render-surface copy and QNN
-client-buffer staging. The service also clips decoded edge boxes to the exact preview
-contract and no longer terminates on float rounding at the image boundary. SCRFD and
-EdgeFace execution/tensor probes are recorded in
-[cascade inference](../architecture/cascade_inference.md). The legacy secondary scheduler
-does not retain source pixels and is not used by the delivered FD-to-embedding cascade.
-
-2026-09-15 `.99` update: the production SCRFD-to-EdgeFace path completed live embeddings
-through FastCV alignment and QNN HTP. A multi-face frame exposed that dependent ROI jobs
-share source frame ID and PTS; the inference contract now selects either unique full-frame
-submission or repeated tasks for the exact same source frame. After the fix, a short run
-routed 445 primary results, completed five embeddings and reported no cascade failures.
-That post-fix scene did not exercise multiple accepted faces, so live multi-face validation
-remains open. Process CPU measured 29.53% over 15 seconds with encoded output disabled;
-this compatibility-source sample is not a production acceptance result.
-
-The neutral recognition policy now aggregates multiple index records by opaque subject,
-applies configured minimum similarity and cross-subject margin, and emits deterministic
-known/unknown/ambiguous decisions. Backend failure remains an unavailable condition owned
-by the caller. Feature processor wiring, calibration, temporal track state and attendance
-are still open.
-
-## Historical evidence detail
-
-Source and CMake/CTest declarations exist for the components below. On 2026-09-09 the
-current tree cross-compiled all configured targets to 100% with the eSDK AArch64 compiler,
-Camera, GIO D-Bus, GStreamer bridge and Qualcomm adapter enabled. Optional JSON loaders,
-artifact digest and FW ring were disabled; the eSDK sysroot does not currently provide
-the required nlohmann_json 3.12.0 CMake package. A subsequent neutral Debug configuration
-ran 47 AArch64 tests through SDK QEMU: all 47 passed after correcting two stale fixtures;
-see [emulation evidence](../testing/esdk_emulation.md). The expanded configuration built
-65 unit/contract binaries, and all 65 passed natively on the QCS6490 target; see
-[board smoke evidence](../testing/qsc6490_board.md). `gst-inspect-1.0` also loaded the
-installed `qtimlqnn` and `qtimlvconverter` factories, and the opt-in adapter probe
-validated required properties plus NULL-state graph configuration. There is no live
-FW/model or hardware-completion qualification report. A
-cross-build or fake port is not hardware completion, zero-copy, throughput, model-accuracy
-or release-compatibility evidence.
+Open release gates (not delivered): released-FW camera/ring/RTSP conformance, hardware DMA
+completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
+hardware-bound gallery key, signed provisioning, packaging/update/rollback, async/shared QNN
+execution, multi-vendor backends and concrete feature packages. See
+[alignment review](architecture_alignment_review.md) and
+[capability matrix](capability_matrix.md).
 
 ## Current architecture
 
@@ -337,7 +245,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
-| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.48`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
+| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.98`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
 | `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute, explicit HTP balanced/low-latency policy and an `inference_graph_port` binding; the factory fails closed on unsupported policy | Async/shared-memory/LoRA execution, shared multi-graph domain and sustained thermal qualification |
 | `src/app/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
@@ -407,158 +315,40 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
 ## Build and test inventory
 
 - CMake declares portable core, camera wire/control, orchestration, cadence, admission,
-  encoded dispatch and encoder preparation libraries.
-- Optional flags enable Linux camera transport, GIO D-Bus, standard GStreamer bridge,
-  Qualcomm graph, FW ring SDK, deployment/model/feature JSON loaders and artifact digest.
-- JSON loaders require locally provided nlohmann_json 3.12.0; digest requires OpenSSL 3.0
-  Crypto. FW ring requires an existing version-pinned SDK target. CMake does not acquire a
-  sibling source tree or download these dependencies.
-- The optional `vqec_vision_ai_manifest_check` executable checks metadata only. The required
-  `vqec_ai_vision_applications` service target has reference and Qualcomm production
-  composition; installed IPK packaging and an active CI workflow remain open.
-- Unit/contract test sources and CTest registrations cover validators, loaders, cadence,
-  fake-port sessions/supervision, Linux receiver fixtures, standard GStreamer lifecycle/
-  memory fixtures and output ownership/dispatch. Some require optional flags/dependencies.
-  The current configured AArch64 targets cross-build and 120 tests pass through the SDK
-  QEMU wrapper. Historical board runs and the current affected native binaries pass on QCS6490.
-- Golden, replay and live FW/model integration suites remain planned scaffolding. The
-  executed board smoke result covers existing unit/contract binaries only.
-- `tools/vqec_vision_check_source_layout.ps1` checks physical filenames, quoted include
-  existence and CMake source paths. It is not an AST naming, ABI or ownership checker.
-  Its include-root list now follows the current CMake-exported app, adapter, runtime and
-  perception directories. PowerShell was unavailable during this refresh, so the `.ps1`
-  entrypoint could not execute; a read-only equivalent check passed all filenames, CMake
-  paths and quoted includes. This is not a target-specific compiler visibility check.
+  encoded dispatch and encoder preparation libraries; optional flags enable camera, GIO
+  D-Bus, GStreamer bridge, Qualcomm graph, FW ring SDK, JSON loaders, Zvec and artifact digest.
+- JSON loaders require nlohmann_json 3.12.0; digest requires OpenSSL 3.0; FW ring requires an
+  existing version-pinned SDK target; Zvec is on by default and its pinned SDK is acquired by
+  `tools/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
+- `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
+  `vqec_vision_ai_manifest_check` checks metadata only.
+- The expanded eSDK configuration registers 123 CTest tests and passes 123/123 under SDK QEMU.
+  The cross-built native suite passes 117/117 on `.98` via
+  `tools/vqec_vision_board_native_tests.sh`, which supplies the manifest and Zvec fixtures.
+- Golden, replay and live FW/model integration suites remain planned scaffolding.
+- `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
+  scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.
+- `tools/vqec_vision_check_source_layout.sh` checks physical filenames, quoted includes and
+  CMake source paths only; it is not an AST naming, ABI or ownership checker.
 
 ## Not delivered and next integration work
 
-1. Authenticated deployment/catalog/output/artifact resolution into long-lived source,
-   graph and retention-domain owners; the neutral runtime factory builds admitted
-   sessions/perception/feature pipelines and the reference backend runs them end to end,
-   while the trusted resolver, real platform owner factories and measured admission remain.
-2. Additional tensor decoders, production tracking/attributes and the commercial
-   features/traffic. The package-configured YOLOv8 decoder is live; the anchor-distance
-   face decoder, retained-frame cascade and typed embeddings are source-delivered, while
-   live parity, recognition matching and the attendance package remain open.
-3. Trusted overlay renderer, concrete encoder, retained per-job output context/event loop
-   and safe ring startup/recovery to complete preview end to end. Feature events can be
-   authorized and delivered to a bound sink; bounded durable queue/retry and FW transport
-   remain.
-4. Signed entitlement provisioning, durable desired state/receipts and the legacy
-   AI D-Bus compatibility server. Desired-plan CAS/idempotency, D-Bus v1 and service-owned
-   stop/drain/rebuild/publication are delivered and compatibility-tested on `.98`;
-   process supervision, packaging/update integration and observability remain.
-5. Automatic source/BSP recovery, live DMA/SDK fault and golden tests, performance/soak
-   coverage and release workload qualification.
+1. Authenticated artifact/config resolution and measured board-wide admission in the
+   production composition (trusted resolver, signature/TOCTOU).
+2. Model accuracy calibration and golden parity; concrete feature packages; production
+   tracker and attribute producers; pose/OCR.
+3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.
+4. Signed entitlement provisioning, durable desired-state receipts, packaging/update/rollback
+   and observability.
+5. Automatic source/BSP recovery, fault/soak/golden tests and performance/thermal qualification.
 
-Current contract details: [system architecture](../architecture/system_architecture.md),
+Delivered component details live in the architecture and contract docs, not here:
+[system architecture](../architecture/system_architecture.md),
 [multi-model session](../architecture/multi_model_session.md),
 [encoder preparation](../architecture/encoder_preparation.md),
 [encoded dispatch](../architecture/encoded_dispatch.md),
-[FW release compatibility](../contracts/fw_release_compatibility.md).
-
-Application composition wires admitted sessions to supervisor activation, progress and
-stop, with one pending tensor/report slot and session-derived recovery reporting. See
-[composition contract](../architecture/application_composition.md). `runtime_executor`
-now drives that composition, routes results through the per-source perception/feature
-pipeline, and backs the required `vqec_ai_vision_applications` executable with a device-free
-reference backend. See [runtime executor](../architecture/runtime_executor.md). Live
-FW/model execution, real package registration and owner review remain pending.
-
-Zvec v0.7.0 real-library integration: eSDK-compiled adapter/test passed QEMU and native
-QCS6490 .48 on 2026-09-15. Pinned public ARM64 SDK is under third_party/zvec; bootstrap
-verifies the release checksum. This is synthetic index evidence, not live FR acceptance.
-
-Anchor-distance FD decoder core is source-delivered: quantized tensor reads, inverse
-placement, NMS and typed landmarks, with malformed-score/bounds/atomic-output tests.
-Candidate workspace is preallocated. Production registration, pooled observation output
-and real model golden parity remain open before the camera cascade is accepted.
-
-Primary anchor-distance packages now select their decoder in production_platform by
-explicit decoder.json kind and exact catalog contract. Geometry/placement bind to the
-assigned source/catalog; shared models with unequal source geometry are rejected.
-The schema is config/schemas/anchor_distance_decoder.schema.json. Live primary FD and
-secondary FR still require model-package deployment/golden acceptance.
-
-`decoder.json` now loads through the strict `vqec_vision_decoder_package` loader for both
-YOLO and anchor-distance packages: every policy field is required (the YOLO defaults of
-0.25/0.45/class_count 1/`boxes_out`/`conf_out` are gone), unknown/duplicate keys, wrong
-types, out-of-range values and cross-stage tensor-name reuse are rejected, and the package
-contract must equal the catalog contract. The loader unit test covers these cases under
-eSDK QEMU; real-model golden parity is still required.
-
-M0 metadata packages for the face chain are recorded from the board runtime ABI:
-`manifests/models/scrfd_500m_bnkps/` (anchor-distance decoder, catalog/registry examples)
-and `manifests/models/edgeface_s_gamma_05/` (embedding decoder and alignment contract).
-The `.so` artifacts, thresholds and preprocessing still need golden parity against the
-approved model reference; metadata is not model acceptance.
-
-Model catalog schema v2 adds a required `role` (primary/secondary) and a validated
-`depends_on` of immutable primary identities; schema v1 documents are migrated to primary.
-A secondary model cannot be a full-frame deployment assignment. Loader and validator tests
-cover the accepted and rejected cases; runtime composition derives cascade roots from these
-dependencies without adding secondary models to the full-frame submit mask.
-
-Cascade frame retention primitive: activation-sized frame/task storage, full-key lookup,
-domain-scoped completion tickets and byte accounting through drain. The store is wired into
-the pump/session and logic tests pass eSDK QEMU and QCS6490 .48; this is not dependent-device
-completion evidence. The runtime invokes the coordinator with the ticket-reconstructed
-source key and retires the exact frame on decode failure or dependent-free stop drain.
-
-`image_alignment_port` is now a defined, unit-tested contract (template/request/result/
-transform/capabilities with fail-closed capability gating). The FastCV aligner delivers
-board-verified luma geometry and RGB color on `.48`; the generic embedding decoder
-(`embedding_decoder_port`, package-configured output/dimension/min-norm, L2 normalization)
-is delivered and unit-tested. The EdgeFace package supplies the embedding contract and
-alignment template; production secondary graph lifecycle and coordinator wiring are
-source-delivered. Golden crop/input/embedding parity remains M5 acceptance work.
-
-Cascade retention slices 1-3a are delivered: the pump retains
-cascade-root frames, `multi_model_session` owns a `cascade_frame_store` and delays FW source
-release until `store.bytes() == 0`, and composition derives `cascade_root_` from the catalog
-`role`/`depends_on` with an optional per-source `cascade` deployment budget. Slice 3b adds the
-standalone `cascade_coordinator` (bounded per-frame task admission over
-`cascade_frame_lease_port` + `image_alignment_port`, per-task fault isolation). The runtime
-executor invokes it only for the catalog-derived dependency root, and the service starts
-and drains the resolved secondary graph outside full-frame cadence. The coordinator runs
-the secondary pipeline
-(quantize aligned RGB to the model input, submit, poll, embedding decode) when a secondary
-graph/decoder are configured, covered by the coordinator unit test with fakes. Review fixes:
-the frame-lease ticket is separate from the alignment ticket; the secondary input blob uses
-the full model input spec (name/dims/dtype/quantization) from the loaded graph; alignment
-completion is polled and a synchronous single-inflight embedding graph is required; and the
-FastCV aligner validates full luma/chroma plane bounds with overflow-safe arithmetic and
-converts only the sampled source ROI. A `.48` plugin probe records the offload options:
-`qtivtransform` (engine gles/fcv, crop/destination, no arbitrary affine), `qtimlvconverter`
-`roi-batch-*` (hardware ROI crop + tensor batch via ROI meta), `qtivcomposer`, `qtiobjtracker`
-(ByteTrack) and `v4l2h264enc`; the recommended alignment offload and the `engine-param`
-verification requirement are in `docs/architecture/image_alignment_port.md`. EdgeFace
-golden parity, post-fix live multi-face validation, released-FW execution and asynchronous
-scheduling remain M5 work.
-
-The cascade coordinator arms its secondary graph once per configured source epoch with an
-explicit cycle identity, job timeout and repeated-task sequence policy. The latter preserves
-the exact source PTS while allowing multiple face ROIs from the same frame; full-frame
-graphs retain strict unique-frame ordering. The coordinator rejects an epoch change until
-graph lifecycle restart, rather than submitting a new epoch into an existing submission
-window.
-
-Qualcomm full-frame preprocessing now validates the composed preprocess plus tensor
-quantization over every RGB8 channel value. It accepts direct UINT8 output or UINT16
-full-range widening with at most one quantized LSB of affine-rounding error, including the
-face packages' nonzero zero point, and rejects any other mapping before plugin execution.
-
-Production platform preparation now resolves dependency-activated secondary models, opens
-their QNN backend owner, validates the embedding decoder and alignment template against the
-catalog/package, constructs the FastCV aligner behind `image_alignment_port`, and exposes a
-neutral cascade binding. Detection decoders remain registered only for primary models.
-The service owns secondary graph lifecycle and binds the coordinator to the catalog-derived
-primary slot before primary activation. The current production cascade owner explicitly
-supports one active source and one secondary model per source and fails closed otherwise.
-
-2026-09-16 private derived-index follow-up: production Zvec now requires a service-UID-
-owned mode-0700 tmpfs parent, pins its directory FD and destroys the private collection
-on owner close. Non-normalized/relative paths, symlink parent/leaf and unsafe permissions
-fail closed; production exposes no persistent-filesystem fixture switch. Real-library
-private-storage tests pass eSDK/QEMU and `.98`; detailed deployment migration and
-runtime cleanup evidence is in [FR validation](../testing/face_recognition_production_validation.md).
+[cascade inference](../architecture/cascade_inference.md),
+[image alignment port](../architecture/image_alignment_port.md),
+[recognition session](../architecture/recognition_session.md),
+[FW release compatibility](../contracts/fw_release_compatibility.md) and
+[FR validation](../testing/face_recognition_production_validation.md).
