@@ -347,6 +347,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | src/core/vqec_vision_feature_catalog.cpp | ftcat | vqec_vision_ai_core_ftcat_ |
 | tests/unit/vqec_vision_feature_catalog_test.cpp | fctst | vqec_vision_ai_unit_fctst_ |
 | src/outputs/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
+| src/outputs/vqec_vision_event_delivery_seam.cpp | evdsm | vqec_vision_ai_outpt_evdsm_ |
+| tests/contract/vqec_vision_event_delivery_seam_test.cpp | edsct | vqec_vision_ai_ctest_edsct_ |
 | tests/unit/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
 | src/runtime/model_registry/vqec_vision_output_manifest.cpp | otman | vqec_vision_ai_mreg_otman_ |
 | src/runtime/model_registry/vqec_vision_artifact_digest.cpp | ardgt | vqec_vision_ai_mreg_ardgt_ |

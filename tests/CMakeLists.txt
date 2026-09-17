@@ -104,6 +104,16 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME feature_event_dispatch_authorization
         COMMAND vqec_vision_ai_feature_event_dispatch_test)
+    add_executable(vqec_vision_ai_event_delivery_seam_test
+        contract/vqec_vision_event_delivery_seam_test.cpp)
+    target_link_libraries(vqec_vision_ai_event_delivery_seam_test
+        PRIVATE vqec_vision_ai_event_delivery_seam)
+    target_include_directories(vqec_vision_ai_event_delivery_seam_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs>)
+    set_target_properties(vqec_vision_ai_event_delivery_seam_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME event_delivery_seam_contract
+        COMMAND vqec_vision_ai_event_delivery_seam_test)
     add_executable(vqec_vision_ai_feature_stage_test
         contract/vqec_vision_feature_stage_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_stage_test

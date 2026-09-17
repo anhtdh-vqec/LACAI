@@ -19,3 +19,11 @@ target_include_directories(vqec_vision_ai_overlay_preparation PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(vqec_vision_ai_overlay_preparation PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_overlay_preparation PROPERTIES CXX_EXTENSIONS OFF)
+
+add_library(vqec_vision_ai_event_delivery_seam STATIC
+    vqec_vision_event_delivery_seam.cpp)
+target_include_directories(vqec_vision_ai_event_delivery_seam PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_event_delivery_seam PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_event_delivery_seam PROPERTIES CXX_EXTENSIONS OFF)
+

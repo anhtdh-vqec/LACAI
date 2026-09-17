@@ -12,20 +12,21 @@ Admission by measured workload/camera/model/ROI/memory budgets, with explicit re
 
 - Materialize a validated deployment/catalog into fixed-capacity numeric source/model slots.
 - Bind every index to exact immutable revisions and remove string lookup from per-frame work.
-- Expose assignment/context counts and a resident resource estimate.
+- Calculate comprehensive resource envelopes: frame pool, tensor pool, encoder pool, cascade ROI, DDR bandwidth, FW concurrency slots, and worker load.
+- Validate resource requirements against measured hardware admission profiles (pool, queue, encoder, DDR, thermal, FW load) with explicit fail-closed rejection reasons.
 
 ## Contents
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_activation_snapshot.cpp` | Fixed-capacity numeric source/model slots bound to immutable revisions |
+| `vqec_vision_activation_snapshot.cpp` | Fixed-capacity numeric source/model slots and measured resource admission bound to immutable revisions |
 
 ## Limits and next work
 
-- This is a cold-path component, not the multi-source supervisor or board capability admission.
+- This is a cold-path component, not the multi-source supervisor.
 - Actual admission must account for lower backend limits (one outstanding Qualcomm job, four
   slots per graph-retention domain).
-- Measured board-wide accelerator/memory/encoder/thermal admission remains open.
+- Real-time dynamic thermal throttling adaptation remains open for future operational runbooks.
 
 ## See also
 

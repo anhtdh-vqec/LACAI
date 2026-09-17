@@ -61,6 +61,7 @@
 #if defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
 #include "vqec_vision_usecase_control_dbus.hpp"
 #endif
+#include "vqec_vision_event_delivery_seam.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -1153,10 +1154,15 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         attribute_schema_id = platform.vqec_vision_ai_appl_fkplt_get_config().attribute_schema_id_;
     }
 
-    // Output boundary for the harness: a permissive-but-explicit policy plus a
-    // development sink. The gate still denies any event whose attributes are unlisted.
+    // Output boundary for the harness: a permissive-but-explicit policy plus
+    // either a neutral event delivery seam for production or a development reference sink.
     output_gate output_policy_gate;
-    reference_event_sink event_sink;
+    reference_event_sink reference_sink;
+    event_delivery_seam production_seam;
+    feature_event_sink_port& active_event_sink =
+        use_production_platform
+            ? static_cast<feature_event_sink_port&>(production_seam)
+            : static_cast<feature_event_sink_port&>(reference_sink);
 
     // Platform owners: production adapters or the device-free reference backend.
     std::vector<std::unique_ptr<reference_raw_source>> reference_sources;
@@ -1703,7 +1709,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         recognition_enabled = true;
     }
     if (has_feature_wiring) {
-        executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
+        executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(
+            output_policy_gate, active_event_sink);
     }
     const auto activated =
         bundle->vqec_vision_ai_appl_rcfac_get_composition()->vqec_vision_ai_cntr_acomp_activate();
@@ -2026,6 +2033,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
+    }
+    if (use_production_platform) {
+        production_seam.vqec_vision_ai_outpt_evdsm_request_stop();
+        (void)production_seam.vqec_vision_ai_outpt_evdsm_drain();
     }
     return vqec_vision_ai_appl_svcmn_report_and_decide(metrics, stopped,
         enrollment_stopped.code_ == status_code::ok,

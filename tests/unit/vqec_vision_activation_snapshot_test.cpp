@@ -41,30 +41,50 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     deployment.schema_version_ = 1;
     deployment.revision_ = 9;
     deployment.model_catalog_ref_ = catalog.catalog_id_;
-    deployment.max_total_resident_bytes_ = 512 * g_mib;
+    deployment.max_total_resident_bytes_ = 1024 * g_mib;
     deployment.max_model_resident_bytes_ = 64 * g_mib;
     for (unsigned index = 0; index < 16; ++index) {
         source_deployment_config source;
         source.source_id_ = "source_" + std::to_string(index);
         source.raw_source_ref_ = "fw_raw_" + std::to_string(index);
+        source.preview_output_ref_ = "preview_ring_" + std::to_string(index);
         source.camera_id_ = index;
+        source.channel_id_ = 0;
         source.profile_ = {1920, 1080, 25, 1};
         source.memory_.max_frame_allocation_bytes_ = 4 * g_mib;
         source.memory_.max_inflight_frames_ = 1;
+        source.memory_.preview_surface_count_ = 1;
         source.memory_.max_tensor_bytes_ = 8 * g_mib;
+        source.cascade_ = {2, 4, 16 * g_mib};
         source.model_ids_.push_back("detector");
         deployment.sources_.push_back(source);
     }
     activation_snapshot snapshot;
     const auto result = vqec_vision_ai_admis_actsp_build_snapshot(
         deployment, catalog, snapshot);
-    if (result.code_ != status_code::ok || snapshot.source_count_ != 16 ||
+    if (result.code_ != status_code::ok) {
+        throw std::runtime_error("valid fixed-capacity activation snapshot rejected: " + result.message_);
+    }
+    if (snapshot.source_count_ != 16 ||
         snapshot.active_model_count_ != 1 ||
         snapshot.models_[0].assignment_count_ != 16 ||
         snapshot.models_[0].context_instance_count_ != 1 ||
         snapshot.sources_[15].catalog_model_indices_[0] != 0) {
-        throw std::runtime_error("valid fixed-capacity activation snapshot rejected");
+        throw std::runtime_error("valid fixed-capacity activation snapshot fields mismatch");
     }
+
+    // Verify resource breakdown is computed and non-zero
+    if (snapshot.resources_.frame_pool_bytes_ == 0 ||
+        snapshot.resources_.encoder_pool_bytes_ == 0 ||
+        snapshot.resources_.cascade_roi_bytes_ == 0 ||
+        snapshot.resources_.estimated_ddr_bandwidth_mbps_ == 0 ||
+        snapshot.resources_.fw_concurrency_slots_ != 16 ||
+        snapshot.resources_.worker_concurrency_ == 0 ||
+        snapshot.resources_.thermal_headroom_pct_ == 0) {
+        throw std::runtime_error("resource envelope breakdown not properly populated");
+    }
+
+    // Negative test 1: invalid model ID in deployment
     auto invalid = deployment;
     invalid.sources_[0].model_ids_[0] = "unknown";
     const auto preserved_revision = snapshot.deployment_revision_;
@@ -74,6 +94,42 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
         snapshot.deployment_revision_ != preserved_revision) {
         throw std::runtime_error("failed snapshot build changed output");
     }
+
+    // Negative test 2: invalid hardware profile rejected fail-closed
+    hardware_admission_profile invalid_hw{};
+    invalid_hw.max_total_resident_bytes_ = 0;  // invalid
+    activation_snapshot hw_snap;
+    if (vqec_vision_ai_admis_actsp_build_snapshot(
+            deployment, catalog, invalid_hw, hw_snap).code_ != status_code::unsupported) {
+        throw std::runtime_error("invalid hardware profile did not fail-closed with unsupported");
+    }
+
+    // Negative test 3: FW stream concurrency exceeds limit
+    hardware_admission_profile low_fw_hw =
+        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    low_fw_hw.max_fw_concurrency_slots_ = 4;  // deployment has 16
+    if (vqec_vision_ai_admis_actsp_build_snapshot(
+            deployment, catalog, low_fw_hw, hw_snap).code_ != status_code::unsupported) {
+        throw std::runtime_error("FW stream concurrency limit not enforced");
+    }
+
+    // Negative test 4: Memory budget exceeded
+    hardware_admission_profile low_mem_hw =
+        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    low_mem_hw.max_total_resident_bytes_ = 10 * g_mib;  // far too small
+    if (vqec_vision_ai_admis_actsp_build_snapshot(
+            deployment, catalog, low_mem_hw, hw_snap).code_ != status_code::resource_exhausted) {
+        throw std::runtime_error("memory budget limit not enforced");
+    }
+
+    // Negative test 5: DDR bandwidth exceeded
+    hardware_admission_profile low_ddr_hw =
+        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    low_ddr_hw.max_ddr_bandwidth_mbps_ = 10;  // 10 MB/s is far too low for 16 sources
+    if (vqec_vision_ai_admis_actsp_build_snapshot(
+            deployment, catalog, low_ddr_hw, hw_snap).code_ != status_code::resource_exhausted) {
+        throw std::runtime_error("DDR bandwidth limit not enforced");
+    }
 }
 
 }  // namespace
@@ -82,6 +138,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
 int main() {
     try {
         vqec::vision::ai::vqec_vision_ai_unit_astst_check_snapshot();
+        std::cout << "vqec_vision_activation_snapshot_test: all tests passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

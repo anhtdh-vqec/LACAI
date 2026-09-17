@@ -24,6 +24,7 @@ RTSP/UI, recording and persistent evidence/search.
 | `vqec_vision_encoded_dispatch.cpp` | Synchronous one-AU dispatch through `output_gate` with freshness/correlation and ring generation/demand checks |
 | `vqec_vision_overlay_preparation.cpp` | Authorizes scope, validates observations, publishes overlay metadata transactionally |
 | `vqec_vision_feature_event_dispatch.cpp` | Validates one event and dispatches it synchronously; retry keeps the original event/revision |
+| `vqec_vision_event_delivery_seam.cpp` | Neutral bounded event handoff seam and outbox boundary distinguishing accepted/pending from delivered |
 
 ## Limits and next work
 
@@ -37,4 +38,5 @@ RTSP/UI, recording and persistent evidence/search.
 
 - [Encoded dispatch](../../docs/architecture/encoded_dispatch.md), [encoded output](../../docs/architecture/encoded_output.md)
 - [Feature event dispatch](../../docs/architecture/feature_event_dispatch.md)
+- [Event delivery seam](../../docs/architecture/event_delivery_seam.md)
 - [FW release compatibility](../../docs/contracts/fw_release_compatibility.md)
