@@ -23,8 +23,9 @@ struct artifact_resolver_config {
 // Resolves a trusted relative artifact path (the mapping from model.artifact_ref_) under
 // model_root_, rejecting traversal, symlink escape, non-regular files, out-of-bound sizes
 // and digest mismatch. On success _paths is filled from the catalog entry and the trusted
-// libraries; on any failure _paths is unchanged. The returned model_path_ is the canonical
-// path of the opened inode; no lock is held after return.
+// libraries; on any failure _paths is unchanged. Success returns a retained /proc/self/fd
+// path backed by a sealed memfd copy whose digest matches the catalog. The opaque owner in
+// resolved_model_paths must remain alive through backend model loading.
 [[nodiscard]] status vqec_vision_ai_mreg_artsr_resolve_model(
     const model_catalog_entry& _model, const std::string& _artifact_relative_path,
     const artifact_resolver_config& _config, resolved_model_paths& _paths);

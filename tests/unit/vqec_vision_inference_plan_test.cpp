@@ -105,6 +105,13 @@ void vqec_vision_ai_unit_iptst_check_paths_and_budgets() {
     vqec_vision_ai_unit_iptst_require_status(
         plan, status_code::invalid_argument, "wrong model format");
     plan = vqec_vision_ai_unit_iptst_make_valid_plan();
+    plan.model_path_ = "/proc/self/fd/42";
+    vqec_vision_ai_unit_iptst_require_status(
+        plan, status_code::ok, "retained immutable descriptor path");
+    plan.model_path_ = "/proc/self/fd/42.so";
+    vqec_vision_ai_unit_iptst_require_status(
+        plan, status_code::invalid_argument, "malformed descriptor path");
+    plan = vqec_vision_ai_unit_iptst_make_valid_plan();
     plan.input_queue_bytes_ = 1;
     vqec_vision_ai_unit_iptst_require_status(
         plan, status_code::invalid_argument, "queue below frame size");

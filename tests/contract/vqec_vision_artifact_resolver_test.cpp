@@ -25,6 +25,7 @@ bool vqec_vision_ai_ctest_arsct_write(const std::string& _path, const std::strin
 model_catalog_entry vqec_vision_ai_ctest_arsct_model() {
     model_catalog_entry model;
     model.model_id_ = "person_detector";
+    model.model_version_ = "1.0";
     model.target_id_ = "qcs6490";
     model.artifact_ref_ = "person_detector_qnn_v1";
     // SHA-256 of "abc".
@@ -52,7 +53,8 @@ int main() {
     assert(vqec_vision_ai_ctest_arsct_write(model_path, "abc"));
     assert(vqec_vision_ai_mreg_artsr_resolve_model(
                model, "model.bin", config, paths).code_ == status_code::ok);
-    assert(paths.model_path_ == model_path);
+    assert(paths.model_path_.find("/proc/self/fd/") == 0);
+    assert(paths.model_artifact_owner_ != nullptr);
     assert(paths.backend_path_ == config.backend_library_ &&
            paths.system_path_ == config.system_library_);
 
@@ -60,7 +62,8 @@ int main() {
     resolved_model_paths abs_paths;
     assert(vqec_vision_ai_mreg_artsr_resolve_model(
                model, model_path, config, abs_paths).code_ == status_code::ok);
-    assert(abs_paths.model_path_ == model_path);
+    assert(abs_paths.model_path_.find("/proc/self/fd/") == 0);
+    assert(abs_paths.model_artifact_owner_ != nullptr);
 
     // Root with trailing slash must resolve cleanly.
     auto config_slash = config;
@@ -68,10 +71,17 @@ int main() {
     resolved_model_paths slash_paths;
     assert(vqec_vision_ai_mreg_artsr_resolve_model(
                model, "model.bin", config_slash, slash_paths).code_ == status_code::ok);
-    assert(slash_paths.model_path_ == model_path);
+    assert(slash_paths.model_path_.find("/proc/self/fd/") == 0);
+    assert(slash_paths.model_artifact_owner_ != nullptr);
 
     // Mutated content must be rejected before any load.
     assert(vqec_vision_ai_ctest_arsct_write(model_path, "abd"));
+    {
+        std::ifstream retained(paths.model_path_, std::ios::binary);
+        std::string retained_bytes;
+        retained >> retained_bytes;
+        assert(retained_bytes == "abc");
+    }
     assert(vqec_vision_ai_mreg_artsr_resolve_model(
                model, "model.bin", config, paths).code_ == status_code::protocol_error);
     assert(vqec_vision_ai_ctest_arsct_write(model_path, "abc"));
@@ -133,6 +143,10 @@ int main() {
     // Corrupted/empty catalog identities are rejected fail-closed.
     auto bad_model = model;
     bad_model.model_id_ = "";
+    assert(vqec_vision_ai_mreg_artsr_resolve_model(
+               bad_model, "model.bin", config, paths).code_ == status_code::invalid_argument);
+    bad_model = model;
+    bad_model.model_version_ = "";
     assert(vqec_vision_ai_mreg_artsr_resolve_model(
                bad_model, "model.bin", config, paths).code_ == status_code::invalid_argument);
     bad_model = model;

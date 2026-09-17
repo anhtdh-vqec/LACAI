@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -103,6 +104,10 @@ struct resolved_model_paths {
     std::string model_path_;
     std::string backend_path_;
     std::string system_path_;
+    // Opaque retained owner for an immutable model artifact. A platform resolver may
+    // leave this empty only when another trusted deployment mechanism guarantees that
+    // model_path_ cannot change through backend load completion.
+    std::shared_ptr<const void> model_artifact_owner_;
 };
 
 // Cold-path pure validators. Output byte counts are transactional.

@@ -4,6 +4,8 @@
 #include <vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp>
 #include <vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace vqec::vision::ai {
@@ -30,6 +32,23 @@ bool vqec_vision_ai_core_infpl_has_suffix(
     const std::string& _path, const std::string& _suffix) {
     return _path.size() >= _suffix.size() &&
            _path.compare(_path.size() - _suffix.size(), _suffix.size(), _suffix) == 0;
+}
+
+bool vqec_vision_ai_core_infpl_is_descriptor_path(const std::string& _path) {
+    constexpr char g_descriptor_prefix[] = "/proc/self/fd/";
+    const std::string prefix(g_descriptor_prefix);
+    return _path.size() > prefix.size() &&
+        _path.compare(0, prefix.size(), prefix) == 0 &&
+        std::all_of(_path.begin() + static_cast<std::ptrdiff_t>(prefix.size()),
+            _path.end(), [](char _character) {
+                return std::isdigit(static_cast<unsigned char>(_character)) != 0;
+            });
+}
+
+bool vqec_vision_ai_core_infpl_is_descriptor_namespace(const std::string& _path) {
+    constexpr char g_descriptor_prefix[] = "/proc/self/fd/";
+    const std::string prefix(g_descriptor_prefix);
+    return _path.compare(0, prefix.size(), prefix) == 0;
 }
 
 }  // namespace
@@ -98,9 +117,13 @@ status vqec_vision_ai_core_infpl_validate_plan(const inference_plan& _plan) {
         return {status_code::unsupported,
                 "custom normalization requires a FLOAT32 model input"};
     }
+    const bool model_path_is_supported =
+        vqec_vision_ai_core_infpl_is_descriptor_namespace(_plan.model_path_)
+            ? vqec_vision_ai_core_infpl_is_descriptor_path(_plan.model_path_)
+            : (vqec_vision_ai_core_infpl_has_suffix(_plan.model_path_, ".bin") ||
+                vqec_vision_ai_core_infpl_has_suffix(_plan.model_path_, ".so"));
     if (!vqec_vision_ai_core_infpl_is_absolute_path(_plan.model_path_) ||
-        !(vqec_vision_ai_core_infpl_has_suffix(_plan.model_path_, ".bin") ||
-          vqec_vision_ai_core_infpl_has_suffix(_plan.model_path_, ".so")) ||
+        !model_path_is_supported ||
         !vqec_vision_ai_core_infpl_is_absolute_path(_plan.backend_path_) ||
         !vqec_vision_ai_core_infpl_is_absolute_path(_plan.system_path_)) {
         return {status_code::invalid_argument, "Expected absolute model and QNN library paths"};
