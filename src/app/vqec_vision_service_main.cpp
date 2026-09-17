@@ -673,9 +673,7 @@ service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
         result.exit_code = 1;
         return result;
     }
-    if (_effective_deployment != nullptr) {
-        result.deployment = *_effective_deployment;
-    } else if (!_args.usecase_snapshot_path.empty()) {
+    if (!_args.usecase_snapshot_path.empty()) {
         usecase_control_snapshot control;
         if (!vqec_vision_ai_appl_svcmn_load_usecase_snapshot(
                 _args.usecase_snapshot_path, control)) {
@@ -699,7 +697,11 @@ service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
             result.exit_code = 1;
             return result;
         }
-        result.deployment = std::move(effective_deployment);
+        if (_effective_deployment != nullptr) {
+            result.deployment = *_effective_deployment;
+        } else {
+            result.deployment = std::move(effective_deployment);
+        }
         result.usecase_control = control;
         result.usecase_activation = std::move(activation_snapshot);
         result.has_usecase_control = true;
@@ -708,6 +710,8 @@ service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
             static_cast<unsigned long long>(control.control_revision_),
             static_cast<unsigned long long>(control.entitlement_revision_),
             result.deployment.sources_.size());
+    } else if (_effective_deployment != nullptr) {
+        result.deployment = *_effective_deployment;
     }
     if (result.deployment.sources_.empty()) {
         if (_control_manager != nullptr) {

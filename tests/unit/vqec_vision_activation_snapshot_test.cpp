@@ -170,7 +170,11 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     const std::string candidate_paths[] = {
         "config/defaults/hardware_admission_profile.qcs6490.example.json",
         "../config/defaults/hardware_admission_profile.qcs6490.example.json",
-        "../../config/defaults/hardware_admission_profile.qcs6490.example.json"
+        "../../config/defaults/hardware_admission_profile.qcs6490.example.json",
+        "../config/hardware_admission_profile.qcs6490.example.json",
+        "../config/hardware_admission_profile.json",
+        "/opt/lacai/config/hardware_admission_profile.qcs6490.example.json",
+        "/opt/lacai/config/hardware_admission_profile.json"
     };
     std::ifstream example_file;
     for (const auto& path : candidate_paths) {
