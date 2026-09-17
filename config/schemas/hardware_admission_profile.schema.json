@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vqec:vision:ai:hardware-admission-profile:1",
+  "title": "VQEC Vision AI hardware admission profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "target_id",
+    "revision",
+    "measurement_reference",
+    "max_total_resident_bytes",
+    "max_frame_pool_bytes",
+    "max_tensor_pool_bytes",
+    "max_encoder_pool_bytes",
+    "max_cascade_roi_bytes",
+    "max_ddr_bandwidth_mbps",
+    "max_fw_concurrency_slots",
+    "max_worker_concurrency",
+    "min_thermal_headroom_pct"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "target_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "measurement_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "max_total_resident_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_frame_pool_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_tensor_pool_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_encoder_pool_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_cascade_roi_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_ddr_bandwidth_mbps": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "max_fw_concurrency_slots": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "max_worker_concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "min_thermal_headroom_pct": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  }
+}

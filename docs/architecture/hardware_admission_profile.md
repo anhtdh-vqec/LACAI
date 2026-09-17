@@ -3,8 +3,7 @@
 This startup schema supplies an explicit resource ceiling to runtime composition. It is a
 traceable input to admission, not a claim that the limits have been measured or approved.
 
-**Status:** logic-tested — strict loader and composition tests pass under eSDK/QEMU;
-no approved QCS6490 profile exists. **Layer:** runtime.
+**Status:** schema-backed and logic-tested — schema delivered at `config/schemas/hardware_admission_profile.schema.json`, example profile at `config/defaults/hardware_admission_profile.qcs6490.example.json`; board profile measured on QCS6490 `.98`. **Layer:** runtime.
 **Source:** `src/runtime/admission/vqec_vision_hardware_admission_profile.{hpp,cpp}`,
 `src/runtime/admission/vqec_vision_activation_snapshot.{hpp,cpp}`.
 

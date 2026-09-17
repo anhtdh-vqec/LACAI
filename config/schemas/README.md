@@ -15,6 +15,7 @@ Configuration and control validation schemas with bounded fields and version/rev
 | `yolov8_decoder.schema.json` | Primary YOLOv8 decoder package; all policy fields required, unknown keys rejected |
 | `anchor_distance_decoder.schema.json` | Primary anchor-distance (SCRFD-style) decoder package with landmarks |
 | `usecase_control_snapshot.schema.json` | Trusted startup usecase snapshot (catalog + requests + revisions) |
+| `hardware_admission_profile.schema.json` | Startup hardware admission profile defining platform memory, FW concurrency and thermal limits |
 
 ## Limits and next work
 

@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -163,6 +164,39 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     if (vqec_vision_ai_admis_hwprf_load(unknown_key, loaded).code_ == status_code::ok ||
         loaded.profile_id_ != preserved_profile_id) {
         throw std::runtime_error("invalid hardware profile changed output");
+    }
+
+    // Validate that the QCS6490 example profile loads and admits the 16-source deployment
+    const std::string candidate_paths[] = {
+        "config/defaults/hardware_admission_profile.qcs6490.example.json",
+        "../config/defaults/hardware_admission_profile.qcs6490.example.json",
+        "../../config/defaults/hardware_admission_profile.qcs6490.example.json"
+    };
+    std::ifstream example_file;
+    for (const auto& path : candidate_paths) {
+        example_file.open(path);
+        if (example_file.is_open()) {
+            break;
+        }
+    }
+    if (!example_file.is_open()) {
+        throw std::runtime_error("could not open hardware_admission_profile.qcs6490.example.json");
+    }
+    hardware_admission_profile qcs_profile;
+    const auto load_res = vqec_vision_ai_admis_hwprf_load(example_file, qcs_profile);
+    if (load_res.code_ != status_code::ok) {
+        throw std::runtime_error("failed to load QCS6490 example profile: " + load_res.message_);
+    }
+    if (qcs_profile.profile_id_ != "qcs6490_rb3gen2_measured_profile" ||
+        qcs_profile.target_id_ != "qcs6490" ||
+        qcs_profile.revision_ != 1) {
+        throw std::runtime_error("QCS6490 example profile fields mismatch");
+    }
+    activation_snapshot qcs_snapshot;
+    const auto adm_res = vqec_vision_ai_admis_actsp_build_snapshot(
+        deployment, catalog, qcs_profile, qcs_snapshot);
+    if (adm_res.code_ != status_code::ok) {
+        throw std::runtime_error("QCS6490 example profile failed admission: " + adm_res.message_);
     }
 }
 
