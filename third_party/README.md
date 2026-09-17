@@ -10,6 +10,7 @@ neutral layers.
 | `zvec/` | Embedding index C API | Apache-2.0 (upstream; bundled dependencies retain their licenses) | Pinned public ARM64 SDK, checksum-verified bootstrap |
 | `qairt/` | QAIRT/QNN SDK used to build the optional owned QNN engine | Qualcomm proprietary | local symlink, gitignored |
 | `nlohmann/` | Header-only JSON parser used by optional loaders | MIT | vendored single header |
+| `fastrpc_dsp/` | Qualcomm FastRPC client stub and DSP postprocessing C reference | BSD-3-Clause | vendored QAIC stub and reference algorithms |
 
 ## Rules
 

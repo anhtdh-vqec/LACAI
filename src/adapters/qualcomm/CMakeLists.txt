@@ -21,17 +21,41 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(gstreamer REQUIRED IMPORTED_TARGET
         gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 gstreamer-allocators-1.0)
+
+    find_library(VQEC_VISION_AI_CDSPRPC_LIBRARY cdsprpc)
+
+    add_library(vqec_vision_ai_fastrpc_c STATIC
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_common.c
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_person_yolov8n.c
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_face_scrfd.c
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/vqec_dsp_stub.c)
+    target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp)
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/vqec_dsp_stub.c
+        PROPERTIES COMPILE_OPTIONS "-w")
+    if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
+        target_link_libraries(vqec_vision_ai_fastrpc_c PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
+    endif()
+
     add_library(vqec_vision_ai_qualcomm STATIC
         vqec_vision_fastcv_processor.cpp
         vqec_vision_qtiv_color.cpp
         vqec_vision_plugin_graph.cpp
         vqec_vision_inference_graph.cpp
-        vqec_vision_face_enrollment_image_source.cpp)
+        vqec_vision_face_enrollment_image_source.cpp
+        vqec_vision_dsp_session.cpp
+        vqec_vision_rpcmem_pool.cpp
+        vqec_vision_dsp_decoder.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp)
     target_link_libraries(vqec_vision_ai_qualcomm
-        PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)
+        PUBLIC vqec_vision_ai_core vqec_vision_ai_fastrpc_c
+        PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)
+    if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
+        target_link_libraries(vqec_vision_ai_qualcomm PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
+    endif()
     set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 

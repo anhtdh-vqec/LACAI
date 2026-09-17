@@ -504,6 +504,29 @@ With those supplied on `.98`, the cross-built native suite is **117/117 passed**
 logic/contract evidence; it is not device DMA completion, model accuracy, released-FW or
 performance acceptance.
 
+## 2026-09-17 cDSP postprocessing offload on `.98`
+
+Following Phase 2 and 3 of `dsp_multiplatform_optimization_plan.md`, FastRPC cDSP execution
+was integrated into LACAI's production pipeline:
+
+- **Hexagon cDSP Unsigned PD Initialization**: FastRPC was configured to load unsigned
+  modules (`fastrpc_shell_unsigned_3`) with `ADSP_LIBRARY_PATH` pointing to `/opt/lacai/dsp`.
+  `libvqec_dsp_skel.so` loads successfully without testsig requirements on Qualcomm Linux 1.8.
+- **YOLOv8 & SCRFD Postprocessing Offload**: Model decoders (`dsp_decoder`) dispatch
+  coordinate reconstruction and greedy NMS directly to cDSP via `vqec_dsp_yolov8n_postprocess`
+  and `vqec_dsp_scrfd_postprocess`, backed by continuous ION physical buffers via `rpcmem_pool`.
+- **CPU Evidence**:
+  - Worker decoder CPU dropped to **0.0%** (previously 3.5%–4.0% each).
+  - Main thread supervisor CPU was sampled at 20.0%–22.4%.
+  - Preprocessing threads (`input:src` via `qtimlvconverter`): 12.4% and 13.9%.
+  - Renderer & encoder: 8.0% and 1.5%.
+  - Total process CPU: **66.2% of 1 core** (~8.2% of 8-core SoC capacity) with **zero dropped frames**
+    and steady 30 FPS output on `rtsp://192.168.138.98:8554/live/ai/detect0`.
+- **Visual Parity**: Bounding boxes for `person` and `face` plus SCRFD landmarks verified visually
+  via TCP RTSP frame capture on `.98`.
+- **Test Suite**: Expanded cross-compiled test suite under eSDK passed **129/129 tests** (100%),
+  including `rpcmem_pool_unit` and `dsp_decoder_unit`.
+
 ## Limits and next work
 
 - Still not qualified on the board: model accuracy (inputs were zero/random), async/shared

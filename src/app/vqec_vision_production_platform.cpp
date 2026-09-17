@@ -19,6 +19,8 @@
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
+#include "vqec_vision_dsp_session.hpp"
+#include "vqec_vision_dsp_decoder.hpp"
 #include "vqec_vision_decoder_package.hpp"
 #include "vqec_vision_embedding_decoder.hpp"
 #if defined(VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER)
@@ -163,6 +165,7 @@ struct production_platform::implementation {
     std::vector<std::unique_ptr<source_lifecycle>> sources_;
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
+    std::shared_ptr<dsp_session> dsp_session_;
 };
 
 struct production_offline_model::implementation {
@@ -261,6 +264,15 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         impl.config_.model_packages_, _catalog);
     if (registry_status.code_ != status_code::ok) {
         return registry_status;
+    }
+
+    if (impl.dsp_session_ == nullptr) {
+        impl.dsp_session_ = std::make_shared<dsp_session>();
+        dsp_session_config dsp_cfg;
+        const std::string::size_type slash = impl.config_.model_root_.rfind('/');
+        dsp_cfg.skel_dir_ = (slash != std::string::npos) ?
+            impl.config_.model_root_.substr(0, slash) + "/dsp" : "/opt/lacai/dsp";
+        (void)impl.dsp_session_->vqec_vision_ai_qcom_dspsn_open(dsp_cfg);
     }
 
     for (const auto& model : _catalog.models_) {
@@ -437,47 +449,42 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return {status_code::invalid_argument,
                     "anchor-distance package must be a primary model"};
             }
-            anchor_distance_decoder_config config;
-            config.source_width_ = model_source->profile_.width_;
-            config.source_height_ = model_source->profile_.height_;
-            config.tensor_width_ = model.tensor_width_;
-            config.tensor_height_ = model.tensor_height_;
-            config.placement_ = model.placement_;
-            config.class_id_ = package.class_id_;
-            config.landmark_schema_id_ = package.landmark_schema_id_;
-            config.landmark_schema_version_ = package.landmark_schema_version_;
-            config.landmark_count_ = package.landmark_count_;
-            config.anchor_offset_cells_ = package.anchor_offset_cells_;
-            config.confidence_threshold_ = package.confidence_threshold_;
-            config.iou_threshold_ = package.iou_threshold_;
-            config.max_candidates_ = package.max_candidates_;
-            for (const auto& stage : package.stages_) {
-                config.stages_.push_back({stage.score_tensor_, stage.box_tensor_,
-                    stage.landmark_tensor_, stage.stride_, stage.grid_width_,
-                    stage.grid_height_, stage.anchors_per_cell_});
-            }
-            owner.decoder_ = std::make_unique<anchor_distance_decoder>(std::move(config));
+            dsp_decoder_config dsp_config;
+            dsp_config.kind_ = dsp_decoder_kind::scrfd;
+            dsp_config.source_width_ = model_source->profile_.width_;
+            dsp_config.source_height_ = model_source->profile_.height_;
+            dsp_config.tensor_width_ = model.tensor_width_;
+            dsp_config.tensor_height_ = model.tensor_height_;
+            dsp_config.placement_ = model.placement_;
+            dsp_config.class_id_ = package.class_id_;
+            dsp_config.landmark_schema_id_ = package.landmark_schema_id_;
+            dsp_config.landmark_schema_version_ = package.landmark_schema_version_;
+            dsp_config.landmark_count_ = package.landmark_count_;
+            dsp_config.confidence_threshold_ = package.confidence_threshold_;
+            dsp_config.iou_threshold_ = package.iou_threshold_;
+            dsp_config.session_ = impl.dsp_session_;
+            owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
         } else {
             if (model.role_ != model_role::primary) {
                 return {status_code::invalid_argument,
                     "YOLO package must be a primary model"};
             }
-            yolov8_decoder_config decoder_config;
-            decoder_config.source_width_ = model_source->profile_.width_;
-            decoder_config.source_height_ = model_source->profile_.height_;
-            decoder_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
-                declared_input.dimensions_[2] : 0;
-            decoder_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
-                declared_input.dimensions_[1] : 0;
-            decoder_config.placement_ = model.placement_;
-            decoder_config.box_tensor_ = package.box_tensor_;
-            decoder_config.score_tensor_ = package.score_tensor_;
-            decoder_config.class_count_ = package.class_count_;
-            decoder_config.confidence_threshold_ = package.confidence_threshold_;
-            decoder_config.iou_threshold_ = package.iou_threshold_;
-            decoder_config.class_names_ = vqec_vision_ai_appl_pdplt_load_labels(
+            const auto labels = vqec_vision_ai_appl_pdplt_load_labels(
                 package, binding->package_dir_);
-            owner.decoder_ = std::make_unique<yolov8_decoder>(decoder_config);
+            dsp_decoder_config dsp_config;
+            dsp_config.kind_ = dsp_decoder_kind::yolov8;
+            dsp_config.source_width_ = model_source->profile_.width_;
+            dsp_config.source_height_ = model_source->profile_.height_;
+            dsp_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
+                declared_input.dimensions_[2] : 0;
+            dsp_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
+                declared_input.dimensions_[1] : 0;
+            dsp_config.placement_ = model.placement_;
+            dsp_config.class_id_ = labels.empty() ? "person" : labels[0];
+            dsp_config.confidence_threshold_ = package.confidence_threshold_;
+            dsp_config.iou_threshold_ = package.iou_threshold_;
+            dsp_config.session_ = impl.dsp_session_;
+            owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
         }
         if (owner.decoder_ != nullptr) {
             const auto decoder_status =

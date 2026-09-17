@@ -928,3 +928,15 @@ add_executable(vqec_vision_ai_cascade_frame_store_test unit/vqec_vision_cascade_
 target_link_libraries(vqec_vision_ai_cascade_frame_store_test PRIVATE vqec_vision_ai_scheduler)
 set_target_properties(vqec_vision_ai_cascade_frame_store_test PROPERTIES CXX_EXTENSIONS OFF)
 add_test(NAME cascade_frame_retention COMMAND vqec_vision_ai_cascade_frame_store_test)
+
+if(VQEC_VISION_AI_ENABLE_QUALCOMM)
+    add_executable(vqec_vision_ai_rpcmem_pool_test unit/vqec_vision_rpcmem_pool_test.cpp)
+    target_link_libraries(vqec_vision_ai_rpcmem_pool_test PRIVATE vqec_vision_ai_qualcomm)
+    set_target_properties(vqec_vision_ai_rpcmem_pool_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME rpcmem_pool_unit COMMAND vqec_vision_ai_rpcmem_pool_test)
+
+    add_executable(vqec_vision_ai_dsp_decoder_test unit/vqec_vision_dsp_decoder_test.cpp)
+    target_link_libraries(vqec_vision_ai_dsp_decoder_test PRIVATE vqec_vision_ai_qualcomm)
+    set_target_properties(vqec_vision_ai_dsp_decoder_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dsp_decoder_unit COMMAND vqec_vision_ai_dsp_decoder_test)
+endif()

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(vqec_vision_ai VERSION 0.1.0 LANGUAGES CXX)
+project(vqec_vision_ai VERSION 0.1.0 LANGUAGES C CXX)
 
 option(VQEC_VISION_AI_ENABLE_FW_RING "Enable wrapper for externally supplied FW ring SDK" OFF)
 set(VQEC_VISION_AI_FW_RING_TARGET "camera_ai_common" CACHE STRING "Existing version-pinned FW SDK target")

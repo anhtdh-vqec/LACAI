@@ -1,0 +1,300 @@
+#include "vqec_vision_dsp_session.hpp"
+
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <vqec_dsp.h>
+#include <vqec_dsp_codes.h>
+#include <vqec_dsp_types.h>
+extern "C" {
+#include <post_common.h>
+#include <post_person_yolov8n.h>
+#include <post_face_scrfd.h>
+}
+
+#if defined(__has_include)
+#if __has_include(<remote.h>)
+#include <remote.h>
+#define VQEC_VISION_AI_HAVE_CDSP 1
+#endif
+#endif
+
+namespace vqec::vision::ai {
+
+namespace {
+
+constexpr int g_aee_success = 0;
+constexpr unsigned int g_aee_efailed = 0x80000401U;
+constexpr unsigned int g_aee_eunabletoload = 0x80000406U;
+constexpr unsigned int g_aee_ebadstate = 0x8000040DU;
+constexpr unsigned int g_aee_ebadparm = 0x8000040EU;
+constexpr unsigned int g_aee_eunsupported = 0x80000414U;
+constexpr unsigned int g_aee_econnreset = 104U;
+
+int vqec_vision_ai_qcom_dspsn_enable_unsigned_pd() noexcept {
+#if defined(VQEC_VISION_AI_HAVE_CDSP)
+    struct remote_rpc_control_unsigned_module data;
+    data.domain = CDSP_DOMAIN_ID;
+    data.enable = 1;
+    return remote_session_control(DSPRPC_CONTROL_UNSIGNED_MODULE, &data, sizeof(data));
+#else
+    return 0;
+#endif
+}
+
+}  // namespace
+
+class dsp_session::impl final {
+public:
+    dsp_session_config config_;
+    std::uint64_t handle_{0};
+    bool is_open_{false};
+    std::mutex rpc_mutex_;
+
+    // Per-session scratch candidate list for host fallback execution
+    CandList host_scratch_{};
+
+    impl() = default;
+
+    ~impl() {
+        vqec_vision_ai_qcom_dspsn_impl_close();
+    }
+
+    void vqec_vision_ai_qcom_dspsn_impl_close() {
+        std::lock_guard<std::mutex> lock(rpc_mutex_);
+        if (is_open_ && handle_ != 0) {
+            vqec_dsp_close(static_cast<remote_handle64>(handle_));
+        }
+        handle_ = 0;
+        is_open_ = false;
+    }
+};
+
+std::string dsp_session::vqec_vision_ai_qcom_dspsn_search_path(
+    const std::string& _skel_dir) {
+    const char* qairt = std::getenv("ADSP_LIBRARY_PATH");
+    std::string search_path = _skel_dir + ";/usr/lib/dsp/cdsp/cv/v68/KODIAK;/usr/lib/rfsa/adsp;/dsp";
+    if (qairt != nullptr && *qairt != '\0' && search_path.find(qairt) == std::string::npos) {
+        search_path += ";";
+        search_path += qairt;
+    }
+    return search_path;
+}
+
+std::string dsp_session::vqec_vision_ai_qcom_dspsn_describe(int _rc) {
+    char hex[16];
+    std::snprintf(hex, sizeof(hex), "0x%08x", static_cast<unsigned int>(_rc));
+    const char* name = "unknown";
+    switch (static_cast<unsigned int>(_rc)) {
+        case VQEC_DSP_E_NOSLOT: name = "VQEC_DSP_E_NOSLOT"; break;
+        case VQEC_DSP_E_TOOMANY: name = "VQEC_DSP_E_TOOMANY"; break;
+        case VQEC_DSP_E_GEOM: name = "VQEC_DSP_E_GEOM"; break;
+        case VQEC_DSP_E_SIZE: name = "VQEC_DSP_E_SIZE"; break;
+        case VQEC_DSP_E_DLOPEN: name = "VQEC_DSP_E_DLOPEN"; break;
+        case g_aee_efailed: name = "AEE_EFAILED"; break;
+        case g_aee_eunabletoload: name = "AEE_EUNABLETOLOAD"; break;
+        case g_aee_ebadstate: name = "AEE_EBADSTATE"; break;
+        case g_aee_ebadparm: name = "AEE_EBADPARM"; break;
+        case g_aee_eunsupported: name = "AEE_EUNSUPPORTED"; break;
+        case g_aee_econnreset: name = "AEE_ECONNRESET (DSP process died)"; break;
+        default:
+            if (static_cast<unsigned int>(_rc) >= VQEC_DSP_E_DLSYM_BASE &&
+                static_cast<unsigned int>(_rc) < VQEC_DSP_E_DLSYM_BASE + 16) {
+                name = "VQEC_DSP_E_DLSYM (missing FastCV symbol)";
+            }
+            break;
+    }
+    return std::string(hex) + " (" + name + ")";
+}
+
+dsp_session::dsp_session() : impl_(std::make_unique<impl>()) {}
+
+dsp_session::~dsp_session() = default;
+
+dsp_session::dsp_session(dsp_session&&) noexcept = default;
+
+dsp_session& dsp_session::operator=(dsp_session&&) noexcept = default;
+
+status dsp_session::vqec_vision_ai_qcom_dspsn_open(
+    const dsp_session_config& _config) {
+    if (impl_ == nullptr) {
+        return {status_code::protocol_error, "DSP session implementation is null"};
+    }
+    std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->is_open_) {
+        return {status_code::ok, ""};
+    }
+    impl_->config_ = _config;
+
+    const std::string library_path =
+        vqec_vision_ai_qcom_dspsn_search_path(_config.skel_dir_);
+    setenv("ADSP_LIBRARY_PATH", library_path.c_str(), 1);
+    setenv("DSP_LIBRARY_PATH", library_path.c_str(), 1);
+
+    if (_config.enable_unsigned_pd_) {
+        (void)vqec_vision_ai_qcom_dspsn_enable_unsigned_pd();
+    }
+
+    remote_handle64 h = 0;
+    const int rc = vqec_dsp_open(vqec_dsp_URI "&_dom=cdsp", &h);
+    if (rc != g_aee_success) {
+        // Fallback: If opening FastRPC on hardware fails or is run in host/sim, allow session
+        // to record not opened on DSP so callers can gracefully use host fallback or report status.
+        return {status_code::io_error,
+            "Cannot open libvqec_dsp_skel.so on cDSP: " + vqec_vision_ai_qcom_dspsn_describe(rc) +
+            " (DSP_LIBRARY_PATH=" + library_path + ")"};
+    }
+
+    const int clocks = vqec_dsp_set_clocks(h, _config.clock_corner_, _config.latency_us_);
+    if (clocks != g_aee_success) {
+        vqec_dsp_close(h);
+        return {status_code::io_error,
+            "cDSP clock vote failed: " + vqec_vision_ai_qcom_dspsn_describe(clocks)};
+    }
+
+    impl_->handle_ = static_cast<std::uint64_t>(h);
+    impl_->is_open_ = true;
+    return {status_code::ok, ""};
+}
+
+void dsp_session::vqec_vision_ai_qcom_dspsn_close() {
+    if (impl_ != nullptr) {
+        impl_->vqec_vision_ai_qcom_dspsn_impl_close();
+    }
+}
+
+bool dsp_session::vqec_vision_ai_qcom_dspsn_is_open() const noexcept {
+    return impl_ != nullptr && impl_->is_open_;
+}
+
+std::uint64_t dsp_session::vqec_vision_ai_qcom_dspsn_handle() const noexcept {
+    return impl_ != nullptr ? impl_->handle_ : 0;
+}
+
+const dsp_session_config& dsp_session::vqec_vision_ai_qcom_dspsn_config() const noexcept {
+    static const dsp_session_config g_default_config{};
+    return impl_ != nullptr ? impl_->config_ : g_default_config;
+}
+
+status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_person_yolov8n(
+    const std::uint16_t* _boxes_t, int _boxes_len,
+    const std::uint16_t* _conf_t, int _conf_len,
+    const float* _quant, int _quant_len,
+    const float* _params, int _params_len,
+    dsp_post_result& _out) {
+    if (_boxes_t == nullptr || _conf_t == nullptr || _quant == nullptr || _params == nullptr) {
+        return {status_code::invalid_argument, "Null tensor or parameter pointers"};
+    }
+    if (_boxes_len <= 0 || _conf_len <= 0 || _quant_len < 4 || _params_len < VQEC_POST_PARAM_FLOATS) {
+        return {status_code::invalid_argument, "Invalid tensor lengths or parameters"};
+    }
+
+    _out.boxes_.assign(static_cast<std::size_t>(VQEC_MAX_BOXES) * VQEC_BOX_FLOATS, 0.0F);
+    _out.kps_.clear();
+    std::int32_t count = 0;
+    std::int32_t truncated = 0;
+    std::uint32_t time_us = 0;
+
+    std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->is_open_ && impl_->handle_ != 0) {
+        const int rc = vqec_dsp_postprocess_person_yolov8n(
+            static_cast<remote_handle64>(impl_->handle_),
+            _boxes_t, _boxes_len, _conf_t, _conf_len,
+            _quant, _quant_len, _params, _params_len,
+            _out.boxes_.data(), static_cast<int>(_out.boxes_.size()),
+            &count, &truncated, &time_us);
+        if (rc != g_aee_success) {
+            return {status_code::io_error,
+                "cDSP postprocess_person_yolov8n failed: " + vqec_vision_ai_qcom_dspsn_describe(rc)};
+        }
+    } else {
+        // Host C reference execution for test environments or emulation
+        count = post_person_yolov8n(
+            &impl_->host_scratch_, _boxes_t, _conf_t, _quant, _params,
+            _out.boxes_.data(), VQEC_MAX_BOXES);
+        if (count < 0) {
+            return {status_code::protocol_error, "Host post_person_yolov8n execution failed"};
+        }
+        truncated = impl_->host_scratch_.truncated;
+        time_us = 0;
+    }
+
+    if (count < 0 || count > VQEC_MAX_BOXES) {
+        return {status_code::protocol_error,
+            "Invalid box count returned: " + std::to_string(count)};
+    }
+    _out.boxes_.resize(static_cast<std::size_t>(count) * VQEC_BOX_FLOATS);
+    _out.count_ = count;
+    _out.truncated_ = truncated;
+    _out.time_us_ = time_us;
+    return {status_code::ok, ""};
+}
+
+status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
+    const std::uint16_t* const _tensors[9], const int _lens[9],
+    const float* _quant, int _quant_len,
+    const float* _params, int _params_len,
+    dsp_post_result& _out) {
+    if (_tensors == nullptr || _lens == nullptr || _quant == nullptr || _params == nullptr) {
+        return {status_code::invalid_argument, "Null tensor or parameter pointers"};
+    }
+    for (std::size_t i = 0; i < 9; ++i) {
+        if (_tensors[i] == nullptr || _lens[i] <= 0) {
+            return {status_code::invalid_argument, "Invalid tensor pointer or length at index " + std::to_string(i)};
+        }
+    }
+    if (_quant_len < 18 || _params_len < VQEC_POST_PARAM_FLOATS) {
+        return {status_code::invalid_argument, "Invalid quant or params length for SCRFD"};
+    }
+
+    _out.boxes_.assign(static_cast<std::size_t>(VQEC_MAX_BOXES) * VQEC_BOX_FLOATS, 0.0F);
+    _out.kps_.assign(static_cast<std::size_t>(VQEC_MAX_BOXES) * VQEC_KPS_FLOATS, 0.0F);
+    std::int32_t count = 0;
+    std::int32_t truncated = 0;
+    std::uint32_t time_us = 0;
+
+    std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->is_open_ && impl_->handle_ != 0) {
+        const int rc = vqec_dsp_postprocess_face_scrfd(
+            static_cast<remote_handle64>(impl_->handle_),
+            _tensors[0], _lens[0], _tensors[1], _lens[1], _tensors[2], _lens[2],
+            _tensors[3], _lens[3], _tensors[4], _lens[4], _tensors[5], _lens[5],
+            _tensors[6], _lens[6], _tensors[7], _lens[7], _tensors[8], _lens[8],
+            _quant, _quant_len, _params, _params_len,
+            _out.boxes_.data(), static_cast<int>(_out.boxes_.size()),
+            _out.kps_.data(), static_cast<int>(_out.kps_.size()),
+            &count, &truncated, &time_us);
+        if (rc != g_aee_success) {
+            return {status_code::io_error,
+                "cDSP postprocess_face_scrfd failed: " + vqec_vision_ai_qcom_dspsn_describe(rc)};
+        }
+    } else {
+        // Host C reference execution for test environments or emulation
+        count = post_face_scrfd(
+            &impl_->host_scratch_, _tensors, _quant, _params,
+            _out.boxes_.data(), _out.kps_.data(), VQEC_MAX_BOXES);
+        if (count < 0) {
+            return {status_code::protocol_error, "Host post_face_scrfd execution failed"};
+        }
+        truncated = impl_->host_scratch_.truncated;
+        time_us = 0;
+    }
+
+    if (count < 0 || count > VQEC_MAX_BOXES) {
+        return {status_code::protocol_error,
+            "Invalid box count returned: " + std::to_string(count)};
+    }
+    _out.boxes_.resize(static_cast<std::size_t>(count) * VQEC_BOX_FLOATS);
+    _out.kps_.resize(static_cast<std::size_t>(count) * VQEC_KPS_FLOATS);
+    _out.count_ = count;
+    _out.truncated_ = truncated;
+    _out.time_us_ = time_us;
+    return {status_code::ok, ""};
+}
+
+}  // namespace vqec::vision::ai
