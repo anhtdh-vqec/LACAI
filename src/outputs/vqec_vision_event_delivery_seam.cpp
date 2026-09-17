@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <new>
+#include <utility>
 
 namespace vqec::vision::ai {
 
@@ -50,19 +51,19 @@ status event_delivery_seam::vqec_vision_ai_ports_fesnk_deliver_event(
     return {};
 }
 
-status event_delivery_seam::vqec_vision_ai_outpt_evdsm_drain(
-    std::size_t _max_count) {
-    const std::size_t to_drain = (_max_count == 0 || _max_count > pending_count_)
-        ? pending_count_
-        : _max_count;
-    for (std::size_t index = 0; index < to_drain; ++index) {
-        auto& slot = queue_[head_index_];
-        slot.disposition_ = event_disposition::drained;
-        head_index_ =
-            (head_index_ + 1) % event_delivery_seam_limits::g_max_queue_capacity;
-        --pending_count_;
-        ++metrics_.events_drained_;
+status event_delivery_seam::vqec_vision_ai_outpt_evdsm_take_next(
+    feature_event& _event) {
+    if (pending_count_ == 0) {
+        return {status_code::pending, "event delivery seam has no pending event"};
     }
+    auto& slot = queue_[head_index_];
+    _event = std::move(slot.event_);
+    slot.enqueued_time_ns_ = 0;
+    slot.disposition_ = event_disposition::handed_off;
+    head_index_ =
+        (head_index_ + 1) % event_delivery_seam_limits::g_max_queue_capacity;
+    --pending_count_;
+    ++metrics_.events_handed_off_;
     metrics_.events_pending_ = pending_count_;
     if (pending_count_ > 0) {
         metrics_.oldest_pending_ns_ = queue_[head_index_].enqueued_time_ns_;
@@ -70,6 +71,21 @@ status event_delivery_seam::vqec_vision_ai_outpt_evdsm_drain(
         metrics_.oldest_pending_ns_ = 0;
     }
     return {};
+}
+
+void event_delivery_seam::vqec_vision_ai_outpt_evdsm_discard_pending() noexcept {
+    metrics_.events_discarded_ += pending_count_;
+    while (pending_count_ > 0) {
+        auto& slot = queue_[head_index_];
+        slot.event_ = {};
+        slot.enqueued_time_ns_ = 0;
+        slot.disposition_ = event_disposition::rejected;
+        head_index_ =
+            (head_index_ + 1) % event_delivery_seam_limits::g_max_queue_capacity;
+        --pending_count_;
+    }
+    metrics_.events_pending_ = 0;
+    metrics_.oldest_pending_ns_ = 0;
 }
 
 void event_delivery_seam::vqec_vision_ai_outpt_evdsm_request_stop() noexcept {

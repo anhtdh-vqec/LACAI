@@ -133,7 +133,7 @@ uses distinct job tickets under its explicit repeated-task sequence policy.
 ## Metrics
 
 `vqec_vision_ai_appl_rtexe_get_metrics` returns cumulative counters (steps, results routed,
-events delivered/denied/failed and cascade accepted/embedded/failed) plus a routed-result
+events accepted/denied/failed and cascade accepted/embedded/failed) plus a routed-result
 latency accumulator. The accumulator uses the submission ticket's `submitted_steady_ns_`
 (reservation) and the executor steady clock, so it is `route_latency_*` — the steady
 interval from job reservation to result routing. It is not camera-to-output latency and
@@ -146,10 +146,10 @@ metrics sink/transport remain open.
 - No authenticated catalog/artifact resolution, signature or TOCTOU protection; loaders
   validate structure only.
 - The harness assumes one uniform source geometry for its fixture decoder.
-- Feature events can be authorized and delivered through an optional bound output gate
-  and feature-event sink; the reference sink is a development placeholder, not FW
-  transport, durability, dedup or retry. No overlay/encoder path is driven yet and the
-  encoded sink is not attached.
+- Feature events can be authorized and accepted by an optional bound output gate and
+  feature-event sink. The production seam is bounded but not durable; shutdown discard is
+  explicit. The reference sink is a development placeholder, not FW transport,
+  durability, dedup or retry.
 - Cascade alignment and synchronous QNN execution currently run on the serialized service
   progress thread. A bounded worker/completion state machine is required before claiming
   multi-face latency or CPU scalability.

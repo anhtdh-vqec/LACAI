@@ -569,7 +569,7 @@ int main() {
                        events, taken.source_index_, taken.model_slot_,
                        taken.captured_policy_revision_, taken.features_.processed_mask_,
                        now_ns, dispatch_report).code_ == status_code::ok);
-            assert(dispatch_report.attempted_ == 1 && dispatch_report.delivered_ == 1);
+            assert(dispatch_report.attempted_ == 1 && dispatch_report.accepted_ == 1);
         }
         routed = true;
     }
@@ -603,7 +603,7 @@ int main() {
                stale_events, stale_taken.source_index_, stale_taken.model_slot_,
                stale_taken.captured_policy_revision_, stale_taken.features_.processed_mask_,
                now_ns, stale_report).code_ == status_code::unauthorized);
-    assert(stale_report.delivered_ == 0 && stale_report.denied_ == 1);
+    assert(stale_report.accepted_ == 0 && stale_report.denied_ == 1);
 
     // A05: stop while a routed result is still pending. The drain must consume/discard it
     // so the composition can reach stopped instead of blocking on the pending slot.

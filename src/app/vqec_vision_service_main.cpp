@@ -822,13 +822,13 @@ int vqec_vision_ai_appl_svcmn_report_and_decide(const runtime_executor_metrics& 
     std::uint32_t _require_sources) {
     const auto route_avg_us = _metrics.end_to_end_samples_ == 0 ? 0ULL :
         _metrics.end_to_end_ns_sum_ / (1000ULL * _metrics.end_to_end_samples_);
-    std::printf("metrics steps=%llu routed=%llu delivered=%llu denied=%llu failed=%llu "
+    std::printf("metrics steps=%llu routed=%llu accepted=%llu denied=%llu failed=%llu "
         "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
         "route_latency_avg_us=%llu route_latency_min_us=%llu route_latency_max_us=%llu "
         "samples=%u\n",
         static_cast<unsigned long long>(_metrics.steps_),
         static_cast<unsigned long long>(_metrics.results_routed_),
-        static_cast<unsigned long long>(_metrics.events_delivered_),
+        static_cast<unsigned long long>(_metrics.events_accepted_),
         static_cast<unsigned long long>(_metrics.events_denied_),
         static_cast<unsigned long long>(_metrics.events_failed_),
         static_cast<unsigned long long>(_metrics.cascade_tasks_accepted_),
@@ -1907,12 +1907,12 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                         now_ns, service_harness::g_overlay_max_age_ns,
                         latest_overlay_observations[taken.source_index_]);
                 }
-                std::printf("routed source=%u model=%u tracked=%zu delivered=%u "
+                std::printf("routed source=%u model=%u tracked=%zu accepted=%u "
                     "cascade_accepted=%u embedded=%u cascade_failed=%u\n",
                     static_cast<unsigned>(taken.source_index_),
                     static_cast<unsigned>(taken.model_slot_),
                     tracked_count,
-                    static_cast<unsigned>(dispatch_report.delivered_),
+                    static_cast<unsigned>(dispatch_report.accepted_),
                     static_cast<unsigned>(taken.cascade_.accepted_),
                     static_cast<unsigned>(taken.cascade_.embedded_),
                     static_cast<unsigned>(taken.cascade_.failed_));
@@ -2094,7 +2094,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     }
     if (use_production_platform) {
         production_seam.vqec_vision_ai_outpt_evdsm_request_stop();
-        (void)production_seam.vqec_vision_ai_outpt_evdsm_drain();
+        production_seam.vqec_vision_ai_outpt_evdsm_discard_pending();
     }
     return vqec_vision_ai_appl_svcmn_report_and_decide(metrics, stopped,
         enrollment_stopped.code_ == status_code::ok,

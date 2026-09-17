@@ -872,7 +872,7 @@
             --steps 160 --require-sources 2)
         set_tests_properties(service_production_reference_smoke PROPERTIES
             TIMEOUT 20
-            PASS_REGULAR_EXPRESSION "delivered=[1-9][0-9]*"
+            PASS_REGULAR_EXPRESSION "accepted=[1-9][0-9]*"
             FAIL_REGULAR_EXPRESSION "stopped=false;first_error=[1-9]")
         if(TARGET vqec_vision_ai_usecase_control_dbus AND CMAKE_CROSSCOMPILING_EMULATOR)
             find_program(usecase_runtime_python NAMES python3 PATHS /usr/bin

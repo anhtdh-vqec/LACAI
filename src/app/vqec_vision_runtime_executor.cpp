@@ -256,7 +256,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
                 batch, index, config, _policy_revision, _steady_now_ns,
                 *delivery_gate_, *delivery_sink_);
             if (delivered.code_ == status_code::ok) {
-                ++_report.delivered_;
+                ++_report.accepted_;
                 continue;
             }
             if (delivered.code_ == status_code::unauthorized) {
@@ -270,7 +270,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_dispatch_events(
             }
         }
     }
-    metrics_.events_delivered_ += _report.delivered_;
+    metrics_.events_accepted_ += _report.accepted_;
     metrics_.events_denied_ += _report.denied_;
     metrics_.events_failed_ += _report.failed_;
     return _report.first_error_code_ == status_code::ok ?

@@ -35,7 +35,7 @@ struct runtime_executor_report {
 struct runtime_executor_metrics {
     std::uint64_t steps_{0};
     std::uint64_t results_routed_{0};
-    std::uint64_t events_delivered_{0};
+    std::uint64_t events_accepted_{0};
     std::uint64_t events_denied_{0};
     std::uint64_t events_failed_{0};
     std::uint64_t cascade_tasks_accepted_{0};
@@ -50,7 +50,7 @@ struct runtime_executor_metrics {
 
 struct feature_dispatch_report {
     std::uint32_t attempted_{0};
-    std::uint32_t delivered_{0};
+    std::uint32_t accepted_{0};
     // Authorization/policy rejections, kept distinct from transport/sink failures.
     std::uint32_t denied_{0};
     std::uint32_t failed_{0};
@@ -92,8 +92,8 @@ public:
     void vqec_vision_ai_appl_rtexe_discard_pending() noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_request_stop(
         std::uint64_t _steady_now_ns);
-    // Optional output boundary. Delivered events are re-authorized against the bound
-    // gate; taking a result is not itself permission to publish. Both are borrowed.
+    // Optional output boundary. Accepted events are re-authorized against the bound gate;
+    // acceptance may mean a bounded pending handoff, not durable delivery. Both are borrowed.
     void vqec_vision_ai_appl_rtexe_bind_event_delivery(
         output_gate& _gate, feature_event_sink_port& _sink) noexcept;
     // Binds the configured coordinator required by the catalog-derived cascade root.

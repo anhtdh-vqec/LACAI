@@ -51,7 +51,7 @@ void vqec_vision_ai_ctest_edsct_test_acceptance_and_pending() {
     const auto& metrics = seam.vqec_vision_ai_outpt_evdsm_get_metrics();
     assert(metrics.events_accepted_ == 2);
     assert(metrics.events_pending_ == 2);
-    assert(metrics.events_drained_ == 0);
+    assert(metrics.events_handed_off_ == 0);
     assert(metrics.events_dropped_ == 0);
     assert(metrics.events_rejected_ == 0);
     assert(metrics.oldest_pending_ns_ == 1000);
@@ -111,7 +111,7 @@ void vqec_vision_ai_ctest_edsct_test_stop_rejection() {
     assert(metrics.events_pending_ == 1);
 }
 
-void vqec_vision_ai_ctest_edsct_test_drain() {
+void vqec_vision_ai_ctest_edsct_test_handoff_and_discard() {
     event_delivery_seam_config config;
     config.max_queued_events_ = 5;
     event_delivery_seam seam(config);
@@ -123,17 +123,20 @@ void vqec_vision_ai_ctest_edsct_test_drain() {
     assert(seam.vqec_vision_ai_ports_fesnk_deliver_event(
         vqec_vision_ai_ctest_edsct_make_event("cam0", "counting", 300)).code_ == status_code::ok);
 
-    // Drain partial (1 event)
-    assert(seam.vqec_vision_ai_outpt_evdsm_drain(1).code_ == status_code::ok);
+    feature_event handed_off;
+    assert(seam.vqec_vision_ai_outpt_evdsm_take_next(handed_off).code_ == status_code::ok);
+    assert(handed_off.occurred_at_ns_ == 100);
     assert(seam.vqec_vision_ai_outpt_evdsm_get_pending_count() == 2);
-    assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().events_drained_ == 1);
+    assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().events_handed_off_ == 1);
     assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().oldest_pending_ns_ == 200);
 
-    // Drain remaining
-    assert(seam.vqec_vision_ai_outpt_evdsm_drain().code_ == status_code::ok);
+    seam.vqec_vision_ai_outpt_evdsm_discard_pending();
     assert(seam.vqec_vision_ai_outpt_evdsm_get_pending_count() == 0);
-    assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().events_drained_ == 3);
+    assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().events_handed_off_ == 1);
+    assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().events_discarded_ == 2);
     assert(seam.vqec_vision_ai_outpt_evdsm_get_metrics().oldest_pending_ns_ == 0);
+    assert(seam.vqec_vision_ai_outpt_evdsm_take_next(handed_off).code_ ==
+        status_code::pending);
 }
 
 }  // namespace
@@ -144,7 +147,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_ctest_edsct_test_acceptance_and_pending();
         vqec::vision::ai::vqec_vision_ai_ctest_edsct_test_bounded_capacity();
         vqec::vision::ai::vqec_vision_ai_ctest_edsct_test_stop_rejection();
-        vqec::vision::ai::vqec_vision_ai_ctest_edsct_test_drain();
+        vqec::vision::ai::vqec_vision_ai_ctest_edsct_test_handoff_and_discard();
         std::cout << "vqec_vision_event_delivery_seam_test: all tests passed\n";
     } catch (const std::exception& error) {
         std::cerr << "Test failed with exception: " << error.what() << '\n';

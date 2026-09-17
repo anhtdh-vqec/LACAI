@@ -19,7 +19,7 @@ inline constexpr std::size_t g_default_queue_capacity = 64;
 enum class event_disposition : std::uint8_t {
     empty = 0,
     accepted_pending = 1,
-    drained = 2,
+    handed_off = 2,
     rejected = 3
 };
 
@@ -30,8 +30,9 @@ struct event_delivery_seam_config {
 struct event_delivery_seam_metrics {
     std::uint64_t events_accepted_{0};
     std::uint64_t events_pending_{0};
-    std::uint64_t events_drained_{0};
+    std::uint64_t events_handed_off_{0};
     std::uint64_t events_dropped_{0};
+    std::uint64_t events_discarded_{0};
     std::uint64_t events_rejected_{0};
     std::uint64_t oldest_pending_ns_{0};
 };
@@ -56,8 +57,12 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_fesnk_deliver_event(
         const feature_event& _event) override;
 
-    [[nodiscard]] status vqec_vision_ai_outpt_evdsm_drain(
-        std::size_t _max_count = 0);
+    // Transfers one accepted event to a downstream transport owner. `ok` means handed
+    // off from this in-memory seam, never durable or remotely acknowledged delivery.
+    [[nodiscard]] status vqec_vision_ai_outpt_evdsm_take_next(feature_event& _event);
+    // Explicit terminal discard for shutdown/recovery when no downstream transport is
+    // wired. Discarded events are never counted as handed off.
+    void vqec_vision_ai_outpt_evdsm_discard_pending() noexcept;
     void vqec_vision_ai_outpt_evdsm_request_stop() noexcept;
     [[nodiscard]] bool vqec_vision_ai_outpt_evdsm_is_stopping() const noexcept;
     [[nodiscard]] const event_delivery_seam_metrics&
