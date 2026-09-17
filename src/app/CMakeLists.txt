@@ -1,6 +1,15 @@
 # Application orchestration targets and the service executable. Target names are
 # unchanged from the former root definitions.
 
+# Cold-path startup option parsing, split out of the service main translation unit so it
+# can be unit-tested without building the full executable.
+add_library(vqec_vision_ai_service_options STATIC
+    vqec_vision_service_options.cpp)
+target_include_directories(vqec_vision_ai_service_options PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_service_options PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_service_options PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     vqec_vision_camera_graph_pump.cpp vqec_vision_camera_session.cpp)
 target_include_directories(vqec_vision_ai_camera_graph_pump PUBLIC
@@ -198,6 +207,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_reference_platform.cpp
         vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
+        vqec_vision_ai_service_options
         vqec_vision_ai_production_platform
         vqec_vision_ai_cascade_graph_session
         vqec_vision_ai_face_enrollment_image_pipeline

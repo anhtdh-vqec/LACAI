@@ -190,6 +190,12 @@
     set_target_properties(vqec_vision_ai_application_composition_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME application_composition_lifecycle
         COMMAND vqec_vision_ai_application_composition_test)
+    add_executable(vqec_vision_ai_service_options_test
+        unit/vqec_vision_service_options_test.cpp)
+    target_link_libraries(vqec_vision_ai_service_options_test
+        PRIVATE vqec_vision_ai_service_options)
+    set_target_properties(vqec_vision_ai_service_options_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_options_parsing COMMAND vqec_vision_ai_service_options_test)
     add_executable(vqec_vision_ai_model_cadence_test
         unit/vqec_vision_model_cadence_test.cpp)
     target_link_libraries(vqec_vision_ai_model_cadence_test

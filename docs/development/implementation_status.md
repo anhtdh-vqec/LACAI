@@ -1,5 +1,16 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-E update (first slice): startup option parsing was extracted from
+the 2203-line service main into a testable unit. `vqec_vision_service_options.{hpp,cpp}`
+owns `parsed_arguments` and `vqec_vision_ai_appl_svopt_parse`, built as the
+`vqec_vision_ai_service_options` library and covered by the `service_options_parsing`
+CTest. `service_main.cpp` shrank to 1923 lines; the step-interval default now has one named
+owner. Behavior is unchanged: the executable passes the same smoke tests. Decomposing the
+remaining `run_generation` loop into phase builders is still open. eSDK/QEMU suite passes
+123/123. Board `.98`: native 115 (two known environment-fixture failures) and a live
+compatibility run published H.264 1920x1080 30/1 (181 frames in 6 s) with `first_error=0`
+and D-Bus 5/5.
+
 2026-09-16 clean-base CB-D update: the legacy `secondary_inference` contract and
 `secondary_inference_scheduler` were removed (ADR 0006). They duplicated the delivered
 retained-frame `cascade_coordinator` and left two cascade-scheduling designs in the tree.

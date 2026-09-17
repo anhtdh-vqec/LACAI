@@ -530,6 +530,9 @@ Runtime composition factory registrations (source delivered):
 | tests/contract/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
 | src/app/vqec_vision_runtime_executor.cpp | rtexe | vqec_vision_ai_appl_rtexe_ |
 | src/app/vqec_vision_service_main.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
+| src/app/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
+| tests/unit/vqec_vision_service_options_test.cpp | sotst | vqec_vision_ai_unit_sotst_ |
 | src/app/vqec_vision_fake_platform.cpp | fkplt | vqec_vision_ai_appl_fkplt_ |
 | src/app/vqec_vision_reference_platform.cpp | rplat | vqec_vision_ai_appl_rplat_ |
 | src/app/vqec_vision_fixture_detector.cpp | fxdet | vqec_vision_ai_appl_fxdet_ |
