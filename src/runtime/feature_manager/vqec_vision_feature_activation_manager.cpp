@@ -143,25 +143,58 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
         record.resource_admitted_ = request.resource_admitted_;
         ++candidate_snapshot.association_count_;
 
+        record.association_.source_id_ = request.source_id_;
+        record.association_.feature_id_ = request.feature_id_;
+        record.association_.desired_enabled_ = request.desired_enabled_;
+        record.association_.entitlement_granted_ = request.entitlement_granted_;
+        record.association_.resource_admitted_ = request.resource_admitted_;
+        record.association_.installed_ = true;
+        record.association_.supported_ = vqec_vision_ai_ftmgr_famgr_source_has_models(*source, *feature);
+        record.association_.compatible_ = true;
+        record.association_.deployment_revision_ = deployment_->revision_;
+        record.association_.usecase_catalog_revision_ = features_->revision_;
+        record.association_.model_catalog_revision_ = models_->revision_;
+        record.association_.config_revision_ = request.configuration_.revision_;
+
+        if (!feature->model_dependencies_.empty()) {
+            const auto& dep_model_id = feature->model_dependencies_[0].model_id_;
+            for (std::size_t m = 0; m < source->model_ids_.size(); ++m) {
+                if (source->model_ids_[m] == dep_model_id) {
+                    record.association_.model_slot_ = static_cast<std::uint16_t>(m);
+                    break;
+                }
+            }
+        }
+        for (const auto& attr_dep : feature->attribute_dependencies_) {
+            record.association_.attribute_scopes_.push_back(attr_dep.schema_id_);
+        }
+
         if (!request.desired_enabled_) {
             record.state_ = feature_effective_state::disabled;
+            record.association_.state_ = usecase_effective_state::disabled;
             continue;
         }
         if (!request.entitlement_granted_) {
             record.state_ = feature_effective_state::denied;
             record.reason_code_ = status_code::unauthorized;
+            record.association_.state_ = usecase_effective_state::denied;
+            record.association_.reason_code_ = status_code::unauthorized;
             ++candidate_snapshot.denied_count_;
             continue;
         }
         if (!request.resource_admitted_) {
             record.state_ = feature_effective_state::resource_limited;
             record.reason_code_ = status_code::resource_exhausted;
+            record.association_.state_ = usecase_effective_state::resource_limited;
+            record.association_.reason_code_ = status_code::resource_exhausted;
             ++candidate_snapshot.resource_limited_count_;
             continue;
         }
         if (!vqec_vision_ai_ftmgr_famgr_source_has_models(*source, *feature)) {
             record.state_ = feature_effective_state::unsupported;
             record.reason_code_ = status_code::unsupported;
+            record.association_.state_ = usecase_effective_state::unsupported;
+            record.association_.reason_code_ = status_code::unsupported;
             ++candidate_snapshot.unsupported_count_;
             continue;
         }
@@ -173,6 +206,9 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
             record.state_ = created.code_ == status_code::unsupported ?
                 feature_effective_state::unsupported : feature_effective_state::faulted;
             record.reason_code_ = created.code_;
+            record.association_.state_ = record.state_ == feature_effective_state::unsupported ?
+                usecase_effective_state::unsupported : usecase_effective_state::incompatible;
+            record.association_.reason_code_ = record.reason_code_;
             if (record.state_ == feature_effective_state::unsupported) {
                 ++candidate_snapshot.unsupported_count_;
             } else {
@@ -192,6 +228,8 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
             if (composed.code_ != status_code::ok) {
                 record.state_ = feature_effective_state::faulted;
                 record.reason_code_ = composed.code_;
+                record.association_.state_ = usecase_effective_state::incompatible;
+                record.association_.reason_code_ = composed.code_;
                 ++candidate_snapshot.faulted_count_;
                 if (!has_error) {
                     first_error = composed;
@@ -204,6 +242,8 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
             if (activated.code_ != status_code::ok) {
                 record.state_ = feature_effective_state::faulted;
                 record.reason_code_ = activated.code_;
+                record.association_.state_ = usecase_effective_state::incompatible;
+                record.association_.reason_code_ = activated.code_;
                 ++candidate_snapshot.faulted_count_;
                 if (!has_error) {
                     first_error = activated;
@@ -214,10 +254,14 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
             record.processor_ = std::move(processor);
             record.stage_ = std::move(stage);
             record.state_ = feature_effective_state::ready;
+            record.association_.state_ = usecase_effective_state::ready;
+            record.association_.reason_code_ = status_code::ok;
             ++candidate_snapshot.ready_count_;
         } catch (const std::bad_alloc&) {
             record.state_ = feature_effective_state::faulted;
             record.reason_code_ = status_code::resource_exhausted;
+            record.association_.state_ = usecase_effective_state::incompatible;
+            record.association_.reason_code_ = status_code::resource_exhausted;
             ++candidate_snapshot.faulted_count_;
             if (!has_error) {
                 first_error = {status_code::resource_exhausted,
@@ -227,6 +271,8 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
         } catch (...) {
             record.state_ = feature_effective_state::faulted;
             record.reason_code_ = status_code::io_error;
+            record.association_.state_ = usecase_effective_state::incompatible;
+            record.association_.reason_code_ = status_code::io_error;
             ++candidate_snapshot.faulted_count_;
             if (!has_error) {
                 first_error = {status_code::io_error,

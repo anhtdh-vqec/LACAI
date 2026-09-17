@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_feature_stage.hpp"
 
@@ -43,6 +44,7 @@ struct feature_activation_record {
     bool desired_enabled_{false};
     bool entitlement_granted_{false};
     bool resource_admitted_{false};
+    feature_scoped_association_record association_{};
     std::unique_ptr<feature_processor_port> processor_;
     std::unique_ptr<feature_stage> stage_;
 };

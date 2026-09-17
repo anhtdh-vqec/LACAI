@@ -73,7 +73,38 @@ struct usecase_activation_snapshot {
     std::uint64_t usecase_catalog_revision_{0};
     std::uint64_t model_catalog_revision_{0};
     std::uint64_t deployment_revision_{0};
+    std::uint64_t policy_revision_{0};
+    std::uint64_t config_revision_{0};
     std::vector<usecase_activation_record> records_;
+};
+
+// Scoped association record that carries source, usecase, feature, model slot,
+// attribute scopes and revisions together in one immutable record.
+struct feature_scoped_association_record {
+    std::string source_id_;
+    std::string usecase_id_;
+    std::string feature_id_;
+    std::uint16_t model_slot_{0};
+    std::vector<std::string> attribute_scopes_;
+    std::uint64_t deployment_revision_{0};
+    std::uint64_t usecase_catalog_revision_{0};
+    std::uint64_t model_catalog_revision_{0};
+    std::uint64_t policy_revision_{0};
+    std::uint64_t config_revision_{0};
+    usecase_effective_state state_{usecase_effective_state::disabled};
+    status_code reason_code_{status_code::ok};
+    bool desired_enabled_{false};
+    bool installed_{false};
+    bool entitlement_granted_{false};
+    bool supported_{false};
+    bool compatible_{false};
+    bool resource_admitted_{false};
+
+    [[nodiscard]] bool is_ready() const noexcept {
+        return state_ == usecase_effective_state::ready &&
+               desired_enabled_ && installed_ && entitlement_granted_ &&
+               supported_ && compatible_ && resource_admitted_;
+    }
 };
 
 // Projection used when one runtime feature is referenced by more than one usecase. Gates
@@ -109,6 +140,14 @@ struct feature_authority_projection {
     const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
     const std::string& _source_id, const std::string& _feature_id,
     feature_authority_projection& _projection);
+
+// Resolves the complete immutable scoped association record for one source/feature from the
+// activation snapshot and base deployment. A feature is ready only when at least one single
+// usecase association supplies the complete desired+entitled+admitted chain.
+[[nodiscard]] status vqec_vision_ai_core_ucact_project_feature_association(
+    const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
+    const deployment_config& _deployment, const std::string& _source_id,
+    const std::string& _feature_id, feature_scoped_association_record& _association);
 
 }  // namespace vqec::vision::ai
 

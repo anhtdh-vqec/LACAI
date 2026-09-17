@@ -217,6 +217,101 @@ void vqec_vision_ai_unit_ucatst_check_feature_authority_projection() {
     }
 }
 
+void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
+    auto usecases = vqec_vision_ai_unit_ucatst_make_usecases();
+    usecases.usecases_[0].feature_ids_ = {"person_feature"};
+    usecases.usecases_[2].feature_ids_ = {"person_feature"};
+
+    const auto deployment = vqec_vision_ai_unit_ucatst_make_deployment();
+    usecase_activation_snapshot snapshot;
+    snapshot.usecase_catalog_revision_ = usecases.revision_;
+    snapshot.deployment_revision_ = deployment.revision_;
+    snapshot.model_catalog_revision_ = 4;
+    snapshot.policy_revision_ = 10;
+    snapshot.config_revision_ = 20;
+
+    // Usecase 0 (person_detection): ready
+    usecase_activation_record rec_person;
+    rec_person.source_id_ = "camera_front";
+    rec_person.usecase_id_ = "person_detection";
+    rec_person.state_ = usecase_effective_state::ready;
+    rec_person.reason_code_ = status_code::ok;
+    rec_person.desired_enabled_ = true;
+    rec_person.installed_ = true;
+    rec_person.entitlement_granted_ = true;
+    rec_person.supported_ = true;
+    rec_person.compatible_ = true;
+    rec_person.resource_admitted_ = true;
+
+    // Usecase 2 (people_counting): disabled
+    usecase_activation_record rec_count;
+    rec_count.source_id_ = "camera_front";
+    rec_count.usecase_id_ = "people_counting";
+    rec_count.state_ = usecase_effective_state::disabled;
+    rec_count.reason_code_ = status_code::ok;
+    rec_count.desired_enabled_ = false;
+    rec_count.installed_ = true;
+    rec_count.entitlement_granted_ = false;
+    rec_count.supported_ = true;
+    rec_count.compatible_ = true;
+    rec_count.resource_admitted_ = false;
+
+    snapshot.records_ = {rec_person, rec_count};
+
+    feature_scoped_association_record association;
+    auto projected = vqec_vision_ai_core_ucact_project_feature_association(
+        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+    if (projected.code_ != status_code::ok || !association.is_ready() ||
+        association.usecase_id_ != "person_detection" ||
+        association.feature_id_ != "person_feature" ||
+        association.model_slot_ != 0 ||
+        association.policy_revision_ != 10 ||
+        association.config_revision_ != 20 ||
+        association.deployment_revision_ != deployment.revision_ ||
+        association.usecase_catalog_revision_ != usecases.revision_) {
+        throw std::runtime_error("scoped association projection failed to project ready usecase");
+    }
+
+    // Policy Revoke test: revoke entitlement on person_detection
+    snapshot.records_[0].entitlement_granted_ = false;
+    snapshot.records_[0].state_ = usecase_effective_state::denied;
+    snapshot.records_[0].reason_code_ = status_code::unauthorized;
+    projected = vqec_vision_ai_core_ucact_project_feature_association(
+        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+    if (projected.code_ != status_code::ok || association.is_ready() ||
+        association.state_ != usecase_effective_state::denied ||
+        association.reason_code_ != status_code::unauthorized ||
+        association.entitlement_granted_) {
+        throw std::runtime_error("revoked policy did not deny scoped association");
+    }
+
+    // Negative cross-grant test:
+    // Usecase A has desired=true, but entitled=false. Usecase B has desired=false, but entitled=true.
+    snapshot.records_[0].desired_enabled_ = true;
+    snapshot.records_[0].entitlement_granted_ = false;
+    snapshot.records_[0].state_ = usecase_effective_state::denied;
+    snapshot.records_[1].desired_enabled_ = false;
+    snapshot.records_[1].entitlement_granted_ = true;
+    snapshot.records_[1].state_ = usecase_effective_state::disabled;
+    projected = vqec_vision_ai_core_ucact_project_feature_association(
+        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+    if (projected.code_ != status_code::ok || association.is_ready()) {
+        throw std::runtime_error("cross-grant combining allowed unverified ready association");
+    }
+
+    // All-off test:
+    snapshot.records_[0].desired_enabled_ = false;
+    snapshot.records_[0].state_ = usecase_effective_state::disabled;
+    snapshot.records_[1].desired_enabled_ = false;
+    snapshot.records_[1].state_ = usecase_effective_state::disabled;
+    projected = vqec_vision_ai_core_ucact_project_feature_association(
+        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+    if (projected.code_ != status_code::ok || association.is_ready() ||
+        association.state_ != usecase_effective_state::disabled) {
+        throw std::runtime_error("all-off did not yield disabled scoped association");
+    }
+}
+
 }  // namespace
 }  // namespace vqec::vision::ai
 
@@ -226,6 +321,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_denial_idle_and_shared_root();
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_transactional_validation();
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_feature_authority_projection();
+        vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_feature_association_projection();
     } catch (const std::exception& error) {
         return error.what() == nullptr ? 2 : 1;
     }

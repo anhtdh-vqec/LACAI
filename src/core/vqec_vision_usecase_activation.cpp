@@ -324,4 +324,87 @@ status vqec_vision_ai_core_ucact_project_feature_authority(
     return {};
 }
 
+status vqec_vision_ai_core_ucact_project_feature_association(
+    const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
+    const deployment_config& _deployment, const std::string& _source_id,
+    const std::string& _feature_id, feature_scoped_association_record& _association) {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _source_id, usecase_activation_limits::g_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _feature_id, usecase_activation_limits::g_max_identifier_bytes) ||
+        _usecases.revision_ == 0 ||
+        _snapshot.usecase_catalog_revision_ != _usecases.revision_ ||
+        _snapshot.deployment_revision_ != _deployment.revision_) {
+        return {status_code::invalid_argument,
+            "feature association projection identity or revision is invalid"};
+    }
+
+    const auto* source =
+        vqec_vision_ai_core_ucact_find_source(_deployment, _source_id);
+    if (source == nullptr) {
+        return {status_code::invalid_argument, "source not found in deployment"};
+    }
+
+    feature_scoped_association_record best_candidate{};
+    bool found_association = false;
+
+    for (const auto& usecase : _usecases.usecases_) {
+        if (std::find(usecase.feature_ids_.begin(), usecase.feature_ids_.end(),
+                _feature_id) == usecase.feature_ids_.end()) {
+            continue;
+        }
+        for (const auto& record : _snapshot.records_) {
+            if (record.source_id_ != _source_id ||
+                record.usecase_id_ != usecase.usecase_id_) {
+                continue;
+            }
+
+            feature_scoped_association_record candidate{};
+            candidate.source_id_ = _source_id;
+            candidate.usecase_id_ = usecase.usecase_id_;
+            candidate.feature_id_ = _feature_id;
+            candidate.deployment_revision_ = _snapshot.deployment_revision_;
+            candidate.usecase_catalog_revision_ = _snapshot.usecase_catalog_revision_;
+            candidate.model_catalog_revision_ = _snapshot.model_catalog_revision_;
+            candidate.policy_revision_ = _snapshot.policy_revision_;
+            candidate.config_revision_ = _snapshot.config_revision_;
+
+            candidate.model_slot_ = 0;
+            for (std::size_t m = 0; m < source->model_ids_.size(); ++m) {
+                if (std::find(usecase.root_model_ids_.begin(), usecase.root_model_ids_.end(),
+                        source->model_ids_[m]) != usecase.root_model_ids_.end()) {
+                    candidate.model_slot_ = static_cast<std::uint16_t>(m);
+                    break;
+                }
+            }
+
+            candidate.state_ = record.state_;
+            candidate.reason_code_ = record.reason_code_;
+            candidate.desired_enabled_ = record.desired_enabled_;
+            candidate.installed_ = record.installed_;
+            candidate.entitlement_granted_ = record.entitlement_granted_;
+            candidate.supported_ = record.supported_;
+            candidate.compatible_ = record.compatible_;
+            candidate.resource_admitted_ = record.resource_admitted_;
+
+            if (candidate.is_ready()) {
+                _association = std::move(candidate);
+                return {};
+            }
+
+            if (!found_association) {
+                best_candidate = std::move(candidate);
+                found_association = true;
+            }
+        }
+    }
+
+    if (found_association) {
+        _association = std::move(best_candidate);
+        return {};
+    }
+
+    return {status_code::unsupported, "no usecase association found for feature"};
+}
+
 }  // namespace vqec::vision::ai
