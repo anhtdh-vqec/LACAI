@@ -13,6 +13,8 @@ Phạm vi: Markdown trong docs, root rules/README và module READMEs, đối chi
 ở các boundary liên quan. Đây là architecture/documentation review, không phải audit mọi
 nhánh code hay một lần benchmark/board qualification mới.
 
+**Status:** current — open architecture issue backlog A01–A25.
+
 ## 1. Kết luận về định hướng
 
 **Chưa lệch mục tiêu cốt lõi, nhưng có khoảng cách đáng kể giữa kiến trúc mong muốn,

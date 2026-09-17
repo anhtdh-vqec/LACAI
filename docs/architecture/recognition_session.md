@@ -1,9 +1,26 @@
 # Recognition session owner
 
 `recognition_session` is the serialized owner between cascade embeddings and an
-output-authorized FR consumer. It accepts the neutral `embedding_index_port`, so the
-same policy runs with the exact reference index or the Qualcomm deployment's Zvec
-adapter. The owner never includes Zvec, QNN, GStreamer or DBus types.
+output-authorized FR consumer. It accepts the neutral `embedding_index_port`, so the same
+policy runs with the exact reference index or the Qualcomm deployment's Zvec adapter.
+
+**Status:** source-delivered — in-process recognition owner, protected gallery adapter and
+Zvec adapter source exist. **Layer:** perception.
+**Source:** `src/perception/embedding/vqec_vision_recognition_session.{hpp,cpp}`,
+`src/perception/embedding/vqec_vision_recognition_policy.cpp`,
+`src/adapters/zvec/vqec_vision_zvec_embedding_index.{hpp,cpp}`,
+`src/adapters/storage/vqec_vision_encrypted_face_gallery_store.{hpp,cpp}`.
+
+## Responsibility
+
+- Own serialized gallery mutations and recognition searches behind the neutral
+  `embedding_index_port`.
+- Keep subject identity opaque and bounded record-to-subject metadata; assign monotonic
+  record IDs and remove every template for a subject in a serialized sequence.
+- Must not include Zvec, QNN, GStreamer or DBus types, and must not resolve a human display
+  name; that remains an output metadata responsibility.
+
+## Gallery mutation semantics
 
 The gallery stores one metadata entry per template. A subject may therefore have
 multiple samples without duplicating subject identity in the output. Each mutation
@@ -13,6 +30,8 @@ record IDs, and removes every template for a subject in a serialized sequence. I
 backend mutation succeeds but the owner cannot update its metadata, the session faults
 instead of pretending that the gallery is consistent.
 
+## Persistent gallery
+
 For a production gallery, `configure_persistent` loads one complete snapshot from the
 AI-owned protected-store port, validates model/version/preprocess identity and rebuilds a fresh
 derived index at the exact durable revision before accepting searches. Enrollment and
@@ -21,6 +40,8 @@ failure after durable commit faults the session; restart recovery replays the au
 snapshot rather than trusting a partially updated collection. The existing non-persistent
 configure path remains a bounded reference/harness mode.
 
+## Recognition and labeling
+
 Recognition searches are pinned to one gallery revision and the configured model
 identity. The policy groups the returned templates by opaque subject reference and
 emits `known`, `unknown` or `ambiguous`; backend failures remain errors. Label
@@ -28,7 +49,8 @@ application requires the exact frame identity and gallery revision, then matches
 embedding track ID to the tracked observation. It writes only the opaque subject
 reference into `overlay_box::label_`; the service authorizes the configured identity
 attribute through `output_gate` before this label reaches the production renderer.
-Resolving a human display name remains an output metadata responsibility.
+
+## Enrollment seam
 
 This owner is the runtime seam for DBus enrollment. A control adapter calls
 `add_template` only after the authorized image pipeline supplies an accepted embedding
@@ -40,7 +62,22 @@ bounded authenticated persistence, private file ownership/modes, revision CAS an
 rename. Its filesystem key provider is not hardware-bound; hardware key qualification and
 display-name metadata remain tracked work in the face-recognition completion plan.
 
+## Storage adapters
+
 The Linux Zvec adapter defaults to a service-owned mode-0700 tmpfs parent with a pinned
 directory FD; it destroys derived files on close. The encrypted authoritative gallery
-persists through FR disable/re-enable. See [FR validation](../testing/face_recognition_production_validation.md)
-for measured cases and swap/hardware-key/durability gates.
+persists through FR disable/re-enable. See
+[FR validation](../testing/face_recognition_production_validation.md) for measured cases and
+swap/hardware-key/durability gates.
+
+## Limits and next work
+
+- Hardware key qualification and display-name metadata remain tracked work in the
+  face-recognition completion plan.
+- The filesystem key provider is not hardware-bound.
+- Resolving a human display name remains an output metadata responsibility.
+
+## See also
+
+- [FR validation](../testing/face_recognition_production_validation.md)
+- [completion plan](../planning/face_recognition_completion_plan.md)

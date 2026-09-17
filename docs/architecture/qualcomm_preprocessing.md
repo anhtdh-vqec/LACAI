@@ -1,14 +1,29 @@
 # Qualcomm preprocessing adapter
 
-Status: source-delivered and measured on the QCS6490 `.48` integration target on
-2026-09-15. This path is private to `src/adapters/qualcomm`; application composition
-continues to depend only on `image_processor_port`.
+This document defines the private FastCV preprocessing pipeline that turns a linear NV12 frame
+into the exact model input tensor behind the neutral `image_processor_port`, and records the
+measured board bottleneck progression.
+
+**Status:** board-smoke — source-delivered and measured on the QCS6490 `.48` integration target on
+2026-09-15. **Layer:** adapters. **Source:**
+`src/adapters/qualcomm/vqec_vision_fastcv_processor.{hpp,cpp}`,
+`vqec_vision_qtiv_color.{hpp,cpp}`.
+
+This path is private to `src/adapters/qualcomm`; application composition continues to depend only
+on `image_processor_port`.
+
+## Responsibility
+
+- Build one reusable preprocessing pipeline per admitted model slot.
+- Select the `fcv` engine explicitly and fail closed on property/enum/semantic mismatch.
+- Widen plugin UINT8 output to the model's declared UINT16 contract with NEON packing.
+- Keep all Gst, FastCV, QNN and ARM SIMD types behind the neutral port.
 
 ## Runtime path
 
-The production Qualcomm platform constructs one `fastcv_processor` for each admitted
-model slot and binds it through the neutral image-processor port. It builds the reusable
-pipeline below from the validated source profile, inference plan and graph input tensor:
+The production Qualcomm platform constructs one `fastcv_processor` for each admitted model slot and
+binds it through the neutral image-processor port. It builds the reusable pipeline below from the
+validated source profile, inference plan and graph input tensor:
 
 ```text
 FW linear NV12 FD
@@ -22,43 +37,42 @@ FW linear NV12 FD
   -> QNN graph input
 ```
 
-`qtivtransform` owns resize and letterbox placement so the pad color comes from the model
-preprocess manifest. `qtimlvconverter` owns NV12-to-RGB/BGR conversion. The adapter selects
-the `fcv` engine explicitly and fails closed when the installed properties, enum nicks or
-requested semantics do not match. The current reviewed surface accepts linear NV12,
-BT.601-limited or BT.709-limited input, bilinear stretch/letterbox, batch-one NHWC RGB/BGR
-and only UINT8/UINT16 offset-scale contracts whose full 256-value mapping differs by at
-most one quantized LSB from the pipeline's direct integer output. The one-LSB allowance is
-the declared boundary between affine rounding and integer widening; golden tensor parity is
-still required for each converted artifact.
+## Element semantics and widening
 
-The graph input used in this board run is UINT16. Asking `qtimlvconverter` to produce
-UINT16 invokes its generic per-value normalization loop. LACAI therefore requests UINT8
-from the plugin and widens each byte to the full UINT16 range (`value * 257`). On
-AArch64 this packing uses NEON byte interleave; the scalar fallback keeps the adapter
-source compilable for another architecture. This decision is derived from the tensor
-contract and never from a model name. Validation exhaustively checks all 256 possible
-channel values, so nonzero model zero points such as the face packages' `32768` are accepted
-only when the resulting affine mapping is compatible with that widening.
+`qtivtransform` owns resize and letterbox placement so the pad color comes from the model preprocess
+manifest. `qtimlvconverter` owns NV12-to-RGB/BGR conversion. The adapter selects the `fcv` engine
+explicitly and fails closed when the installed properties, enum nicks or requested semantics do not
+match. The current reviewed surface accepts linear NV12, BT.601-limited or BT.709-limited input,
+bilinear stretch/letterbox, batch-one NHWC RGB/BGR and only UINT8/UINT16 offset-scale contracts
+whose full 256-value mapping differs by at most one quantized LSB from the pipeline's direct integer
+output. The one-LSB allowance is the declared boundary between affine rounding and integer widening;
+golden tensor parity is still required for each converted artifact.
+
+The graph input used in this board run is UINT16. Asking `qtimlvconverter` to produce UINT16 invokes
+its generic per-value normalization loop. LACAI therefore requests UINT8 from the plugin and widens
+each byte to the full UINT16 range (`value * 257`). On AArch64 this packing uses NEON byte
+interleave; the scalar fallback keeps the adapter source compilable for another architecture. This
+decision is derived from the tensor contract and never from a model name. Validation exhaustively
+checks all 256 possible channel values, so nonzero model zero points such as the face packages'
+`32768` are accepted only when the resulting affine mapping is compatible with that widening.
 
 ## Ownership and remaining copies
 
-The source FD remains owned through the shared `raw_frame` owner while GStreamer/FastCV
-reads it. The adapter maps the plugin output, copies it into a bounded LACAI-owned tensor,
-and only then returns. The synchronous QNN engine subsequently copies that tensor into its
-client input buffer. These two copies remain measurable optimization targets. FD wrapping
-and a synchronous plugin return do not prove released-FW DMA-BUF compatibility or an
-end-to-end zero-copy path.
+The source FD remains owned through the shared `raw_frame` owner while GStreamer/FastCV reads it.
+The adapter maps the plugin output, copies it into a bounded LACAI-owned tensor, and only then
+returns. The synchronous QNN engine subsequently copies that tensor into its client input buffer.
+These two copies remain measurable optimization targets. FD wrapping and a synchronous plugin
+return do not prove released-FW DMA-BUF compatibility or an end-to-end zero-copy path.
 
-Changing vendor requires another `image_processor_port` implementation. No Gst, FastCV,
-QNN or ARM SIMD type crosses the neutral contract, perception or application boundary.
+Changing vendor requires another `image_processor_port` implementation. No Gst, FastCV, QNN or ARM
+SIMD type crosses the neutral contract, perception or application boundary.
 
 ## Board evidence and bottleneck progression
 
-The controlled source was 1280x720 NV12 at 30 FPS, the tensor was 640x640x3 UINT16, and
-the output-disabled runs used the same QNN HTP graph and 30/1 inference cadence. CPU is a
-process-wide sample, while `perf` percentages are sampled CPU cycles; neither is a
-per-stage wall-time percentage.
+The controlled source was 1280x720 NV12 at 30 FPS, the tensor was 640x640x3 UINT16, and the
+output-disabled runs used the same QNN HTP graph and 30/1 inference cadence. CPU is a process-wide
+sample, while `perf` percentages are sampled CPU cycles; neither is a per-stage wall-time
+percentage.
 
 | Preprocess path | AI results in 10 s | Rate | Process CPU | Dominant sampled cost |
 |---|---:|---:|---:|---|
@@ -67,31 +81,45 @@ per-stage wall-time percentage.
 | FastCV UINT8 plus NEON UINT16 pack | 301 | 30.1 FPS | 38.8% | 24.31% FastCV color conversion; 5.00% adapter preprocess |
 | Same optimized path plus overlay/encode/ring | 300 | 30.0 FPS | 45.4% | camera-paced full application |
 
-The final RTSP client decoded 241 H.264 1280x720 frames in eight seconds (30.1 FPS).
-Standalone owned-QNN measurements for this graph were previously 10.83/12.12/13.27 ms
-minimum/average/maximum over 50 executions. In the final live profile, QNN-side client
-buffer `memcpy` accounted for 8.34% of sampled CPU cycles and YOLO tensor element decode
-for 2.78%. The FastCV DSP scale call was visible in the profile.
+The final RTSP client decoded 241 H.264 1280x720 frames in eight seconds (30.1 FPS). Standalone
+owned-QNN measurements for this graph were previously 10.83/12.12/13.27 ms minimum/average/maximum
+over 50 executions. In the final live profile, QNN-side client buffer `memcpy` accounted for 8.34%
+of sampled CPU cycles and YOLO tensor element decode for 2.78%. The FastCV DSP scale call was
+visible in the profile.
 
-These measurements prove the current compatibility flow sustains the requested frame
-rate. They do not yet provide percentile latency from released-FW capture to ring commit,
-thermal/soak qualification, model accuracy, real camera DMA-BUF import, or multi-model
-capacity. The compatibility camera copies QMMF pixels into memfd before the LACAI boundary.
+These measurements prove the current compatibility flow sustains the requested frame rate. They do
+not yet provide percentile latency from released-FW capture to ring commit, thermal/soak
+qualification, model accuracy, real camera DMA-BUF import, or multi-model capacity. The
+compatibility camera copies QMMF pixels into memfd before the LACAI boundary.
 
-A later steady-state sample after label and geometry fixes measured 44.5% process CPU and
-exactly 30.0 encoded frames/s over five seconds. This remains outside the requested
-15–25% CPU range. The standalone HTP probes measured SCRFD at 4.405 ms average over 20
-executions and EdgeFace at 2.918 ms average over 50 executions, so adding model-specific
-CPU postprocess or running all secondary crops without admission would work against the
-CPU target. See [cascade inference](cascade_inference.md).
+A later steady-state sample after label and geometry fixes measured 44.5% process CPU and exactly
+30.0 encoded frames/s over five seconds. This remains outside the requested 15–25% CPU range. The
+standalone HTP probes measured SCRFD at 4.405 ms average over 20 executions and EdgeFace at 2.918 ms
+average over 50 executions, so adding model-specific CPU postprocess or running all secondary crops
+without admission would work against the CPU target. See [cascade inference](cascade_inference.md).
 
 ## Next optimization gates
 
-1. Pin a released-FW timestamp clock and report capture-to-result and capture-to-ring
-   p50/p95/p99 latency rather than inferring latency from throughput.
-2. Register or import reusable QNN input memory to remove the owned-tensor-to-client-buffer
-   copy, with completion-backed reuse and numeric parity evidence.
-3. Replace compatibility memfd input with released-FW DMA-BUF and validate modifiers,
-   cache synchronization, fences and completion before claiming zero-copy.
-4. Run sustained thermal, concurrent model and concurrent source tests. Feed those
-   measurements into admission instead of encoding board capacity in source constants.
+1. Pin a released-FW timestamp clock and report capture-to-result and capture-to-ring p50/p95/p99
+   latency rather than inferring latency from throughput.
+2. Register or import reusable QNN input memory to remove the owned-tensor-to-client-buffer copy,
+   with completion-backed reuse and numeric parity evidence.
+3. Replace compatibility memfd input with released-FW DMA-BUF and validate modifiers, cache
+   synchronization, fences and completion before claiming zero-copy.
+4. Run sustained thermal, concurrent model and concurrent source tests. Feed those measurements
+   into admission instead of encoding board capacity in source constants.
+
+## Limits and next work
+
+- Released-FW DMA-BUF compatibility, end-to-end zero-copy, percentile latency and thermal/soak
+  qualification remain open.
+- The remaining two copies (plugin output to owned tensor, owned tensor to QNN client buffer) are
+  measurable optimization targets.
+- The 15–25% CPU target is not met on this path.
+
+## See also
+
+- [Qualcomm adapter — implementation blueprint](qualcomm_adapter.md)
+- [Qualcomm plugin adapter reference](qualcomm_plugin_adapter_reference.md)
+- [Neutral execution policy and the Qualcomm engine](qualcomm_execution_policy.md)
+- [Cascade inference](cascade_inference.md)

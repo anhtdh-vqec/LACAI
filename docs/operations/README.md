@@ -4,6 +4,7 @@ Operational readiness, health checks, incident response, diagnostic privacy and 
 rollback for deployed AI APP instances.
 
 - **Status:** planned — no operations runbook source yet
+- **Layer:** docs
 - **Depends on:** FW control plane and the FW release compatibility contract
 - **Used by:** field/diagnostic workflows
 
@@ -12,10 +13,18 @@ rollback for deployed AI APP instances.
 - Define health checks, diagnostic privacy rules and controlled rollback.
 - Keep installed, entitled, desired, supported, admitted and running as separate states.
 
+## Contents
+
+| Path | Purpose |
+|---|---|
+| [readiness.md](readiness.md) | Planned runbook requirements for production readiness |
+
 ## Limits and next work
 
-- No operational runbook is implemented; content here is a placeholder for the FW-agreed contract.
+- No operational runbook is implemented; content here is a placeholder for the FW-agreed
+  contract.
 
 ## See also
 
 - [FW release compatibility](../contracts/fw_release_compatibility.md)
+- [FW control, outputs, entitlement and BSP handoff](../contracts/fw_control.md)

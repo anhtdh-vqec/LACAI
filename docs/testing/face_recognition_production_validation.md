@@ -1,9 +1,27 @@
 # FR production validation — 2026-09-16
 
+This is the dated production-validation record for face recognition on the QCS6490 `.98`
+target: runtime switching and image-path enrollment against simulated FW. It records the
+candidate, results, resource samples and throughput repair evidence, and it does not waive
+the open release gates below.
+
+**Status:** board-smoke — runtime switching and image-path enrollment pass against
+simulated FW on QCS6490 `.98` on 2026-09-16; release acceptance is still open for the gates
+below. **Layer:** reference. **Source:** `n/a`.
+
 Result: runtime switching and image-path enrollment pass against simulated FW on QCS6490
 `.98`. This is integration evidence; release acceptance is still open for the gates below.
 No access was made to `.48` or `.99`. No biometric fixtures, model binaries or credentials
 are included in Git.
+
+## Responsibility
+
+- Records the dated board evidence for FR runtime switching, image enrollment and gallery
+  preservation.
+- States explicitly which claims are logic/target ABI evidence and which release gates are
+  still open.
+- Must not be read as model-accuracy, thermal, signed-grant, TEE-key, fault-recovery or
+  released-FW acceptance.
 
 ## Candidate and environment
 
@@ -193,5 +211,14 @@ its rebuild/destruction test against the real gallery.
    transactions, power-cut/disk-full recovery, package/update rollback, D-Bus system-bus
    policies/peer reconnection and released-FW RTSP/RAW compatibility signoff.
 
-Lead, FW and BSP/storage owners must review lifecycle/entitlement/storage boundaries. This
-report records implementation and evidence and does not waive their acceptance.
+## Limits and next work
+
+- Lead, FW and BSP/storage owners must review lifecycle/entitlement/storage boundaries.
+  This report records implementation and evidence and does not waive their acceptance.
+- The eight open release gates above remain required before any production claim.
+
+## See also
+
+- [QCS6490 board test target](qsc6490_board.md)
+- [FW usecase activation contract](../contracts/fw_usecase_control.md)
+- [FW mock services for LACAI board tests](lacai_camera_service.md)

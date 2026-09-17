@@ -1,7 +1,13 @@
 # FW to AI face-enrollment contract
 
-Status: implementation-neutral contract for review. The DBus transport is an adapter;
-the runtime consumes the `face_enrollment_port` and does not depend on GIO or wire names.
+This document defines the implementation-neutral FW-to-AI face-enrollment contract: the
+D-Bus transport is an adapter, and the runtime consumes the `face_enrollment_port` without
+depending on GIO or wire names. It fixes the operations, authorization and gallery-revision
+invariants that FW and AI APP must honor.
+
+**Status:** source-delivered — the bounded neutral controller and the optional GIO D-Bus
+adapter are delivered, with hardware-key qualification and peer-name provisioning still
+pending. **Layer:** contracts. **Source:** `n/a`.
 
 FW invokes enrollment only after authenticating the caller and authorizing the source.
 Requests contain opaque `subject_ref` values. AI never accepts a display name as an
@@ -9,6 +15,15 @@ identity and never receives raw pixels or biometric vectors over DBus. FW suppli
 authorized local image path; the person is not required to stand in front of the camera.
 AI decodes that retained file and runs the same detector/alignment/embedding contracts as
 live recognition.
+
+## Responsibility
+
+- Defines the enrollment/removal/status operations and their authorization and
+  gallery-revision invariants.
+- Keeps image bytes, raw embeddings and credentials off D-Bus; only bounded opaque
+  references cross the boundary.
+- Must not grant authorization from a caller-supplied identity field or treat a D-Bus
+  timeout as a completed mutation.
 
 ## Operations
 
@@ -89,3 +104,16 @@ remain release requirements.
 The delivered [image pipeline](../architecture/face_enrollment_image_pipeline.md) defines
 bounded path authorization, decode, FD, alignment, EdgeFace and gallery mutation. Its
 dedicated graphs do not share submission state with the live camera graphs.
+
+## Limits and next work
+
+- Peer-name provisioning, hardware-backed key qualification, swap/crash-dump isolation and
+  power-loss acceptance remain release work.
+- The current controller retains one request receipt; durable enrollment receipts are needed
+  before restart-safe retries can be claimed.
+
+## See also
+
+- [FW usecase activation](fw_usecase_control.md)
+- [AI-owned protected face-gallery contract](fw_face_gallery_storage.md)
+- [Face enrollment image pipeline](../architecture/face_enrollment_image_pipeline.md)

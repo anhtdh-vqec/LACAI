@@ -17,6 +17,8 @@ before broadening features. No additional vendor backend is claimed implemented.
 Three-person team: lead also owns runtime/control; four-person team separates those roles.
 These are dependencies and gates, not promises of dates without SDK/model availability.
 
+**Status:** planning — FW compatibility backlog.
+
 ## Current integration backlog (source inventory, 2026-09-10)
 
 This table supersedes the chronological progress notes below. Existing source is not

@@ -4,6 +4,8 @@ Ngày: 2026-09-12. Baseline review: `0b82e5d`.
 Trạng thái: backlog và thiết kế đề xuất; không phải các tối ưu đã triển khai/nghiệm thu.
 Tài liệu tổng hợp review source hiện tại và các gate còn lại của base.
 
+**Status:** planning — model-agnostic optimization backlog.
+
 ## 1. Mục tiêu và nguyên tắc bắt buộc
 
 Base phải tiếp nhận model qua metadata, package và capability, không sửa core/pump

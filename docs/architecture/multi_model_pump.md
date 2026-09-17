@@ -1,10 +1,22 @@
 # Multi-model RAW frame fan-out
 
-Status: portable source delivered; its fake-port binary passes natively on QCS6490.
-
 `multi_model_pump` is the bounded frame-path primitive for one logical FW RAW source and
-1..16 already-started model graphs. It is product-origin agnostic: sensor capture and
-FW-decoded RTSP both enter through the same `raw_source_port`.
+1..16 already-started model graphs. This document defines its one-receive shared-lifetime
+rule, its bounded scheduling and its composition boundary.
+
+**Status:** source-delivered — portable source delivered; its fake-port binary passes
+natively on QCS6490. **Layer:** app. **Source:**
+`src/app/vqec_vision_multi_model_pump.cpp`,
+`tests/unit/vqec_vision_multi_model_pump_test.cpp`.
+
+## Responsibility
+
+- Receives at most one new RAW frame per step and submits the same `raw_frame` view to
+  every due graph that has capacity.
+- Is product-origin agnostic: sensor capture and FW-decoded RTSP both enter through the
+  same `raw_source_port`.
+- Does not configure/load/start/drain/unload graphs or acquire/release FW.
+- Keeps model strings off the frame path and allocates no container on the frame path.
 
 ## One receive, shared lifetime
 
@@ -58,6 +70,8 @@ its owner; stop clears it before source reconciliation.
 - first hard source, cadence or graph error latches pump failure; the owning source session
   must stop acquisition, drain all graphs and reconcile the FW lease.
 
+## Parallel root-model execution
+
 Production may explicitly select parallel root-model execution. The pump then creates one
 persistent, joined worker per active model during activation; each worker owns only its
 model's preprocessing buffer and graph calls. A slot holds at most one frame, accepts only
@@ -68,6 +82,8 @@ The default remains serialized for deterministic fixtures and backends whose gra
 cannot execute concurrently. This concurrency is a deployment policy, not an assertion that
 one vendor execution domain supports parallel graphs.
 
+## Report
+
 The report includes due/submitted/busy masks, one indexed ticket per accepted graph, the
 single result slot/ticket and an error slot. Each ticket preserves source epoch/frame
 ID/PTS as well as the mapped pipeline PTS. It contains no model strings and allocates no
@@ -76,17 +92,29 @@ currently may allocate/copy in the Qualcomm implementation.
 
 ## Composition boundary
 
-The pump does not configure/load/start/drain/unload graphs or acquire/release FW.
-`multi_model_session` owns that lifecycle once per source, validates each graph before the
+`multi_model_session` owns graph lifecycle once per source, validates each graph before the
 first FW acquisition, then supplies running owners to this pump. After every graph is
 running and before any frame is received, the session calls
 `vqec_vision_ai_appl_mmump_resolve_targets`, which resolves and caches each preprocessing
-binding's model input identity so the per-frame path performs no metadata lookup. Per-board admission must
-reduce configured model/source counts when measured graph, memory, accelerator, encoder or
-thermal limits are lower than the schema ceiling.
+binding's model input identity so the per-frame path performs no metadata lookup. Per-board
+admission must reduce configured model/source counts when measured graph, memory,
+accelerator, encoder or thermal limits are lower than the schema ceiling.
 
-See also [model cadence](model_cadence.md),
-[inference graph port](inference_graph_port.md),
-[RAW source port](raw_source_port.md), and
-[multi-source supervisor](multi_source_supervisor.md). Completed tensors are mapped to
-their decoder/tracker stage by the [multi-model result router](multi_model_result_router.md).
+## Limits and next work
+
+- The shared-lifetime rule does not prove DMA-BUF import, cache coherence, hardware
+  completion or end-to-end zero-copy on a board.
+- Tensor extraction remains owned by each graph adapter and currently may allocate/copy in
+  the Qualcomm implementation.
+- Per-board admission must reduce configured model/source counts when measured limits are
+  lower than the schema ceiling.
+- Parallel root-model execution is a deployment policy, not an assertion that one vendor
+  execution domain supports parallel graphs.
+
+## See also
+
+- [Model cadence](model_cadence.md)
+- [Inference graph port](inference_graph_port.md)
+- [RAW source port](raw_source_port.md)
+- [Multi-source supervisor](multi_source_supervisor.md)
+- [Multi-model result router](multi_model_result_router.md)

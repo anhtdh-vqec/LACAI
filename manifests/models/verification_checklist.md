@@ -5,6 +5,8 @@ the table for each new model package and fill it from golden/reference data. Val
 **assumed** are not verified and must not be treated as acceptance. A digest match is not
 signature verification.
 
+**Status:** process checklist — per-model verification steps; not an acceptance record.
+
 ## How to verify
 
 - Every "assumed" field needs a golden input tensor and raw outputs from the model team's

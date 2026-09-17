@@ -1,10 +1,27 @@
 # QCS6490 board test target
 
+This is the dated board-evidence log for the QCS6490 target, covering the allocated host,
+build configuration and every recorded native/board run. Sections are historical records;
+newer source does not retroactively change an earlier run's numbers.
+
+**Status:** board-smoke — cross-built native suite **117/117** on `.98` per the
+2026-09-17 clean-base runner, with earlier dated runs retained below. **Layer:** reference.
+**Source:** `n/a`.
+
 The currently allocated development target is `192.168.138.98`. Boards `.99` and `.48` are
-in use by other developers and must not be accessed until the user reallocates them. The existing
-local alias may still point at an earlier target, so verify its resolved hostname before
-using it. Try BatchMode access first. Passwords must remain outside this repository and
-command output.
+in use by other developers and must not be accessed until the user reallocates them. The
+existing local alias may still point at an earlier target, so verify its resolved hostname
+before using it. Try BatchMode access first. Passwords must remain outside this repository
+and command output.
+
+## Responsibility
+
+- Records the allocated QCS6490 target, the approved eSDK build configuration and each dated
+  native/board run.
+- Keeps earlier run numbers and coincident conditions intact; a later fix does not rewrite
+  an earlier record.
+- Must not be read as device DMA completion, model accuracy, released-FW or performance
+  acceptance unless a section explicitly claims measured evidence.
 
 ## Current state (2026-09-17)
 
@@ -15,6 +32,8 @@ need. The eSDK/QEMU expanded suite is 123/123. The routed-result latency metric 
 `route_latency_*` (steady reservation-to-routing) — earlier `e2e_*` mentions below are dated
 records of the removed pipeline-PTS accumulator. The sections below are a dated log; newer
 source does not retroactively change an earlier run's numbers.
+
+## 2026-09-10 target and logic smoke
 
 Observed on 2026-09-10:
 
@@ -384,30 +403,46 @@ built with the approved eSDK toolchain and verified natively on `.98`:
 
 4. **Phase 4 (Renderer Cache, Plane Memcpy, Queue Removal & Deadline Loop Pacing)**:
    - Defect: Frame drops down to 13–14 FPS and 50–60% CPU were traced to four bottlenecks:
-     a) Unconditional `sleep_for` in `service_main.cpp` creating a 35–40 ms loop period (> 33.3 ms 30 FPS period), overwriting incoming camera frames before acquisition.
-     b) Per-frame `::mmap` / `::munmap` on 4 MiB NV12 buffer causing page-fault storms and TLB shootdowns.
+     a) Unconditional `sleep_for` in `service_main.cpp` creating a 35–40 ms loop period
+        (> 33.3 ms 30 FPS period), overwriting incoming camera frames before acquisition.
+     b) Per-frame `::mmap` / `::munmap` on 4 MiB NV12 buffer causing page-fault storms and
+        TLB shootdowns.
      c) 1,620 individual `std::memcpy` calls per frame across NV12 row strides.
-     d) Redundant GStreamer `queue` element inside the `qtivoverlay` pipeline burning 7.5%–10.0% CPU.
+     d) Redundant GStreamer `queue` element inside the `qtivoverlay` pipeline burning
+        7.5%–10.0% CPU.
    - Fixes:
      - Implemented deadline loop pacing (`step_cost_ns < interval ? sleep(interval - step_cost_ns) : 0`).
-     - Added 8-slot cached `mmap` avoiding repeated system calls and page faults on rotating buffer FDs.
-     - Replaced line-by-line copies with 2 contiguous ARM64 Neon memory burst copies for Y and UV planes.
+     - Added 8-slot cached `mmap` avoiding repeated system calls and page faults on rotating
+       buffer FDs.
+     - Replaced line-by-line copies with 2 contiguous ARM64 Neon memory burst copies for Y and
+       UV planes.
      - Drained all available access units from `appsink` in a non-blocking pull loop.
      - Removed redundant `queue` element between `appsrc` and `qtivoverlay`.
 
 5. **Phase 5 (Decoder Direct Float32 Pointer Indexing)**:
-   - Defect: YOLOv8 (8,400 anchors) and SCRFD (16,800 anchors) decoders invoked `vqec_vision_ai_detec_tnrd_read_scalar`
-     up to 504,000 times/second at 30 FPS, performing repeated bounds checking, integer divisions,
-     modulos, type switches, and `memcpy` calls.
-   - Fix: Added fast-path direct `float32*` array indexing in `yolov8_decoder` and `anchor_distance_decoder`,
-     reducing decoder CPU overhead while preserving exact schema validation and typed fallbacks.
+   - Defect: YOLOv8 (8,400 anchors) and SCRFD (16,800 anchors) decoders invoked
+     `vqec_vision_ai_detec_tnrd_read_scalar` up to 504,000 times/second at 30 FPS, performing
+     repeated bounds checking, integer divisions, modulos, type switches, and `memcpy` calls.
+   - Fix: Added fast-path direct `float32*` array indexing in `yolov8_decoder` and
+     `anchor_distance_decoder`, reducing decoder CPU overhead while preserving exact schema
+     validation and typed fallbacks.
 
 6. **Phase 6 (Live Video Stream Frame-Stall Bugfix in `qtiv_renderer`)**:
-   - Defect: Caching virtual memory mappings keyed purely by the kernel integer file descriptor (`slot.fd_ == frame_fd`) was flawed because Linux reuses the lowest available FD immediately upon `close(fd)` of the previous frame. Subsequent camera frames received over SCM_RIGHTS were assigned the recycled FD number, causing `copy_nv12` to repeatedly copy pixels from the stale mapping of the first frame. The stream rendered 30 FPS H.264 packets with updating bounding boxes but froze the camera background pixels on frame 1 ("giật yên tại 1 frame").
-   - Fix: Replaced the unsafe FD-based mapping cache with an RAII `vqec_vision_ai_qcom_qtvr_mmap_guard` that maps each incoming frame freshly and unmaps it reliably upon exit, while retaining the optimized contiguous 2-plane memory copy.
-   - Verification on `.98`: Live video frames now dynamically update with real movement (verified with 21.5% inter-frame pixel changes across a 2-second interval). Output stream sustained at 27.9–30.1 FPS with 63.9%–66.3% single-core CPU on the full dual-model + FR pipeline.
+   - Defect: Caching virtual memory mappings keyed purely by the kernel integer file
+     descriptor (`slot.fd_ == frame_fd`) was flawed because Linux reuses the lowest available
+     FD immediately upon `close(fd)` of the previous frame. Subsequent camera frames received
+     over SCM_RIGHTS were assigned the recycled FD number, causing `copy_nv12` to repeatedly
+     copy pixels from the stale mapping of the first frame. The stream rendered 30 FPS H.264
+     packets with updating bounding boxes but froze the camera background pixels on frame 1.
+   - Fix: Replaced the unsafe FD-based mapping cache with an RAII
+     `vqec_vision_ai_qcom_qtvr_mmap_guard` that maps each incoming frame freshly and unmaps it
+     reliably upon exit, while retaining the optimized contiguous 2-plane memory copy.
+   - Verification on `.98`: Live video frames now dynamically update with real movement
+     (verified with 21.5% inter-frame pixel changes across a 2-second interval). Output stream
+     sustained at 27.9–30.1 FPS with 63.9%–66.3% single-core CPU on the full dual-model + FR
+     pipeline.
 
-### Measured Board Evidence (.98)
+### Measured board evidence (.98)
 
 - **RTSP Stream Output Rate (Measured via FFmpeg TCP probe over 10 seconds)**:
   - Nominal camera rate: **30 FPS (1920×1080 NV12)**.
@@ -436,18 +471,22 @@ built with the approved eSDK toolchain and verified natively on `.98`:
     - V4L2 H.264 HW encode: 0.5%
     - Cascade status: Zero cascade failures (`cascade_failed=0`), steady 30 FPS inference routing.
 
-### Comparison Against Legacy `ai_app`
+### Comparison against legacy `ai_app`
 
 Legacy `ai_app` was observed at ~15%–20% of one core for person detection because:
-1. **Inference Cadence**: `ai_app` configured `"inference_fps": 10` by default (running 3× fewer inferences per second than LACAI).
-2. **cDSP Preprocessing Offload**: `ai_app` offloaded image letterboxing (`ScaleDownMNu8` and `ColorYCbCr420PseudoPlanarToRGB888u8`) to the Hexagon cDSP via `libvqec_dsp_skel.so`.
+1. **Inference Cadence**: `ai_app` configured `"inference_fps": 10` by default (running 3×
+   fewer inferences per second than LACAI).
+2. **cDSP Preprocessing Offload**: `ai_app` offloaded image letterboxing (`ScaleDownMNu8`
+   and `ColorYCbCr420PseudoPlanarToRGB888u8`) to the Hexagon cDSP via
+   `libvqec_dsp_skel.so`.
 3. **cDSP Postprocessing Offload**: NMS and coordinate decoding were executed on the cDSP.
 
-LACAI runs models at **full 30 FPS** (matching preview rate, per user requirement) using Qualcomm Linux standard plugins (`qtimlvconverter` + `qtimlqnn`) on CPU FastCV. At full 30 FPS:
+LACAI runs models at **full 30 FPS** (matching preview rate, per user requirement) using
+Qualcomm Linux standard plugins (`qtimlvconverter` + `qtimlqnn`) on CPU FastCV. At full 30
+FPS:
 - Single-model person flow: **~36% of 1 core** (~4.5% SoC load).
 - Dual-model + FR flow: **~64% of 1 core** (~8.0% SoC load).
 - Output stream: **Steady 28–30.1 FPS live real-time video with zero frame drops**.
-
 
 ## 2026-09-17 clean-base native suite runner
 
@@ -463,3 +502,18 @@ missing-fixture result, not a code failure):
 With those supplied on `.98`, the cross-built native suite is **117/117 passed**. This is
 logic/contract evidence; it is not device DMA completion, model accuracy, released-FW or
 performance acceptance.
+
+## Limits and next work
+
+- Still not qualified on the board: model accuracy (inputs were zero/random), async/shared
+  engine update, live FW camera/DMA completion, hardware encoder/ring, thermal stability and
+  percentile latency.
+- The compatibility camera still copies QMMF output into memfd, so none of the recorded runs
+  establishes released-FW DMA-BUF interoperability or zero-copy.
+- `.99` and `.48` remain prohibited targets; only `.98` is allocated.
+
+## See also
+
+- [FR production validation](face_recognition_production_validation.md)
+- [QNN model and engine board validation](qnn_board_validation.md)
+- [eSDK configuration and evidence matrix](esdk_configuration_matrix.md)

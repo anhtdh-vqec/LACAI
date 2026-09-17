@@ -1,9 +1,25 @@
 # Feature activation manager
 
-`feature_activation_manager` is the cold-path owner that turns validated deployment,
-model and feature catalogs into effective per-source feature state. It records the
-feature catalog, model catalog and deployment revisions in the activation snapshot so
-downstream output and audit paths can reject stale state.
+`feature_activation_manager` is the cold-path owner that turns validated deployment, model
+and feature catalogs into effective per-source feature state. This document defines its
+reconciliation order, its explicit state model and its bounded storage.
+
+**Status:** source-delivered — the manager exists with contract tests. **Layer:** runtime.
+**Source:** `src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp`,
+`tests/contract/vqec_vision_feature_activation_manager_test.cpp`.
+
+## Responsibility
+
+- Turns validated deployment, model and feature catalogs into effective per-source feature
+  state.
+- Records the feature catalog, model catalog and deployment revisions in the activation
+  snapshot so downstream output and audit paths can reject stale state.
+- Borrows catalogs and factories as immutable inputs.
+- Does not authenticate catalogs, resolve FW RAW sources, load model artifacts, or claim
+  board/hardware support.
+- Does not create an unbounded registry or queue.
+
+## Reconciliation
 
 For each `(source_id, feature_id)` request the manager evaluates desired enablement,
 entitlement authorization, resource admission, model dependency assignment, then
@@ -14,14 +30,22 @@ The resulting state is explicit: `disabled`, `denied`, `unsupported`,
 `unsupported` capability. Factory, configuration or stage errors are `faulted` and the
 first such error is returned while other associations are still reconciled.
 
-Catalogs and factories are borrowed immutable inputs. Every `ready` association owns a
-distinct processor and `feature_stage`, which prevents stateful feature packages from
-being shared accidentally across sources. Request syntax and duplicate associations
-are checked before candidate state is built; malformed input leaves the previous
-records and snapshot untouched. Reconciliation is bounded to 16 sources × 64 feature
-entries and does not allocate an unbounded registry or queue.
+Request syntax and duplicate associations are checked before candidate state is built;
+malformed input leaves the previous records and snapshot untouched. Reconciliation is
+bounded to 16 sources × 64 feature entries. Every `ready` association owns a distinct
+processor and `feature_stage`, which prevents stateful feature packages from being shared
+accidentally across sources.
 
-This manager does not authenticate catalogs, resolve FW RAW sources, load model
-artifacts, or claim board/hardware support. Those responsibilities remain with the
-authenticated composition and platform adapters described by the deployment and
-Qualcomm adapter contracts.
+## Limits and next work
+
+- Authentication, FW RAW source resolution, model artifact loading and board/hardware
+  support claims remain with the authenticated composition and platform adapters.
+- Authenticated admission/entitlement activation remains external integration work; the
+  manager does not grant authorization by itself.
+
+## See also
+
+- [Feature catalog](feature_catalog.md)
+- [Feature processor registry](feature_processor_registry.md)
+- [Feature stage](feature_stage.md)
+- [Runtime feature activation](runtime_feature_activation.md)

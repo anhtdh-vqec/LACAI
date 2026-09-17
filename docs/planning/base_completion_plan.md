@@ -25,6 +25,8 @@ xuất, chưa phải xác nhận phân công. Không ước lượng deadline kh
 | B14 / B06,B10,B12 | FW control compatibility, config persistence, source restart/backoff/epoch, BSP recovery handshake; packaging/IPK/supervision/readiness/update/rollback | Runtime + FW/BSP | FW01–FW09 run; active readers không release khi timeout; quiescence proof trước reuse; version-coherent rollback |
 | B15 / B01 onward; cuối B14 | CI full eSDK matrix, warnings/AST/literal checks, fault/replay/sanitizer where supported, artifact provenance, board soak/performance | Lead + QA | Required jobs thực chạy (không skipped=pass); logs pinned revision/config; agreed workload/KPI và owner signoff |
 
+**Status:** planning — base completion backlog.
+
 ## Cách triển khai mỗi bước
 
 1. Đọc contract + code liên quan; tạo test chứng minh lỗi/requirement, không mirror code.

@@ -1,17 +1,36 @@
 # Preview metadata boundary — R1 first slice
 
-Status: pure validation plus the preview surface/pool, encoded dispatch and Qualcomm QTI
-renderer/ring production are delivered; released-FW hardware-completion evidence remains open.
-External baseline: [FW release compatibility](../contracts/fw_release_compatibility.md).
+This document defines the preview metadata boundary: frame-key correlation, overlay
+geometry, encoded access-unit validation and the freshness/authorization requirements of the
+first slice. It covers pure validation plus the delivered preview surface/pool and encoded
+dispatch.
+
+**Status:** source-delivered — pure validation plus the preview surface/pool, encoded
+dispatch and Qualcomm QTI renderer/ring production are delivered; released-FW
+hardware-completion evidence remains open. External baseline:
+[FW release compatibility](../contracts/fw_release_compatibility.md).
+**Layer:** contracts. **Source:**
+`src/core/vqec_vision_preview_contract.cpp`,
+`include/vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp`,
+`tests/unit/vqec_vision_preview_contract_test.cpp`.
+
+## Responsibility
+
+- Correlates preview frames to a camera/channel, source epoch, frame ID and source PTS.
+- Describes overlay rectangles already transformed into output pixels.
+- Validates borrowed H264 access-unit views and their cached SPS/PPS.
+- Must not perform model-to-source inverse transforms or old-result tracking.
+- Must not grant permission through this API.
+- Must not retain borrowed memory on behalf of async sinks.
 
 ## Identity and coordinates
 
-preview_frame_key carries camera/channel, local source epoch, frame ID and original
-source PTS. Epoch must be nonzero; frame ID and PTS zero are valid. UINT64_MAX PTS
+`preview_frame_key` carries camera/channel, local source epoch, frame ID and original
+source PTS. Epoch must be nonzero; frame ID and PTS zero are valid. `UINT64_MAX` PTS
 means unavailable and is rejected on this exact-correlation preview path. A later
 timestamp fallback must be explicit, never silently interpreted as UTC.
 
-overlay_batch describes rectangles already transformed into output pixels; the first
+`overlay_batch` describes rectangles already transformed into output pixels; the first
 slice supports only full-resolution identity geometry (output dimensions equal source).
 Model-to-source inverse transforms belong upstream; no implicit letterbox restoration,
 stretching or old-result tracking is performed. Source identity must match exactly.
@@ -24,6 +43,8 @@ Limits: 128 boxes, 96 label bytes each, 4096 total label bytes, even NV12 geomet
 up to 8192 on each axis. These are parser/metadata safety ceilings, not board capabilities.
 Zero boxes is a valid clear-overlay batch. No policy can grant permission via this API.
 
+## Freshness and authorization
+
 The serialized output owner supplies an independent expected policy revision and
 monotonic now/max-age. Revisions must be nonzero and equal; future or expired batches
 are rejected. Revision equality is necessary but NOT sufficient authorization:
@@ -34,7 +55,7 @@ it must not substitute a fixed age when building a batch.
 
 ## Encoded data
 
-h264_access_unit_view borrows one Annex B access unit and cached SPS/PPS. Validation
+`h264_access_unit_view` borrows one Annex B access unit and cached SPS/PPS. Validation
 checks exact source correlation, geometry, nonempty payload, <=2 MiB payload and
 <=512-byte parameter sets, and a 3/4-byte initial start code. It does not parse H264,
 prove AU completeness, validate SPS geometry or verify keyframe truth. The encoder
@@ -46,12 +67,23 @@ Views and metadata own no memory. Caller keeps underlying bytes immutable and al
 for the entire validation/copy operation. Async sinks MUST acquire an owner or copy
 before returning; storing these borrowed pointers is not an ownership contract.
 
-## Next slices
+## CPU surface ownership
 
-CPU writer/sealed-reader ownership now has source in [preview surface](preview_surface.md).
-It is not a reusable pool or encoder completion mechanism; no rendering/encoding is wired.
+CPU writer/sealed-reader ownership now has source in
+[preview surface](preview_surface.md). It is not a reusable pool or encoder completion
+mechanism; no rendering/encoding is wired.
 
-Add move-only writable preview surface/pool ownership, independent encoder input and
-result completion, bounded consumer-demand scheduling and private FW SDK ring sink.
-Do not overload an encoded result as proof source/encoder input memory is reusable.
-Do not bypass camera ACK/drain ownership in order to produce preview.
+## Limits and next work
+
+- Released-FW hardware-completion evidence remains open.
+- Add move-only writable preview surface/pool ownership, independent encoder input and
+  result completion, bounded consumer-demand scheduling and private FW SDK ring sink.
+- Do not overload an encoded result as proof source/encoder input memory is reusable.
+- Do not bypass camera ACK/drain ownership in order to produce preview.
+
+## See also
+
+- [FW release compatibility](../contracts/fw_release_compatibility.md)
+- [AI-owned CPU preview surface](preview_surface.md)
+- [Bounded reusable CPU NV12 preview pool](preview_pool.md)
+- [Revision-aware output authorization gate](output_gate.md)

@@ -1,5 +1,7 @@
 # PR and release checklist
 
+**Status:** normative — current per-PR and per-boundary checklist.
+
 ## Mọi PR
 
 - [ ] No magic number/string/hardcode: semantic owner, units/provenance, validated

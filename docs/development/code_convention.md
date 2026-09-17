@@ -1,5 +1,7 @@
 # Code convention — normative v2
 
+**Status:** normative — current C++17 convention.
+
 ## 0. File naming (lead-requested migration)
 
 Project-owned C/C++ source/header and executable tooling files MUST be named

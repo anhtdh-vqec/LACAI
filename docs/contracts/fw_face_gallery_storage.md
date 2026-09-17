@@ -1,14 +1,24 @@
 # AI-owned protected face-gallery contract
 
-Status: accepted ownership; AI encrypted-store adapter and restart recovery are delivered.
-Hardware-backed key qualification and power-loss/device acceptance remain pending.
+This document defines AI APP's ownership of the complete protected face gallery: schema,
+encryption/authentication, key lifecycle, file permissions, quota bounds, atomic
+replacement, recovery and recognition policy. FW never owns the gallery, supplies its path
+or receives its key.
+
+**Status:** accepted — ownership accepted by the lead, and the AI encrypted-store adapter
+and restart recovery are delivered. Hardware-backed key qualification and power-loss/device
+acceptance remain pending. **Layer:** contracts. **Source:** `n/a`.
+
+## Responsibility
+
+- AI APP owns the complete protected gallery: schema, encryption/authentication, key
+  lifecycle, file permissions, quota bounds, atomic replacement, recovery, opaque
+  subject/template semantics, revision CAS, model compatibility, Zvec rebuild and
+  recognition policy.
+- Neither side treats a Zvec collection as the authoritative gallery.
+- FW never opens the gallery, supplies a gallery database path or receives a gallery key.
 
 ## Ownership
-
-AI APP owns the complete protected gallery: schema, encryption/authentication, key
-lifecycle, file permissions, quota bounds, atomic replacement, recovery, opaque
-subject/template semantics, revision CAS, model compatibility, Zvec rebuild and
-recognition policy. Neither side treats a Zvec collection as the authoritative gallery.
 
 FW never opens the gallery, supplies a gallery database path or receives a gallery key.
 FW sends authorized enrollment/remove commands and may supervise the AI process. The AI
@@ -61,3 +71,14 @@ replacement for concurrent online rebuild remains a later requirement.
 - demonstrate that logs, D-Bus replies and diagnostics contain no embedding or key;
 - measure load, commit, rebuild and query latency at admitted gallery capacity;
 - qualify a hardware-backed key provider before claiming device-bound protection.
+
+## Limits and next work
+
+- Hardware-backed key qualification, swap/crash-dump isolation and power-loss acceptance
+  remain pending.
+- Atomic generation replacement for concurrent online rebuild remains a later requirement.
+
+## See also
+
+- [FW to AI face-enrollment contract](fw_face_enrollment.md)
+- [FW control, outputs, entitlement and BSP handoff](fw_control.md)

@@ -1,14 +1,27 @@
-# FW control, outputs, entitlement và BSP handoff
+# FW control, outputs, entitlement and BSP handoff
 
-Status: umbrella proposal for four-team review. The usecase activation boundary is
-specified normatively in [FW usecase activation](fw_usecase_control.md); the D-Bus v1 adapter and service-owned runtime replacement are source-delivered.
-See [FR validation](../testing/face_recognition_production_validation.md) for measured cases.
+This umbrella proposal defines the FW/AI APP control plane, entitlement, output envelope,
+package/update and BSP handoff boundaries for four-team review. It extends, not replaces,
+the released AI D-Bus and H264 preview interfaces.
+
+**Status:** source-delivered — the usecase activation boundary is normative in
+[FW usecase activation](fw_usecase_control.md); the D-Bus v1 adapter and service-owned
+runtime replacement are source-delivered. **Layer:** contracts. **Source:** `n/a`.
 
 The proposal below extends, not replaces, the released AI D-Bus and H264 preview
 interfaces. See [FW release baseline](fw_release_compatibility.md) for exact legacy
 methods, persistence behavior, ring ABI and RTSP/UI demand chain. AI APP owns preview
 overlay/encode/ring output; FW owns persistent evidence and recording. New control
 methods and signed-grant provisioning must not be assumed present in released FW.
+
+## Responsibility
+
+- Defines the control, entitlement, output, packaging and BSP handoff boundary for
+  four-team review.
+- Keeps AI APP ownership of preview overlay/encode/ring output and of the protected face
+  gallery; FW own persistent evidence and recording.
+- Must not be read as released FW: new control methods and signed-grant provisioning must
+  not be assumed present.
 
 ## Ownership
 
@@ -21,12 +34,13 @@ methods and signed-grant provisioning must not be assumed present in released FW
 
 FW must not open, copy, back up or mutate the face gallery and must not provision or
 receive its encryption key. AI also confines the derived Zvec collection to private
-volatile storage and rebuilds it from the durable encrypted snapshot. FW enrollment/remove methods pass bounded identity metadata
-and an authorized image path; AI APP validates the request and commits its own gallery.
+volatile storage and rebuilds it from the durable encrypted snapshot. FW enrollment/remove
+methods pass bounded identity metadata and an authorized image path; AI APP validates the
+request and commits its own gallery.
 
-BSP kit phải pin header và runtime binaries đồng bộ, device dependencies,
-permissions, allocator/cache/fence API, SDK threading rules, test model, profiler,
-thermal budgets, redistributable scope. Source OSS không thay kit này.
+The BSP kit must pin headers and runtime binaries together, device dependencies,
+permissions, allocator/cache/fence API, SDK threading rules, test model, profiler, thermal
+budgets and redistributable scope. OSS source does not replace this kit.
 
 ## Control plane
 
@@ -34,14 +48,14 @@ get_capabilities, get_health, list_features, get_effective_config,
 validate_config, apply_config(expected_revision, request_id), apply_desired_plan,
 apply_entitlement, get_runtime_status, request_diagnostics, prepare_shutdown.
 
-Config atomic snapshot: validate schema/license/model/resources trước publish.
-Revision CAS; stale revision reject; failed apply không để half-enabled graph.
-Response tách accepted command và actual running readiness.
-Status theo source/feature: installed, entitled, desired, supported, compatible,
+Config atomic snapshot: validate schema/license/model/resources before publish.
+Revision CAS; stale revision rejected; a failed apply must not leave a half-enabled graph.
+The response separates an accepted command from actual running readiness.
+Status per source/feature: installed, entitled, desired, supported, compatible,
 admitted, effective_state, reason, config/model/license revisions.
 
-Auth từ transport + FW policy; không tin field customer_id do caller tự ghi.
-Parse bounds; rate limits; diagnostic dump không có secrets/biometrics mặc định.
+Auth comes from transport + FW policy; do not trust a caller-written customer_id field.
+Parse bounds; rate limits; a diagnostic dump contains no secrets/biometrics by default.
 
 ## Entitlement
 
@@ -50,21 +64,22 @@ deny-by-default evaluator for trusted source/feature/attribute policy with revis
 monotonic validity and queued-output revision checks. It is not a signed-grant verifier,
 not connected to a transport/router yet, and does not implement compute admission.
 
-Signed grant chứa grant_id, issuer/key_id, revision, device/customer scope,
-feature_ids, attribute scopes, source/camera limits, not_before/expires,
-offline policy và signature. Key provisioning/trusted time thuộc FW.
-Runtime verify grant, enforce deny-by-default cho feature ngoài scope.
-Installed bundle không tự cấp quyền mọi feature trong bundle.
+A signed grant contains grant_id, issuer/key_id, revision, device/customer scope,
+feature_ids, attribute scopes, source/camera limits, not_before/expires, offline policy and
+signature. Key provisioning/trusted time belong to FW. The runtime verifies the grant and
+enforces deny-by-default for features outside scope. An installed bundle does not by itself
+grant every feature in the bundle.
 
-Bật: validate -> admission -> load deps -> start -> effective running.
-Tắt/revoke: block unauthorized output -> stop scheduling feature -> drain ->
-release only unused deps. Tracker shared không bị reset nếu consumer khác còn dùng.
-Recheck revision khi dispatch queued output; retry spool cũng phải theo policy
-revocation/retention, không xuất embedding cũ vô điều kiện.
+Enable: validate -> admission -> load deps -> start -> effective running.
+Disable/revoke: block unauthorized output -> stop scheduling the feature -> drain ->
+release only unused deps. A shared tracker is not reset if another consumer still uses it.
+Recheck the revision when dispatching queued output; a retry spool must also follow the
+revocation/retention policy and must not unconditionally export old embeddings.
 
-Signed offline license không biết remote revocation mới khi không có kết nối.
-Clock rollback/key rotation/grace policy phải chốt với FW. Chống root bypass cần
-trusted firmware chain của FW; APP software check không tự cung cấp bảo đảm đó.
+A signed offline license does not know about a newer remote revocation while disconnected.
+Clock rollback/key rotation/grace policy must be fixed with FW. Root-bypass resistance
+needs FW's trusted firmware chain; an APP software check does not by itself provide that
+guarantee.
 
 ## Outputs
 
@@ -74,27 +89,41 @@ typed attributes, geometry coordinate space, evidence correlation.
 
 - Live observations/tracks: bounded lossy, drop metrics.
 - Alarm: at-least-once + event_id dedup; bounded spool, retry/backoff/TTL.
-- Counts: window_id/sequence/checkpoint, consumer dedup; không cộng lặp khi retry.
+- Counts: window_id/sequence/checkpoint, consumer dedup; do not double count on retry.
 - Heatmap: grid/calibration version, bucket times, exposure/gap metadata.
 - Retrieval: authorized embeddings/index records, model version, retention.
-- Evidence request: source/time window/event id; FW trả pending/ready/failed +
-  evidence reference. AI không tự giữ raw4K để làm clip recorder.
+- Evidence request: source/time window/event id; FW returns pending/ready/failed +
+  evidence reference. AI does not hold raw 4K itself to act as a clip recorder.
 
-Disk/network unavailable: explicit degraded state, spool bounds và overflow
-priority đã thỏa thuận; không gọi delivery durable vô hạn. FW quản lý storage
-quota và retention. AI không log/raw-export mặt/embedding theo mặc định.
+Disk/network unavailable: explicit degraded state, spool bounds and an agreed overflow
+priority; do not call delivery durable indefinitely. FW manages storage quota and
+retention. AI does not log/raw-export faces/embeddings by default.
 
 ## Package/update
 
-Logical packages runtime/backend/features/models độc lập, metadata compatible.
-FW install transaction: download/verify -> stage -> validate set -> stop/drain ->
-activate coherent set -> health check -> commit or rollback coherent set.
-Không chạy script package kill service trước khi có quiescence guarantee.
-Signed model/feature manifest không replace camera authorization.
+Logical packages runtime/backend/features/models are independent with compatible metadata.
+FW install transaction: download/verify -> stage -> validate set -> stop/drain -> activate
+coherent set -> health check -> commit or rollback the coherent set. Do not run a package
+script that kills the service before there is a quiescence guarantee. A signed
+model/feature manifest does not replace camera authorization.
 
 ## Acceptance
 
-Forged/expired/wrong-device grant; config CAS conflicts; unauthorized attributes;
-revoke during inference/output retry; offline/clock changes; partial install;
-ABI/model mismatch; crash/restart; retry dedup; disk full; gallery embedding
-version mismatch; evidence time drift. Mỗi test có owner và expected reason.
+Forged/expired/wrong-device grant; config CAS conflicts; unauthorized attributes; revoke
+during inference/output retry; offline/clock changes; partial install; ABI/model mismatch;
+crash/restart; retry dedup; disk full; gallery embedding version mismatch; evidence time
+drift. Each test has an owner and an expected reason.
+
+## Limits and next work
+
+- Signed entitlement provisioning/verification remains a separate boundary; the delivered
+  output_gate is a policy evaluator only.
+- Measurement and release cases are tracked in
+  [FR validation](../testing/face_recognition_production_validation.md).
+
+## See also
+
+- [FW usecase activation](fw_usecase_control.md)
+- [FW release baseline](fw_release_compatibility.md)
+- [Output gate](../architecture/output_gate.md)
+- [FR production validation](../testing/face_recognition_production_validation.md)

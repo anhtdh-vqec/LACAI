@@ -16,6 +16,8 @@ Artifact: `libedgeface_s_gamma_05_w8a16_ada_w8a16.so`, SHA-256
 board path `/var/roothome/ai_app_dsp/models/libedgeface_s_gamma_05_w8a16_ada_w8a16.so`
 (QAIRT 2.43.0).
 
+- **Status:** metadata delivered; artifact/golden not in repository
+
 ## Runtime-reported ABI (QCS6490 HTP probe)
 
 - input `input` `[1,112,112,3]` NHWC, `uint16`, scale `3.05180438e-05`, zero_point `32768`;

@@ -1,11 +1,27 @@
 # FW RAW-source resolution
 
-Status: adapter contract/source delivered; released FW registry RPC and Linux/board
-verification are pending.
-
-`raw_source_ref` is the only deployment-level input identity. Before session construction,
+`raw_source_ref` is the only deployment-level input identity. Before session construction
 the composition root resolves it to a `raw_source_route` supplied by the FW integration
-layer. The route contains only what the existing RAW adapter needs:
+layer. This document defines the route contents, the bounded startup registry and the
+trust/lifecycle rules around resolution.
+
+**Status:** source-delivered — adapter contract/source delivered; released FW registry RPC
+and Linux/board verification are pending. **Layer:** adapters. **Source:**
+`src/adapters/camera/vqec_vision_raw_source_resolver.cpp`,
+`tests/unit/vqec_vision_raw_source_resolver_test.cpp`.
+
+## Responsibility
+
+- Resolves `raw_source_ref` to a `raw_source_route` before session construction.
+- Owns a startup-only, fixed 16-slot route registry.
+- Cross-checks the resolved reference and logical IDs against the validated deployment
+  source.
+- Must not reconstruct a socket path from camera ID in the receive path.
+- Must not swap routes under a running session.
+
+## Route contents
+
+The route contains only what the existing RAW adapter needs:
 
 - the exact reference and logical `camera_id/channel_id` correlation;
 - an absolute Unix `SOCK_SEQPACKET` attachment path;
@@ -52,3 +68,16 @@ remain separate BSP/FW memory-contract and board-admission gates.
 After route composition, session code accesses the source only through the
 [vendor-neutral RAW-source port](raw_source_port.md); it does not depend on the legacy
 socket/control class.
+
+## Limits and next work
+
+- The released FW registry RPC and Linux/board verification are pending.
+- Production registry population must be versioned/authenticated or use a protected local
+  compatibility binding.
+- No route lookup proves DMA-BUF import, synchronization, zero-copy or source capacity.
+
+## See also
+
+- [Vendor-neutral RAW-source port](raw_source_port.md)
+- [Source binding before streaming](source_binding.md)
+- [Multi-source configuration](multi_source_configuration.md)

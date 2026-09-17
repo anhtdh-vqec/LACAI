@@ -13,6 +13,8 @@ và logic test tương ứng đã có; gate board/golden/owner review vẫn quy�
 Đích triển khai: QCS6490 / Qualcomm Linux 1.8. Board phát triển hiện được phân bổ là `.98`;
 không dùng `.99` hoặc `.48` khi các board đó đang có người sử dụng.
 
+**Status:** planning — FR completion plan.
+
 ## 1. Kết quả phải bàn giao
 
 Một usecase FR hoàn chỉnh phải đi từ ảnh camera thật đến kết quả nhận diện có thể kiểm chứng:

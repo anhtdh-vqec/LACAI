@@ -1,6 +1,28 @@
 # Bounded submission and clock mapping
 
-Pure C++ submission_window is a bookkeeping component, not a scheduler or device
+This document defines the pure C++ `submission_window` bookkeeping component: one
+acquisition-cycle window, its four-slot job ledger, the two-notification completion rule and
+the mapping from source PTS to pipeline PTS. It is a ledger, not a scheduler or a device
+completion implementation.
+
+**Status:** logic-tested — the existing unit/contract binary passes in the QCS6490 board
+smoke suite; this is ledger logic evidence only. Encoder hardware wiring is still pending.
+**Layer:** core. **Source:** `src/core/vqec_vision_submission_window.cpp`,
+`tests/unit/vqec_vision_submission_window_test.cpp`.
+
+## Responsibility
+
+- Binds one nonzero acquisition-cycle ID and one receiver session epoch per window.
+- Issues monotonically increasing job IDs within a fixed four-slot live-job array.
+- Tracks the two independent completion notifications required per committed job.
+- Maps accepted source PTS to a graph running-time anchor with checked arithmetic.
+- Owns no FD, frame or GstMemory and makes no callbacks.
+- Must not be used as a resource cancellation mechanism or scheduler.
+- Must not introduce an unbounded queue or per-frame dynamic container allocation.
+
+## Window, capacity and admission
+
+Pure C++ `submission_window` is a bookkeeping component, not a scheduler or device
 completion implementation. It owns no FD/frame/GstMemory and makes no callbacks.
 All methods run on one serialized executor, including forwarded backend completions.
 No new wire contract or change to Camera Service is introduced.
@@ -15,10 +37,12 @@ limits. The named one-second timeout default is a configurable fallback, not a m
 performance requirement or proof that a timed-out device is safe to release.
 No unbounded queue or per-frame dynamic container allocation is introduced.
 
-reserve -> commit BEFORE handing memory to a backend that may synchronously complete.
-If wrapping fails before commit, cancel_reserved returns the slot. Cancellation of
+`reserve` -> `commit` BEFORE handing memory to a backend that may synchronously complete.
+If wrapping fails before commit, `cancel_reserved` returns the slot. Cancellation of
 committed jobs is rejected. After commit, even push failure must be reconciled using
-the backend's actual ownership/completion semantics, not cancel_reserved.
+the backend's actual ownership/completion semantics, not `cancel_reserved`.
+
+## Completion and ownership
 
 Each committed job needs TWO independent notifications: input readers complete and
 result consumed (or terminally discarded with no output readers). Neither alone
@@ -28,6 +52,8 @@ quiescence proof may justify explicit completion calls; the window cannot prove 
 Frame owners remain in backend/GstMemory until actual last input read completion;
 the ledger is deliberately not their resource owner. Destroying the ledger is not
 a resource cancellation mechanism. Its owner must reconcile jobs first.
+
+## Source cadence and clock mapping
 
 Every accepted ticket preserves the exact source epoch, source frame ID and source PTS
 supplied with the reservation. The default `unique_source_frames` policy requires source
@@ -57,8 +83,22 @@ Deadline expiry marks the window faulted but keeps all outstanding slots. Inflig
 budget includes prepared, submitted and result-held jobs; it does NOT budget vendor
 pools, tensor bytes or camera buffers retained elsewhere.
 
-The private plugin_graph now uses submission_window for tickets and completion bookkeeping;
-see qualcomm_submission_lifecycle.md for current wiring and retention requirements.
-Encoder hardware wiring is still pending. Source tests do not validate any device
-completion guarantee. The existing unit/contract binary passes in the QCS6490 board
-smoke suite; this is ledger logic evidence only.
+## Wiring
+
+The private `plugin_graph` now uses `submission_window` for tickets and completion
+bookkeeping; see [qualcomm submission lifecycle](qualcomm_submission_lifecycle.md) for
+current wiring and retention requirements. Encoder hardware wiring is still pending.
+Source tests do not validate any device completion guarantee.
+
+## Limits and next work
+
+- Encoder hardware wiring is still pending.
+- Source tests do not validate any device completion guarantee.
+- A BSP quiescence proof is required before explicit completion calls are justified; the
+  window cannot prove quiescence itself.
+
+## See also
+
+- [Qualcomm submission lifecycle](qualcomm_submission_lifecycle.md)
+- [Frame submission](frame_submission.md)
+- [Encoder admission and completion ledger](encoder_window.md)

@@ -1,7 +1,25 @@
 # Model catalog configuration v2
 
-Status: neutral contract, pure validation, bounded JSON loader and source tests delivered;
-artifact authentication/resolution and live graph composition are pending.
+The model catalog is the AI Model-team document that declares each executable model graph,
+its dependencies, its measured envelope and its artifact reference. This document defines
+the schema, its validation and its separation from deployment and output-manifest data.
+
+**Status:** source-delivered — neutral contract, pure validation, bounded JSON loader and
+source tests delivered; artifact authentication/resolution and live graph composition are
+pending. **Layer:** core. **Source:**
+`include/vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp`,
+`src/core/vqec_vision_model_catalog.cpp`,
+`tests/unit/vqec_vision_model_catalog_test.cpp`,
+`tests/unit/vqec_vision_model_catalog_loader_test.cpp`.
+
+## Responsibility
+
+- Declares each executable model graph, not a commercial feature and not a camera.
+- Owns model semantics, its capability claims and its measured envelope.
+- Contains no absolute filesystem path, QNN library path, FW RAW-source or transport
+  details, FW ring identity, entitlement or credential.
+- Must be cross-checked by the runtime against the deployment and output-manifest
+  references rather than copying values from another untrusted document.
 
 ## Role and dependency (schema version 2)
 
@@ -27,8 +45,7 @@ time. The schema and the C++ validator are the authority; in-memory entries defa
 
 ## Ownership and separation
 
-AI Model team delivers a versioned catalog. Each entry represents one executable model
-graph, not a commercial feature and not a camera. It declares:
+AI Model team delivers a versioned catalog. Each entry declares:
 
 - model/version/target and immutable artifact reference plus SHA-256 claim;
 - output-manifest, decoder and preprocess contract references;
@@ -37,15 +54,12 @@ graph, not a commercial feature and not a camera. It declares:
 - measured resident/tensor requirements, bounded output queue, maximum concurrent
   sources and whether a context is proven shareable across sources.
 
-The catalog contains no absolute filesystem path, QNN library path, FW RAW-source or
-transport details, FW ring identity, entitlement or credential. A trusted platform resolver maps the
-catalog's `(model_id, target_id, artifact_ref)` to immutable model/backend/system paths.
-The resulting plan is accepted only when all three references still match.
+A trusted platform resolver maps the catalog's `(model_id, target_id, artifact_ref)` to
+immutable model/backend/system paths. The resulting plan is accepted only when all three
+references still match.
 
 Deployment owns source profile and total budgets. Catalog owns model semantics and its
-measured envelope. Output manifest owns ordered raw tensor metadata. The runtime must
-cross-check catalog identity, model/version/digest/decoder/output reference instead of
-building one input by copying values from another untrusted document.
+measured envelope. Output manifest owns ordered raw tensor metadata.
 
 ## Validation and admission
 
@@ -104,19 +118,37 @@ Dynamic shape, stateful sequence and artifact update need an explicit envelope, 
 profile, generation/drain and source-epoch/reset policy before they can be enabled; the
 descriptors exist but no conformance fixture or board evidence does.
 
-
 ## Optional authoritative preprocess
 
 A catalog model entry may carry an optional `preprocess` object (the package
 `preprocess.json` runtime fields, excluding document identity and notes). When present it
-must declare every field; unknown keys and implicit defaults are rejected. It is the authoritative
-preprocessing contract: `compose_inference_plan` copies it into `inference_plan.preprocess_`
-and the legacy `input.mean`/`input.sigma` profile is ignored. This is what allows a
-quantized (non-float32) input, such as the YOLOv8n-person uint16 graph, to use an explicit
-`offset_scale` normalization instead of the identity-only legacy profile. The object is
-validated by `vqec_vision_ai_core_ppspc_validate`; an invalid spec fails catalog load.
+must declare every field; unknown keys and implicit defaults are rejected. It is the
+authoritative preprocessing contract: `compose_inference_plan` copies it into
+`inference_plan.preprocess_` and the legacy `input.mean`/`input.sigma` profile is ignored.
+This is what allows a quantized (non-float32) input, such as the YOLOv8n-person uint16
+graph, to use an explicit `offset_scale` normalization instead of the identity-only legacy
+profile. The object is validated by `vqec_vision_ai_core_ppspc_validate`; an invalid spec
+fails catalog load.
 
 Deployment admission treats a secondary model as active for each source that assigns all
 of its declared primary dependencies. Its resident/context concurrency and per-source
 tensor envelope are therefore charged even though the secondary model never appears in the
 full-frame `model_ids` submit mask.
+
+## Limits and next work
+
+- Artifact authentication/resolution and live graph composition are pending.
+- The example digest and memory values are synthetic and must not be installed by product
+  deployment.
+- Parsing does not verify a signature or digest, pin an open file, load executable code or
+  prove resource measurements.
+- Dynamic shape, stateful sequence and artifact update need an explicit envelope, pool
+  profile, generation/drain and source-epoch/reset policy plus a conformance fixture and
+  board evidence.
+
+## See also
+
+- [Model package registry](model_package_registry.md)
+- [Model output manifest](model_output_manifest.md)
+- [Multi-source configuration](multi_source_configuration.md)
+- [Cascade inference](cascade_inference.md)

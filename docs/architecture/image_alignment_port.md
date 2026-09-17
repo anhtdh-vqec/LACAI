@@ -1,15 +1,35 @@
 # Image alignment port
 
-Status: contract defined and unit-tested; the Qualcomm FastCV aligner implements it and
-the cascade coordinator consumes it. This is the boundary required by ADR 0005 for
-secondary (cascade) face crops; golden crop/embedding parity remains open.
+`image_alignment_port` turns a borrowed source frame plus typed source-pixel landmarks into
+the exact aligned destination tensor that a secondary model consumes. This document
+defines the port contract, the required completion semantics and the delivered FastCV
+adapter evidence.
+
+**Status:** source-delivered — contract defined and unit-tested; the Qualcomm FastCV
+aligner implements it and the cascade coordinator consumes it. This is the boundary
+required by ADR 0005 for secondary (cascade) face crops; golden crop/embedding parity
+remains open. **Layer:** core. **Source:**
+`include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`,
+`include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
+`src/core/vqec_vision_image_alignment.cpp`,
+`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`,
+`tests/unit/vqec_vision_image_alignment_test.cpp`.
+
+## Responsibility
+
+- Turns a borrowed source frame plus typed source-pixel landmarks into the exact aligned
+  destination tensor and returns the transform so results can be mapped back to the source
+  frame.
+- Keeps the source frame owner alive until `poll_completion` reports `complete`; timeout,
+  stop request, source disconnect and FD close are **not** completion.
+- Never owns the source, the crop pool or the cascade task queue.
+- Fails closed with `unsupported` when a template exceeds the probe; there is no silent
+  CPU fallback.
 
 ## Purpose
 
 A secondary model (for example a face embedding network) consumes one aligned crop per
-detected face, not the full frame. `image_alignment_port` turns a borrowed source frame plus
-typed source-pixel landmarks into the exact aligned destination tensor, and returns the
-transform so results can be mapped back to the source frame.
+detected face, not the full frame.
 
 Contract: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`.
 Port: `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`.
@@ -115,6 +135,7 @@ falling back to the reviewed neutral `vqec_vision_ai_core_color_convert_nv12_to_
 BT.709 or full-range matrices.
 
 Cost control & memory reuse:
+
 1. **ROI Bounding**: Before conversion the adapter computes the source region the aligned patch
    actually samples (plus an interpolation margin) and converts/warps only that even-aligned
    NV12 ROI, so per-face cost scales with the face, not the frame.
@@ -193,7 +214,17 @@ The converter is not yet wired into `fastcv_aligner`; the offload integration (R
 color + resize on the plugin, rotation on FastCV, and the colour-authority decision) is the
 next step.
 
+## Limits and next work
+
+- Golden crop/input parity, approved edge/border behavior and any DSP offload claim remain
+  M4.
+- Crop/tensor pooling and cache/fence behavior are not yet proven.
+- The `qtiv_color_converter` offload integration and the colour-authority decision are the
+  next step.
+- The exact `engine-param` grammar and arbitrary-affine support must be verified with a
+  board pipeline before use; no offload claim is made here.
+
 ## See also
 
-- [ADR 0005](../adr/0005_scalable_model_integration.md),
-  [cascade inference](cascade_inference.md)
+- [ADR 0005](../adr/0005_scalable_model_integration.md)
+- [Cascade inference](cascade_inference.md)

@@ -1,9 +1,25 @@
 # eSDK configuration and evidence matrix
 
+This document records the eSDK option sets LACAI is built and tested under, the test counts
+verified for each, and the rule that a green result is only valid for the exact set that
+produced it. It prevents a missing SDK or runner from being reported as a passing
+configuration.
+
+**Status:** logic-tested — 76/76 neutral and 123/123 expanded under eSDK QEMU; board-only
+QNN engine evidence is separate. **Layer:** reference. **Source:** `n/a`.
+
 The base builds under several option sets. A green result is only valid for the exact set
 that produced it; a configuration whose SDK or runner is unavailable is **not-run**, never
 reported as passing. All rows below use the approved eSDK AArch64 compiler and SDK
 `qemu-aarch64`.
+
+## Responsibility
+
+- Defines the supported CMake option sets and the evidence status of each.
+- Records a configuration whose SDK or runner is unavailable as not-run with the exact
+  blocker.
+- Must not present a missing private SDK, sysroot or runner as a skipped-then-green result,
+  and must not equate emulation with device/BSP acceptance.
 
 ## Verified configurations
 
@@ -72,3 +88,16 @@ ctest --test-dir build-esdk-neutral --output-on-failure
 ```
 
 The expanded command is in the repository [README](../../README.md#build-và-test).
+
+## Limits and next work
+
+- QNN engine coverage is board-only; there is no host/QEMU test, so it changes compiled
+  coverage rather than the test count.
+- Board/live results remain preferred where the sysroot lacks a component, but they are
+  still not device/BSP acceptance.
+
+## See also
+
+- [QNN model and engine board validation](qnn_board_validation.md)
+- [QCS6490 board test target](qsc6490_board.md)
+- [Actions from the optimization plan](../planning/model_agnostic_optimization_plan.md)

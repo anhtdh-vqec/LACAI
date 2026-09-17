@@ -1,11 +1,29 @@
 # Multi-source configuration and memory architecture v1
 
-Status: source-level contract, bounded loader, activation snapshot and bounded session
-supervisor, multi-model session/fan-out and bounded RAW-reference resolver delivered;
-composition-root construction is delivered; authenticated FW registry RPC and board qualification remain pending. This document is normative for new
+This document is the normative contract for 1..16 logical sources in one AI APP process:
+the deployment shape, the independent configuration authorities, the deployment document,
+conservative memory admission and the copy/zero-copy ledger. It is normative for new
 runtime work.
 
-## 1. Deployment shape
+**Status:** source-delivered — source-level contract, bounded loader, activation snapshot
+and bounded session supervisor, multi-model session/fan-out and bounded RAW-reference
+resolver delivered; composition-root construction is delivered; authenticated FW registry
+RPC and board qualification remain pending. **Layer:** runtime.
+**Source:** `src/runtime/lifecycle/vqec_vision_deployment_config.{hpp,cpp}`,
+`src/runtime/admission/vqec_vision_activation_snapshot.{hpp,cpp}`,
+`src/app/vqec_vision_multi_source_supervisor.{hpp,cpp}`,
+`config/schemas/deployment.schema.json`.
+
+## Responsibility
+
+- Define the 1..16 logical-source deployment shape and the one-FW-RAW-source rule for AI
+  Camera and AI Box.
+- Own the deployment document contract/loader, the activation snapshot and conservative
+  memory admission.
+- Keep transport origin (RTSP/codec/credential) and product-type inference out of AI APP;
+  `raw_source_ref` resolves only to the agreed FW RAW frame contract.
+
+## Deployment shape
 
 One AI APP process supports **1..16 logical sources**. This is a configuration ceiling,
 not a claim that one board can run 16 sources, 16 previews or every model concurrently.
@@ -32,7 +50,7 @@ demux, decode, decoder surfaces and reconnect-before-RAW belong entirely to FW. 
 does not contain an RTSP adapter or codec-decoder lifecycle and must not infer product
 type from a source. `raw_source_ref` resolves only to the agreed FW RAW frame contract.
 
-## 2. Three independent configuration authorities
+## Three independent configuration authorities
 
 | Document | Owner | Contains | Must not contain |
 |---|---|---|---|
@@ -50,7 +68,7 @@ The model catalog contract, loader and deployment cross-validation are now sourc
 see [model catalog](model_catalog.md). Artifact/output-manifest authentication and the
 runtime resolver that activates the resulting plans remain pending.
 
-## 3. Deployment document
+## Deployment document
 
 The C++ contract is `vqec_vision_deployment_config.hpp`; the strict JSON representation
 is `config/schemas/deployment.schema.json`. Required properties include:
@@ -76,7 +94,7 @@ V1 applies profile or source-set changes by controlled source replacement:
 5. publish effective revision/state. On failure, remain stopped/degraded or roll back as
    product policy specifies; never reinterpret old buffers with new geometry.
 
-## 4. Conservative memory admission
+## Conservative memory admission
 
 The current validator calculates a declared upper bound:
 
@@ -122,7 +140,7 @@ Within each source, [model cadence](model_cadence.md) compiles Model-team ration
 rates into fixed numeric phase state and a 16-bit due mask. A skipped source-frame sequence
 advances cadence without generating a backlog burst.
 
-## 5. Copy and zero-copy ledger
+## Copy and zero-copy ledger
 
 “Zero-copy” is a per-boundary result, never a label for the whole pipeline.
 
@@ -139,7 +157,7 @@ Every optimized boundary must record allocator, memory type/modifier, ownership,
 operation, completion point, fallback copy and measured DDR/latency. A retained FD or
 `GstBuffer` does not by itself prove DMA-BUF import or zero-copy.
 
-## 6. Current FW compatibility limitation
+## Current FW compatibility limitation
 
 The released FW ring adapter exposes only fixed `detect0` and `detect1` paths mapped to
 camera 0/channel 0 behavior. Therefore the current code can configure up to 16 inference
@@ -157,7 +175,7 @@ See also [Camera Service contract](../contracts/camera_service.md),
 [model integration](../contracts/model_integration.md), and
 [FW ring sink](fw_ring_sink.md).
 
-## 7. Cascade retention budget
+## Cascade retention budget
 
 A source that hosts a cascade root (a model some secondary catalog model depends on) must
 declare a `cascade` budget: `frames`, `tasks_per_frame` and `max_bytes`. Either all three are
@@ -166,3 +184,23 @@ budget is rejected. The budget is counted in the deployment resident total. Comp
 the session store sizing and `cascade_root_` from the catalog `role`/`depends_on`, and a
 cascade-root model without a source budget fails composition. The runtime then retains the
 exact source frame and releases the FW lease only after `store.bytes() == 0`.
+
+## Limits and next work
+
+- Authenticated FW registry RPC and board qualification remain pending.
+- Artifact/output-manifest authentication and the runtime resolver that activates the
+  resulting plans remain pending.
+- Vendor graph pools, encoder pools, GStreamer objects, stacks and process overhead still
+  require board-specific accounting before admission.
+- The current code can configure up to 16 inference sources but cannot promise 16
+  independently addressable preview outputs until FW signs a versioned output registry/ring
+  contract.
+
+## See also
+
+- [model catalog](model_catalog.md)
+- [multi-source supervisor](multi_source_supervisor.md)
+- [model cadence](model_cadence.md)
+- [Camera Service contract](../contracts/camera_service.md)
+- [model integration](../contracts/model_integration.md)
+- [FW ring sink](fw_ring_sink.md)

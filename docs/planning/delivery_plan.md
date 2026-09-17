@@ -10,6 +10,8 @@ Tính từ kick-off, không tự coi ngày tài liệu là ngày bắt đầu d�
 Tất cả 13 bài nằm trong backlog; đủ model qualified đúng hạn là dependency
 bắt buộc để đạt mục tiêu nghiệm thu đủ 13 bài trong quý này.
 
+**Status:** historical record — dated delivery plan.
+
 ## Người và trách nhiệm
 
 | Vai trò | Primary | Backup / review |

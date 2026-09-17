@@ -1,9 +1,24 @@
 # QNN model and engine board validation
 
+This document defines how to validate the AI-team model artifacts and the LACAI-owned QNN
+engine on the QCS6490 target before model/usecase integration. It records the inputs to
+pin, the validation steps, the evidence checklist and the dated board result.
+
+**Status:** board-smoke — 2026-09-14 board run passed runtime sanity, model smoke and owned
+engine execution with engine-versus-runtime parity; accuracy and latency acceptance are not
+claimed. **Layer:** reference. **Source:** `n/a`.
+
 Purpose: validate the AI-team model artifacts and the LACAI-owned QNN engine on the
 QCS6490 target before model/usecase integration. This produces evidence; it is not
 acceptance and does not replace the FW release gates. The board is reachable as
 `lacai-qsc6490` per [board target](qsc6490_board.md) when online.
+
+## Responsibility
+
+- Defines the board procedure for QNN runtime sanity, model smoke, numeric checks and the
+  LACAI-owned engine.
+- Records artifact/digest and parity evidence for the agreed workload.
+- Must not be read as model accuracy, released-FW, performance or thermal acceptance.
 
 ## Inputs to pin
 
@@ -105,3 +120,14 @@ production command in [QSC6490 target](qsc6490_board.md).
 - Step 3 (partial): engine-versus-runtime parity on the same native input is byte-identical
   (SCRFD 9/9, YOLOv8n 2/2). Labelled accuracy, async/shared/update, latency/memory and a
   live FW stream are still not done.
+
+## Limits and next work
+
+- Labelled accuracy, async/shared/update, latency/memory capture and a live FW stream remain
+  undone; byte-identical engine-versus-runtime parity is not labelled accuracy.
+- Async/shared execution and released-FW DMA completion remain open.
+
+## See also
+
+- [QCS6490 board test target](qsc6490_board.md)
+- [eSDK configuration and evidence matrix](esdk_configuration_matrix.md)

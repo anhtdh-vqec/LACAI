@@ -1,13 +1,23 @@
 # Multi-model source session
 
-Status: portable lifecycle source delivered; fake-port tests pass and the combined
-person+FD/FR path has live compatibility-source evidence on QCS6490. Released-FW recovery
-and acceptance remain pending.
-
 `multi_model_session` is the default source-session design for an admitted source with
 1..16 model graphs. It implements `source_session_port`, so the existing process-level
 `multi_source_supervisor` can supervise a mixture of single-model compatibility sessions
 and multi-model sessions without depending on Camera Service or vendor types.
+
+**Status:** source-delivered — portable lifecycle source delivered; fake-port tests pass
+and the combined person+FD/FR path has live compatibility-source evidence on QCS6490.
+Released-FW recovery and acceptance remain pending. **Layer:** app.
+**Source:** `src/app/vqec_vision_multi_model_session.{hpp,cpp}`.
+
+## Responsibility
+
+- Own one admitted FW RAW source through preflight, serial graph startup, running
+  progress and one common drain path.
+- Implement `source_session_port` so the process-level `multi_source_supervisor` can
+  supervise a mixture of single-model compatibility sessions and multi-model sessions.
+- Keep the source lease, graph adapters and private retention domains alive until stopped
+  or until an external BSP recovery procedure proves DMA has ceased.
 
 ## Preflight and startup order
 
@@ -67,13 +77,16 @@ bounded-source deadlock when duplicate owners from separate model slots consumed
 three compatibility-camera in-flight buffers. The ownership regression test now releases
 the consumer report and verifies the source owner expires.
 
-## Limits
+## Limits and next work
 
-The 16-slot arrays are schema/runtime ceilings, not a Qualcomm QCS6490 capacity claim.
-Admission still needs measured graph-retention, accelerator, memory, encoder and thermal
-limits. The session does not authenticate configuration/model artifacts, decode tensors,
-enforce entitlements, restart a failed source or construct an executable service.
+- The 16-slot arrays are schema/runtime ceilings, not a Qualcomm QCS6490 capacity claim.
+- Admission still needs measured graph-retention, accelerator, memory, encoder and
+  thermal limits.
+- The session does not authenticate configuration/model artifacts, decode tensors,
+  enforce entitlements, restart a failed source or construct an executable service.
 
-See [multi-model pump](multi_model_pump.md),
-[multi-source supervisor](multi_source_supervisor.md), and
-[single-model compatibility session](camera_session.md).
+## See also
+
+- [multi-model pump](multi_model_pump.md)
+- [multi-source supervisor](multi_source_supervisor.md)
+- [single-model compatibility session](camera_session.md)

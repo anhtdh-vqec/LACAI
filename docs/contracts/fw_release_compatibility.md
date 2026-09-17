@@ -1,11 +1,29 @@
 # FW release compatibility baseline
 
+This document records the released FW behaviors that LACAI must preserve, the current
+owner/gap for each, and the required acceptance. It is the AI APP implementation baseline
+authorized by the lead; FW optimization requests below remain proposals, not FW-approved
+changes.
+
+**Status:** board-smoke — the AI writer v5 ring source is delivered and live on `.98`, with
+the released RTSP reader conformance still pending; the baseline is a read-only source
+review of the FW commit below. **Layer:** contracts. **Source:** external
+`vqec_camera_service` and the listed LACAI adapter/output files.
+
 Date: 2026-09-06. AI APP implementation baseline authorized by the lead.
 FW optimization requests remain proposals, not FW-approved changes.
 Evidence: sibling vqec_camera_service commit
 `139d335913e19e5a33a36fa8f8d706009892db44`, read-only source review.
 No board test, performance result or drop-in replacement qualification is implied.
 Source paths in this document are relative to that FW repository, not this repo.
+
+## Responsibility
+
+- Preserves the released external FW behavior listed in the compatibility matrix.
+- Defines the legacy camera input, encoded output ABI, viewer-demand chain, AI command
+  compatibility and deployment inputs LACAI depends on.
+- Must not treat a matching struct/name as cross-process ABI compatibility, or a proposal
+  as an FW-approved change.
 
 ## Compatibility matrix and acceptance gates
 
@@ -25,7 +43,9 @@ Source paths in this document are relative to that FW repository, not this repo.
 
 Use the current effective third profile; do not require 4K, change wire layout or
 start another camera source. See fw_camera_integration_requirements.md and the
-camera_legacy_adapter/source_lifecycle architecture documents for exact parsing.
+[camera legacy adapter](../architecture/camera_legacy_adapter.md) and
+[camera source lifecycle](../architecture/camera_source_lifecycle.md) architecture
+documents for exact parsing.
 The raw branch is demand-driven by Camera Service leases, not always-on broadcast.
 
 Old app ACKs after copying all required pixels and completing its resize reads,
@@ -139,3 +159,16 @@ FW BSP/FW software review requests (not implemented here):
 
 Acceptance is end-to-end with released FW/RTSP/Web UI and representative model kits,
 not just a successful GStreamer graph. No external endpoint/ABI change without owner review.
+
+## Limits and next work
+
+- Released RTSP reader conformance against the AI v5 writer, installable package/manifest,
+  encoder/renderer source and profile/reconnect recovery remain open per the matrix.
+- All eight FW BSP/software review requests above are proposals, not FW-approved changes.
+
+## See also
+
+- [FW camera integration requirements](fw_camera_integration_requirements.md)
+- [FW–AI APP integration contract](fw_ai_app_contract.md)
+- [Camera legacy adapter](../architecture/camera_legacy_adapter.md)
+- [Camera source lifecycle](../architecture/camera_source_lifecycle.md)

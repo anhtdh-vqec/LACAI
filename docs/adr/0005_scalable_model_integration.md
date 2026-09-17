@@ -110,7 +110,7 @@ Package verification is necessary but not sufficient. Closable stages, each with
 evidence and owner:
 
 1. **Package verification** — manifests/decoder/preprocess parse through the strict
-   loaders and match the runtime ABI (see `VERIFICATION_CHECKLIST.md`);
+   loaders and match the runtime ABI (see `verification_checklist.md`);
 2. **Board model execution** — the exact artifact executes on QCS6490 with recorded
    parity/limits;
 3. **FD→FR correlation** — the retained source frame maps to the correct face/embedding

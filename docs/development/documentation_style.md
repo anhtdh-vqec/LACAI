@@ -4,6 +4,8 @@ This is the single source of truth for repository documentation. It defines file
 language, the required document template and the status vocabulary. A document that does not
 follow this file is a defect to fix, not a local exception.
 
+**Status:** normative — current documentation rules.
+
 ## 1. Authority and status
 
 1. User-approved project rules govern workflow. AGENTS.md records persistent constraints.
@@ -50,7 +52,8 @@ that helper, not necessarily to the product.
   `docs/testing/`, `docs/research/`, `docs/adr/`, `docs/operations/`, the root `README.md`
   may stay Vietnamese, and all module `README.md` may be English.
 - `docs/planning/` (roadmaps, cohort plans) may be written in Vietnamese with Vietnamese
-  headings, but must still follow the section skeleton in section 4.
+  headings, but must still follow the section skeleton in section 4 and keep the literal
+  `Status:` label (English) so the checker can verify it.
 - One document is written in one language; do not alternate prose languages within a file.
   Vietnamese planning docs quote English contract/identifier names verbatim.
 

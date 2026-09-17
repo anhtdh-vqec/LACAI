@@ -1,9 +1,29 @@
 # Vendor-neutral inference-graph port
 
-Status: interface, Qualcomm forwarding adapter and single-model app migration delivered;
-multi-model fan-out/session integration is also source-delivered. Neutral execution
-capability/policy contracts and the port capability/policy query are source-delivered
-(A1/A3); the owned QNN engine is board-qualified for SCRFD/YOLOv8n on HTP.
+`inference_graph_port` removes GStreamer, Qualcomm/QNN, FastCV and recovery-domain types
+from application orchestration, exposing explicit graph lifecycle operations and a neutral
+state enum. This document defines the port contract, its execution capability/policy query
+and the neutral submission shapes.
+
+**Status:** source-delivered — interface, Qualcomm forwarding adapter and single-model app
+migration delivered; multi-model fan-out/session integration is also source-delivered.
+Neutral execution capability/policy contracts and the port capability/policy query are
+source-delivered (A1/A3); the owned QNN engine is board-qualified for SCRFD/YOLOv8n on HTP.
+**Layer:** contracts. **Source:**
+`include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp`,
+`include/vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp`,
+`src/adapters/qualcomm/vqec_vision_inference_graph.cpp`,
+`src/adapters/qualcomm/vqec_vision_qnn_inference_graph.cpp`.
+
+## Responsibility
+
+- Exposes explicit configure/load/bind/start/arm/submit/poll/drain/unload operations and a
+  neutral state enum.
+- Is the only model-execution dependency allowed in application orchestration.
+- Keeps GStreamer, Qualcomm/QNN, FastCV and recovery-domain types private to the platform
+  adapter.
+- Must not expose vendor branches to orchestration; optimizations are requested as
+  validated neutral data.
 
 ## Execution capability and policy
 
@@ -19,6 +39,13 @@ reference backend advertises every reviewed dtype and native output; the plugin-
 Qualcomm adapter keeps the conservative default; the owned `qnn_inference_graph` reports
 the engine's probed capabilities.
 
+The contract and validators are in `vqec_vision_inference_execution.hpp`; fail-closed
+semantics and Qualcomm mapping are in
+[qualcomm execution policy](qualcomm_execution_policy.md) and
+[ADR 0003](../adr/0003_owned_qnn_engine.md).
+
+## Submission shapes and ownership
+
 Two submission shapes exist. `submit_frame` takes a raw frame for backends that
 preprocess pixels themselves (the GStreamer converter path). `submit_tensors` takes the
 already-preprocessed model input blobs plus the source frame identity, for a backend that
@@ -29,30 +56,40 @@ explicit neutral stage rather than hidden inside the accelerator adapter. A pump
 may carry an optional `image_processor_port`; when present the pump preprocesses the frame
 with the binding's plan and submits tensors, otherwise it submits the raw frame.
 
-The contract and validators are in `vqec_vision_inference_execution.hpp`; fail-closed
-semantics and Qualcomm mapping are in
-[qualcomm execution policy](qualcomm_execution_policy.md) and
-[ADR 0003](../adr/0003_owned_qnn_engine.md).
-
-`inference_graph_port` is the only model-execution dependency allowed in application
-orchestration. It exposes explicit configure/load/bind/start/arm/submit/poll/drain/unload
-operations and a neutral state enum. GStreamer, Qualcomm/QNN, FastCV and recovery-domain
-types remain private to the platform adapter.
-
 Submission accepts `const raw_frame&`. A backend that accepts the job must retain a copy of
 the frame's shared owner until its real input-read completion. Because the caller keeps the
 original frame envelope, the same pixels can be submitted to several due model graphs
 without pixel memcpy; each accepted graph contributes one owner reference. This is an
 ownership design, not proof that the vendor imports DMA-BUF without an internal copy.
 
+## Qualcomm forwarding adapter
+
 `qualcomm_inference_graph` borrows the existing `plugin_graph` and owns a shared reference
 to its `graph_retention` domain. It is the only new layer that converts the native handle
 to a Linux FD and forwards Qualcomm lifecycle calls. Invalid/non-FD handles fail before
 vendor submission. Retention capacity and armed-graph safety rules are unchanged.
+
+## Multi-model integration
 
 The current `camera_session` and `camera_graph_pump` now depend on RAW-source and inference
 ports only and therefore build as portable orchestration source. Platform composition owns
 concrete adapters and must keep them alive until explicit stop/unload. The implemented
 multi_model_session binds 1..16 graph ports to one RAW-source port; multi_model_pump uses
 numeric cadence slots and shares each received owner across accepted graphs. Executable
-owner construction and live integration are delivered; released-FW qualification remains pending. See [multi-model session](multi_model_session.md).
+owner construction and live integration are delivered; released-FW qualification remains
+pending. See [multi-model session](multi_model_session.md).
+
+## Limits and next work
+
+- Released-FW qualification remains pending.
+- This ownership design does not prove that the vendor imports DMA-BUF without an internal
+  copy.
+- The plugin-backed Qualcomm adapter keeps the conservative default; the owned QNN engine's
+  board qualification covers SCRFD/YOLOv8n on HTP only.
+
+## See also
+
+- [Qualcomm execution policy](qualcomm_execution_policy.md)
+- [ADR 0003 — owned QNN engine](../adr/0003_owned_qnn_engine.md)
+- [Multi-model session](multi_model_session.md)
+- [RAW-source port](raw_source_port.md)

@@ -24,6 +24,8 @@ and the owned QNN engine are byte-identical for the same native input):
 - output `conf_out` `[1,1,8400]`, `uint16`, scale `1.52587890625e-05`, zero_point `0`;
 - `8400 = 80² + 40² + 20²` (strides 8/16/32), one class, DFL present, no NMS in graph.
 
+- **Status:** metadata delivered; artifact/golden not in repository
+
 ## Confirmed by the model team
 
 - `boxes_out` is `xywh` (`centre_x,centre_y,width,height`), channel-first `[1,4,8400]`, in

@@ -1,13 +1,22 @@
 # Multi-source supervisor
 
-Status: source implementation delivered; eSDK compilation, service composition and
-threaded execution are delivered, board qualification remains pending.
-
 `multi_source_supervisor` is the process-level fairness and fault-isolation layer above
 one `source_session_port` per admitted FW RAW source. The port may be implemented by the
-current single-model `camera_session` or a multi-model fan-out session. Every
-implementation consumes the same RAW NV12/FD descriptor/lease contract. The supervisor
-does not know whether FW produced that source from a sensor or an RTSP decoder.
+current single-model `camera_session` or a multi-model fan-out session.
+
+**Status:** source-delivered — source implementation delivered; eSDK compilation, service
+composition and threaded execution are delivered, board qualification remains pending.
+**Layer:** app. **Source:** `src/app/vqec_vision_multi_source_supervisor.{hpp,cpp}`.
+
+## Responsibility
+
+- Advance one already-composed session per fixed numeric source index with bounded
+  round-robin fairness.
+- Isolate a source-level fault while healthy slots continue to progress.
+- Must not allocate a session, own an FD, load a model, call FW directly, resolve RAW
+  sources or create threads. Every implementation consumes the same RAW NV12/FD
+  descriptor/lease contract, and the supervisor does not know whether FW produced a source
+  from a sensor or an RTSP decoder.
 
 ## Ownership and activation
 
@@ -85,11 +94,25 @@ from being retagged as a new source cycle.
 - snapshots are serialized diagnostics, not concurrent synchronization primitives;
 - no zero-copy, throughput or 16-source board-capacity claim follows from this scheduler.
 
-`raw_source_ref` now resolves through the bounded adapter described in
-[RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
-transactional session-owner construction remain pending. The portable `multi_model_pump`
-now fans one received frame out to due running graphs while holding one shared lease until
-every graph releases it. `multi_model_session` configures, starts and drains those graphs
-around one FW acquisition and exposes the pump's numeric result slot through
-`source_session_port`. Executable composition and live integration are delivered;
-automatic recovery remains pending. RTSP URI, credentials, codec and decoder state remain outside AI APP.
+## Limits and next work
+
+- `raw_source_ref` resolves through the bounded adapter described in
+  [RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
+  transactional session-owner construction remain pending.
+- Automatic recovery remains pending; per-source restart, backoff, epoch replacement and
+  FW/BSP recovery are not part of this slice.
+- True wall-time isolation requires one serialized executor per source and will be added at
+  the service-runtime layer.
+- RTSP URI, credentials, codec and decoder state remain outside AI APP. The portable
+  `multi_model_pump` fans one received frame out to due running graphs while holding one
+  shared lease until every graph releases it; `multi_model_session` configures, starts and
+  drains those graphs around one FW acquisition and exposes the pump's numeric result slot
+  through `source_session_port`. Executable composition and live integration are delivered.
+
+## See also
+
+- [RAW-source resolution](raw_source_resolution.md)
+- [single-model compatibility session](camera_session.md)
+- [multi-model source session](multi_model_session.md)
+- [multi-model pump](multi_model_pump.md)
+- [per-source session worker](source_session_worker.md)

@@ -30,3 +30,5 @@ capability từ SDK/plugin đã cài. Quy tắc evidence: [documentation style](
 
 AI Camera/Box share the intended RAW boundary; this does not prove every FW origin has
 been integrated. Zvec SDK execution is CPU/index evidence, not Adreno acceleration.
+**Status:** current — capability snapshot.
+

@@ -5,6 +5,8 @@ vocabulary are normative in [documentation style](development/documentation_styl
 Delivery/evidence claims are owned by [implementation status](development/implementation_status.md)
 and [capability matrix](development/capability_matrix.md); this map only routes.
 
+**Status:** reference map — routes to the authority documents.
+
 ## Start here
 
 | Document | Purpose |

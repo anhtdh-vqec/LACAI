@@ -1,10 +1,27 @@
-# Pump cascade retention and dependent drain (design)
+# Pump cascade retention and dependent drain
 
-Status: **source-delivered through production runtime invocation.** The pump borrows a
-session-owned `cascade_frame_store`, retains or rolls back cascade-root frames per frame,
-and the result route invokes the bounded coordinator using the exact retained identity.
-Unit and contract tests cover retention, completion and dependent drain. Target hardware
-completion and live model parity remain separate acceptance gates.
+This document defines how the multi-model pump retains exact cascade-root source frames and
+how dependents drain against a session-owned store, plus the ownership, drain and epoch
+semantics. It is a design/implementation record for the cascade retention path.
+
+**Status:** source-delivered — delivered through production runtime invocation. The
+pump borrows a session-owned `cascade_frame_store`, retains or rolls back cascade-root
+frames per frame, and the result route invokes the bounded coordinator using the exact
+retained identity. Unit and contract tests cover retention, completion and dependent drain.
+Target hardware completion and live model parity remain separate acceptance gates.
+**Layer:** app.
+**Source:** `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
+`src/app/vqec_vision_cascade_coordinator.{hpp,cpp}`,
+`src/app/vqec_vision_multi_model_pump.{hpp,cpp}`,
+`src/app/vqec_vision_multi_model_session.{hpp,cpp}`.
+
+## Responsibility
+
+- Retain the exact cascade-root source frame per due frame before primary submission and
+  roll back a rejected submit, so no slot stays charged without a matching result.
+- Keep FW source release gated on `store.bytes() == 0` after all dependent work drains.
+- Must not establish device completion, DMA/cache/fence behavior, zero-copy, accuracy or
+  performance; completion is the only release and timeout/FD close/stop/disconnect is not.
 
 ## Delivered (slice 1)
 
@@ -63,8 +80,6 @@ the coordinator only for the dependency root slot, and the production service ow
 secondary graph lifecycle and binding. Real EdgeFace golden parity and live cascade
 acceptance remain M5 work; a compatibility live smoke exists on `.98`, while post-fix
 multi-face and released-FW evidence remain open.
-
-
 
 ## Current state
 
@@ -127,14 +142,19 @@ multi-face and released-FW evidence remain open.
    drain primary graphs → require `store.bytes() == 0` → release FW source. Supervisor global
    stop latches to every session and releases no source until that session reports drained.
 
-## Non-claims
+## Limits and next work
 
-This design does not establish device completion, DMA/cache/fence behavior, zero-copy,
-accuracy or performance. The pump integration and coordinator are delivered and logic-tested; released-FW device
-completion evidence remains open, so hardware completion is not claimed.
+- This design does not establish device completion, DMA/cache/fence behavior, zero-copy,
+  accuracy or performance. The pump integration and coordinator are delivered and
+  logic-tested; released-FW device completion evidence remains open, so hardware completion
+  is not claimed.
+- Real EdgeFace golden parity and live cascade acceptance remain M5 work; a compatibility
+  live smoke exists on `.98`, while post-fix multi-face and released-FW evidence remain open.
+- Live hardware and model parity remain open.
 
 ## See also
 
-- [ADR 0005](../adr/0005_scalable_model_integration.md),
-  [cascade inference](cascade_inference.md),
-  [multi-model pump](multi_model_pump.md)
+- [ADR 0005](../adr/0005_scalable_model_integration.md)
+- [cascade inference](cascade_inference.md)
+- [multi-model pump](multi_model_pump.md)
+- [image alignment port](image_alignment_port.md)

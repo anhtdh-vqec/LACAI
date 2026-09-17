@@ -1,57 +1,60 @@
-# Kiến trúc hệ thống LACAI
+# LACAI system architecture
 
-Baseline thống nhất: 2026-09-15. Đây là định hướng kiến trúc hiện hành; mức triển khai
-và bằng chứng nằm ở [implementation status](../development/implementation_status.md).
-Phân loại toàn bộ tài liệu: [documentation map](../../README.md).
-Vấn đề còn lại: [architecture alignment review](../development/architecture_alignment_review.md).
+This document is the current architecture direction for LACAI: the layer boundaries,
+ownership, data flow, contract roles and resource rules for the AI APP that replaces
+`ai_app` in FW. Unified baseline: 2026-09-15.
 
-Mục tiêu giữ nguyên: một AI APP thay thế ai_app trong FW, nhận RAW lease, chạy model và
-usecase có cấu hình, tận dụng phần cứng Qualcomm qua adapters và portable sang vendor khác.
-Executable là `vqec_ai_vision_applications`. FW đã đồng ý đáp ứng boundary; việc này không
-thay thế kiểm chứng released-FW integration hay nghiệm thu tính năng.
+**Status:** source-delivered — production composition and historical compatibility evidence
+exist; the current board validation target is `.98` when a board is allocated.
+**Layer:** reference. **Source:** `n/a`.
 
-Hiện có production composition và historical compatibility evidence; current board
-validation target là `.98` khi board được phân bổ. FastCV/QNN HTP,
-QTI overlay/encode và ring. Luồng FD → exact-frame alignment → EdgeFace → typed embedding
-đã được nối ở source qua neutral ports. Live cascade/golden parity, recognition/attendance,
-hardware-backed gallery key qualification, generic backend factory, released-FW DMA completion và
-performance acceptance vẫn chưa hoàn chỉnh.
+## Responsibility
 
-Quyết định backend: ADR 0002 xác lập tái sử dụng Qualcomm plugins; ADR 0003 bổ sung owned
-QNN adapter cho capability/dtype cần thiết. Cả hai giữ neutral ports. Ưu tiên tái sử dụng
-vendor implementation đã kiểm chứng; không bắt buộc mọi công đoạn phải dùng plugin khi
-SDK adapter có lý do và bằng chứng. Production hiện ghép FastCV + owned QNN trực tiếp;
-backend selection hoàn toàn theo capability/config vẫn là mục tiêu chưa hoàn tất.
-ADR 0004 chọn Zvec cho index FR. AI sở hữu matching, protected gallery, encryption,
-key lifecycle và recovery; FW chỉ gửi lệnh enrollment/remove đã authorize. Đây là thay
-đổi ownership có chủ đích so với đề xuất gallery/search thuộc FW ban đầu.
+- One AI APP replaces `ai_app` in FW: it receives a RAW lease, runs configured models and
+  usecases, uses Qualcomm hardware through adapters and stays portable to other vendors.
+  The executable is `vqec_ai_vision_applications`.
+- AI APP owns scheduler, model integration, perception, feature rules, lifecycle,
+  entitlement enforcement, output schema and performance measurement, plus enrollment,
+  matching, protected gallery, key lifecycle and index synchronization through neutral
+  storage/index ports.
+- FW has agreed to meet this boundary; this does not replace released-FW integration
+  verification or feature acceptance.
 
-Normative FW baseline: [FW release compatibility](../contracts/fw_release_compatibility.md).
-Deployment: [multi-source configuration](multi_source_configuration.md).
-FR implementation: [completion plan](../planning/face_recognition_completion_plan.md).
+## Boundaries and principles
 
-## 1. Ranh giới và nguyên tắc
+- Unified FW RAW Source Service belongs to FW BSP/FW software; AI APP is a consumer under
+  the same lease contract on AI Camera and AI Box. AI Box RTSP demux/decode belongs to FW.
+- AI Model delivers a model integration package, not only a binary.
+- FW software owns installation/supervision, config endpoint and evidence
+  storage/upload. FW sends only authorized enrollment/remove commands for FR; FW provides
+  transport/UI.
+- BSP owns driver/ISP/SDK, memory interoperability, cache/fence/reset contracts.
+- No OpenCV. QNN/FastCV/GStreamer only in adapter or benchmark tools.
+- One ai service process at v1; module by dependency, not process per usecase.
+- Internal trusted plugins; controlled restart on update; no hot unload yet.
 
-- Unified FW RAW Source Service thuộc FW BSP/FW software; AI APP là consumer theo
-  cùng lease contract trên AI Camera và AI Box. RTSP demux/decode của AI Box thuộc FW.
-- AI Model bàn giao model integration package, không chỉ binary.
-- AI APP sở hữu scheduler, model integration, perception, feature rules, lifecycle,
-  entitlement enforcement, output schema và đo hiệu năng.
-- FW software sở hữu installation/supervision, config endpoint và evidence storage/upload.
-  AI APP sở hữu enrollment, matching, protected gallery, key lifecycle và index
-  synchronization qua neutral storage/index ports; FW cung cấp transport/UI.
-- BSP sở hữu driver/ISP/SDK, memory interoperability, cache/fence/reset contracts.
-- Không OpenCV. QNN/FastCV/GStreamer chỉ trong adapter hoặc benchmark tools.
-- Một process ai service ở v1; phân module theo dependency, không chia process theo bài.
-- Internal trusted plugins; controlled restart khi update; chưa hot unload.
+## Backend decisions
 
-## 2. Luồng dữ liệu
+Backend decision: ADR 0002 establishes reuse of Qualcomm plugins; ADR 0003 adds an owned
+QNN adapter for the needed capability/dtype. Both keep neutral ports. Prefer reusing
+verified vendor implementations; not every step must use a plugin when an SDK adapter has
+a reason and evidence. Production currently pairs FastCV + owned QNN directly; fully
+capability/config-driven backend selection remains an unfinished goal.
+
+ADR 0004 chooses Zvec for the FR index. AI owns matching, protected gallery, encryption,
+key lifecycle and recovery; FW only sends authorized enrollment/remove commands. This is
+a deliberate ownership change from the initial proposal where gallery/search belonged to
+FW.
+
+## Data flow
 
 The diagrams define intended ownership. Current production person composition uses
 multi_source_supervisor/session/pump, private FastCV preprocessing, owned QNN, decoding,
-reference tracking and QTI preview output. The app composition root may include concrete
-adapters; orchestration and neutral contracts depend only on ports. The secondary cascade
-is source-composed and logic-tested, while live model/golden evidence remains an
+reference tracking and QTI preview output. Production pairs FastCV/QNN HTP with QTI
+overlay/encode and ring. The FD -> exact-frame alignment -> EdgeFace -> typed embedding
+flow is connected at source through neutral ports. The app composition root may include
+concrete adapters; orchestration and neutral contracts depend only on ports. The secondary
+cascade is source-composed and logic-tested, while live model/golden evidence remains an
 integration target.
 
 Mandatory released preview path (in addition to the feature/event design below).
@@ -78,8 +81,8 @@ Create/attach the ring before the first frame so viewer registration can trigger
 Do not gate preview availability on an existing encoded frame. Do not couple video
 cadence to the single outstanding inference job; scheduling separates these demands.
 Ring SDK types stay private in adapters/fw_output; overlay commands and encoded-AU
-ports stay neutral. The QTI production renderer/encoder/ring compatibility flow exists. General output-port
-composition and released-FW conformance must be validated separately.
+ports stay neutral. The QTI production renderer/encoder/ring compatibility flow exists.
+General output-port composition and released-FW conformance must be validated separately.
 
 ```text
 FW RAW Source Service -- frame descriptor + handles --> source adapter
@@ -119,36 +122,37 @@ the adapter can change only `desired`, while trusted gates remain in AI APP. Sta
 pre-load filtering and serialized same-process generation replacement are wired. Old work
 drains before candidate construction; running is published after source-session startup.
 All-off retains only control. Signed provisioning, durable desired receipts and detailed
-runtime health observation remain open; see [FR validation](../testing/face_recognition_production_validation.md).
+runtime health observation remain open; see
+[FR validation](../testing/face_recognition_production_validation.md).
 
 Dependent ROI models use the bounded design in
 [cascade inference](cascade_inference.md). They retain the exact source frame through
 secondary completion and do not enter the full-frame multi-model cadence fan-out.
 
-Release FW RAW frame lease sau khi TẤT CẢ image jobs đọc frame đó hoàn tất.
-Inference thường dùng tensor AI-owned, không giữ RAW frame lease.
-Temporal windows giữ crop/tensor nhỏ có budget, không giữ một dãy frame 4K.
-Không suy ra không-copy-tensor từ việc FW RAW input là DMA-BUF.
+Release the FW RAW frame lease after ALL image jobs reading that frame complete.
+Inference usually uses AI-owned tensors and does not hold a RAW frame lease.
+Temporal windows keep small budgeted crops/tensors, not a sequence of 4K frames.
+Do not infer non-copy-tensor from the FW RAW input being a DMA-BUF.
 
-## 3. Source tree và dependency
+## Source tree and dependency
 
-| Layer | Trách nhiệm | Được phụ thuộc |
+| Layer | Responsibility | Depends on |
 |---|---|---|
 | contracts + plugin | neutral descriptors/interfaces/versioned ABI | std C++ / C types |
 | core | status, clock, lease primitives, bounded queue, geometry | contracts, std |
 | runtime | lifecycle, graph, scheduling, admission, registry | contracts, core |
 | perception | decode, tracker, typed attrs, pose, embedding, OCR | contracts, core |
-| features | rules cho 13 bài, traffic | contracts, core, perception |
+| features | rules for 13 usecases, traffic | contracts, core, perception |
 | adapters | camera/FW transport/vendor implementation | contracts, core, SDK private |
 | outputs | routing, serialization, delivery policy | contracts, core |
 | app | composition root, wiring concrete components | all above |
 
-Không cyclic dependency. Runtime không include concrete Qualcomm header;
-app inject factory/port. Shared public headers ở include/vqec/vision/ai;
-private headers cạnh implementation. Một CMake target cho module có boundary
-độc lập. Không giant common; không ../ kéo header sang repository firmware.
+No cyclic dependency. Runtime does not include concrete Qualcomm headers; app injects
+factory/port. Shared public headers are in include/vqec/vision/ai; private headers sit
+beside the implementation. One CMake target per module with an independent boundary.
+No giant common; no ../ pulling headers into the firmware repository.
 
-## 4. Contract roles và trạng thái
+## Contract roles and status
 
 frame_descriptor, frame_lease, buffer_handle, buffer_view, tensor_descriptor,
 tensor_view, image_transform, model_spec, inference_job, job_completion,
@@ -156,87 +160,119 @@ observation, track, entity, attribute, relation, feature_event, aggregate.
 
 Ports: frame_source, buffer_manager, image_processor, inference_engine,
 model_decoder, feature, entitlement_provider, event_sink, evidence_client, clock.
-Đây là vai trò kiến trúc, không phải danh sách tên API đã có. API thực tế nằm trong
-include/vqec/vision/ai và naming registry; capability chưa hỗ trợ phải reject activation.
+These are architectural roles, not a list of existing API names. The actual API is in
+include/vqec/vision/ai and the naming registry; an unsupported capability must reject
+activation.
 
-- Image transform: ROI trong source pixels, rotation, letterbox và nghịch đảo.
-- Buffer view không sở hữu; job giữ owner sống đến completion.
-- Tensor dtype/quantization từng tensor; nhiều input/output, graph_name rõ.
-- Track identity = source + epoch + track id; không đồng nhất với person identity.
-- Attribute có schema id/version, value/confidence, quality, timestamp/expiry,
-  model version và known/unknown/not_observable; không ép nhãn khi chất lượng kém.
-- FR/embedding nhạy cảm, không đưa vào live output nếu thiếu quyền.
-- Coordinates luôn ghi frame/space/unit; không trộn normalized box với pixels.
+- Image transform: ROI in source pixels, rotation, letterbox and inverse.
+- Buffer view does not own; the job keeps the owner alive until completion.
+- Tensor dtype/quantization per tensor; multiple input/output, explicit graph_name.
+- Track identity = source + epoch + track id; not the same as person identity.
+- Attribute has schema id/version, value/confidence, quality, timestamp/expiry,
+  model version and known/unknown/not_observable; do not force a label when quality is
+  poor.
+- FR/embedding is sensitive; do not put it in live output without rights.
+- Coordinates always record frame/space/unit; do not mix normalized box with pixels.
 
-## 5. Thread model và lifecycle
+## Thread model and lifecycle
 
-Control loop serialize config/license/start/stop; input thread nhận frame;
-bounded workers gọi backend; một state executor mỗi source; output worker tách.
-Không mặc định mỗi model có nhiều thread/context; phải đo thread safety SDK.
+Control loop serializes config/license/start/stop; input thread receives frames;
+bounded workers call the backend; one state executor per source; output worker is
+separate. Do not default to multiple threads/contexts per model; must measure SDK thread
+safety.
 
 Feature state: installed -> eligible -> loading -> ready -> running;
-nhánh disabled, unsupported, denied, resource_limited, degraded, faulted.
-desired_enabled khác effective_state; reason_code luôn trả được cho FW.
+branches disabled, unsupported, denied, resource_limited, degraded, faulted.
+desired_enabled differs from effective_state; reason_code must always be returnable to FW.
 
 Start: validate config/license -> resolve dependencies -> resource admission ->
 load model + warmup -> acquire source -> run -> publish readiness.
 Stop: reject new work -> drop safely unsubmitted work -> drain submitted jobs ->
 close outputs at revision boundary -> release leases -> release model/context.
-Timeout drain: báo fault/quarantine; phối hợp BSP reset/quiesce; không tự ACK giả.
-Camera/source reset: tăng epoch; clear tracker/temporal state, mark output gap;
-không emit người mới đi qua line chỉ vì ID reset.
+Timeout drain: report fault/quarantine; coordinate BSP reset/quiesce; do not self-ACK
+falsely.
+Camera/source reset: increment epoch; clear tracker/temporal state, mark output gap;
+do not emit a new person crossing the line just because an ID reset.
 
-## 6. Chia sẻ compute và resource admission
+## Compute sharing and resource admission
 
-Key chia sẻ gồm source/profile, model artifact/hash, preprocess, input shape/dtype,
-ROI policy, cadence và quality requirements. Chỉ share khi mọi consumer đáp ứng.
-Feature refcount không đủ nếu FPS/ROI khác; manager reconcile aggregate demand.
+Key sharing criteria include source/profile, model artifact/hash, preprocess, input
+shape/dtype, ROI policy, cadence and quality requirements. Share only when every consumer
+meets them. Feature refcount is not enough if FPS/ROI differ; the manager reconciles
+aggregate demand.
 
-Admission nhận số nguồn, resolution/FPS chính xác của từng nguồn, model
+Admission takes the number of sources, exact resolution/FPS of each source, model
 latency/memory, crop rates, temporal
-windows, pool capacity, concurrent FW encode/record. Reject có lý do nếu vượt.
-Mỗi queue có max depth, tuổi job, priority, drop strategy, metrics.
-Temporal feature xử lý missing frame theo model contract; không tùy tiện leaky.
-FR/attribute chạy theo quality/cooldown/track change với max ROI per frame,
-không mỗi người x mọi model x mọi frame không giới hạn.
-Với mọi profile, packed NV12 = width * height * 3/2; allocation thật còn có
-stride/padding. 3840x2160 packed = 12,441,600 bytes/frame và khoảng 311 MB/s ở
-25 FPS chỉ là ví dụ sizing trước copy/DDR bổ sung, không phải runtime default hay
-benchmark board.
+windows, pool capacity, concurrent FW encode/record. Reject with a reason if exceeded.
+Each queue has max depth, job age, priority, drop strategy, metrics.
+Temporal features handle missing frames per model contract; do not arbitrarily leak.
+FR/attribute runs by quality/cooldown/track change with max ROI per frame,
+not every person x every model x every frame without bound.
+For every profile, packed NV12 = width * height * 3/2; the real allocation also has
+stride/padding. 3840x2160 packed = 12,441,600 bytes/frame and about 311 MB/s at
+25 FPS is only a sizing example before additional copy/DDR, not a runtime default or
+board benchmark.
 
-## 7. Output, entitlement, package
+## Output, entitlement and packaging
 
-Live tracks có thể lossy; alarm bounded durable delivery retry + dedup;
-counter checkpoint/window; heatmap bucket; AI FR sở hữu gallery/search semantics,
-Zvec sau embedding_index_port và persistence qua AI-owned protected-store adapter.
-Alarm chứa event_id, source/epoch/timestamp, feature/config/model versions,
-track refs, geometry, evidence request id; không tự copy video encode trong feature.
+Live tracks may be lossy; alarm has bounded durable delivery retry + dedup;
+counter checkpoint/window; heatmap bucket; AI FR owns gallery/search semantics,
+Zvec behind embedding_index_port and persistence through an AI-owned protected-store
+adapter. An alarm contains event_id, source/epoch/timestamp, feature/config/model
+versions, track refs, geometry, evidence request id; do not copy video encode inside a
+feature.
 
 effective = installed AND licensed AND desired AND supported AND compatible
-AND resource_admitted. Tắt feature chỉ gỡ dependencies không còn consumer.
-Khi entitlement revoke: chặn output nhạy cảm ngay theo revision, drain compute;
-không publish kết quả cũ sau revoke. Offline revocation có giới hạn đã thỏa thuận.
+AND resource_admitted. Disabling a feature removes only dependencies with no remaining
+consumer. On entitlement revoke: block sensitive output immediately by revision, drain
+compute; do not publish old results after revoke. Offline revocation has agreed limits.
 
-Package đề xuất: ai-runtime; ai-backend-qualcomm; ai-feature-<bundle>;
-ai-model-<model>-<target>. Bundle là đơn vị deploy, feature_id là đơn vị thương mại.
-Mỗi catalog model được map chính xác tới metadata/artifact triển khai qua
-[model package registry](model_package_registry.md); runtime không dùng chung một path
-ngầm định cho mọi model.
-Manifest pin runtime ABI/backend/model compatibility; staging + validate +
-controlled restart + health check + rollback coordinated với FW.
-Model signed/checksum-verified, thư mục readonly; state/config ở vị trí FW cấp.
-Không upgrade .so đang active rồi hot unload; không coi IPK dependency tự bảo đảm
-atomic multi-package update.
+Proposed packages: ai-runtime; ai-backend-qualcomm; ai-feature-<bundle>;
+ai-model-<model>-<target>. Bundle is the deployment unit, feature_id is the commercial
+unit. Each catalog model maps exactly to deployment metadata/artifact through
+[model package registry](model_package_registry.md); runtime does not use one implicit
+path for all models.
+Manifest pins runtime ABI/backend/model compatibility; staging + validate +
+controlled restart + health check + rollback coordinated with FW.
+Model signed/checksum-verified, directory readonly; state/config at FW-provided locations.
+Do not upgrade an active .so then hot unload; do not treat IPK dependencies as
+guaranteeing atomic multi-package update.
 
-## 8. Observability và giới hạn v1
+## Observability
 
 Metrics: captured/accepted/dropped frames + reason; queue age; per-stage p50/p95/p99;
 camera hold time; pool use; FD count; RSS; SDK jobs; thermal throttling; model warmup;
 feature effective state; event retries/loss; source/model/config epochs.
-Log có source/job/model/feature/correlation id, không per-frame INFO hoặc biometrics.
+Logs have source/job/model/feature/correlation id, no per-frame INFO or biometrics.
 
-Chưa bao gồm graph editor, arbitrary third-party plugins, hotload, universal
-optimizer, tự viết vector database engine hoặc bảo đảm cùng workload trên 4 vendor.
-Zvec là dependency FR đã chọn, không phải một DB engine tự phát triển.
-Traffic extension dùng entity/track/attribute/relations + OCR/calibration contracts.
-Mọi claim production phải đi kèm board image + model + workload + dataset report.
+## Limits and next work
+
+- Live cascade/golden parity, recognition/attendance, hardware-backed gallery key
+  qualification, generic backend factory, released-FW DMA completion and performance
+  acceptance remain incomplete.
+- Fully capability/config-driven backend selection remains an unfinished goal; production
+  currently pairs FastCV + owned QNN directly.
+- Signed provisioning, durable desired receipts and detailed runtime health observation
+  remain open.
+- Not yet included: graph editor, arbitrary third-party plugins, hotload, universal
+  optimizer, writing our own vector database engine, or guaranteeing the same workload on
+  4 vendors. Zvec is the chosen FR dependency, not a self-developed DB engine. Traffic
+  extension uses entity/track/attribute/relations + OCR/calibration contracts.
+- Every production claim must come with board image + model + workload + dataset report.
+
+## See also
+
+- [implementation status](../development/implementation_status.md)
+- [documentation map](../../README.md)
+- [architecture alignment review](../development/architecture_alignment_review.md)
+- [FW release compatibility](../contracts/fw_release_compatibility.md)
+- [multi-source configuration](multi_source_configuration.md)
+- [FR completion plan](../planning/face_recognition_completion_plan.md)
+- [usecase activation](usecase_activation.md)
+- [FW usecase control](../contracts/fw_usecase_control.md)
+- [cascade inference](cascade_inference.md)
+- [model package registry](model_package_registry.md)
+- [FR validation](../testing/face_recognition_production_validation.md)
+- [ADR 0002 — Qualcomm plugin backend](../adr/0002_qualcomm_plugin_backend.md)
+- [ADR 0003 — owned QNN engine](../adr/0003_owned_qnn_engine.md)
+- [ADR 0004 — FR gallery and vector index](../adr/0004_fr_gallery_and_vector_index.md)

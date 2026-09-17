@@ -1,13 +1,24 @@
 # FW–AI APP integration contract
 
-Version: 1.0-draft, 2026-09-09
-Owner: AI APP lead
-Target: LACAI replacing `application/ai_app` in `vqec_camera_service`
+This document is the request to the FW team defining the boundary that LACAI, as the
+reference AI APP architecture, requires. FW must preserve the existing external behavior
+below or provide a versioned migration contract reviewed by both owners; internal FW
+implementation may change, but the boundary, ownership and observable behavior may not
+change silently.
 
-This document is the request to the FW team. LACAI is the reference AI APP architecture.
-FW must preserve the existing external behavior below or provide a versioned migration
-contract reviewed by both owners. Internal FW implementation may change; the boundary,
-ownership and observable behavior may not change silently.
+**Status:** planned — version 1.0-draft, 2026-09-09, lead-owned request with FW sign-off
+pending; not a released protocol. **Layer:** contracts. **Source:** `n/a`.
+
+Owner: AI APP lead.
+Target: LACAI replacing `application/ai_app` in `vqec_camera_service`.
+
+## Responsibility
+
+- Fixes the FW/AI APP ownership boundary and the migration compatibility path.
+- Requires FW to keep the released Camera control, RAW transport, output-ring and AI1
+  control behavior stable unless a versioned migration plan is agreed.
+- Must not be treated as FW-approved until FW returns an owner, evidence, target release and
+  limitations for each acceptance gate.
 
 ## Required FW boundary
 
@@ -107,5 +118,14 @@ spelling, ring IDs, ring ABI or RTSP mounts without a versioned compatibility pl
 AI APP lead review. New capabilities such as 4K RAW, multi-source preview or richer sync
 metadata should use a new versioned endpoint while the migration baseline remains usable.
 
-Detailed evidence and P0/P1/P2 requests are in
-[FW camera integration requirements](fw_camera_integration_requirements.md).
+## Limits and next work
+
+- FW sign-off is pending; each acceptance gate above still needs an FW owner, evidence,
+  target release and stated limitations.
+- The current legacy input, output and AI1 control paths are compatibility examples, not
+  LACAI defaults; versioned registries remain future FW work.
+
+## See also
+
+- [FW camera integration requirements](fw_camera_integration_requirements.md)
+- [FW release compatibility baseline](fw_release_compatibility.md)

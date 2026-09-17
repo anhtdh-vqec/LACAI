@@ -1,34 +1,51 @@
 # Qualcomm plugins reference — QCS6490 / Qualcomm Linux 1.8
 
-Ngày cập nhật: 2026-09-09. Repository được đọc trực tiếp:
+This document inventories the Qualcomm GStreamer plugin factory registrations with their
+roles, implementation links, pads, properties and examples for the QCS6490 / Qualcomm Linux
+1.8 baseline. It keeps the detailed inventory/evidence and external vendor citations; its
+appendix defaults must not be used as fixed deployment configuration.
+
+**Status:** source-delivered — inventory of 54 factory registrations read from the pinned
+external checkout `0cdf24a99c625fa616564ebf82fd8813c744ed82` on 2026-09-09; no build or
+target run in this pass. **Layer:** reference. **Source:** external `gst-plugins-qti-oss`.
+
+Last updated: 2026-09-09. Repository read directly:
 `/home/a/Workspace/gst-plugins-qti-oss`.
-Source snapshot đã kiểm tra: `0cdf24a99c625fa616564ebf82fd8813c744ed82`.
+Source snapshot checked: `0cdf24a99c625fa616564ebf82fd8813c744ed82`.
 
-Phần hướng dẫn tích hợp và ranh giới adapter hiện hành nằm tại
-[qualcomm plugin adapter reference](../architecture/qualcomm_plugin_adapter_reference.md).
-Tài liệu này giữ inventory/evidence chi tiết; không được dùng các default trong
-phụ lục như cấu hình triển khai cố định.
+Current integration guidance and the adapter boundary are at the
+[Qualcomm plugin adapter reference](../architecture/qualcomm_plugin_adapter_reference.md).
+This document keeps the detailed inventory/evidence; the appendix defaults must not be used
+as fixed deployment configuration.
 
-## 1. Baseline và phạm vi sử dụng tài liệu
+## Responsibility
 
-Người dùng xác nhận các plugin đã chạy và được tối ưu trên **QCS6490,
-Qualcomm Linux 1.8**. Đây là baseline thiết bị do người dùng cung cấp, không phải
-benchmark do agent chạy. Giữ nguyên tên QCS6490 như cung cấp; không tự sửa SoC ID.
-Không cần sysroot để viết source; mọi CMake/build/test của LACAI phải dùng eSDK
-tại `/home/a/Workspace/eSDK` theo rule dự án.
+- Records the factory registrations, pads, properties and examples of the pinned Qualcomm
+  plugin checkout for traceability.
+- Keeps the source reference intact; the property/default macros listed are source
+  extractions, not a runtime configuration.
+- Must not be read as a full audit of every algorithm, camera HAL, codec or proprietary SDK,
+  or as proof of every pipeline combination.
 
-Tài liệu kiểm kê **54 lời gọi đăng ký factory** trong checkout hiện tại;
-đọc registration/properties/pads toàn bộ và đọc sâu converter/QNN/metadata/batch/
-sample wiring phục vụ AI. Đây là reference API/source, không phải audit đầy đủ
-mọi thuật toán, camera HAL, codec hoặc proprietary SDK. Không tuyên bố hiểu hay
-kiểm thử mọi tổ hợp pipeline chỉ từ việc liệt kê source.
+## 1. Baseline and document scope
 
-Factory tồn tại trong source khác với compile-time variants trên image. Trên target,
-gst-inspect là nguồn xác nhận property/type/enum/pad/plugin version thực tế.
-Các property/default macro ở phụ lục được trích từ source, có thể nằm trong #if
-khác nhau; không cộng các biến thể thành một cấu hình runtime.
+The user confirmed the plugins have run and been optimized on **QCS6490, Qualcomm Linux
+1.8**. This is a user-provided device baseline, not an agent-run benchmark. Keep QCS6490 as
+provided; do not change the SoC ID. A sysroot is not required to write source; every LACAI
+CMake/build/test must use the eSDK at `/home/a/Workspace/eSDK` per project rule.
 
-## 2. Cách tra cứu và kiểm tra trên thiết bị (chưa chạy trong đợt này)
+The document inventories **54 factory registration calls** in the current checkout; it
+reads all registrations/properties/pads and reads deeply into the converter/QNN/metadata/
+batch/sample wiring used by AI. This is an API/source reference, not a full audit of every
+algorithm, camera HAL, codec or proprietary SDK. Do not claim to understand or test every
+pipeline combination merely from listing source.
+
+A factory existing in source differs from compile-time variants on the image. On the
+target, gst-inspect is the source of truth for actual property/type/enum/pad/plugin version.
+The property/default macros in the appendix are extracted from source and may be inside
+different `#if` blocks; do not add the variants into one runtime configuration.
+
+## 2. How to look up and check on the device (not run in this pass)
 
 ```sh
 gst-inspect-1.0 qtimlvconverter
@@ -37,18 +54,18 @@ gst-inspect-1.0 qtivtransform
 gst-inspect-1.0 qtimlpostprocess
 ```
 
-Ghi plugin filename/version, enum nick, pad caps/features và mutability. Kiểm tra
-GParamSpec qua code trước g_object_set; không dùng integer enum copy từ bản khác.
-Adapter Qualcomm hiện có bounded factory/property probes để ghi nhận GType,
-read/write flags và enum nick từ registry trước khi dựng graph.
-Property G_PARAM_READWRITE không tự chứng minh reconfigure an toàn lúc PLAYING.
-Chốt cấu hình trước state transition; version change phải rerun contract tests.
+Record plugin filename/version, enum nick, pad caps/features and mutability. Check the
+GParamSpec in code before `g_object_set`; do not use an integer enum copied from another
+edition. The Qualcomm adapter has bounded factory/property probes that record GType,
+read/write flags and enum nick from the registry before building the graph. A
+`G_PARAM_READWRITE` property does not by itself prove safe reconfigure at PLAYING. Fix
+configuration before a state transition; a version change must rerun contract tests.
 
-Build failure khác missing plugin, missing model khác caps negotiation, inference
-error khác parser error. Bus ERROR phải được ghi element name + error domain/code,
-không chỉ báo pipeline failed.
+Build failure differs from missing plugin, missing model differs from caps negotiation,
+inference error differs from parser error. A bus ERROR must record the element name + error
+domain/code, not just report pipeline failed.
 
-## 3. Đường AI chuẩn và hai ranh giới adapter
+## 3. Standard AI path and the two adapter boundaries
 
 ```text
 Camera Service -> project frame bridge -> appsrc
@@ -62,113 +79,122 @@ Alternative: inference -> qtimlpostprocess/<legacy task plugin>
     -> metadata translator -> neutral observations
 ```
 
-Không thêm qtiqmmfsrc/encoder/overlay vào graph inference. Camera capture thuộc FW;
-AI preview overlay/encode là adapter output riêng do AI APP sở hữu theo
-[FW release baseline](../contracts/fw_release_compatibility.md). Bọc plugin thay vì viết lại FastCV/QNN
-loader trong đợt đầu; GStreamer không lộ ra core/contracts/features.
+Do not add qtiqmmfsrc/encoder/overlay to the inference graph. Camera capture belongs to FW;
+AI preview overlay/encode is a separate adapter output owned by AI APP per the
+[FW release baseline](../contracts/fw_release_compatibility.md). Wrap the plugin instead of
+rewriting the FastCV/QNN loader in the first pass; GStreamer does not leak into
+core/contracts/features.
 
-QNN plugin có limitations về native dtype/multiple graphs: backend này phải công
-bố giới hạn, không pretend toàn bộ capabilities direct SDK. Direct SDK chỉ là
-extension sau nếu plugin không đáp ứng một model cụ thể.
+The QNN plugin has limitations on native dtype/multiple graphs: this backend must publish
+its limits and must not pretend to the full capabilities of the direct SDK. The direct SDK
+is only a later extension if a specific model is not supported by the plugin.
 
-## 4. qtimlvconverter — đọc trước khi cấu hình
+## 4. qtimlvconverter — read before configuring
 
-Input: video/x-raw (có thêm GBM caps khi backend hỗ trợ).
-Output: neural-network/tensors, không phải NV12 video. Tensor dimensions/layout
-được fixate/negotiation từ downstream model/caps, không đặt width/height bằng
-property giả trên converter.
+Input: video/x-raw (with additional GBM caps when the backend supports it). Output:
+neural-network/tensors, not NV12 video. Tensor dimensions/layout are fixated/negotiated from
+the downstream model/caps; do not set width/height with a fake property on the converter.
 
-- engine nick `fcv`, không `fastcv`; property tên `engine`, không `backend`.
-  Shared video engine mặc định có thể chọn GLES/C2D/OCV theo compile flags.
-  Adapter luôn chọn fcv, không fallback sang ocv.
+- engine nick `fcv`, not `fastcv`; property name `engine`, not `backend`.
+  The shared video engine default may choose GLES/C2D/OCV from compile flags.
+  The adapter always chooses fcv and does not fall back to ocv.
 - image-disposition: `top-left` (default), `centre`, `stretch`.
-  Centre khác top-left về box/landmark transform; không mặc định pad value 114.
-  set_caps khởi tạo background 0; model letterbox khác cần đường preprocess khác.
-- subpixel-layout: `regular` hoặc `reverse`; không tự thay NHWC/NCHW.
+  Centre differs from top-left in box/landmark transform; do not default pad value 114.
+  set_caps initializes background 0; a model needing a different letterbox requires a
+  different preprocess path.
+- subpixel-layout: `regular` or `reverse`; do not change NHWC/NCHW yourself.
 - mode: image-batch-non-cumulative, image-batch-cumulative,
-  roi-batch-non-cumulative, roi-batch-cumulative. ROI modes lấy ROI metadata;
-  không ROI có thể trả GAP; cumulative giữ buffers đến batch hoặc GAP.
-- mean/sigma là GstValueArray các double. Mặc dù description sigma nói divisor,
-  set_caps chuyển sigma trực tiếp thành composition.scales; base normalization
-  thực hiện phép nhân. FP32 path còn scale pixel bởi 1/255 trước (value-mean)*sigma.
-  Không lấy tên property làm công thức; phải golden so sánh đúng path.
-- Không áp normalization hai lần. Không mặc định output INT8 là quantization
-  arbitrary của model; implementation có offset/scaling convention riêng.
-- Converter output pool trong source min2/max24; đây là giới hạn nội bộ,
-  max-buffers ở appsrc không điều khiển pool này.
+  roi-batch-non-cumulative, roi-batch-cumulative. ROI modes take ROI metadata;
+  no ROI can return GAP; cumulative keeps buffers until batch or GAP.
+- mean/sigma are GstValueArray of doubles. Although the sigma description says divisor,
+  set_caps converts sigma directly into composition.scales; base normalization performs a
+  multiplication. The FP32 path also scales pixels by 1/255 first: (value-mean)*sigma.
+  Do not take the property name as the formula; golden must compare the actual path.
+- Do not apply normalization twice. Do not default output INT8 to the model's arbitrary
+  quantization; the implementation has its own offset/scaling convention.
+- The converter output pool in source is min2/max24; this is an internal limit, and
+  max-buffers at appsrc does not control this pool.
 
-Nguồn sâu: mlvconverter.c: enum types, set_caps, transform;
+Deep sources: mlvconverter.c: enum types, set_caps, transform;
 gst-plugin-base/gst/video/video-converter-engine.c: gst_data_normalization,
 gst_video_frame_normalize_ip, gst_video_converter_default_backend.
 
-## 5. qtimlqnn — cấu hình và negotiation
+## 5. qtimlqnn — configuration and negotiation
 
-Property `model` chấp nhận .bin cached context hoặc .so graph model.
-`backend` default /usr/lib/libQnnCpu.so: muốn HTP phải set explicit.
-`system` là QNN System library; `backend-device-id` và `tensors` theo runtime.
-Không dùng đường SNPE .dlc hoặc TFLite .tflite cho qtimlqnn.
+Property `model` accepts a .bin cached context or a .so graph model.
+`backend` defaults to /usr/lib/libQnnCpu.so: to use HTP it must be set explicitly.
+`system` is the QNN System library; `backend-device-id` and `tensors` follow the runtime.
+Do not use the SNPE .dlc or TFLite .tflite paths for qtimlqnn.
 
-Plugin load engine ở state transition (xem change_state); graph model quyết định
-caps. Link lúc NULL chưa chứng minh model load, tensor caps hay inference thành công.
-Raw graph execution trong wrapper là synchronous graphExecute; GStreamer streaming
-threads không đồng nghĩa QNN async API.
+The plugin loads the engine at a state transition (see change_state); the graph model
+decides caps. Linking at NULL does not prove model load, tensor caps or successful
+inference.
 
-Wrapper negotiate float32 output (workaround trong ml-qnn-engine.cc), execute
-graph_infos[0]. Backend ban đầu chỉ nhận model single graph + all outputs,
-không expose output subset/reorder chưa regression. Model metadata contract vẫn
-bắt buộc; factory tồn tại không chứng minh artifact tương thích.
+Raw graph execution in the wrapper is synchronous graphExecute; GStreamer streaming
+threads do not mean the QNN async API.
 
-## 6. Postprocess, metadata, cascade và traffic
+The wrapper negotiates float32 output (workaround in ml-qnn-engine.cc) and executes
+graph_infos[0]. The backend initially accepts only a single-graph model + all outputs; it
+does not expose an unregressed output subset/reorder. The model metadata contract is still
+mandatory; a factory existing does not prove the artifact is compatible.
 
-Legacy qtimlvdetection/qtimlvclassification/qtimlvpose threshold ở thang 10–100%;
-ví dụ 40.0 là 40%, không 0.4. Module/constants/labels phụ thuộc model.
-qtimlpostprocess dùng settings và bbox-stabilization; không có generic threshold
-property. Không chuyển nguyên g_object_set từ legacy sang plugin mới.
+## 6. Postprocess, metadata, cascade and traffic
 
-ROI meta, tensor meta, source stream id, PTS và geometry transformation phải giữ
-qua converter/inference/postprocess. Tensor != detection != track != identity.
-qtimetamux attach metadata vào media, qtivcomposer compose pixels, không thay nhau.
-qtimlmetaextractor xuất text, qtimlmetaparser cần parser module đúng data format.
+Legacy qtimlvdetection/qtimlvclassification/qtimlvpose thresholds are on a 10–100% scale;
+for example 40.0 is 40%, not 0.4. Modules/constants/labels depend on the model.
+qtimlpostprocess uses settings and bbox-stabilization; it has no generic threshold
+property. Do not move a `g_object_set` verbatim from the legacy plugin to the new one.
+
+ROI meta, tensor meta, source stream id, PTS and geometry transformation must survive
+through converter/inference/postprocess. Tensor != detection != track != identity.
+qtimetamux attaches metadata to media, qtivcomposer composes pixels; they do not replace
+each other. qtimlmetaextractor emits text, qtimlmetaparser needs the parser module matching
+the data format.
 
 Cascade: detect -> associate metadata to source -> ROI converter -> classifier/
-pose/embedding. Giới hạn số ROI, freshness và cadence; không chạy mọi attribute
-trên mọi người mỗi frame. Mô hình temporal cần window/FPS/gap policy explicit.
-qtibatch/qtimldemux hỗ trợ batching, không tự là scheduler cho 13 feature.
-Model phải hỗ trợ batch; sample tối đa streams không phải capacity đã đo trên target.
+pose/embedding. Bound ROI count, freshness and cadence; do not run every attribute
+on every person every frame. A temporal model needs an explicit window/FPS/gap policy.
+qtibatch/qtimldemux support batching but are not themselves a scheduler for the 13 features.
+The model must support batching; the sample maximum streams is not measured capacity on the
+target.
 
-Áp dụng 13 bài: shared person tracking cho intrusion/count/heatmap/crowd;
-PPE/luggage/abandoned thêm object/relations; smoking/weapon/action cần model riêng;
-blacklist/retrieval cần FR/ReID + gallery/search + entitlement. Traffic mở vehicle/
-plate OCR/lane/calibration mà không thay vendor-neutral domain model.
+Applying the 13 tasks: shared person tracking for intrusion/count/heatmap/crowd;
+PPE/luggage/abandoned add objects/relations; smoking/weapon/action need separate models;
+blacklist/retrieval need FR/ReID + gallery/search + entitlement. Traffic opens vehicle/
+plate OCR/lane/calibration without changing the vendor-neutral domain model.
 
-## 7. Buffer lifetime, memory và shutdown
+## 7. Buffer lifetime, memory and shutdown
 
-DMA-BUF FD không đồng nghĩa GBM object, cũng không đồng nghĩa Linux fence.
-Không gắn memory:GBM chỉ vì có FD. Source NV12 stride/offset/colorimetry/modifier
-phải khai đúng; UBWC không được coi linear. DMA sync CPU khác device completion.
-Input read-only; overlay chỉ output owned/writable branch.
+A DMA-BUF FD does not mean a GBM object, nor does it mean a Linux fence. Do not attach
+memory:GBM just because an FD exists. Source NV12 stride/offset/colorimetry/modifier must be
+declared correctly; UBWC must not be treated as linear. CPU DMA sync differs from device
+completion. Input is read-only; overlay only on an owned/writable output branch.
 
-appsrc push success = accepted, không = processed. Giữ lease trên lifetime memory
-owner (bao gồm subbuffers/views), không release ngay sau push hay sau timeout.
-GstBuffer finalization chỉ được dùng làm release evidence khi mọi downstream
-reader giữ memory đúng lifetime; cần prove với chain đang dùng.
-Không dùng weak-ref trên parent buffer nếu child giữ memory nhưng không parent.
+appsrc push success = accepted, not = processed. Hold the lease on the lifetime memory
+owner (including subbuffers/views); do not release immediately after push or after timeout.
+GstBuffer finalization may be used as release evidence only when every downstream reader
+holds memory for the correct lifetime; it must be proven with the chain in use.
+Do not use a weak-ref on the parent buffer if the child holds memory but not the parent.
 
 Shutdown: stop admission -> drain -> EOS/result completion -> verified quiescence ->
-release camera leases. gst_element_set_state(NULL) có thể block; timeout get_state
-không tự hủy DMA. Backend stall cần FW recovery contract.
-Đợt code đầu chưa mở submit/start: chỉ tạo/configure/link graph ở NULL để xây đúng
-boundary trước khi thêm frame lease bridge và streaming lifecycle.
+release camera leases. `gst_element_set_state(NULL)` may block; a get_state timeout does not
+itself cancel DMA. A backend stall needs the FW recovery contract.
 
-qtisocketsrc/sink có protocol riêng (SOCK_SEQPACKET, SCM_RIGHTS, return-buffer).
-Không tự dùng socket path Camera Service hiện tại với plugin này. Source timeout
-có nhánh nhân GST_USECOND và nhánh poll dùng trực tiếp; phải kiểm code/image trước
-chọn timeout nonzero. Camera control/entitlement không có sẵn từ plugin socket.
+The first code pass did not open submit/start: it only creates/configures/links the graph at
+NULL to build the correct boundary before adding the frame lease bridge and streaming
+lifecycle.
 
-## 8. Mẫu cách ghép để tham khảo
+qtisocketsrc/sink has its own protocol (SOCK_SEQPACKET, SCM_RIGHTS, return-buffer).
+Do not use the current Camera Service socket path with this plugin. The source timeout has
+one branch multiplying GST_USECOND and one branch polling directly; check the code/image
+before choosing a nonzero timeout. Camera control/entitlement is not available from the
+plugin socket.
 
-Các dòng dưới là **template thiết kế**, chưa chạy; placeholder MODEL phải thay bằng
-artifact/golden tương thích. Camera sample chỉ chạy khi FW không sở hữu camera đó.
+## 8. Wiring templates for reference
+
+The lines below are **design templates**, not run; the MODEL placeholder must be replaced
+with a compatible artifact/golden. The camera sample runs only when FW does not own that
+camera.
 
 ```text
 Standalone video resize:
@@ -193,28 +219,31 @@ video tee -> queue -> qtimetamux.sink
 AI metadata -> qtimetamux.data_%u -> qtivoverlay -> AI preview encode -> FW ring
 ```
 
-Production graph tạo elements/properties typed, không gst_parse_launch với chuỗi
-từ remote user. Queue/pool có bounds; temporal branch không drop tùy tiện.
-Model shape/channel/preprocess exact từ model kit, không copy 640x640 mọi model.
+The production graph creates typed elements/properties; do not `gst_parse_launch` with a
+string from a remote user. Queues/pools are bounded; a temporal branch does not drop
+arbitrarily. Model shape/channel/preprocess are exact from the model kit; do not copy
+640x640 for every model.
 
-## 9. Catalog toàn bộ factory
+## 9. Full factory catalog
 
-Mỗi mục: vai trò/cách ghép, link implementation, pads, properties và examples tìm
-thấy trong source. `Không tìm thấy example` không nghĩa plugin không chạy.
-Examples được index bằng factory mention (có thể trong comment/conditional branch);
-đọc link trước dùng. Property declarations dưới đây là source reference giữ nguyên
-type/default expression/flags; không phải gst-inspect output đã chạy.
-Không liệt kê properties kế thừa của base GStreamer; tra gst-inspect trên target.
+Each entry: role/wiring, implementation link, pads, properties and examples found in
+source. `No example found` does not mean the plugin does not run.
+Examples are indexed by factory mention (possibly inside a comment/conditional branch);
+read the link before use. The property declarations below are a source reference preserving
+the type/default expression/flags; they are not gst-inspect output that was run.
+Inherited base-GStreamer properties are not listed; check gst-inspect on the target.
 
 ### qtibatch
 
-Gom buffer nhiều stream/window trước ML converter; request sink_%u, đầu ra src. Batch size model phải khớp; moving-window-size không tự biến model batch1 thành batchN.
+Gather buffers across streams/windows before the ML converter; `sink_%u` is a request pad,
+output is `src`. The model batch size must match; moving-window-size does not by itself turn
+a batch1 model into batchN.
 
 Implementation: [gst-plugin-batch/batch.c](../../../gst-plugins-qti-oss/gst-plugin-batch/batch.c).
 
 Pads: `sink_%u, SINK, REQUEST`; `src, SRC, ALWAYS`.
 
-Properties tại [batch.c](../../../gst-plugins-qti-oss/gst-plugin-batch/batch.c):
+Properties at [batch.c](../../../gst-plugins-qti-oss/gst-plugin-batch/batch.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -231,25 +260,27 @@ Examples (factory mention):
 
 ### qtic2adec
 
-AAC encoded -> PCM; đặt parser/caps đúng framing AAC trước decoder. Audio thuộc FW hoặc extension audio AI.
+AAC encoded -> PCM; set the parser/caps to the correct AAC framing before the decoder. Audio
+belongs to FW or an AI audio extension.
 
 Implementation: [gst-plugin-codec2/c2adec/c2adec.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2adec/c2adec.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Không có property riêng được trích tại các file class; xem inherited properties trên target.
+No private property was extracted from the class files; see inherited properties on the
+target.
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtic2aenc
 
-PCM -> AAC; bitrate bits/s. Không đưa encoder vào inference path.
+PCM -> AAC; bitrate in bits/s. Do not put an encoder in the inference path.
 
 Implementation: [gst-plugin-codec2/c2aenc/c2aenc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2aenc/c2aenc.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [c2aenc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2aenc/c2aenc.c):
+Properties at [c2aenc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2aenc/c2aenc.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -260,17 +291,18 @@ g_param_spec_uint ("bitrate", "Bitrate", "Bitrate in bits per second", 0, G_MAXU
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtic2vdec
 
-Compressed video -> raw; chọn parser/framing theo sink caps. secure cần protected-content path, không là input AI mặc định.
+Compressed video -> raw; choose parser/framing by sink caps. `secure` needs a
+protected-content path and is not a default AI input.
 
 Implementation: [gst-plugin-codec2/c2vdec/c2vdec.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2vdec/c2vdec.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [c2vdec.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2vdec/c2vdec.c):
+Properties at [c2vdec.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2vdec/c2vdec.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -287,13 +319,14 @@ Examples (factory mention):
 
 ### qtic2venc
 
-Raw -> H264/H265/HEIC; target-bitrate bits/s, GOP/IDR/QP/ROI theo property. FW sở hữu recording và concurrent load.
+Raw -> H264/H265/HEIC; target-bitrate in bits/s, GOP/IDR/QP/ROI by property. FW owns
+recording and concurrent load.
 
 Implementation: [gst-plugin-codec2/c2venc/c2venc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2venc/c2venc.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [c2venc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2venc/c2venc.c):
+Properties at [c2venc.c](../../../gst-plugins-qti-oss/gst-plugin-codec2/c2venc/c2venc.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -327,9 +360,9 @@ g_param_spec_uint ("min-quant-p-frames", "Min quant P frames", "Minimum quantiza
 
 g_param_spec_uint ("max-quant-p-frames", "Max quant P frames", "Maximum quantization parameter allowed for P-frames", 0, G_MAXUINT, DEFAULT_PROP_MAX_QP_P_FRAMES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
 
-g_param_spec_uint ("min-quant-b-frames", "Min quant B frames", "Minimum quantization parameter allowed for B-frames", 0, G_MAXUINT, DEFAULT_PROP_MIN_QP_B_FRAMES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
+g_param_spec_uint ("min-quant-b-frames", "Min quant B frames", "Minimum quantization parameter allowed for B frames", 0, G_MAXUINT, DEFAULT_PROP_MIN_QP_B_FRAMES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
 
-g_param_spec_uint ("max-quant-b-frames", "Max quant B frames", "Maximum quantization parameter allowed for B-frames", 0, G_MAXUINT, DEFAULT_PROP_MAX_QP_B_FRAMES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
+g_param_spec_uint ("max-quant-b-frames", "Max quant B frames", "Maximum quantization parameter allowed for B frames", 0, G_MAXUINT, DEFAULT_PROP_MAX_QP_B_FRAMES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
 
 g_param_spec_boolean ("roi-quant-mode", "ROI Quantization Mode", "Enable/Disable Adjustment of the quantization parameter according " "to ROIs set manually via the 'roi-quant-boxes' property and/or " "arriving as GstVideoRegionOfInterestMeta attached to the buffer", DEFAULT_PROP_ROI_QUANT_MODE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
 
@@ -368,13 +401,14 @@ Examples (factory mention):
 
 ### qticamimgreproc
 
-Camera image reprocess với request sink_%u và src; camera-id/request metadata ở pad riêng, không phải property của element.
+Camera image reprocess with request `sink_%u` and `src`; camera-id/request metadata is on a
+separate pad, not an element property.
 
 Implementation: [gst-plugin-camimgreproc/camera-image-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camimgreproc/camera-image-reprocess.c).
 
 Pads: `sink_%u: SINK REQUEST`; `src: SRC ALWAYS`.
 
-Properties tại [camera-image-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camimgreproc/camera-image-reprocess.c):
+Properties at [camera-image-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camimgreproc/camera-image-reprocess.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -385,7 +419,7 @@ g_param_spec_uint ("queue-size", "Input and output queue size", "Set the size of
 
 </details>
 
-Properties tại [camera-image-reprocess-pad.c](../../../gst-plugins-qti-oss/gst-plugin-camimgreproc/camera-image-reprocess-pad.c):
+Properties at [camera-image-reprocess-pad.c](../../../gst-plugins-qti-oss/gst-plugin-camimgreproc/camera-image-reprocess-pad.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -402,17 +436,18 @@ g_param_spec_enum ("eis", "EIS", "Electronic Image Stabilization to reduce the e
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qticamreproc
 
-Offline camera reprocess trên GBM; camera-id/session-metadata và EIS là contract Camera HAL, không generic resize.
+Offline camera reprocess on GBM; camera-id/session-metadata and EIS are Camera HAL contracts,
+not generic resize.
 
 Implementation: [gst-plugin-camreproc/camera-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camreproc/camera-reprocess.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [camera-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camreproc/camera-reprocess.c):
+Properties at [camera-reprocess.c](../../../gst-plugins-qti-oss/gst-plugin-camreproc/camera-reprocess.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -431,17 +466,18 @@ g_param_spec_pointer ("session-metadata", "Session Metadata", "Settings metadata
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qticvimgpyramid
 
-Sinh pyramid GRAY8 qua request src_%u; num-octaves/num-scales và sharpness cho mỗi octave. Không đồng nghĩa tensor inference.
+Generate a GRAY8 pyramid through request `src_%u`; num-octaves/num-scales and sharpness per
+octave. Not equivalent to tensor inference.
 
 Implementation: [gst-plugin-cv-imgpyramid/imagepyramid.c](../../../gst-plugins-qti-oss/gst-plugin-cv-imgpyramid/imagepyramid.c).
 
 Pads: `sink, SINK, ALWAYS`; `src_%u, SRC, REQUEST`.
 
-Properties tại [imagepyramid.c](../../../gst-plugins-qti-oss/gst-plugin-cv-imgpyramid/imagepyramid.c):
+Properties at [imagepyramid.c](../../../gst-plugins-qti-oss/gst-plugin-cv-imgpyramid/imagepyramid.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -456,17 +492,18 @@ gst_param_spec_array ("octave-sharpness", "Adjust sharpness of octaves.", "Array
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qticvoptclflow
 
-Motion vectors giữa frame hiện tại và trước; stats threshold điều khiển filtering. Temporal input continuity quan trọng.
+Motion vectors between the current and previous frame; stats thresholds control filtering.
+Temporal input continuity matters.
 
 Implementation: [gst-plugin-cv-optclflow/opticalflow.c](../../../gst-plugins-qti-oss/gst-plugin-cv-optclflow/opticalflow.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [opticalflow.c](../../../gst-plugins-qti-oss/gst-plugin-cv-optclflow/opticalflow.c):
+Properties at [opticalflow.c](../../../gst-plugins-qti-oss/gst-plugin-cv-optclflow/opticalflow.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -481,17 +518,18 @@ g_param_spec_uint ("stats-sad-thld", "Stats SAD Threshold", "The statistics SAD 
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtidfs
 
-Stereo -> disparity; cần rectification/calibration config. mode phụ thuộc RVSDK, không chọn integer mode từ tên SoC.
+Stereo -> disparity; needs rectification/calibration config. `mode` depends on RVSDK; do not
+choose an integer mode from the SoC name.
 
 Implementation: [gst-plugin-dfs/dfs.c](../../../gst-plugins-qti-oss/gst-plugin-dfs/dfs.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [dfs.c](../../../gst-plugins-qti-oss/gst-plugin-dfs/dfs.c):
+Properties at [dfs.c](../../../gst-plugins-qti-oss/gst-plugin-dfs/dfs.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -516,29 +554,32 @@ g_param_spec_enum ("pplevel", "pplevel", "Select postprocessing level", GST_TYPE
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtidngpacker
 
-MIPI RAW + optional JPEG thumbnail -> DNG; raw_sink và image_sink khác NV12 video/x-raw.
+MIPI RAW + optional JPEG thumbnail -> DNG; raw_sink and image_sink differ from NV12
+video/x-raw.
 
 Implementation: [gst-plugin-dngpacker/dngpacker.c](../../../gst-plugins-qti-oss/gst-plugin-dngpacker/dngpacker.c).
 
 Pads: `raw_sink, SINK, ALWAYS`; `image_sink, SINK, REQUEST`; `dng_src, SRC, ALWAYS`.
 
-Không có property riêng được trích tại các file class; xem inherited properties trên target.
+No private property was extracted from the class files; see inherited properties on the
+target.
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtidrmdecryptor
 
-CENC protected encoded content -> clear codec bitstream qua PlayReady/Widevine. Không dùng cho camera AI thông thường.
+CENC protected encoded content -> clear codec bitstream through PlayReady/Widevine. Not used
+for ordinary camera AI.
 
 Implementation: [gst-plugin-drmdecryptor/drmdecryptor.cc](../../../gst-plugins-qti-oss/gst-plugin-drmdecryptor/drmdecryptor.cc).
 
 Pads: `GST_STATIC_PAD_TEMPLATE ( sink, SINK, ALWAYS`; `GST_STATIC_PAD_TEMPLATE ( src, SRC, ALWAYS`.
 
-Properties tại [drmdecryptor.cc](../../../gst-plugins-qti-oss/gst-plugin-drmdecryptor/drmdecryptor.cc):
+Properties at [drmdecryptor.cc](../../../gst-plugins-qti-oss/gst-plugin-drmdecryptor/drmdecryptor.cc):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -557,13 +598,14 @@ Examples (factory mention):
 
 ### qtijpegenc
 
-Raw -> JPEG; quality 0–100, orientation, camera-id. Dùng khi FW evidence cần snapshot, không encode mỗi inference frame.
+Raw -> JPEG; quality 0–100, orientation, camera-id. Use when FW evidence needs a snapshot;
+do not encode every inference frame.
 
 Implementation: [gst-plugin-jpegenc/jpegenc.c](../../../gst-plugins-qti-oss/gst-plugin-jpegenc/jpegenc.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [jpegenc.c](../../../gst-plugins-qti-oss/gst-plugin-jpegenc/jpegenc.c):
+Properties at [jpegenc.c](../../../gst-plugins-qti-oss/gst-plugin-jpegenc/jpegenc.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -584,13 +626,14 @@ Examples (factory mention):
 
 ### qtimetamux
 
-Raw media tại sink + data_%u metadata -> media có meta. mode/latency/queue-size kiểm soát đồng bộ, không phải merge pixel video.
+Raw media at `sink` + `data_%u` metadata -> media with meta. mode/latency/queue-size control
+synchronization, not pixel video merge.
 
 Implementation: [gst-plugin-metamux/metamux.c](../../../gst-plugins-qti-oss/gst-plugin-metamux/metamux.c).
 
 Pads: `sink, SINK, ALWAYS`; `data_%u, SINK, REQUEST`; `src, SRC, ALWAYS`.
 
-Properties tại [metamux.c](../../../gst-plugins-qti-oss/gst-plugin-metamux/metamux.c):
+Properties at [metamux.c](../../../gst-plugins-qti-oss/gst-plugin-metamux/metamux.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -615,13 +658,14 @@ Examples (factory mention):
 
 ### qtimetatransform
 
-Xử lý/filter metadata qua module + module-params (GstStructure string). Không thay feature entitlement/rule engine.
+Process/filter metadata through a module + module-params (GstStructure string). Does not
+replace the feature entitlement/rule engine.
 
 Implementation: [gst-plugin-metatransform/metatransform.c](../../../gst-plugins-qti-oss/gst-plugin-metatransform/metatransform.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [metatransform.c](../../../gst-plugins-qti-oss/gst-plugin-metatransform/metatransform.c):
+Properties at [metatransform.c](../../../gst-plugins-qti-oss/gst-plugin-metatransform/metatransform.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -634,17 +678,18 @@ g_param_spec_string ("module-params", "Module Parameters", "Parameters specific 
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtimlaclassification
 
-Audio tensor -> classification; module/labels/threshold phần trăm/results. Ghép với audio converter và inference phù hợp.
+Audio tensor -> classification; module/labels/percentage threshold/results. Pair with a
+suitable audio converter and inference.
 
 Implementation: [gst-plugin-mlaclassification/mlaclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlaclassification/mlaclassification.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlaclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlaclassification/mlaclassification.c):
+Properties at [mlaclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlaclassification/mlaclassification.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -667,13 +712,14 @@ Examples (factory mention):
 
 ### qtimlaconverter
 
-PCM mono -> audio feature tensors; sample-rate, feature, params (nfft/nhop/nmels...). Không dùng resize video.
+PCM mono -> audio feature tensors; sample-rate, feature, params (nfft/nhop/nmels...). Not
+used for video resize.
 
 Implementation: [gst-plugin-mlaconverter/mlaconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlaconverter/mlaconverter.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlaconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlaconverter/mlaconverter.c):
+Properties at [mlaconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlaconverter/mlaconverter.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -694,13 +740,14 @@ Examples (factory mention):
 
 ### qtimlaic
 
-AIC model với request input/output pads, devices/activations. Không đồng nhất AIC runtime với QNN HTP; chọn chỉ khi model/runtime tương ứng.
+AIC model with request input/output pads, devices/activations. Do not equate the AIC runtime
+with QNN HTP; choose it only when the model/runtime matches.
 
 Implementation: [gst-plugin-mlaic/mlaic.c](../../../gst-plugins-qti-oss/gst-plugin-mlaic/mlaic.c).
 
 Pads: `src_%u, SRC, REQUEST`; `sink_%u, SINK, REQUEST`.
 
-Properties tại [mlaic.c](../../../gst-plugins-qti-oss/gst-plugin-mlaic/mlaic.c):
+Properties at [mlaic.c](../../../gst-plugins-qti-oss/gst-plugin-mlaic/mlaic.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -715,17 +762,19 @@ g_param_spec_uint ("activations", "Activations", "Number of activations (AIC pro
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtimldemux
 
-Tách batch ML theo request src_%u; giữ stream-id/timestamp metadata. Static metadata description trong source bị giống batch, đọc pad/implementation.
+Split an ML batch by request `src_%u`; keep stream-id/timestamp metadata. The static metadata
+description in source looks like batch's; read the pad/implementation.
 
 Implementation: [gst-plugin-mldemux/mldemux.c](../../../gst-plugins-qti-oss/gst-plugin-mldemux/mldemux.c).
 
 Pads: `sink, SINK, ALWAYS`; `src_%u, SRC, REQUEST`.
 
-Không có property riêng được trích tại các file class; xem inherited properties trên target.
+No private property was extracted from the class files; see inherited properties on the
+target.
 
 Examples (factory mention):
 
@@ -733,25 +782,28 @@ Examples (factory mention):
 
 ### qtimlmetaextractor
 
-Extract ML meta từ video sang text stream để truyền/đọc metadata; không thực hiện inference.
+Extract ML meta from video to a text stream to carry/read metadata; does not perform
+inference.
 
 Implementation: [gst-plugin-mlmetaextractor/mlmetaextractor.c](../../../gst-plugins-qti-oss/gst-plugin-mlmetaextractor/mlmetaextractor.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Không có property riêng được trích tại các file class; xem inherited properties trên target.
+No private property was extracted from the class files; see inherited properties on the
+target.
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtimlmetaparser
 
-Parse metadata qua module từ text/video tùy caps. Cần parser module phù hợp format, không mọi JSON đều tương thích.
+Parse metadata through a module from text/video depending on caps. Needs a parser module
+matching the format; not every JSON is compatible.
 
 Implementation: [gst-plugin-mlmetaparser/mlmetaparser.c](../../../gst-plugins-qti-oss/gst-plugin-mlmetaparser/mlmetaparser.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlmetaparser.c](../../../gst-plugins-qti-oss/gst-plugin-mlmetaparser/mlmetaparser.c):
+Properties at [mlmetaparser.c](../../../gst-plugins-qti-oss/gst-plugin-mlmetaparser/mlmetaparser.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -762,17 +814,18 @@ g_param_spec_enum ("module", "Module", "Module name that is going to be used for
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtimlpostprocess
 
-Postprocess tổng quát module-driven; module/labels/results/settings/bbox-stabilization. Không có generic threshold property như qtimlvdetection.
+General module-driven postprocess; module/labels/results/settings/bbox-stabilization. No
+generic threshold property as in qtimlvdetection.
 
 Implementation: [gst-plugin-mlpostprocess/mlpostprocess.cc](../../../gst-plugins-qti-oss/gst-plugin-mlpostprocess/mlpostprocess.cc).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlpostprocess.cc](../../../gst-plugins-qti-oss/gst-plugin-mlpostprocess/mlpostprocess.cc):
+Properties at [mlpostprocess.cc](../../../gst-plugins-qti-oss/gst-plugin-mlpostprocess/mlpostprocess.cc):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -801,13 +854,14 @@ Examples (factory mention):
 
 ### qtimlqnn
 
-Tensor -> QNN -> tensor. model .bin/.so; backend HTP explicit, system lib. Output dtype là hành vi wrapper, xem phần AI bên dưới.
+Tensor -> QNN -> tensor. model .bin/.so; HTP backend explicit, system lib. Output dtype is
+wrapper behavior; see the AI section above.
 
 Implementation: [gst-plugin-mlqnn/mlqnn.c](../../../gst-plugins-qti-oss/gst-plugin-mlqnn/mlqnn.c).
 
 Pads: `src, SRC, ALWAYS`; `sink, SINK, ALWAYS`.
 
-Properties tại [mlqnn.c](../../../gst-plugins-qti-oss/gst-plugin-mlqnn/mlqnn.c):
+Properties at [mlqnn.c](../../../gst-plugins-qti-oss/gst-plugin-mlqnn/mlqnn.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -836,13 +890,14 @@ Examples (factory mention):
 
 ### qtimlsnpe
 
-DLC + SNPE delegate/performance-profile; layers hoặc tensors chọn output. Không dùng QNN .bin ở model property.
+DLC + SNPE delegate/performance-profile; layers or tensors select output. Do not use a QNN
+.bin in the model property.
 
 Implementation: [gst-plugin-mlsnpe/mlsnpe.c](../../../gst-plugins-qti-oss/gst-plugin-mlsnpe/mlsnpe.c).
 
 Pads: `src, SRC, ALWAYS`; `sink, SINK, ALWAYS`.
 
-Properties tại [mlsnpe.c](../../../gst-plugins-qti-oss/gst-plugin-mlsnpe/mlsnpe.c):
+Properties at [mlsnpe.c](../../../gst-plugins-qti-oss/gst-plugin-mlsnpe/mlsnpe.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -875,13 +930,14 @@ Examples (factory mention):
 
 ### qtimltflite
 
-TFLite + delegate CPU/GPU/external; external-delegate-path/options khi delegate=external. Properties canonical dùng dấu gạch ngang.
+TFLite + CPU/GPU/external delegate; external-delegate-path/options when
+`delegate=external`. Canonical properties use hyphens.
 
 Implementation: [gst-plugin-mltflite/mltflite.c](../../../gst-plugins-qti-oss/gst-plugin-mltflite/mltflite.c).
 
 Pads: `src, SRC, ALWAYS`; `sink, SINK, ALWAYS`.
 
-Properties tại [mltflite.c](../../../gst-plugins-qti-oss/gst-plugin-mltflite/mltflite.c):
+Properties at [mltflite.c](../../../gst-plugins-qti-oss/gst-plugin-mltflite/mltflite.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -912,13 +968,14 @@ Examples (factory mention):
 
 ### qtimlvclassification
 
-Tensor -> image classification; extra-operation/module/constants theo model. threshold là 10–100%, không 0–1.
+Tensor -> image classification; extra-operation/module/constants by model. `threshold` is
+10–100%, not 0–1.
 
 Implementation: [gst-plugin-mlvclassification/mlvclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlvclassification/mlvclassification.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlvclassification/mlvclassification.c):
+Properties at [mlvclassification.c](../../../gst-plugins-qti-oss/gst-plugin-mlvclassification/mlvclassification.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -947,13 +1004,14 @@ Examples (factory mention):
 
 ### qtimlvconverter
 
-Raw video -> neural-network/tensors; chọn engine, disposition, mode, subpixel-layout và mean/sigma. Không phải raw-video scaler đầu ra NV12.
+Raw video -> neural-network/tensors; choose engine, disposition, mode, subpixel-layout and
+mean/sigma. Not a raw-video scaler with NV12 output.
 
 Implementation: [gst-plugin-mlvconverter/mlvconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlvconverter/mlvconverter.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlvconverter/mlvconverter.c):
+Properties at [mlvconverter.c](../../../gst-plugins-qti-oss/gst-plugin-mlvconverter/mlvconverter.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -984,13 +1042,14 @@ Examples (factory mention):
 
 ### qtimlvdetection
 
-Tensor -> detection representation; module/labels/results/threshold/constants/stabilization. Output caps/geometry phải kiểm theo module.
+Tensor -> detection representation; module/labels/results/threshold/constants/stabilization.
+Output caps/geometry must be checked per module.
 
 Implementation: [gst-plugin-mlvdetection/mlvdetection.c](../../../gst-plugins-qti-oss/gst-plugin-mlvdetection/mlvdetection.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvdetection.c](../../../gst-plugins-qti-oss/gst-plugin-mlvdetection/mlvdetection.c):
+Properties at [mlvdetection.c](../../../gst-plugins-qti-oss/gst-plugin-mlvdetection/mlvdetection.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1021,13 +1080,14 @@ Examples (factory mention):
 
 ### qtimlvpose
 
-Tensor -> pose/keypoints; module/labels/constants/threshold; cần đúng ontology landmark và mapping tọa độ.
+Tensor -> pose/keypoints; module/labels/constants/threshold; needs the correct landmark
+ontology and coordinate mapping.
 
 Implementation: [gst-plugin-mlvpose/mlvpose.c](../../../gst-plugins-qti-oss/gst-plugin-mlvpose/mlvpose.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvpose.c](../../../gst-plugins-qti-oss/gst-plugin-mlvpose/mlvpose.c):
+Properties at [mlvpose.c](../../../gst-plugins-qti-oss/gst-plugin-mlvpose/mlvpose.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1056,13 +1116,14 @@ Examples (factory mention):
 
 ### qtimlvsegmentation
 
-Tensor -> segmentation output; module/labels/constants; output representation theo caps, không coi là detection.
+Tensor -> segmentation output; module/labels/constants; output representation is per caps,
+not to be treated as detection.
 
 Implementation: [gst-plugin-mlvsegmentation/mlvsegmentation.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsegmentation/mlvsegmentation.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvsegmentation.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsegmentation/mlvsegmentation.c):
+Properties at [mlvsegmentation.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsegmentation/mlvsegmentation.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1086,13 +1147,14 @@ Examples (factory mention):
 
 ### qtimlvsuperresolution
 
-Tensor -> super-resolution output theo module/constants; model input/output khác detector.
+Tensor -> super-resolution output by module/constants; model input/output differ from a
+detector.
 
 Implementation: [gst-plugin-mlvsuperresolution/mlvsuperresolution.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsuperresolution/mlvsuperresolution.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [mlvsuperresolution.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsuperresolution/mlvsuperresolution.c):
+Properties at [mlvsuperresolution.c](../../../gst-plugins-qti-oss/gst-plugin-mlvsuperresolution/mlvsuperresolution.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1111,13 +1173,14 @@ Examples (factory mention):
 
 ### qtimsgpub
 
-Publish payload qua protocol module/host/port/topic/config; không tự có durability/idempotency/entitlement của hệ thống.
+Publish payload through protocol module/host/port/topic/config; it does not by itself
+provide system durability/idempotency/entitlement.
 
 Implementation: [gst-plugin-msgbroker/msgpub/msgpub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgpub/msgpub.c).
 
 Pads: `sink, SINK, ALWAYS`.
 
-Properties tại [msgpub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgpub/msgpub.c):
+Properties at [msgpub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgpub/msgpub.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1140,17 +1203,18 @@ g_param_spec_boolean ("json", "json format", "Send message in json format", DEFA
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtimsgsub
 
-Subscribe topic qua protocol module; cấu hình transport/auth bằng config phù hợp, không tin payload điều khiển chưa xác thực.
+Subscribe to a topic through a protocol module; configure transport/auth with a suitable
+config and do not trust unauthenticated control payload.
 
 Implementation: [gst-plugin-msgbroker/msgsub/msgsub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgsub/msgsub.c).
 
 Pads: `src, SRC, ALWAYS`.
 
-Properties tại [msgsub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgsub/msgsub.c):
+Properties at [msgsub.c](../../../gst-plugins-qti-oss/gst-plugin-msgbroker/msgsub/msgsub.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1169,17 +1233,18 @@ g_param_spec_string ("config", "config file", "The absolute path of protocol con
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtiobjtracker
 
-Tracking trên metadata, algo + parameters. Không tự có detector; thuật toán/model dependency không nhất thiết chạy hardware.
+Tracking on metadata, algo + parameters. It has no detector itself; algorithm/model
+dependency does not necessarily run on hardware.
 
 Implementation: [gst-plugin-objtracker/objtracker.c](../../../gst-plugins-qti-oss/gst-plugin-objtracker/objtracker.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [objtracker.c](../../../gst-plugins-qti-oss/gst-plugin-objtracker/objtracker.c):
+Properties at [objtracker.c](../../../gst-plugins-qti-oss/gst-plugin-objtracker/objtracker.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1192,17 +1257,18 @@ g_param_spec_string ("parameters", "Parameters", "Parameters, parameters used by
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtioverlay
 
-Render text/image/bbox/graph trên video; property overlay-* và engine riêng. Khác qtivoverlay, không tráo cấu hình.
+Render text/image/bbox/graph on video; overlay-* properties and its own engine. Different
+from qtivoverlay; do not swap configuration.
 
 Implementation: [gst-plugin-overlay/gstoverlay.cc](../../../gst-plugins-qti-oss/gst-plugin-overlay/gstoverlay.cc).
 
 Pads: `src, SRC, ALWAYS`; `sink, SINK, ALWAYS`.
 
-Properties tại [gstoverlay.cc](../../../gst-plugins-qti-oss/gst-plugin-overlay/gstoverlay.cc):
+Properties at [gstoverlay.cc](../../../gst-plugins-qti-oss/gst-plugin-overlay/gstoverlay.cc):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1249,17 +1315,18 @@ g_param_spec_enum ("engine", "Engine type", "Set the engine used for blit", GST_
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtiqmmfsrc
 
-Camera source, request video_%u/image_%u; camera ID, 3A, sensor/HDR/EIS và pad settings. Chỉ FW sở hữu source production.
+Camera source, request video_%u/image_%u; camera ID, 3A, sensor/HDR/EIS and pad settings.
+Only FW owns the production source.
 
 Implementation: [gst-plugin-qmmfsrc/qmmf_source.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source.c).
 
 Pads: `video_%u: SRC REQUEST`; `image_%u: SRC REQUEST`.
 
-Properties tại [qmmf_source_video_pad.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source_video_pad.c):
+Properties at [qmmf_source_video_pad.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source_video_pad.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1288,7 +1355,7 @@ g_param_spec_enum ("logical-stream-type", "Stream type for logical camera", "Typ
 
 </details>
 
-Properties tại [qmmf_source_image_pad.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source_image_pad.c):
+Properties at [qmmf_source_image_pad.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source_image_pad.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1301,7 +1368,7 @@ g_param_spec_enum ("logical-stream-type", "Stream type for logical camera", "Typ
 
 </details>
 
-Properties tại [qmmf_source.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source.c):
+Properties at [qmmf_source.c](../../../gst-plugins-qti-oss/gst-plugin-qmmfsrc/qmmf_source.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1424,13 +1491,14 @@ Examples (factory mention):
 
 ### qtiredissink
 
-ML data -> Redis channel; host/port/auth/channel. Bảo vệ secret, không cấu hình password trong log/command history.
+ML data -> Redis channel; host/port/auth/channel. Protect the secret; do not configure a
+password in logs/command history.
 
 Implementation: [gst-plugin-redissink/redissink.c](../../../gst-plugins-qti-oss/gst-plugin-redissink/redissink.c).
 
 Pads: `sink, SINK, ALWAYS`.
 
-Properties tại [redissink.c](../../../gst-plugins-qti-oss/gst-plugin-redissink/redissink.c):
+Properties at [redissink.c](../../../gst-plugins-qti-oss/gst-plugin-redissink/redissink.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1449,17 +1517,18 @@ g_param_spec_string ("channel", "Redis channels definition", "Redis channels def
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtirestrictedzonedbg
 
-Debug filter theo polygon zone-config. Tên factory kết thúc dbg; không thay intrusion feature production/contract.
+Debug filter by polygon zone-config. The factory name ends in dbg; it does not replace the
+production/contract intrusion feature.
 
 Implementation: [gst-plugin-restricted-zone/gstrestrictedzone.c](../../../gst-plugins-qti-oss/gst-plugin-restricted-zone/gstrestrictedzone.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [gstrestrictedzone.c](../../../gst-plugins-qti-oss/gst-plugin-restricted-zone/gstrestrictedzone.c):
+Properties at [gstrestrictedzone.c](../../../gst-plugins-qti-oss/gst-plugin-restricted-zone/gstrestrictedzone.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1470,17 +1539,18 @@ g_param_spec_string ("zone-config", "Restricted Zone config", "Restricted zone c
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtirtspbin
 
-RTSP serving bin request sink_%u; mode/address/port/mpoint. Phân biệt address/port strings của plugin với config hệ thống.
+RTSP serving bin with request `sink_%u`; mode/address/port/mpoint. Distinguish the plugin's
+address/port strings from system config.
 
 Implementation: [gst-plugin-rtspbin/rtspbin.c](../../../gst-plugins-qti-oss/gst-plugin-rtspbin/rtspbin.c).
 
 Pads: `sink_%u, SINK, REQUEST`.
 
-Properties tại [rtspbin.c](../../../gst-plugins-qti-oss/gst-plugin-rtspbin/rtspbin.c):
+Properties at [rtspbin.c](../../../gst-plugins-qti-oss/gst-plugin-rtspbin/rtspbin.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1507,13 +1577,14 @@ Examples (factory mention):
 
 ### qtismartvencbin
 
-Raw + ML/control metadata -> adaptive encoding; smart-framerate/smart-gop/ROI quality. FW owns encode policy.
+Raw + ML/control metadata -> adaptive encoding; smart-framerate/smart-gop/ROI quality. FW
+owns encode policy.
 
 Implementation: [gst-plugin-smartvencbin/vencbin.c](../../../gst-plugins-qti-oss/gst-plugin-smartvencbin/vencbin.c).
 
 Pads: `sink_ml, SINK, ALWAYS`; `src, SRC, ALWAYS`; `gst_pad_template_new ( sink, SINK, ALWAYS`; `gst_pad_template_new ( sink_ctrl, SINK, ALWAYS`; `gst_pad_template_new ( sink, SINK, ALWAYS`; `gst_pad_template_new ( sink_ctrl, SINK, ALWAYS`.
 
-Properties tại [vencbin.c](../../../gst-plugins-qti-oss/gst-plugin-smartvencbin/vencbin.c):
+Properties at [vencbin.c](../../../gst-plugins-qti-oss/gst-plugin-smartvencbin/vencbin.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1547,13 +1618,14 @@ Examples (factory mention):
 
 ### qtisocketsink
 
-GstBuffer -> Unix SOCK_SEQPACKET/FD transport; socket path. Có return-buffer protocol riêng; không mặc định tương thích Camera IPC hiện tại.
+GstBuffer -> Unix SOCK_SEQPACKET/FD transport; socket path. It has its own return-buffer
+protocol; not compatible with the current Camera IPC by default.
 
 Implementation: [gst-plugin-socket/qtisocketsink.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsink.c).
 
 Pads: `sink, SINK, ALWAYS`.
 
-Properties tại [qtisocketsink.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsink.c):
+Properties at [qtisocketsink.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsink.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1564,17 +1636,18 @@ g_param_spec_string ("socket", "Socket Location", "Location of the Unix Domain S
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtisocketsrc
 
-Nhận protocol của qtisocketsink; FD-backed memory và timestamps. timeout có code paths dùng đơn vị khác nhau: phải kiểm phiên bản target trước đặt timeout nonzero.
+Receives the qtisocketsink protocol; FD-backed memory and timestamps. `timeout` has code
+paths using different units: check the target version before setting a nonzero timeout.
 
 Implementation: [gst-plugin-socket/qtisocketsrc.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsrc.c).
 
 Pads: `src, SRC, ALWAYS`.
 
-Properties tại [qtisocketsrc.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsrc.c):
+Properties at [qtisocketsrc.c](../../../gst-plugins-qti-oss/gst-plugin-socket/qtisocketsrc.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1587,17 +1660,18 @@ g_param_spec_uint64 ("timeout", "Socket timeout", "Socket post timeout", 0, G_MA
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtivcomposer
 
-Compose nhiều raw streams; request sink_%u có position/dimensions/crop/alpha/zorder/rotation; properties này đặt trên pad.
+Compose multiple raw streams; request `sink_%u` has position/dimensions/crop/alpha/zorder/
+rotation; these properties are set on the pad.
 
 Implementation: [gst-plugin-vcomposer/videocomposer.c](../../../gst-plugins-qti-oss/gst-plugin-vcomposer/videocomposer.c).
 
 Pads: `sink_%u: SINK REQUEST`; `src: SRC ALWAYS`.
 
-Properties tại [videocomposersinkpad.c](../../../gst-plugins-qti-oss/gst-plugin-vcomposer/videocomposersinkpad.c):
+Properties at [videocomposersinkpad.c](../../../gst-plugins-qti-oss/gst-plugin-vcomposer/videocomposersinkpad.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1622,7 +1696,7 @@ g_param_spec_enum ("rotate", "Rotate", "Rotate video", GST_TYPE_VIDEO_COMPOSER_R
 
 </details>
 
-Properties tại [videocomposer.c](../../../gst-plugins-qti-oss/gst-plugin-vcomposer/videocomposer.c):
+Properties at [videocomposer.c](../../../gst-plugins-qti-oss/gst-plugin-vcomposer/videocomposer.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1645,13 +1719,14 @@ Examples (factory mention):
 
 ### qtivideotemplate
 
-Hook custom-lib-name/custom-params; library ABI riêng, không là project plugin C ABI.
+Hook custom-lib-name/custom-params; its library ABI is separate, not the project plugin C
+ABI.
 
 Implementation: [gst-plugin-videotemplate/qtivideotemplate.c](../../../gst-plugins-qti-oss/gst-plugin-videotemplate/qtivideotemplate.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [qtivideotemplate.c](../../../gst-plugins-qti-oss/gst-plugin-videotemplate/qtivideotemplate.c):
+Properties at [qtivideotemplate.c](../../../gst-plugins-qti-oss/gst-plugin-videotemplate/qtivideotemplate.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1664,17 +1739,18 @@ g_param_spec_string ("custom-params", "Custom params", "Custom params to configu
 
 </details>
 
-Không tìm thấy factory mention trong example/sample C/C++/Python đã index.
+No factory mention was found in the indexed C/C++/Python examples/samples.
 
 ### qtivoverlay
 
-Vẽ bbox/text/timestamp/image/mask từ meta hoặc property string; engine explicit. Chỉ dùng buffer writable thuộc output branch.
+Draw bbox/text/timestamp/image/mask from meta or a property string; explicit engine. Use
+only an owned writable buffer on the output branch.
 
 Implementation: [gst-plugin-voverlay/overlay.c](../../../gst-plugins-qti-oss/gst-plugin-voverlay/overlay.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [overlay.c](../../../gst-plugins-qti-oss/gst-plugin-voverlay/overlay.c):
+Properties at [overlay.c](../../../gst-plugins-qti-oss/gst-plugin-voverlay/overlay.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1705,13 +1781,14 @@ Examples (factory mention):
 
 ### qtivsplit
 
-Một raw stream -> request src_%u, mode thuộc output pad; dùng ROI/meta pipeline, không chỉ generic tee.
+One raw stream -> request `src_%u`, mode on the output pad; used for an ROI/meta pipeline,
+not just a generic tee.
 
 Implementation: [gst-plugin-vsplit/videosplit.c](../../../gst-plugins-qti-oss/gst-plugin-vsplit/videosplit.c).
 
 Pads: `sink: SINK ALWAYS`; `src_%u: SRC REQUEST`.
 
-Properties tại [videosplitpads.c](../../../gst-plugins-qti-oss/gst-plugin-vsplit/videosplitpads.c):
+Properties at [videosplitpads.c](../../../gst-plugins-qti-oss/gst-plugin-vsplit/videosplitpads.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1722,7 +1799,7 @@ g_param_spec_enum ("mode", "Mode", "Operational mode", GST_TYPE_VIDEO_SPLIT_MODE
 
 </details>
 
-Properties tại [videosplit.c](../../../gst-plugins-qti-oss/gst-plugin-vsplit/videosplit.c):
+Properties at [videosplit.c](../../../gst-plugins-qti-oss/gst-plugin-vsplit/videosplit.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1742,13 +1819,14 @@ Examples (factory mention):
 
 ### qtivtransform
 
-Raw video -> raw video: crop/resize/color/flip/rotate. Output width/height/format do capsfilter, engine explicit; crop/destination là arrays.
+Raw video -> raw video: crop/resize/color/flip/rotate. Output width/height/format are set by
+capsfilter, engine explicit; crop/destination are arrays.
 
 Implementation: [gst-plugin-vtransform/videotransform.c](../../../gst-plugins-qti-oss/gst-plugin-vtransform/videotransform.c).
 
 Pads: `sink, SINK, ALWAYS`; `src, SRC, ALWAYS`.
 
-Properties tại [videotransform.c](../../../gst-plugins-qti-oss/gst-plugin-vtransform/videotransform.c):
+Properties at [videotransform.c](../../../gst-plugins-qti-oss/gst-plugin-vtransform/videotransform.c):
 
 <details>
 <summary>Type, description, default expression, flags</summary>
@@ -1779,21 +1857,37 @@ Examples (factory mention):
 - [gst-sample-apps/gst-ai-classification/main.c](../../../gst-plugins-qti-oss/gst-sample-apps/gst-ai-classification/main.c)
 - [gst-sample-apps/gst-ai-daisychain-detection-classification/main.c](../../../gst-plugins-qti-oss/gst-sample-apps/gst-ai-daisychain-detection-classification/main.c)
 
-## 10. Các thư mục không phải element factory
+## 10. Directories that are not element factories
 
 gst-plugin-base: allocator/GBM/gfx/video converter/tensor metadata/module loading/
-utils; là thư viện nền, không một factory có tên gst-plugin-base.
-gst-plugin-tools, gst-plugin-mltools: tools và test apps; không deploy như feature.
+utils; it is a base library, not a factory named gst-plugin-base.
+gst-plugin-tools, gst-plugin-mltools: tools and test apps; not deployed as features.
 gst-plugin-examples, gst-sample-apps, gst-python-examples: sample wiring, configs.
 gst-test-framework: test infrastructure; gst-docker-ref/debian: build/package;
-gst-umd-daemon: daemon/support, không tự là AI runtime project này.
-Không mọi thư mục gst-plugin-* tương ứng đúng một factory (codec2 có bốn).
+gst-umd-daemon: daemon/support, not this project's AI runtime.
+Not every gst-plugin-* directory maps to exactly one factory (codec2 has four).
 
-## 11. Quy tắc cập nhật
+## 11. Update rules
 
-Khi source/image đổi: ghi commit + gst-inspect version, đối chiếu factory/property/
-enum/pads/default/mutability; update reference trước code adapter. Không thay
-model/preprocess/ABI âm thầm. Snapshot này không tự chứng minh image 1.8 dùng đúng
-commit source; link pinned checkout để truy vết và probe runtime khi triển khai.
+When source/image changes: record the commit + gst-inspect version, cross-check factory/
+property/enum/pads/default/mutability and update the reference before the adapter code. Do
+not change model/preprocess/ABI silently. This snapshot does not by itself prove the image
+1.8 uses the same source commit; keep a pinned checkout link for traceability and probe the
+runtime during deployment.
 
-Chưa build hoặc chạy lệnh target trong đợt này theo yêu cầu người dùng.
+No build or target command was run in this pass, at the user's request.
+
+## Limits and next work
+
+- The inventory is source-only for the recorded snapshot; runtime availability, ABI, enum
+  values and caps must still be confirmed on the target with `gst-inspect-1.0`.
+- The property/default macros are source extractions and may sit in different `#if` blocks;
+  they are not a single runtime configuration.
+- Direct-SDK use remains an optional later extension where a plugin limitation blocks a
+  specific model.
+
+## See also
+
+- [Qualcomm plugin adapter reference](../architecture/qualcomm_plugin_adapter_reference.md)
+- [Qualcomm source review](qualcomm_source_review.md)
+- [ADR 0002 — Qualcomm plugin backend](../adr/0002_qualcomm_plugin_backend.md)

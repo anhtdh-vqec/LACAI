@@ -15,6 +15,8 @@ ghi các file đã bắt đầu có source, chưa build.
 Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp cùng API
 được coi là một owner. Không tái sử dụng prefix đã export cho ý nghĩa khác.
 
+**Status:** normative — current dir_id/file_id registry.
+
 ## Directory IDs
 
 | Directory | ID |

@@ -1,8 +1,24 @@
 # FW mock services for LACAI board tests
 
+This document describes the two board-side mock FW services used only for LACAI integration
+tests: a camera mock and an RTSP ring reader. They replace the product FW for testing and
+never implement AI, overlay, encode or ring production.
+
+**Status:** board-smoke — the mock camera and RTSP ring reader drove recorded board runs
+(see [QCS6490 target](qsc6490_board.md)); the ring regression is native-tested. **Layer:**
+reference. **Source:** `tools/vqec_vision_fw_camera_sim.py`,
+`tools/vqec_vision_ring_rtsp.py`.
+
 These two board-side services replace the product FW for integration tests only. LACAI
 itself is the production binary `vqec_ai_vision_applications`; the mocks never implement
 AI, overlay, encode or ring production. They are test satellites, not product code.
+
+## Responsibility
+
+- Reproduce only the FW camera control/media and RTSP ring-reader responsibilities LACAI
+  depends on, for integration tests.
+- Must not implement AI, overlay, encode or ring production, and must not be treated as
+  zero-copy, model-accuracy or released-FW acceptance evidence.
 
 ## File enrollment service policy
 
@@ -77,9 +93,23 @@ RTSP service is therefore the whole output-side FW replacement.
 
 Use `tools/vqec_vision_fr_runtime_dbus_test.py` with a private deployment fixture to retain
 one authenticated FW peer while checking live model load/unload, image enrollment,
-idempotency and multi-template removal. See [FR validation](face_recognition_production_validation.md)
+idempotency and multi-template removal. See
+[FR validation](face_recognition_production_validation.md)
 for fixture fields, native/QEMU results and outstanding release gates.
 
 Synthetic replacement regression: `PYTHONDONTWRITEBYTECODE=1 python3
 /opt/lacai/tools/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
 The development host lacks that GI namespace; this Python regression is native-tested.
+
+## Limits and next work
+
+- The compatibility camera copies QMMF output into memfd; this does not establish
+  released-FW DMA-BUF interoperability, zero-copy or performance acceptance.
+- Hardware overlay/encode through the mocks remains a wiring aid, not product evidence.
+
+## See also
+
+- [raw_source_port](../architecture/raw_source_port.md)
+- [camera_legacy_adapter](../architecture/camera_legacy_adapter.md)
+- [FR production validation](face_recognition_production_validation.md)
+- [QCS6490 board test target](qsc6490_board.md)

@@ -1,12 +1,34 @@
 # Cascade inference for detection and embeddings
 
-Execution plan: [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md).
+Cascade inference defines the neutral dependent-work path where a secondary model consumes
+the result of a primary model instead of a full source frame. This document specifies the
+retained-frame flow, the ownership rules and the decoder/package boundaries for face
+detection and embedding.
 
-Status: primary decoder selection, typed contracts, retained-frame integration, secondary
-coordinator, FastCV alignment, embedding decoder, production binding, secondary graph
-lifecycle and runtime invocation are source-delivered. Model execution probes and live
-compatibility FD-to-embedding runs on the currently assigned `.98` target pass; golden
-parity, post-fix multi-face, released-FW and attendance validation remain open.
+**Status:** source-delivered — primary decoder selection, typed contracts, retained-frame
+integration, secondary coordinator, FastCV alignment, embedding decoder, production
+binding, secondary graph lifecycle and runtime invocation are source-delivered. Model
+execution probes and live compatibility FD-to-embedding runs on the currently assigned
+`.98` target pass; golden parity, post-fix multi-face, released-FW and attendance validation
+remain open. **Layer:** app. **Source:**
+`src/app/vqec_vision_cascade_coordinator.cpp`,
+`src/app/vqec_vision_cascade_graph_session.cpp`,
+`src/perception/detection/vqec_vision_anchor_distance_decoder.cpp`,
+`src/perception/embedding/vqec_vision_embedding_decoder.cpp`,
+`src/core/vqec_vision_image_alignment.cpp`,
+`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`.
+
+## Responsibility
+
+- Composes dependent primary-to-secondary work without placing the secondary graph in the
+  full-frame cadence or RAW fan-out.
+- Retains the exact RAW frame before primary submission and binds each landmark task to a
+  frame-store completion ticket.
+- Lets file enrollment reuse the decoded image owner under a bounded direct lease instead
+  of reacquiring a camera source.
+- Keeps Gst, QNN, FastCV and native allocator types out of cascade, perception, feature and
+  attendance contracts.
+- Does not authorize attendance delivery from a detector plus nearest embedding match alone.
 
 ## Why the current full-frame fan-out is insufficient
 
@@ -17,10 +39,12 @@ Configuring the recognition graph as another full-frame model would lose alignme
 repeat useless work and break source-frame correlation.
 
 The legacy `secondary_inference_scheduler` (and its `secondary_inference` contract) was
-removed in the clean-base CB-D step: it only bounded opaque queued requests and is not the
-FD-to-FR composition owner. The delivered cascade path retains the exact RAW frame before
-primary submission, then binds each landmark task to a frame-store completion ticket. A
-numeric frame ID or a later preview frame must never substitute for those retained pixels.
+removed in the clean-base CB-D step (see
+[ADR 0006](../adr/0006_unwired_execution_infrastructure.md)): it only bounded opaque queued
+requests and is not the FD-to-FR composition owner. The delivered cascade path retains the
+exact RAW frame before primary submission, then binds each landmark task to a frame-store
+completion ticket. A numeric frame ID or a later preview frame must never substitute for
+those retained pixels.
 
 File enrollment already owns the exact decoded image, so `process_frame` uses a bounded
 direct lease over that owner. It validates frame/epoch/PTS/geometry identity and then runs
@@ -109,7 +133,7 @@ provided QNN model libraries on the QCS6490 HTP backend. Zero-valued inputs were
 verify execution and tensor ABI, not accuracy.
 
 | Role | Input | Output | Iterations | min / average / max |
-|---|---|---|---:|---:|
+|---|---|---|---|---:|---:|
 | face detector | UINT16 NHWC 1x640x640x3 | 9 UINT16 tensors: score, bbox and 5-point landmarks at strides 8/16/32 | 20 | 3.801 / 4.405 / 4.744 ms |
 | face embedding | UINT16 NHWC 1x112x112x3 | UINT16 1x512 embedding | 50 | 2.377 / 2.918 / 3.709 ms |
 
@@ -130,9 +154,10 @@ crop/input/embedding parity and released-FW acceptance remain open.
 1. **Delivered:** typed landmark and embedding contracts validate count, finite values,
    source geometry, identity and configured size ceilings, with contract tests.
 2. **Delivered:** the package registry resolves each catalog identity to its own package
-   and artifact, and production lookup no longer assumes source-slot order equals catalog order.
-3. **Decoder core delivered:** configurable anchor-distance detector decoder supporting typed
-   quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
+   and artifact, and production lookup no longer assumes source-slot order equals catalog
+   order.
+3. **Decoder core delivered:** configurable anchor-distance detector decoder supporting
+   typed quantized tensors, per-stage stride/anchor count, distance boxes, five landmarks,
    inverse source transform and NMS.
 4. **Delivered:** integrate the bounded cascade frame store with exact-frame retention,
    ticket-correlated decode, dependent drain and stop reconciliation.
@@ -150,17 +175,6 @@ crop/input/embedding parity and released-FW acceptance remain open.
 Attendance acceptance additionally requires a consent/entitlement decision and an owner
 for encrypted gallery and event persistence. A face detector plus nearest embedding match
 alone is not a completed attendance usecase.
-
-
-The anchor-distance core uses activation-reserved candidate storage and fixed suppression
-storage, with deterministic score ties, finite-value checks and transactional publication.
-The YOLOv8 decoder now reuses an activation-bounded candidate/order/suppression workspace
-across decode calls (`yolov8_decoder_limits::g_max_candidates`). Output observation
-landmark/string vectors still allocate under the current batch contract; primary production
-selection exists; pooled output ownership and golden model parity remain required.
-Production FD-to-embedding composition is source-delivered and has live compatibility
-camera evidence on `.98`. Golden parity, a post-fix multi-face rerun and released-FW acceptance
-remain open, so this is not yet an accepted FR usecase.
 
 ## Primary decoder package boundary
 
@@ -200,6 +214,16 @@ Unknown explicit kinds fail; this is not a fallback for a failed anchor-distance
 This boundary enables primary FD and the production embedding cascade. Recognition search,
 identity policy and authorized delivery remain separate later stages.
 
+The anchor-distance core uses activation-reserved candidate storage and fixed suppression
+storage, with deterministic score ties, finite-value checks and transactional publication.
+The YOLOv8 decoder now reuses an activation-bounded candidate/order/suppression workspace
+across decode calls (`yolov8_decoder_limits::g_max_candidates`). Output observation
+landmark/string vectors still allocate under the current batch contract; primary production
+selection exists; pooled output ownership and golden model parity remain required.
+Production FD-to-embedding composition is source-delivered and has live compatibility
+camera evidence on `.98`. Golden parity, a post-fix multi-face rerun and released-FW
+acceptance remain open, so this is not yet an accepted FR usecase.
+
 ## Retained-frame primitive
 
 The serial cascade_frame_store uses activation-sized frame/task storage and a byte budget.
@@ -213,3 +237,24 @@ epoch eviction exists. Callers retire old keys and drain their jobs explicitly.
 The store must outlive orchestration; destroying it does not cancel submitted hardware,
 whose workers must still own their frame copies. It is owned by `multi_model_session` and
 integrated with the pump, coordinator, result route and drain path.
+
+## Limits and next work
+
+- Golden crop/input/embedding parity, edge policy and DSP offload remain open.
+- A post-fix multi-face rerun and released-FW acceptance remain open, so this is not yet
+  an accepted FR usecase.
+- Attendance acceptance requires a consent/entitlement decision and an owner for
+  encrypted gallery and event persistence; a detector plus nearest match is not a
+  completed usecase.
+- Automatic maximum-age eviction and cross-epoch restart policy remain orchestration work.
+- Pooled output ownership and golden model parity remain required.
+- Digest/selection validation alone is not proof of signed authenticity or TOCTOU-safe
+  artifact loading.
+- Model binaries and biometric outputs are never committed to this repository.
+
+## See also
+
+- [SCRFD + EdgeFace + Zvec completion](../planning/face_recognition_completion_plan.md)
+- [Cascade graph session](cascade_graph_session.md)
+- [Image alignment port](image_alignment_port.md)
+- [ADR 0006 — Unwired execution infrastructure](../adr/0006_unwired_execution_infrastructure.md)

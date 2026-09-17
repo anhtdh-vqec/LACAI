@@ -1,16 +1,39 @@
 # Model output manifest v1
 
-Source candidate; not a verified model registry or complete Model Integration Package.
-Root fields, all required: schema_version=1, model_id, model_version, artifact_sha256,
-decoder_contract, max_output_bytes, outputs. Each output contains name, dtype, shape and
-an optional quantization object. dtype is one of int8, uint8, int16, uint16, int32,
-uint32, int64, uint64, float16, float32. quantization, when present, contains exactly
-scale and zero_point with the convention real = (stored - zero_point) * scale; floating
-tensors must not be quantized. Order is preserved. No unknown or duplicate object keys
-are allowed. Identity/decoder strings are 1..128 ASCII letters/digits/dot/colon/
+The model output manifest is a bounded JSON document that declares one model's output
+names, dtypes, shapes and quantization, plus its decoder contract and byte budget. This
+document defines its schema, the loader bounds, the trust boundary and the read-only
+handoff checker.
+
+**Status:** source-delivered — source candidate; not a verified model registry or complete
+Model Integration Package. **Layer:** runtime. **Source:**
+`src/runtime/model_registry/vqec_vision_output_manifest.cpp`,
+`tests/unit/vqec_vision_output_manifest_test.cpp`,
+`tools/vqec_vision_manifest_check.cpp`.
+
+## Responsibility
+
+- Declares output names, dtypes, shapes, optional quantization and the byte budget.
+- Binds one `model_id`/`model_version` to an `artifact_sha256` and decoder contract.
+- Is parsed by a startup-only bounded loader.
+- Must not hash files, verify signatures, authorize features or resolve decoders.
+- Must not define dynamic output shapes or accept artifact paths.
+- Must not be blindly copied into an expected deployment selection.
+
+## Schema
+
+Root fields, all required: `schema_version=1`, `model_id`, `model_version`,
+`artifact_sha256`, `decoder_contract`, `max_output_bytes`, `outputs`. Each output contains
+name, dtype, shape and an optional quantization object. dtype is one of int8, uint8, int16,
+uint16, int32, uint32, int64, uint64, float16, float32. quantization, when present, contains
+exactly `scale` and `zero_point` with the convention `real = (stored - zero_point) * scale`;
+floating tensors must not be quantized. Order is preserved. No unknown or duplicate object
+keys are allowed. Identity/decoder strings are 1..128 ASCII letters/digits/dot/colon/
 underscore/hyphen. Digest is 64 lowercase hex characters. Names/shapes/budget follow
-tensor_contract, which sizes each element by its dtype. Numeric fields must be JSON
+`tensor_contract`, which sizes each element by its dtype. Numeric fields must be JSON
 numbers of the right kind, never strings or booleans.
+
+## Loader bounds and dependencies
 
 Loader consumes a caller-opened stream (at most 65537 bytes), with a 64 KiB document
 limit and depth <=16. Stream may block: use during startup only. Parser DOM overhead
@@ -23,6 +46,8 @@ no implicit downloads, Camera or vendor dependencies. JSON parsing uses the docu
 [parse API](https://json.nlohmann.me/api/basic_json/parse/) and
 [parser callback](https://json.nlohmann.me/api/basic_json/parser_callback_t/).
 Pin changes require dependency review; no third-party source copied into this repo.
+
+## Trust and composition
 
 Loading does not hash files, verify signatures, authorize features, or resolve decoders.
 The separate [artifact digest helper](artifact_digest.md) now performs bounded byte
@@ -46,18 +71,32 @@ invokes the selected decoder's schema validator before constructing the tracker/
 sources validate each document and deployment assignments; the authenticated
 multi-document resolver remains pending.
 
-camera_session exposes bind_model_outputs(manifest, selection, config) to correlate
+`camera_session` exposes `bind_model_outputs(manifest, selection, config)` to correlate
 the parsed identity/hash/decoder against independently supplied deployment selection,
 revalidate outputs and transactionally set session outputs/budget. Call before session
-construction; no active graph mutation. It does not validate the plan model_path against
+construction; no active graph mutation. It does not validate the plan `model_path` against
 the artifact or authenticate either input. The caller must verify that association.
 Never construct the expected selection by blindly copying the untrusted manifest.
 
 ## Read-only handoff checker
 
-Enable VQEC_VISION_AI_ENABLE_MODEL_MANIFEST and VQEC_VISION_AI_BUILD_MANIFEST_CHECK
+Enable `VQEC_VISION_AI_ENABLE_MODEL_MANIFEST` and `VQEC_VISION_AI_BUILD_MANIFEST_CHECK`
 with the pinned package available locally; no Qualcomm SDK is needed. Then run
 `vqec_vision_ai_manifest_check path/to/output-manifest.json`.
 Exit 0: metadata structurally valid; 1: malformed/unsupported manifest; 2: usage/I/O
 or memory failure. No files are changed and no model libraries are loaded. The tool
 prints the distinction between metadata validation and artifact qualification.
+
+## Limits and next work
+
+- This is not a verified model registry or complete Model Integration Package.
+- The authenticated multi-document resolver remains pending.
+- Dynamic output shapes remain unsupported.
+- A non-FLOAT32 output contract is rejected on the installed Qualcomm plugin path.
+
+## See also
+
+- [Bounded artifact digest comparison](artifact_digest.md)
+- [QNN tensor input/output boundary](tensor_output.md)
+- [Model catalog](model_catalog.md)
+- [Perception stage factory](perception_stage_factory.md)

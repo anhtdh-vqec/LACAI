@@ -15,6 +15,8 @@ Artifact: `libscrfd_500m_bnkps_w8a16.so`, SHA-256
 `2f315dcd1996b0280c162e9bf79f0e1e64123675d4be2553ef698328dea103d9`, 1075944 bytes, W8A16,
 board path `/opt/lacai/models/libscrfd_500m_bnkps_w8a16.so` (QAIRT 2.43.0).
 
+- **Status:** metadata delivered; artifact/golden not in repository
+
 ## Runtime-reported ABI (QCS6490 HTP probe)
 
 - input `input_1` `[1,640,640,3]` NHWC, `uint16`, scale `3.03988327e-05`, zero_point `32768`;

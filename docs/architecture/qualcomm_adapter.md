@@ -1,154 +1,179 @@
 # Qualcomm adapter — implementation blueprint
 
-Status: original direct-SDK blueprint. The current adapter provides two neutral-port
-backends: the released plugin graph ([ADR 0002](../adr/0002_qualcomm_plugin_backend.md))
-and the optional LACAI-owned QNN engine ([ADR 0003](../adr/0003_owned_qnn_engine.md),
-[execution policy](qualcomm_execution_policy.md)). They share the same
-`inference_graph_port`, scheduling and ownership; backend choice is policy/capability, not a
-model-name branch. Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot is not
-required to write code. Historical direct-SDK blueprint below is not current implementation
-status. On 2026-09-14 the owned engine was board-verified: SCRFD and YOLOv8n compose,
-finalize and execute on HTP V68 with output byte-identical to `qnn-net-run`, and the
-service harness plus `--mode production --platform fake` run natively. On 2026-09-14 the
-private QTI DMA-pool/`qtivoverlay`/`v4l2h264enc` renderer also produced a color-correct
-person stream with visible boxes through the compatibility FW services on the `.48`
-board. This is integration-smoke evidence, not released-FW acceptance. See implementation_status.md,
-qsc6490_board.md and fw_release_compatibility.md.
-The production service now selects the private FastCV preprocessing adapter through the
-neutral `image_processor_port`; see [qualcomm_preprocessing.md](qualcomm_preprocessing.md)
-for its exact semantics, ownership, measured bottlenecks and remaining copies.
-Preview renderer/encoder must be separate from the inference graph and preserve the
-released H264/ring contract; selecting Codec2 requires board evidence, not just factory availability.
-Read docs/research/qualcomm_plugins_reference.md for all plugin usage details.
-Đọc kèm source review Q01–Q18.
-Mục tiêu: FastCV image ops + QNN inference, neutral interfaces, safe ownership,
-performance measured trên target. Không dùng OpenCV hoặc GStreamer trong core.
+This document is the adapter blueprint for QCS6490 / Qualcomm Linux 1.8: it records the original
+direct-SDK plan, module ownership, capability descriptor, preprocessing/inference steps, test
+matrix and the BSP inputs still required. It is a blueprint, not current implementation status.
 
-## 1. Module và ownership
+**Status:** source-delivered — the current adapter offers two neutral-port backends (released
+plugin graph per [ADR 0002](../adr/0002_qualcomm_plugin_backend.md) and the optional LACAI-owned
+QNN engine per [ADR 0003](../adr/0003_owned_qnn_engine.md) and
+[execution policy](qualcomm_execution_policy.md)); on 2026-09-14 the owned engine was board-verified
+(SCRFD/YOLOv8n compose, finalize and execute on HTP V68 with output byte-identical to
+`qnn-net-run`, and the service harness plus `--mode production --platform fake` ran natively) and
+the private QTI DMA-pool/`qtivoverlay`/`v4l2h264enc` renderer produced a color-correct person stream
+on `.48`. This is integration-smoke evidence, not released-FW acceptance. **Layer:** adapters.
+**Source:** `src/adapters/qualcomm`.
 
-| Planned file trong src/adapters/qualcomm | Trách nhiệm |
+Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot is not required to write code. The
+historical direct-SDK blueprint below is not current implementation status. See
+[implementation status](../development/implementation_status.md),
+[QCS6490 board](../testing/qsc6490_board.md) and
+[FW release compatibility](../contracts/fw_release_compatibility.md). The production service now
+selects the private FastCV preprocessing adapter through the neutral `image_processor_port`; see
+[qualcomm_preprocessing.md](qualcomm_preprocessing.md) for its exact semantics, ownership, measured
+bottlenecks and remaining copies. Preview renderer/encoder must be separate from the inference
+graph and preserve the released H264/ring contract; selecting Codec2 requires board evidence, not
+just factory availability. Read [qualcomm_plugins_reference.md](../research/qualcomm_plugins_reference.md)
+for all plugin usage details, alongside source review Q01–Q18.
+
+Goal: FastCV image ops + QNN inference, neutral interfaces, safe ownership, performance measured
+on target. Do not use OpenCV or GStreamer in core.
+
+## Responsibility
+
+- Own vendor-specific FastCV preprocessing and QNN execution behind neutral ports.
+- Keep private vendor headers in this directory, not in `include/vqec/vision/ai/contracts`.
+- Fail closed on missing library/symbol/version rather than silently falling back to CPU.
+- Do not define neutral contracts, semantic postprocess or model rules in the adapter core.
+
+## Module and ownership
+
+| Planned file in `src/adapters/qualcomm` | Responsibility |
 |---|---|
-| vqec_vision_sdk_loader.cpp | allowed paths, symbols, versions, provider compatibility, RAII libs |
-| vqec_vision_buffer_manager.cpp (chưa tạo) | planned AI-owned allocation/import/map/cache scope, pools, completion ownership |
-| vqec_vision_fastcv_processor.cpp | crop/resize/color/rotate/normalize qua capability thực có; geometry metadata |
-| vqec_vision_qnn_engine.cpp | backend/device/context/graph/tensor bind/execute/completion/profiling |
-| vqec_vision_backend_factory.cpp | capability probe + construct backend theo board manifest |
-| vqec_vision_c2d_processor.cpp (chưa tạo) | planned optional hardware blit/import path sau benchmark + ADR |
+| `vqec_vision_sdk_loader.cpp` | allowed paths, symbols, versions, provider compatibility, RAII libs |
+| `vqec_vision_buffer_manager.cpp` (not yet created) | planned AI-owned allocation/import/map/cache scope, pools, completion ownership |
+| `vqec_vision_fastcv_processor.cpp` | crop/resize/color/rotate/normalize through actual available capability; geometry metadata |
+| `vqec_vision_qnn_engine.cpp` | backend/device/context/graph/tensor bind/execute/completion/profiling |
+| `vqec_vision_backend_factory.cpp` | capability probe + construct backend per board manifest |
+| `vqec_vision_c2d_processor.cpp` (not yet created) | planned optional hardware blit/import path after benchmark + ADR |
 
-Private vendor headers ở thư mục này, không ở include/vqec/vision/ai/contracts.
-Tên public override theo interface owner; helper dùng qcom + file_id registry.
-Semantic postprocess ở perception/detection hoặc module decoder, không nhúng
-YOLO/face rules trong qnn_engine. Vendor postprocess offload là implementation
-tùy chọn có golden equivalence, không là điều kiện để mọi bài dùng adapter.
+Private vendor headers live in this directory, not in `include/vqec/vision/ai/contracts`. Public
+override names follow the interface owner; helpers use the `qcom` + `file_id` registry. Semantic
+postprocess belongs in perception/detection or a decoder module; do not embed YOLO/face rules in
+`qnn_engine`. Vendor postprocess offload is an optional implementation with golden equivalence,
+not a condition for every task that uses the adapter.
 
-## 2. Capability descriptor bắt buộc
+## Required capability descriptor
 
-board_id, soc_id, bsp_build_id, adapter_version, sdk_build_ids;
-accepted source pixel formats/modifiers/planes/alignments/max dimensions;
-image ops + output dtype/layout + actual execution path;
-memory import/export/map support + cache/sync requirements;
-QNN backend id + accepted artifact/compiler/runtime versions;
-graph/tensor restrictions, max contexts/inflight, thread safety;
-sync/async/cancel/quiesce support, timeout recovery;
-measured workload profiles và chưa-được-đo flags.
+`board_id`, `soc_id`, `bsp_build_id`, `adapter_version`, `sdk_build_ids`; accepted source pixel
+formats/modifiers/planes/alignments/max dimensions; image ops + output dtype/layout + actual
+execution path; memory import/export/map support + cache/sync requirements; QNN backend id +
+accepted artifact/compiler/runtime versions; graph/tensor restrictions, max contexts/inflight,
+thread safety; sync/async/cancel/quiesce support, timeout recovery; measured workload profiles and
+not-yet-measured flags.
 
-Không hardcode supported=true theo tên vendor. Thiếu library/symbol/version ->
-unsupported với reason, không fallback CPU im lặng. Product policy cho phép
-fallback phải explicit, có metric, budget và effective degraded state.
+Do not hardcode `supported=true` by vendor name. A missing library/symbol/version produces
+`unsupported` with a reason, not a silent CPU fallback. A product policy that permits fallback must
+be explicit, with a metric, budget and effective degraded state.
 
-## 3. RAW4K -> model input
+## RAW4K to model input
 
-1. Validate descriptor, epoch, memory handles, bounds và negotiated profile.
-2. Giữ frame lease; wait acquire synchronization theo camera/BSP contract.
-3. Import hoặc map input qua BSP memory path đã xác nhận.
-4. Tính ROI/alignment/letterbox; clamp đúng policy, không tự đổi model semantics.
-5. Preprocess vào tensor/surface AI-owned trong bounded pool.
-6. Hoàn tất toàn bộ source reads -> ACK Camera; release mapped/imported views
-   theo lifetime được SDK bảo đảm.
+1. Validate descriptor, epoch, memory handles, bounds and negotiated profile.
+2. Hold the frame lease; wait for acquire synchronization per the camera/BSP contract.
+3. Import or map input through the confirmed BSP memory path.
+4. Compute ROI/alignment/letterbox; clamp per policy, do not change model semantics on your own.
+5. Preprocess into an AI-owned tensor/surface in a bounded pool.
+6. Complete all source reads -> ACK Camera; release mapped/imported views per the
+   SDK-guaranteed lifetime.
 7. Bind input tensor -> QNN execute -> completion -> decoder.
-8. Release output sau mọi decoder consumer xong; recycle input khi inference xong.
+8. Release output after every decoder consumer is done; recycle input when inference is done.
 
-Nếu nhiều model đọc cùng Camera frame, ACK sau consumer đọc cuối, hoặc tạo
-intermediate chung có lifetime AI-owned. Một branch xong không được ACK cả frame.
-Nếu passthrough trực tiếp Camera memory vào SDK, lease kéo dài đến SDK completion.
+If several models read the same Camera frame, ACK after the last reading consumer, or create a
+shared AI-owned intermediate. One finished branch must not ACK the whole frame. If Camera memory is
+passed directly through to the SDK, the lease extends to SDK completion.
 
-## 4. FastCV implementation
+## FastCV implementation
 
-- Probe API thực có theo pinned headers/libs, không khai báo function pointer
-  bằng chữ ký tự đoán từ một SDK khác.
-- Bắt đầu với synchronous execute trong bounded worker; completion tạo sau return.
-- fcv SetOperationMode dùng policy cố định; kiểm tra SDK global state và CleanUp
-  trước cho phép nhiều processors cùng sống.
-- Preallocate staging buffers theo model plans; ghi số lượng/bytes/copy metrics.
-- NV12/NV21 plane order, stride và chroma ROI alignment kiểm tra riêng.
-- Mapping CPU: cache begin/end theo BSP; device fence dependency là vấn đề khác.
-- Không gọi normalize ở cả converter và tensor packing làm normalize hai lần.
-- Dtype INT8/UINT8/FP16/FP32, layout NHWC/NCHW chỉ advertise sau golden pass.
-- Resize-before-color-convert có thể tiết kiệm bandwidth nhưng khác numerical
-  ordering: chỉ đổi nếu model team chấp nhận và golden/accuracy pass.
-- Nếu phải xử lý input UBWC: yêu cầu BSP path decompression/import đã hỗ trợ
-  hoặc negotiate linear NV12. Không map rồi coi UBWC là linear.
-- C2D/GLES chỉ thêm nếu FastCV path không đạt target và SDK hỗ trợ; source review
-  cho thấy có lựa chọn này, chưa chứng minh tối ưu trên board của sản phẩm.
+- Probe the actual API from pinned headers/libs; do not declare function pointers with signatures
+  guessed from another SDK.
+- Start with synchronous execute in a bounded worker; completion is created after return.
+- `fcv SetOperationMode` uses a fixed policy; check SDK global state and `CleanUp` before allowing
+  several processors to coexist.
+- Preallocate staging buffers per model plan; record count/bytes/copy metrics.
+- Check NV12/NV21 plane order, stride and chroma ROI alignment separately.
+- CPU mapping: cache begin/end per BSP; device fence dependency is a separate problem.
+- Do not call normalize in both converter and tensor packing, causing double normalization.
+- Advertise dtype INT8/UINT8/FP16/FP32 and layout NHWC/NCHW only after a golden pass.
+- Resize-before-color-convert can save bandwidth but changes numerical ordering: change only if
+  the model team accepts it and golden/accuracy passes.
+- If UBWC input must be handled: require a supported BSP decompression/import path or negotiate
+  linear NV12. Do not map and then treat UBWC as linear.
+- Add C2D/GLES only if the FastCV path misses target and the SDK supports it; the source review
+  shows this option exists but has not proved it optimal on the product board.
 
-## 5. QNN implementation
+## QNN implementation
 
-Init: verify artifact -> load backend/System libs -> enumerate compatible
-providers -> create backend/device -> inspect binary metadata -> create context ->
-select graph by manifest name -> validate all I/O -> allocate/bind -> warmup.
+Init: verify artifact -> load backend/System libs -> enumerate compatible providers -> create
+backend/device -> inspect binary metadata -> create context -> select graph by manifest name ->
+validate all I/O -> allocate/bind -> warmup.
 
-- Context binary là default candidate; .so model đường riêng nếu product cần.
-- Kiểm version-tagged metadata/tensor unions trước đọc member; deep-copy metadata
-  nếu memory nguồn sẽ được SDK release.
-- Không assume first graph hoặc one input. Reject graph/name/dtype/shape mismatch.
-- Quantization map chính xác theo SDK definition và Model contract; không tự coi
-  SDK offset là cùng convention zero_point. Native dtype giữ riêng từng output.
-- Execute sync ở v1 với bounded executor, serialize context trừ khi SDK xác nhận
-  concurrent safe. Deadline là scheduler contract, không giả QNN hủy được.
-- Shared memory registration là optimization phase sau client-buffer baseline.
-  Chỉ implement nếu BSP SDK hỗ trợ allocator/import đó; register lifetime theo
-  context + allocation; deregister sau completion trước free context/buffer.
-- Client-buffer baseline có thể copy trong SDK: log path, đo, không gọi zero-copy.
-- Không recreate backend/context hoặc dlopen model mỗi frame.
-- Teardown reverse dependency sau drain; metadata/profiling callbacks không
-  được gọi vào object/library đã hủy; kiểm partial-init mọi bước.
+- A context binary is the default candidate; a `.so` model is a separate path if the product needs
+  it.
+- Check version-tagged metadata/tensor unions before reading members; deep-copy metadata if the
+  source memory will be released by the SDK.
+- Do not assume the first graph or one input. Reject graph/name/dtype/shape mismatch.
+- Map quantization exactly per the SDK definition and model contract; do not assume an SDK offset
+  uses the same `zero_point` convention. Keep each output's native dtype separate.
+- Execute sync in v1 with a bounded executor; serialize the context unless the SDK confirms
+  concurrent safety. A deadline is a scheduler contract; do not pretend QNN can cancel.
+- Shared memory registration is an optimization phase after the client-buffer baseline. Implement
+  it only if the BSP SDK supports that allocator/import; registration lifetime follows context +
+  allocation; deregister after completion and before freeing context/buffer.
+- The client-buffer baseline may copy inside the SDK: log the path, measure it, do not call it
+  zero-copy.
+- Do not recreate backend/context or `dlopen` the model every frame.
+- Tear down in reverse dependency order after drain; metadata/profiling callbacks must not be
+  invoked into a destroyed object/library; check partial-init at every step.
 
-## 6. Completion và recovery
+## Completion and recovery
 
-Job states: queued -> submitted -> completed/failed; cancel_requested là intent,
-không là terminal state cho device đang dùng memory.
+Job states: `queued -> submitted -> completed/failed`; `cancel_requested` is intent, not a terminal
+state for a device still using memory.
 
-Stop source: stop submit -> bỏ queued -> await submitted completion -> release
-lease -> release source. SDK stall: control thread vẫn phản hồi health;
-quarantine bounded resources, đề nghị FW/BSP recovery. Recovery contract phải
-xác nhận device access stopped trước tái sử dụng/free camera pool.
-Process kill/restart chỉ được coi an toàn nếu BSP bảo đảm teardown DMA; cần test.
-Không giữ mutex khi graphExecute/Finish/wait hoặc RPC.
+Stop source: stop submit -> drop queued -> await submitted completion -> release lease -> release
+source. SDK stall: the control thread still answers health; quarantine bounded resources and
+request FW/BSP recovery. The recovery contract must confirm device access stopped before
+reusing/freeing the camera pool. Process kill/restart is safe only if the BSP guarantees DMA
+teardown; this needs a test. Do not hold a mutex during `graphExecute`/`Finish`/`wait` or RPC.
 
-## 7. Test matrix
+## Test matrix
 
 | Gate | Test | Evidence |
 |---|---|---|
 | A0 SDK inventory | missing lib/symbol, ABI mismatch, invalid artifact | deterministic error + no partial-init leak |
 | A1 buffer | padded stride, multiple planes, FD reuse, epoch change | no OOB, exact release, mapping counters |
 | A2 preprocess | crop borders, rotate, letterbox, RGB/BGR, quantized data | input tensor golden tolerance |
-| A3 inference | bin/so nếu support, graph select, mixed dtype, multi I/O, reordered outputs | tensor + decoded golden |
+| A3 inference | bin/so if supported, graph select, mixed dtype, multi I/O, reordered outputs | tensor + decoded golden |
 | A4 lifetime | slow execute, timeout, disable, disconnect, shutdown | no early ACK/use-after-free |
 | A5 workload | RAW4K + live stream/record + feature combinations | latency/fps/CPU/RSS/thermal/copy report |
 | A6 stability | repeated load/unload, 24–72h agreed soak, fault injection | no growing FD/RSS/pool leak, recovery trace |
 
-24–72h là mục tiêu nghiệm thu đề xuất, không phải test đã chạy.
-A0–A4 đạt trước optimization; A5 profile trước khi tăng thread/batch/context.
-Hardware memory tests không thay thế bằng host sanitizer.
+24–72h is a proposed acceptance target, not a test that has run. A0–A4 pass before optimization;
+profile A5 before increasing thread/batch/context. Hardware memory tests cannot be replaced by a
+host sanitizer.
 
-## 8. BSP inputs còn thiếu — blocker cho code production
+## Missing BSP inputs — blocker for production code
 
-SoC + board revision; BSP image; Linux/toolchain/sysroot; FastCV headers/libs;
-QNN SDK and device libs including required accelerator dependencies; known-good
-model/context + SDK demo; allocator/import/cache/fence samples; supported NV12
-4K source mode; permissions/device nodes; thread/concurrency/reset documentation;
-redistribution policy; thermal/load budgets. Owner BSP, deadline end week1/2.
+SoC + board revision; BSP image; Linux/toolchain/sysroot; FastCV headers/libs; QNN SDK and device
+libs including required accelerator dependencies; known-good model/context + SDK demo;
+allocator/import/cache/fence samples; supported NV12 4K source mode; permissions/device nodes;
+thread/concurrency/reset documentation; redistribution policy; thermal/load budgets. Owner BSP,
+deadline end week1/2.
 
-For the direct-SDK path these inputs remain required. ADR 0002 selects the current
-plugin-backed adapter, which cross-builds and has synthetic target smoke coverage.
-Do not fabricate SDK APIs or describe it as a live model-qualified streaming adapter.
+## Limits and next work
+
+- For the direct-SDK path these inputs remain required. ADR 0002 selects the current plugin-backed
+  adapter, which cross-builds and has synthetic target smoke coverage.
+- Do not fabricate SDK APIs or describe it as a live model-qualified streaming adapter.
+- Released-FW camera/ring/RTSP acceptance, direct I/O DMA import, registered QNN memory,
+  multi-graph QNN and thermal qualification remain open.
+- Golden tensor parity, cascade crop/alignment and BSP recovery remain open.
+
+## See also
+
+- [Qualcomm plugin adapter reference](qualcomm_plugin_adapter_reference.md)
+- [Neutral execution policy and the Qualcomm engine](qualcomm_execution_policy.md)
+- [Qualcomm preprocessing adapter](qualcomm_preprocessing.md)
+- [Qualcomm QNN ION-registered output memory](qualcomm_qnn_ion_memory.md)
+- [ADR 0002 Qualcomm plugin backend](../adr/0002_qualcomm_plugin_backend.md)
+- [ADR 0003 owned QNN engine](../adr/0003_owned_qnn_engine.md)

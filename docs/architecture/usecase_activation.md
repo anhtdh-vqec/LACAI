@@ -6,6 +6,26 @@ authenticated source/model assignment. A complete activation snapshot applies in
 entitled, desired, supported, compatible and resource-admitted gates to every
 `(source_id, usecase_id)` association.
 
+**Status:** source-delivered — resolver, strict startup loader, serialized desired-plan
+manager and D-Bus v1 transport are source-delivered; signed provisioning and runtime health
+observation remain open. **Layer:** runtime.
+**Source:** `src/core/vqec_vision_usecase_activation.cpp`,
+`src/runtime/feature_manager/vqec_vision_usecase_config.{hpp,cpp}`,
+`src/runtime/feature_manager/vqec_vision_usecase_control_manager.{hpp,cpp}`,
+`src/adapters/fw_control/vqec_vision_usecase_control_dbus.{hpp,cpp}`.
+
+## Responsibility
+
+- Resolve the effective root-model deployment from the FW commercial control plane before
+  any vendor graph loads.
+- Apply installed, entitled, desired, supported, compatible and resource-admitted gates
+  to every `(source_id, usecase_id)` association.
+- Must not authenticate catalogs or entitlements, measure hardware capacity, load models or
+  mutate a live runtime; those belong to the trusted provisioning boundary, admission
+  provider and generation owner.
+
+## Effective deployment
+
 Only `ready` associations contribute root models. The resolver preserves base source and
 model order, unions shared roots, and removes inactive sources. Secondary models are not
 listed as roots; the model catalog activates them through immutable dependencies. Cascade
@@ -15,11 +35,14 @@ An empty effective deployment is a valid idle result. The generation owner must 
 without calling normal deployment validation, platform prepare or camera acquisition. A
 non-empty result is passed through deployment and model-catalog validation before publish.
 
+## Transactional behavior
+
 The resolver is transactional: malformed, incomplete or duplicate snapshots leave its
-output objects unchanged. It does not authenticate catalogs or entitlements, measure
-hardware capacity, load models or mutate a live runtime. Those belong to the trusted
-provisioning boundary, admission provider and generation owner. The service now implements full-generation replacement: stop scheduling/output, drain
-backend work and source leases, destroy obsolete owners, then construct the candidate.
+output objects unchanged. The service now implements full-generation replacement: stop
+scheduling/output, drain backend work and source leases, destroy obsolete owners, then
+construct the candidate.
+
+## Startup loader
 
 The strict startup loader `vqec_vision_usecase_config` accepts one authenticated snapshot
 containing independent control, entitlement and deployment revisions. The service option
@@ -28,6 +51,8 @@ containing independent control, entitlement and deployment revisions. The servic
 EdgeFace; an all-disabled snapshot stays in the idle service loop without opening model
 packages or acquiring the camera. The document's gate booleans are trusted inputs from the
 provisioning/admission boundary, not self-asserted D-Bus authority.
+
+## Desired-plan control manager
 
 `vqec_vision_usecase_control_manager` owns the serialized desired-plan cold path. It:
 
@@ -45,6 +70,8 @@ port. It resolves a configured FW peer to one unique D-Bus sender, bounds reques
 callback progress, and never accepts entitlement/admission fields from the caller. Bus
 name and object path are installation configuration.
 
+## Executable generation ownership
+
 The executable now owns manager/transport across runtime generations. `--usecase-dbus`
 (or `--usecase-dbus-session`) enables desired-plan commands with explicit installation
 names/timeouts/budgets. Initial status remains loading until all source-session phases are
@@ -52,8 +79,20 @@ running. New desired commands are rejected during initial loading or pending rec
 Recovery-required prevents constructing another generation. All-off publishes an empty
 runtime and keeps the control object live without platform preparation or source acquisition.
 Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
-D-Bus replies. Runtime health observation, signed provisioning and incremental shared-owner
-replacement remain open. See [FR validation](../testing/face_recognition_production_validation.md).
+D-Bus replies.
 
-See [FW usecase activation](../contracts/fw_usecase_control.md) for the wire contract and
-lifecycle requirements.
+## Limits and next work
+
+- Runtime health observation, signed provisioning and incremental shared-owner replacement
+  remain open.
+- Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
+  D-Bus replies.
+- The resolver does not authenticate catalogs or entitlements, measure hardware capacity,
+  load models or mutate a live runtime.
+
+## See also
+
+- [FW usecase activation](../contracts/fw_usecase_control.md) — wire contract and
+  lifecycle requirements
+- [runtime feature activation](runtime_feature_activation.md)
+- [FR validation](../testing/face_recognition_production_validation.md)

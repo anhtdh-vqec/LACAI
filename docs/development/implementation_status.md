@@ -158,6 +158,8 @@ Current source inventory, checked against `src/`, public headers, test sources a
 `CMakeLists.txt`. This replaces the incremental delivery log: earlier slice limitations
 must not be interpreted as the current missing-feature list.
 
+**Status:** current — delivery and evidence authority.
+
 ## Current summary and evidence authority
 
 Current delivery/evidence claims live in this file and

@@ -1,9 +1,26 @@
 # Feature fan-out
 
-`feature_fanout` is the portable per-source coordinator from one tracked observation
-batch to a bounded set of already-activated feature stages. Activation binds 1..32 stable
-numeric slots; the ceiling allows the current catalog and extensions without embedding a
-commercial feature list or string lookup in the frame path.
+`feature_fanout` is the portable per-source coordinator from one tracked observation batch
+to a bounded set of already-activated feature stages. This document defines its slot
+identity, fault isolation and report semantics.
+
+**Status:** source-delivered — the fan-out exists with contract tests. **Layer:** features.
+**Source:** `src/app/vqec_vision_feature_fanout.cpp`,
+`tests/contract/vqec_vision_feature_fanout_test.cpp`.
+
+## Responsibility
+
+- Coordinates one tracked observation batch to a bounded set of already-activated feature
+  stages.
+- Keeps slot identity stable for its immutable configuration revision and requires the
+  whole owner set to be replaced for a new revision.
+- Performs no activation, entitlement, output delivery or automatic replacement.
+- Borrows unique stage owners.
+
+## Scheduling and fault isolation
+
+Activation binds 1..32 stable numeric slots; the ceiling allows the current catalog and
+extensions without embedding a commercial feature list or string lookup in the frame path.
 
 One serialized call validates the tracked batch and monotonic time before invoking any
 stage. Each stage receives the same immutable observations and source-gap flag. Processing
@@ -16,8 +33,15 @@ the first failing slot. The function returns the first failure after all slots h
 advanced. Therefore outputs and report remain meaningful on a non-`ok` return; there is no
 cross-feature atomic publication claim. Slots outside the configured count are untouched.
 
-The fan-out borrows unique stage owners and performs no activation, entitlement, output
-delivery or automatic replacement. Feature manager composition must keep slot identity
-stable for its immutable configuration revision and replace the whole owner set for a new
-revision. Direct single-model dependencies are connected by the
-[multi-model feature pipeline](multi_model_feature_pipeline.md).
+## Limits and next work
+
+- There is no cross-feature atomic publication claim.
+- Direct single-model dependencies are connected by the multi-model feature pipeline.
+- Feature manager composition must keep slot identity stable and replace the whole owner
+  set for a new configuration revision.
+
+## See also
+
+- [Multi-model feature pipeline](multi_model_feature_pipeline.md)
+- [Feature stage](feature_stage.md)
+- [Feature event contract](feature_event_contract.md)

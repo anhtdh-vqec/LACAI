@@ -1,8 +1,22 @@
 # Device-free platform owners
 
-`--mode production` never substitutes a fixture implicitly. The service selects a
-platform owner by explicit name; an unset or unwired name fails closed with exit 3. Two
-device-free owners exist, and neither is model, accuracy or hardware evidence.
+`--mode production` never substitutes a fixture implicitly. The service selects a platform
+owner by explicit name; an unset or unwired name fails closed with exit 3. Two device-free
+owners exist, and neither is model, accuracy or hardware evidence.
+
+**Status:** source-delivered — `fake_platform` and `reference_platform` source and the
+`service_production_reference_smoke` wiring test exist. **Layer:** reference.
+**Source:** `src/app/vqec_vision_reference_platform.{hpp,cpp}`,
+`src/app/vqec_vision_fake_platform.{hpp,cpp}`.
+
+## Responsibility
+
+- Provide device-free platform owners behind the neutral ports so composition, decode,
+  tracking, feature fan-out and the service harness can run without a camera, QNN plugin,
+  model artifact or board.
+- Register decoder/tracker/feature factories through non-owning ports for the reference
+  owner, and deterministic fixtures for the fake owner.
+- Must not be presented as model, accuracy or hardware evidence.
 
 ## `--platform fake` (development)
 
@@ -38,6 +52,17 @@ delivery before the fix.
 ## Evidence boundary
 
 `service_production_reference_smoke` asserts that the reference owner routes, emits at
-least one zone event and stops cleanly. This is logic/wiring evidence. It does not load a
-model, exercises no camera or FW transport and proves nothing about accuracy, Qualcomm
-support or hardware completion.
+least one zone event and stops cleanly.
+
+## Limits and next work
+
+- This is logic/wiring evidence only. It does not load a model, exercises no camera or FW
+  transport and proves nothing about accuracy, Qualcomm support or hardware completion.
+- The reference owner must outlive the registries and the runtime bundle; registration is
+  non-owning.
+
+## See also
+
+- [runtime executor](runtime_executor.md)
+- [tracker registry](tracker_registry.md)
+- [feature processor registry](feature_processor_registry.md)

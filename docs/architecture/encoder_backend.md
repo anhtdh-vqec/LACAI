@@ -1,9 +1,25 @@
 # Encoder backend lifecycle port
 
-Status: neutral interface source, no concrete encoder implementation or executed test.
-Backend-specific construction/configuration remains private to the adapter. A ready
-instance binds one profile/source/cycle and an explicit bounded resource budget.
-No vendor types, driver mode numbers or GStreamer property strings enter this port.
+The encoder backend port is a neutral interface for one profile/source/cycle encoder and an
+explicit bounded resource budget. This document defines input validation, submission
+ownership, the event/drain model and the review obligations for concrete implementations.
+
+**Status:** source-delivered — neutral interface source, no concrete encoder implementation
+or executed test. Unit source is unexecuted. **Layer:** contracts. **Source:**
+`include/vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp`,
+`src/core/vqec_vision_encoder_contract.cpp`,
+`tests/unit/vqec_vision_encoder_contract_test.cpp`.
+
+## Responsibility
+
+- Binds one ready instance to one profile/source/cycle and an explicit bounded resource
+  budget.
+- Defines accepted submission, event polling and drain semantics.
+- Keeps backend-specific construction/configuration private to the adapter.
+- Must not expose vendor types, driver mode numbers or GStreamer property strings.
+- Must not fabricate hardware cancellation; destruction requires proven drain/quiescence.
+
+## Input validation
 
 Pure `vqec_vision_ai_core_encct_validate_input` now checks an input against independently
 supplied frame, geometry, ticket and generation. Exact packed NV12 size is required;
@@ -15,14 +31,14 @@ those separately and invoke validation before device access. Unit source is unex
 
 ## Submission and ownership
 
-The caller commits encoder_window before submit. Request includes original frame,
+The caller commits `encoder_window` before submit. Request includes original frame,
 geometry, ticket, dispatch generation and sealed tightly packed CPU NV12 owner.
 Backend validates source/profile/cycle, nonzero generation/token, ticket source
 epoch/frame ID/PTS
 matching frame PTS, image byte count and admission before touching a device. No mutable
 borrow may survive sealing. This v1 CPU surface port is not a DMA-BUF import contract.
 
-submit returns ok only when responsibility is accepted. It retains the owner before
+Submit returns ok only when responsibility is accepted. It retains the owner before
 any asynchronous read and reserves bounded completion capacity before acceptance.
 Any non-ok return guarantees no retained owner, no device access and no future events
 for that attempt. Thus a preflight rejection of an already committed ledger ticket
@@ -37,18 +53,18 @@ escape an accepted submission path and obscure ownership disposition.
 
 ## Events and drain
 
-poll is nonblocking and transactional: pending means no event; failure leaves the
+`poll` is nonblocking and transactional: pending means no event; failure leaves the
 destination unchanged and grants no completion. Successful events are:
 
-- input_complete: token identifies all input reads finished; no AU attached.
-- output_ready: token and immutable AU, with original frame/PTS metadata restored.
-- output_dropped: terminal proof no AU can still arrive for this token.
-- fault: health failure, never either completion; zero token denotes whole backend.
+- `input_complete`: token identifies all input reads finished; no AU attached.
+- `output_ready`: token and immutable AU, with original frame/PTS metadata restored.
+- `output_dropped`: terminal proof no AU can still arrive for this token.
+- `fault`: health failure, never either completion; zero token denotes whole backend.
 
 Exactly one input completion and one terminal output event per accepted job; their
 order is independent. Event delivery must not be lost on queue pressure. Backend
 must retain undelivered completions/results within admitted budgets and reject new
-work when capacity is exhausted. Returning output_ready transfers a shared immutable
+work when capacity is exhausted. Returning `output_ready` transfers a shared immutable
 owner, not a borrowed SDK sample. Runtime still validates correlation and authorization.
 Token uniquely correlates to the admitted dispatch generation; the runtime must not
 relabel an old AU with a new sink generation.
@@ -60,9 +76,9 @@ Only a fault may have the whole-backend zero token. Validation is structural, no
 of completion or duplicate protection: runtime must still correlate and update its
 ledger exactly once. Tests are source-only and do not establish vendor conformance.
 
-begin_drain stops acceptance and starts backend EOS/drain. pending means drain in
+`begin_drain` stops acceptance and starts backend EOS/drain. Pending means drain in
 progress; ok requires no device readers, pending results or undelivered events.
-Repeat calls are allowed. poll continues during drain. Timeout/fault does not imply
+Repeat calls are allowed. `poll` continues during drain. Timeout/fault does not imply
 completion. No automatic resume/reconfigure/retry on this object.
 
 All calls are serialized and non-reentrant; vendor callbacks enqueue internally and
@@ -70,6 +86,17 @@ never call the runtime inline. Destruction requires proven drain/quiescence. A p
 supervisor must retain a faulted backend and its resources until BSP recovery proves
 quiescence; the interface does not invent a generic hardware cancellation mechanism.
 
-Implementation tests must cover rejected admission, failure after possible acceptance,
-reordered completions, duplicated/stale tokens, full queues, result ownership, EOS,
-timeout and shutdown. The interface alone proves none of these backend properties.
+## Limits and next work
+
+- No concrete encoder implementation or executed test exists; the unit source is
+  unexecuted.
+- Implementation tests must cover rejected admission, failure after possible acceptance,
+  reordered completions, duplicated/stale tokens, full queues, result ownership, EOS,
+  timeout and shutdown. The interface alone proves none of these backend properties.
+- A process supervisor must retain a faulted backend until BSP recovery proves quiescence.
+
+## See also
+
+- [Encoder admission and completion ledger](encoder_window.md)
+- [Encoder input preparation composition](encoder_preparation.md)
+- [Owned encoded output and synchronous sink port](encoded_output.md)

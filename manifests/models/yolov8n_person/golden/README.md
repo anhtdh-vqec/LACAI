@@ -13,3 +13,5 @@ Python export pipeline), stored here and kept small / privacy-safe:
 Cover at least: landscape, portrait, letterbox, odd aspect ratio and an object near a
 border. Do not commit a model binary or any personal data. A tensor digest is a value
 comparison, not artifact authentication.
+- **Status:** planned — no golden fixtures present
+

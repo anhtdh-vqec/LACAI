@@ -1,11 +1,22 @@
 # Bounded tensor pool
 
-Status: device-free source delivered and tested; not yet wired into the production
-inference path.
-
 `tensor_pool` preallocates a fixed set of tensor slots so the steady-state path reuses
-bytes instead of resizing a vector per frame. Source:
-`src/core/vqec_vision_tensor_pool.{hpp,cpp}`.
+bytes instead of resizing a vector per frame. This document defines its configure/acquire/
+release contract, its counters and its test coverage.
+
+**Status:** logic-tested — device-free source delivered and tested in the neutral and
+expanded eSDK QEMU configurations; not yet wired into the production inference path.
+**Layer:** core. **Source:** `src/core/vqec_vision_tensor_pool.{hpp,cpp}`,
+`tests/unit/vqec_vision_tensor_pool_test.cpp`.
+
+## Responsibility
+
+- Preallocates a fixed set of tensor slots once at configure time.
+- Lends preallocated storage to callers for reuse across frames.
+- Detects double-release and optionally poisons released bytes.
+- Must not grow beyond the configured capacity.
+- Must not be on the running inference path until input preprocess and QNN/plugin output
+  wiring are complete.
 
 ## Contract
 
@@ -30,10 +41,16 @@ preallocation, exhaustion, double-release detection, read access, poison-on-rele
 1000-cycle steady-state reuse loop and concurrent acquire/release with four threads. Runs in
 the neutral and expanded eSDK QEMU configurations.
 
-## Remaining
+## Limits and next work
 
 - Wiring: input preprocess and the QNN/plugin output path must acquire/release pool slots
   instead of allocating per call. Until then the module is tested but not on the running
   path, and the "no steady-state allocation" claim is not yet provable.
 - Alignment is not configurable yet; vector-backed storage does not guarantee a device
   alignment. Add it only with an accelerator requirement.
+
+## See also
+
+- [QNN tensor input/output boundary](tensor_output.md)
+- [Bounded submission and clock mapping](submission_window.md)
+- [Bounded reusable CPU NV12 preview pool](preview_pool.md)

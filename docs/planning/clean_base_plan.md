@@ -17,6 +17,8 @@ Kế hoạch này bổ sung [base_completion_plan](base_completion_plan.md) và
 thay thế release gate. Mỗi bước là một commit focused có source + test + evidence. Build
 chỉ bằng eSDK tại `/home/a/Workspace/eSDK`; test board native trên `.98`. Không push.
 
+**Status:** planning — completed and remaining clean-base workstreams.
+
 ## Baseline đã chốt (B0)
 
 Ngày 2026-09-16, toolchain eSDK `armv8-2a-qcom-linux`, cấu hình mở rộng

@@ -1,14 +1,28 @@
 # Runtime executor and device-free harness
 
-Status: source-delivered orchestration and device-free development backends. This is a
-development harness, not a model, board or performance qualification.
-
-## Purpose
-
 `runtime_executor` is the serialized seam that connects the completed acquisition
 orchestration to the perception/feature pipeline. Before it existed, the runtime
-composition built source sessions and perception bundles but never drove the result
-router. The executor closes that gap:
+composition built source sessions and perception bundles but never drove the result router.
+It closes that gap.
+
+**Status:** source-delivered — source-delivered orchestration and device-free development
+backends. This is a development harness, not a model, board or performance qualification.
+**Layer:** app.
+**Source:** `src/app/vqec_vision_runtime_executor.{hpp,cpp}`,
+`src/app/vqec_vision_service_main.cpp`, `src/app/vqec_vision_service_options.{hpp,cpp}`,
+`src/adapters/reference/vqec_vision_reference_source.{hpp,cpp}`,
+`src/adapters/reference/vqec_vision_reference_graph.{hpp,cpp}`.
+
+## Responsibility
+
+- Drive the application composition, take tensor results, rebuild a pump-shaped report and
+  route results to the perception/feature pipeline.
+- Hold one completed tensor and its routed output in one pending slot until `take_result`
+  transfers tracked observations, feature-event batches and the report together, once.
+- Must not reconstruct source identity from tensor data, authorize output or publish
+  results; authorization and delivery remain downstream policy.
+
+## Step pipeline
 
 ```text
 runtime_executor.step
@@ -23,8 +37,7 @@ runtime_executor.step
 A completed tensor and its routed output occupy one pending slot. `take_result`
 transfers the tracked observations, feature-event batches and report together, once.
 While occupied, further steps return `pending` so the caller cannot silently drop a
-result. Taking a result is not permission to publish it; authorization and delivery
-remain downstream policy.
+result. Taking a result is not permission to publish it.
 
 ## Source-to-model correlation
 
@@ -128,7 +141,7 @@ excludes FW capture and preview encode. The ticket keeps `pipeline_pts_ns_` sepa
 encoder correlation; the two clock domains are never mixed. Per-stage histograms and a
 metrics sink/transport remain open.
 
-## Limits
+## Limits and next work
 
 - No authenticated catalog/artifact resolution, signature or TOCTOU protection; loaders
   validate structure only.
@@ -141,3 +154,13 @@ metrics sink/transport remain open.
   progress thread. A bounded worker/completion state machine is required before claiming
   multi-face latency or CPU scalability.
 - No supervision/IPK packaging beyond SIGINT/SIGTERM handling.
+- `temporal_join` features remain an activation-time gap; the harness wires only
+  `single_model` features.
+- Per-stage histograms and a metrics sink/transport remain open.
+
+## See also
+
+- [multi-model pump](multi_model_pump.md)
+- [runtime feature activation](runtime_feature_activation.md)
+- [reference platform](reference_platform.md)
+- [perception result stage](perception_result_stage.md)

@@ -1,18 +1,29 @@
 # Qualcomm plugin adapter reference
 
-This document is the implementation reference for using the Qualcomm GStreamer
-stack from LACAI. It records the source that was inspected and the boundary that
-keeps that stack replaceable. It does not claim that a plugin is present on a
-particular image or that a path is qualified on QCS6490.
+This document is the implementation reference for using the Qualcomm GStreamer stack from LACAI.
+It records the source that was inspected and the boundary that keeps that stack replaceable. It
+does not claim that a plugin is present on a particular image or that a path is qualified on
+QCS6490.
+
+**Status:** source-delivered — the referenced external source was reviewed and the current LACAI
+plugin-backed adapter exists; released-FW qualification and target-image plugin inventory remain
+open. **Layer:** reference. **Source:** `src/adapters/qualcomm`; external reviewed source
+`/home/a/Workspace/gst-plugins-qti-oss`.
+
+## Responsibility
+
+- Record the exact external plugin source baseline and the LACAI adapter rules.
+- Keep the Qualcomm GStreamer stack behind neutral ports and replaceable.
+- Require target-image evidence for factories, properties, enum nicks and caps.
+- Do not claim plugin presence, zero-copy or QCS6490 qualification from source alone.
 
 ## Source baseline
 
 The source reviewed was `/home/a/Workspace/gst-plugins-qti-oss` at commit
-`0cdf24a99c625fa616564ebf82fd8813c744ed82` (2026-09-09). The checkout was clean;
-it is an external reference and must not be modified or copied into LACAI.
-The target supplied by the product team is QCS6490 with Qualcomm Linux 1.8.
-Runtime availability, ABI, enum values and caps are still established on the
-target image with `gst-inspect-1.0` and a board smoke test.
+`0cdf24a99c625fa616564ebf82fd8813c744ed82` (2026-09-09). The checkout was clean; it is an external
+reference and must not be modified or copied into LACAI. The target supplied by the product team is
+QCS6490 with Qualcomm Linux 1.8. Runtime availability, ABI, enum values and caps are still
+established on the target image with `gst-inspect-1.0` and a board smoke test.
 
 The source evidence used for this reference is concentrated in:
 
@@ -52,10 +63,9 @@ authorized observations + AI-owned surface
     -> encoded_sink / released FW ring
 ```
 
-`qtiqmmfsrc` is deliberately excluded from the inference graph because FW owns
-camera capture, RTSP, demux/decode and recording in the release contract. The
-capture plugin may be used only in a separately approved product where FW hands
-that ownership to AI APP.
+`qtiqmmfsrc` is deliberately excluded from the inference graph because FW owns camera capture,
+RTSP, demux/decode and recording in the release contract. The capture plugin may be used only in a
+separately approved product where FW hands that ownership to AI APP.
 
 ## Plugin use and adapter rules
 
@@ -70,57 +80,66 @@ that ownership to AI APP.
 | `v4l2h264enc` / `qtismartvencbin` | Hardware H.264 output for the AI-owned preview branch | Wrap the installed encoder and negotiate caps at runtime. Sample code uses DMABUF modes, but that is not proof of zero-copy on the product BSP. Measure latency, copies and retention before claiming acceleration. |
 | `qtiqmmfsrc` | Qualcomm camera capture | Not selected by LACAI under the FW release contract. Never reacquire one camera source per model. |
 
-The plugin repository also contains specialized flow, tracker and codec elements.
-They are optional adapters only after the model contract, ownership, licensing and
-board evidence are agreed. Portable tracking and feature semantics remain in LACAI;
-vendor elements must not become hidden schedulers or entitlement bypasses.
+The plugin repository also contains specialized flow, tracker and codec elements. They are optional
+adapters only after the model contract, ownership, licensing and board evidence are agreed. Portable
+tracking and feature semantics remain in LACAI; vendor elements must not become hidden schedulers or
+entitlement bypasses.
 
 ## Configuration is runtime evidence
 
-The adapter must discover factories, properties, enum nicks, pad caps and mutability
-on the target image. The source shows, among other properties, `engine`, `mode`,
-`image-disposition`, `subpixel-layout`, `mean`, `sigma` on the converter and
-`model`, `backend`, `system`, `backend-device-id`, `tensors` on QNN. These names are
-not permission to hardcode paths or numeric enum values in LACAI. In particular,
-the source default `/usr/lib/libQnnCpu.so` is not an HTP selection.
+The adapter must discover factories, properties, enum nicks, pad caps and mutability on the target
+image. The source shows, among other properties, `engine`, `mode`, `image-disposition`,
+`subpixel-layout`, `mean`, `sigma` on the converter and `model`, `backend`, `system`,
+`backend-device-id`, `tensors` on QNN. These names are not permission to hardcode paths or numeric
+enum values in LACAI. In particular, the source default `/usr/lib/libQnnCpu.so` is not an HTP
+selection.
 
-Set properties in NULL/READY according to the plugin's documented mutability, reject
-missing or type-mismatched properties, and fail closed on unsupported enum/caps.
-The Qualcomm adapter exposes bounded factory and property probes so deployment can
-record this inventory before graph construction. A property probe reports the GType,
-read/write flags and enum nicks; pad caps still require the target image inspection path.
-Deployment configuration and model catalog own artifact paths and tensor metadata;
-the adapter only translates them to plugin values. Do not silently fall back from
-FCV/HTP to CPU or OpenCV. A permitted degraded mode must be explicit and observable.
+Set properties in NULL/READY according to the plugin's documented mutability, reject missing or
+type-mismatched properties, and fail closed on unsupported enum/caps. The Qualcomm adapter exposes
+bounded factory and property probes so deployment can record this inventory before graph
+construction. A property probe reports the GType, read/write flags and enum nicks; pad caps still
+require the target image inspection path. Deployment configuration and model catalog own artifact
+paths and tensor metadata; the adapter only translates them to plugin values. Do not silently fall
+back from FCV/HTP to CPU or OpenCV. A permitted degraded mode must be explicit and observable.
 
 ## Ownership, synchronization and shutdown
 
-`appsrc` accepting a buffer means ownership was accepted by the pipeline, not that
-the buffer is no longer read. The frame lease and root memory owner stay alive until
-the adapter has evidence of downstream completion. A DMA-BUF FD, cache sync, GStreamer
-buffer finalization or a timeout is not device completion. The existing LACAI
-retention domain, submission window and drain protocol remain authoritative.
+`appsrc` accepting a buffer means ownership was accepted by the pipeline, not that the buffer is no
+longer read. The frame lease and root memory owner stay alive until the adapter has evidence of
+downstream completion. A DMA-BUF FD, cache sync, GStreamer buffer finalization or a timeout is not
+device completion. The existing LACAI retention domain, submission window and drain protocol remain
+authoritative.
 
-Use bounded appsrc/appsink admission around the plugin's internal pools. Keep the
-input read-only; overlay and encode use a separate writable AI-owned branch. On stop,
-stop admission, drain submitted work, reconcile results, then release FW leases. A
-state transition to NULL or a worker timeout does not cancel an in-flight accelerator
-operation. If completion cannot be proved, quarantine the resource and request the
-FW/BSP recovery path.
+Use bounded appsrc/appsink admission around the plugin's internal pools. Keep the input read-only;
+overlay and encode use a separate writable AI-owned branch. On stop, stop admission, drain submitted
+work, reconcile results, then release FW leases. A state transition to NULL or a worker timeout does
+not cancel an in-flight accelerator operation. If completion cannot be proved, quarantine the
+resource and request the FW/BSP recovery path.
 
 ## Evidence gates before enabling a path
 
-1. Record `gst-inspect-1.0` output, plugin version and the negotiated caps on the
-   target image.
-2. Run model input/output golden tests, including stride, chroma layout, placement,
-   channel order, dtype and quantization.
-3. Trace buffer ownership, cache scope, fences and completion while repeatedly
-   loading, streaming, draining and unloading.
-4. Measure copies, pool occupancy, latency, FPS, CPU, memory and thermal behavior on
-   the agreed workload. A plugin name or vendor sample is not performance evidence.
-5. Keep per-file license/provenance notices. Do not copy vendor implementation or
-   private SDK headers into neutral LACAI layers.
+1. Record `gst-inspect-1.0` output, plugin version and the negotiated caps on the target image.
+2. Run model input/output golden tests, including stride, chroma layout, placement, channel order,
+   dtype and quantization.
+3. Trace buffer ownership, cache scope, fences and completion while repeatedly loading, streaming,
+   draining and unloading.
+4. Measure copies, pool occupancy, latency, FPS, CPU, memory and thermal behavior on the agreed
+   workload. A plugin name or vendor sample is not performance evidence.
+5. Keep per-file license/provenance notices. Do not copy vendor implementation or private SDK
+   headers into neutral LACAI layers.
 
-The current LACAI Qualcomm implementation is a private plugin-backed adapter with
-source binding, bounded submission/result handling and drain bookkeeping. It backs the end-to-end `vqec_ai_vision_applications` binary, which runs on QCS6490 `.98`;
-released-FW qualification remains open.
+## Limits and next work
+
+- The current LACAI Qualcomm implementation is a private plugin-backed adapter with source binding,
+  bounded submission/result handling and drain bookkeeping. It backs the end-to-end
+  `vqec_ai_vision_applications` binary, which runs on QCS6490 `.98`; released-FW qualification
+  remains open.
+- Target-image plugin inventory, golden tensor parity, DMA-BUF importability and end-to-end
+  zero-copy remain unproven.
+
+## See also
+
+- [Qualcomm adapter — implementation blueprint](qualcomm_adapter.md)
+- [Qualcomm preprocessing adapter](qualcomm_preprocessing.md)
+- [Qualcomm plugins reference](../research/qualcomm_plugins_reference.md)
+- [ADR 0002 Qualcomm plugin backend](../adr/0002_qualcomm_plugin_backend.md)

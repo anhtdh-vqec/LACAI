@@ -13,6 +13,8 @@ Evidence commands: expanded eSDK QEMU `123/123`. Board checks are listed in
 [QCS6490 target](../testing/qsc6490_board.md) and
 [QNN board validation](../testing/qnn_board_validation.md).
 
+**Status:** historical record (2026-09-13) — dispositions retained.
+
 ## Status
 
 | § | Topic | Disposition | Commit / reference |

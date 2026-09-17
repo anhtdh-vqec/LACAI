@@ -1,16 +1,29 @@
 # FW usecase activation contract
 
-Status: normative AI APP boundary. The bounded D-Bus v1 adapter and neutral desired-plan
-manager and service-owned stop/drain/recomposition are source-delivered. Live hardware
-acceptance and FW product integration require the test evidence below.
+This document is the normative FW/AI APP boundary through which FW controls commercial AI
+usecases rather than individual models. It defines the effective-state rule, the D-Bus v1
+methods, the entitlement boundary and the reconciliation/hardware-lifetime ordering.
 
-## Purpose
+**Status:** source-delivered — the bounded D-Bus v1 adapter, the neutral desired-plan
+manager and service-owned stop/drain/recomposition are delivered; live hardware acceptance
+and FW product integration require the evidence below. **Layer:** contracts.
+**Source:** `n/a`.
 
 FW controls commercial AI **usecases**, not individual models. A usecase is the stable
 product identity shown to licensing and UI. Its implementation may require one or more
 primary models, secondary cascade models, feature processors and output permissions.
 Those dependencies belong to the signed AI catalogs and are never supplied as paths or
 plugin names by a D-Bus caller.
+
+## Responsibility
+
+- Defines the usecase activation boundary and the separate state gates per
+  `(source_id, usecase_id)` association.
+- Requires `desired=true` to express operator intent only; entitlement, compatibility and
+  resource admission cannot be bypassed by a D-Bus caller.
+- Must not load or schedule a model that no effective usecase references.
+
+## Catalog entries
 
 The first catalog entries are:
 
@@ -188,4 +201,15 @@ FW and AI APP acceptance must demonstrate on QCS6490 that:
 Measured load/unload, RSS, accelerator utilization, CPU, temperature and clock-frequency
 evidence is required; source inspection alone is not acceptance.
 
-Current measured cases and release limits: [FR validation](../testing/face_recognition_production_validation.md).
+## Limits and next work
+
+- Live hardware acceptance and FW product integration require the test evidence above.
+- Signed entitlement provisioning, durable desired-plan receipts and hardware state
+  observation remain separate unfinished boundaries.
+- Current measured cases and release limits:
+  [FR validation](../testing/face_recognition_production_validation.md).
+
+## See also
+
+- [FW control, outputs, entitlement and BSP handoff](fw_control.md)
+- [FR production validation](../testing/face_recognition_production_validation.md)
