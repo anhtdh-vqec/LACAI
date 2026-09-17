@@ -382,6 +382,8 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tests/unit/vqec_vision_cascade_coordinator_test.cpp | cctst | vqec_vision_ai_unit_cctst_ |
 | src/app/vqec_vision_cascade_graph_session.cpp | cgses | vqec_vision_ai_appl_cgses_ |
 | tests/unit/vqec_vision_cascade_graph_session_test.cpp | cgsts | vqec_vision_ai_unit_cgsts_ |
+| src/app/vqec_vision_cascade_execution_worker.cpp | cxwrk | vqec_vision_ai_appl_cxwrk_ |
+| tests/unit/vqec_vision_cascade_execution_worker_test.cpp | cxwts | vqec_vision_ai_unit_cxwts_ |
 | src/app/vqec_vision_multi_model_session.cpp | mmses | vqec_vision_ai_appl_mmses_ |
 | src/app/vqec_vision_camera_session.cpp | camsn | vqec_vision_ai_appl_camsn_ |
 | src/app/vqec_vision_source_session.hpp | srcsn | vqec_vision_ai_appl_srcsn_ |

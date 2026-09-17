@@ -235,6 +235,14 @@
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME cascade_coordinator
         COMMAND vqec_vision_ai_cascade_coordinator_test)
+    add_executable(vqec_vision_ai_cascade_execution_worker_test
+        unit/vqec_vision_cascade_execution_worker_test.cpp)
+    target_link_libraries(vqec_vision_ai_cascade_execution_worker_test
+        PRIVATE vqec_vision_ai_cascade_coordinator)
+    set_target_properties(vqec_vision_ai_cascade_execution_worker_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME cascade_execution_worker
+        COMMAND vqec_vision_ai_cascade_execution_worker_test)
     add_executable(vqec_vision_ai_cascade_graph_session_test
         unit/vqec_vision_cascade_graph_session_test.cpp)
     target_link_libraries(vqec_vision_ai_cascade_graph_session_test

@@ -50,11 +50,12 @@ target_link_libraries(vqec_vision_ai_multi_model_session
 set_target_properties(vqec_vision_ai_multi_model_session PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_cascade_coordinator STATIC
-    vqec_vision_cascade_coordinator.cpp)
+    vqec_vision_cascade_coordinator.cpp
+    vqec_vision_cascade_execution_worker.cpp)
 target_include_directories(vqec_vision_ai_cascade_coordinator PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(vqec_vision_ai_cascade_coordinator
-    PUBLIC vqec_vision_ai_core)
+    PUBLIC vqec_vision_ai_core Threads::Threads)
 set_target_properties(vqec_vision_ai_cascade_coordinator PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_single_image_inference STATIC
