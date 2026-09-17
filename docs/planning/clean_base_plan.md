@@ -1,9 +1,11 @@
 # Kế hoạch làm sạch base — 2026-09-16
 
-Trạng thái 2026-09-17: **CB-01, CB-02, CB-03, CB-B, CB-C, CB-D, CB-E1, CB-E2, CB-F, CB-G/CB-T
-đã hoàn thành**, mỗi bước có eSDK/QEMU + board `.98`. Còn **CB-E2 (phần còn lại)**: tách
-tiếp vòng lặp run và block recognition/feature khỏi `service_main.cpp` (hiện 1987 dòng,
-`run_generation` 1087 dòng). Xem `implementation_status.md` để biết bằng chứng từng bước.
+Trạng thái 2026-09-17: **tất cả workstream hoàn thành** — CB-01, CB-02, CB-03, CB-B, CB-C,
+CB-D, CB-E1/E2/E3, CB-F, CB-G/CB-T — mỗi bước có eSDK/QEMU + board `.98`. `service_main.cpp`
+còn 2017 dòng và `run_generation` 1005 dòng; phần run loop, platform-owner và
+recognition/feature setup còn lại gắn chặt vòng đời owner (phải sống qua bundle) nên cần
+redesign "service runtime owner struct" nếu muốn tách tiếp, không phải dọn dẹp. Xem
+`implementation_status.md` để biết bằng chứng từng bước.
 
 Mục tiêu: dọn toàn bộ nợ cấu trúc/đúng đắn còn lại để có một **base sạch** trước khi
 phát triển feature/tracker/production usecase. Phạm vi **không** gồm: 14 feature package,
@@ -121,7 +123,7 @@ reserved có điểm wire tường minh. Gate: còn đúng một đường thự
 
 ## Workstream E — Tách monolith (P1)
 
-`service_main.cpp::run_generation` (~1250 dòng, `:787-2039`) tách thành builder nhỏ;
+`service_main.cpp::run_generation` (đã tách còn ~1005 dòng) tách tiếp thành builder nhỏ;
 PIMPL đầy đủ cho production platform. Không đổi behavior.
 Gate: 120/120 giữ nguyên; board production flow không đổi.
 

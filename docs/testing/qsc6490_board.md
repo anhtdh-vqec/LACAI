@@ -6,6 +6,16 @@ local alias may still point at an earlier target, so verify its resolved hostnam
 using it. Try BatchMode access first. Passwords must remain outside this repository and
 command output.
 
+## Current state (2026-09-17)
+
+Cross-built native suite: **117/117** on `.98` via
+`tools/vqec_vision_board_native_tests.sh <test_dir> <manifest_models_dir> <zvec_tmpfs_root>
+<zvec_scratch_base>`, which supplies the manifest and Zvec fixtures two device-free tests
+need. The eSDK/QEMU expanded suite is 123/123. The routed-result latency metric was renamed
+`route_latency_*` (steady reservation-to-routing) — earlier `e2e_*` mentions below are dated
+records of the removed pipeline-PTS accumulator. The sections below are a dated log; newer
+source does not retroactively change an earlier run's numbers.
+
 Observed on 2026-09-10:
 
 - QCS6490 RB3 Gen2 Vision Kit, AArch64;

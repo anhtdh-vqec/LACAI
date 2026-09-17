@@ -7,10 +7,10 @@ reported as passing. All rows below use the approved eSDK AArch64 compiler and S
 
 ## Verified configurations
 
-| Configuration | Options (all others OFF) | Tests | Evidence |
+| Configuration | Options | Tests | Evidence |
 |---|---|---|---|
-| Neutral | none | 71/71 | eSDK QEMU; reference backend, runtime executor, service harness, bounded inference worker and tensor pool |
-| Expanded | CAMERA, CAMERA_DBUS, GST_FRAME_BRIDGE, QUALCOMM, MODEL_MANIFEST, MODEL_CATALOG, DEPLOYMENT_CONFIG, FEATURE_CATALOG, BUILD_MANIFEST_CHECK, ARTIFACT_DIGEST, QNN_ENGINE | 90/90 | eSDK QEMU; adds camera/D-Bus/GStreamer/Qualcomm/JSON/digest and the owned QNN engine library |
+| Neutral | `VQEC_VISION_AI_ENABLE_ZVEC=OFF`, all else OFF | 76/76 | eSDK QEMU; reference backend, runtime executor, service harness, bounded inference worker and tensor pool |
+| Expanded | CAMERA, CAMERA_DBUS, GST_FRAME_BRIDGE, QUALCOMM, FASTCV, QNN_ENGINE, MODEL_MANIFEST, MODEL_CATALOG, DEPLOYMENT_CONFIG, FEATURE_CATALOG, BUILD_MANIFEST_CHECK, ARTIFACT_DIGEST, FACE_ENROLLMENT_DBUS, USECASE_CONTROL_DBUS, ZVEC | 123/123 | eSDK QEMU; adds camera/D-Bus/GStreamer/Qualcomm/FastCV/JSON/digest, the owned QNN engine and the Zvec index |
 
 `VQEC_VISION_AI_ENABLE_QNN_ENGINE=ON` requires `VQEC_VISION_AI_QAIRT_ROOT` (default
 `third_party/qairt`, a symlink to the installed private SDK). The QNN engine has no
@@ -34,15 +34,20 @@ behavioural evidence comes from the board-only `vqec_vision_ai_qnn_engine_smoke`
 | `VQEC_VISION_AI_ENABLE_FEATURE_CATALOG` | bounded feature-catalog loader | build environment |
 | `VQEC_VISION_AI_BUILD_MANIFEST_CHECK` | optional metadata checker executable | build environment |
 | `VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST` | SHA-256 artifact comparison | build environment |
+| `VQEC_VISION_AI_ENABLE_ZVEC` | derived embedding index (default ON) | pinned public ARM64 SDK via `tools/vqec_vision_prepare_zvec.sh` |
+| `VQEC_VISION_AI_ENABLE_FASTCV` | Qualcomm FastCV preprocessing/alignment | build environment |
 | `VQEC_VISION_AI_ENABLE_FW_RING` | FW shared-memory ring wrapper | pinned FW SDK; not built |
 
 `VQEC_VISION_AI_WERROR=ON` (default) treats project warnings as errors.
 
 ## CI jobs
 
-The workflow adds a host `host-sanitizers` job (Clang ASan+UBSan over the neutral
-configuration) and a scheduled `fuzz` job (libFuzzer over the wire decoder). Both are host
-host evidence and are separate from the eSDK target jobs, which stay gated on `ESDK_ROOT`.
+The workflow runs unconditionally: `structure` (source-layout check), `host-sanitizers`
+(Clang ASan+UBSan over the neutral configuration with Zvec OFF), advisory `clang-tidy`, and
+a scheduled `fuzz` job (libFuzzer over the wire/decoder/parser inputs). The `esdk-neutral`
+(Zvec OFF) and `esdk-expanded` (Zvec bootstrapped) jobs are gated on the `ESDK_ROOT`
+repository variable and use a self-hosted runner; host jobs are not a substitute for target
+evidence. Zvec is disabled in the neutral/host configurations because its SDK is not tracked.
 
 ## Rules
 

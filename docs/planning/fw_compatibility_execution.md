@@ -21,21 +21,22 @@ These are dependencies and gates, not promises of dates without SDK/model availa
 
 This table supersedes the chronological progress notes below. Existing source is not
 evidence of a running system. Inventory used `rg --files src include packaging config`
-and current CMake targets. The expanded eSDK build succeeds and its 57 unit/contract
-binaries pass on QCS6490; live FW/model and release qualification remain open.
+and current CMake targets. This table is a 2026-09-10 snapshot; current delivery is governed
+by [implementation status](../development/implementation_status.md). Live FW/model and
+release qualification remain open.
 
 | Workstream | Present evidence | Remaining implementation and proof |
 |---|---|---|
-| Camera input | camera adapter, lease lifecycle, camera_session, graph pump source | Runnable composition, released FW RPC/FD/ACK tests, reconnect/profile supervisor, BSP completion signoff |
+| Camera input | camera adapter, lease lifecycle, camera_session, graph pump source, production composition on `.98` | Released FW RPC/FD/ACK conformance, reconnect/profile supervisor, BSP completion signoff |
 | Preview preparation | CPU surface/pool, encoder_window, bound encoder_preparation | Full input copy/transform into private NV12; bounded rendering with authorized scope-to-pixel binding |
 | Encoder | Neutral backend port, correlated ledger, sealed input submission/drain helpers, event polling/handling and immutable AU owner | Actual backend pipeline, sealed owner retention, input/result callbacks, bus faults, EOS/drain and quarantined hardware ownership |
-| Ring delivery | SDK options/header mapper, borrowed ring_sink, dispatch, ID issuer | Single-writer ownership, startup open, long-lived ring binding, ID publication, explicit migration policy and first-viewer RTSP test |
-| AI control | Camera client only; fw_control is README | Released AI D-Bus server methods/signals, task config persistence, one control owner; no invented license grants |
-| Runtime | Acquisition composition, bounded 1..16-source deployment loader, fixed-index activation snapshot, RAW-reference resolver, cadence, multi-model session/fan-out and bounded round-robin supervisor | authenticated FW registry/owner construction, per-source executors, vqec_ai_vision_applications entrypoint, preview/inference cadence split, board capability admission and health |
+| Ring delivery | single AI writer over the v5 ring contract, dispatch, ID issuer; live `.98` RTSP probe | Released FW reader conformance and coordinated migration policy |
+| AI control | camera client, face-enrollment D-Bus server, usecase-control D-Bus v1, image-path authorizer | Signed entitlement grants, durable receipts, process supervision |
+| Runtime | acquisition composition, bounded 1..16-source loader, activation snapshot, RAW-reference resolver, cadence, multi-model session/fan-out, supervisor and the `vqec_ai_vision_applications` entrypoint | authenticated FW registry/owner construction, board capability admission and health |
 | Model integration | Model catalog/output loaders, deployment cross-validation, plan composition and artifact digest source | Approved signed model kits, immutable resolver, decode/geometry golden runner, concrete observations/tracking/attributes and authenticated model loading composition |
 | Features | Thirteen feature directories and traffic contain READMEs | Shared perception contracts and feature lifecycle/dependency/entitlement integration; no claim features are implemented |
 | Delivery | Packaging/config README placeholders | Yocto/IPK metadata, launcher compatibility, permissions, upgrade/rollback and package tests |
-| Verification | Structural checker, pinned eSDK cross-build, 47/47 neutral QEMU baseline and 57/57 QCS6490 unit/contract smoke tests | Live SDK/model/FW ABI tests, board replay/fault/performance/soak evidence |
+| Verification | structural checker, pinned eSDK cross-build, 123/123 expanded eSDK QEMU and 117/117 board `.98` native tests | Released FW/SDK ABI tests, board replay/fault/performance/soak evidence |
 
 ### Next cohesive implementation sequence
 

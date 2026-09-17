@@ -67,10 +67,13 @@ cmake -S . -B build-esdk-qnn -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
 cmake --build build-esdk-qnn -j"$(nproc)"
 ```
 
-On the board, point the adapter at the image runtime and the copied model library. The
-engine currently creates the backend/device, composes a single-graph model library and can
-execute synchronously; the `inference_graph_port` binding and runtime composition wiring
-are the next source step. Until then, validate the model path with step 2.
+On the board, point the adapter at the image runtime and the copied model library. The owned
+engine creates the backend/device, composes and finalizes a single-graph model library,
+executes synchronously (client buffers or ION-registered outputs), supports `release_model`
+reload, and is bound to the runtime through `inference_graph_port`; the
+`vqec_ai_vision_applications` service runs it on `.98`. Async/shared execution and released-FW
+DMA completion remain open. Validate a model path with step 2, or the full service with the
+production command in [QSC6490 target](qsc6490_board.md).
 
 ## Troubleshooting
 

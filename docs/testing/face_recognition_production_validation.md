@@ -24,9 +24,9 @@ are included in Git.
 
 | Case | Evidence | Result / limit |
 |---|---|---|
-| eSDK build + QEMU CTest | 120/120 passed; affected checks rerun after native-fixture path fix | PASS logic/target ABI, no BSP acceptance |
+| eSDK build + QEMU CTest | 123/123 passed; affected checks rerun after native-fixture path fix | PASS logic/target ABI, no BSP acceptance |
 | Private Zvec storage | Real library: unsafe-mode/symlink/relative path rejection, private tmpfs create/query, directory rename with pinned FD, close cleanup | PASS eSDK/QEMU and `.98` |
-| Native logic/contract binaries | 114 binaries on `.98`; decoder-package fixture root supplied on target | PASS after correcting build-machine fixture path |
+| Native logic/contract binaries | 117/117 on `.98` via `tools/vqec_vision_board_native_tests.sh` (manifest and Zvec fixtures supplied) | PASS |
 | Initial enabled roots | Usecase status plus `/proc/<pid>/maps` | Person, FD and FR model libraries resident |
 | Both → person only | D-Bus complete desired plan, new published generation, same PID | Person resident; FD/FR libraries absent |
 | Person only → all off | Same persistent usecase D-Bus object | All three model libraries absent; control remains responsive |

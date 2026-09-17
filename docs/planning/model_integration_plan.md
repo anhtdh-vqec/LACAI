@@ -16,8 +16,7 @@ shows the owned QNN engine executes it on HTP with outputs byte-identical to `qn
 ## 1. Frozen basecode (do not redesign)
 
 Already closed and relied on by this plan: per-source session worker isolation, bounded
-inference primitives, recovery/backoff, health/fault channel, QoS mailbox, secondary
-scheduler foundation, dense decoder base, reference tracker/feature/output, artifact SHA-256
+inference primitives, recovery/backoff, health/fault channel, QoS mailbox, cascade coordinator + frame store, dense decoder base, reference tracker/feature/output, artifact SHA-256
 + resolver, production fake composition E2E, and real QNN HTP execution with runtime parity.
 CMake is modular with `-Wall -Wextra -Wpedantic -Werror`, ASan/UBSan option and four fuzzers.
 

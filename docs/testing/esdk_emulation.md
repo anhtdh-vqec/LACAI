@@ -4,59 +4,37 @@ Configuration/evidence option matrix: [esdk_configuration_matrix.md](esdk_config
 A configuration whose SDK or runner is unavailable is not-run, never green.
 
 The eSDK contains qemu-aarch64 8.2.7 at
-`/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64`.
-It becomes available after sourcing the SDK environment. Checking only the initial
-host PATH incorrectly suggested that emulation was unavailable.
+`/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64`. It becomes available
+after sourcing the SDK environment. Checking only the initial host PATH incorrectly
+suggested that emulation was unavailable.
 
-Reproduce the neutral configuration in a fresh build directory:
+## Current result
+
+- Neutral configuration (Zvec OFF): 76/76.
+- Expanded configuration (camera, GIO D-Bus, GStreamer bridge, Qualcomm, FastCV, QNN engine,
+  JSON loaders, Zvec): 123/123.
+
+Both run the SDK AArch64 compiler under SDK QEMU against the target sysroot. This is
+logic/wiring evidence only. It validates neither device DMA completion nor Qualcomm plugins,
+FW transport, model accuracy, performance or board compatibility. Board `.98` native
+results are separate; see [QSC6490 target](qsc6490_board.md).
+
+## Reproduce (neutral)
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake -S . -B build-esdk -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+  -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-cmake --build build-esdk -j4
-ctest --test-dir build-esdk --output-on-failure
+cmake --build build-esdk-neutral -j4
+ctest --test-dir build-esdk-neutral --output-on-failure
 ```
 
-Baseline source revision: 180f0c6. All optional adapters/loaders are OFF in this fresh
-configuration. Debug leaves assertions enabled. All binaries are compiled with the
-SDK AArch64 compiler and executed by SDK QEMU against the target sysroot.
+The expanded command is in the repository [README](../../README.md#build-và-test).
 
-2026-09-09 result: 45/47 passed. `multi_model_frame_fanout` reports one failed check;
-`legacy_camera_wire` reports 16 failed checks. Full output is preserved in
-[CTest output](esdk_neutral_ctest_2026_09_09.txt). These baseline failures were subsequently traced to stale fixtures (see below).
-This validates neither device DMA completion nor Qualcomm plugins, FW transport,
-model accuracy, performance or board compatibility. Optional JSON loader tests are
-not present in this configuration.
+## Historical evidence
 
-After fixture corrections, the same neutral Debug configuration passes 47/47 tests.
-The wire fixture now supplies explicit geometry/allocation limits and verifies that
-unset policy preserves output on rejection. The fan-out fixture expects source epoch 7,
-matching its supplied frame instead of inventing epoch 1. Production code is unchanged.
-[Corrected CTest output](esdk_neutral_ctest_corrected_2026_09_09.txt) records this run.
+Dated raw runs are retained verbatim and are not updated retroactively:
 
-2026-09-11 update: a fresh default (all options OFF) configuration registers 53 tests,
-including the device-free runtime executor end-to-end contract. The expanded configuration
-enables Camera, GIO D-Bus, the GStreamer bridge, the Qualcomm adapter, the vendored-nlohmann
-JSON loaders, the output-manifest checker and SHA-256 digest, and registers 71 tests,
-including the `vqec_ai_vision_applications` service smoke test and the production-mode
-fail-closed test. Both run 100% under SDK QEMU in this workspace. These additions are
-logic/wiring evidence only.
-
-2026-09-14 update: MI-08 added the device-free `reference_platform` owner
-(`--platform reference`) with the real reference tracker and zone feature. The expanded
-configuration now registers 91 tests, including `service_production_reference_smoke`,
-all passing under SDK QEMU; the default configuration remains 71/71.
-
-2026-09-13 update: the device-free basecode plan added two tested modules — the bounded
-inference worker (`bee8c8e`) and the tensor pool (`50099b2`) — plus the camera release
-dispatcher. The default configuration now registers 71 tests and the expanded one 90, all
-passing under SDK QEMU. These are still logic/wiring evidence, not device acceptance.
-
-An expanded configuration with Camera, GIO D-Bus, the GStreamer frame bridge and the
-Qualcomm adapter enabled builds 57 tests. The corresponding binaries pass 57/57 under
-SDK QEMU with an isolated target-sysroot GStreamer registry, and also pass 57/57 when
-executed natively on the QCS6490 target; see [board smoke evidence](qsc6490_board.md).
-The board result is preferred over emulation for the GStreamer lifecycle fixture because
-the eSDK sysroot has no `gst-plugin-scanner`. It still does not replace live model/FW,
-DMA completion, performance or recovery qualification.
+- [neutral run 2026-09-09](esdk_neutral_ctest_2026_09_09.txt) (45/47 before fixture fixes).
+- [neutral corrected run 2026-09-09](esdk_neutral_ctest_corrected_2026_09_09.txt) (47/47).
