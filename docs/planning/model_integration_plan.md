@@ -5,9 +5,9 @@ Scope: dated planning/review record. Current delivery is governed by
 current priorities are in [alignment review](../development/architecture_alignment_review.md).
 
 Status: proposed backlog to follow. The device-free basecode is frozen at the architecture
-level; this plan adds model packages, not runtime redesign. Reference:
-[device-free basecode plan](../development/LACAI_DEVICE_FREE_BASECODE_PLAN.md) (done) and
-[capability matrix](../development/capability_matrix.md).
+level; this plan adds model packages, not runtime redesign. See
+[capability matrix](../development/capability_matrix.md) and the
+[clean-base plan](clean_base_plan.md).
 
 First target model: **YOLOv8n-person** from
 `/home/a/Workspace/AI APPLICATIONS/QCS6490/yolov8n_person_qnn_src`. Board evidence already

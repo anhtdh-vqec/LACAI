@@ -56,7 +56,8 @@ Merge: clean cross-build + package contents/dependencies validation.
 Nightly target: golden/replay + eSDK ASan/UBSan; TSan khi target/toolchain hỗ trợ.
 Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
 Current source: **đã có unit/contract test source và CTest cho validators, session,
-cadence, ownership và output helpers; eSDK cross-build đạt và 65/65 binary hiện pass
-trực tiếp trên QCS6490 theo `docs/testing/qsc6490_board.md`;
+cadence, ownership và output helpers; eSDK cross-build đạt; eSDK/QEMU hiện 123/123 và bộ
+binary native chạy trên QCS6490 `.98` đạt 117/117 qua
+`tools/vqec_vision_board_native_tests.sh` (xem `docs/testing/qsc6490_board.md`);
 đã có workflow structural/eSDK; chưa xác minh runner run và chưa có AST naming checker**.
 .editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.

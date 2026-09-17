@@ -29,7 +29,8 @@ Không chọn accelerator chỉ vì tên gọi; đo cả transfer, synchronizati
 
 Tham chiếu: [plugin adapter](../architecture/qualcomm_plugin_adapter_reference.md),
 [ADR 0002](../adr/0002_qualcomm_plugin_backend.md),
-[base audit](../development/base_audit.md), [base completion](base_completion_plan.md),
+[implementation status](../development/implementation_status.md),
+[base completion](base_completion_plan.md),
 [FW release](../contracts/fw_release_compatibility.md),
 [convention](../development/code_convention.md).
 

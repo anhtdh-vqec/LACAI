@@ -34,4 +34,4 @@ the root before the subdirectories so every module target inherits them.
 ## See also
 
 - [eSDK emulation](../docs/testing/esdk_emulation.md)
-- [Device-free basecode progress](../docs/development/LACAI_DEVICE_FREE_BASECODE_PROGRESS.md)
+- [Implementation status](../docs/development/implementation_status.md)

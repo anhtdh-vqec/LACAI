@@ -356,7 +356,6 @@ Preview boundary additions: `src/core/vqec_vision_preview_contract.cpp` uses fil
 | tools/vqec_vision_qnn_engine_smoke.cpp | qnsmk | vqec_vision_ai_tools_qnsmk_ |
 | tools/vqec_vision_fastcv_affine_smoke.cpp | fasmy | vqec_vision_ai_tools_fasmy_ |
 | tools/vqec_vision_model_runner.cpp | mdlrun | vqec_vision_ai_tools_mdlrun_ |
-| tools/vqec_vision_board_deploy.sh | bdep | vqec_vision_ai_tools_bdep_ |
 | tools/vqec_vision_board_native_tests.sh | bntst | vqec_vision_ai_tools_bntst_ |
 | tools/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
 | tools/vqec_vision_ring_rtsp.py | rrtsp | vqec_vision_ai_tools_rrtsp_ |

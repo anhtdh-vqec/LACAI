@@ -1,6 +1,7 @@
 # Kế hoạch hoàn thiện base — 2026-09-11
 
-Baseline và findings: [audit](../development/base_audit.md). Kế hoạch này ưu tiên sửa
+Baseline và findings: [implementation status](../development/implementation_status.md) và
+[alignment review](../development/architecture_alignment_review.md). Kế hoạch này ưu tiên sửa
 đường lỗi trước mở feature, bổ sung cho FW01–FW09 và delivery plan; không thay thế các
 release gate. Mỗi bước là một PR/commit có source, contract, test, evidence. Không đóng
 bước bằng tài liệu hoặc test fake khi gate yêu cầu device. Owner dưới đây là vai trò đề

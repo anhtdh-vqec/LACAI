@@ -4,13 +4,13 @@ Scope: dated planning/review record. Current delivery is governed by
 [implementation status](implementation_status.md);
 current priorities are in [alignment review](architecture_alignment_review.md).
 
-Source review: [review_codebase_1309.md](review_codebase_1309.md). This log records the
-disposition of every section. A section is `fixed` only when source, tests and docs are in
-the tree and the eSDK configurations run; `planned` means the change needs a board vertical
-slice, a measurement, or an explicit product/lead decision.
+Source review was a dated external review whose raw text is no longer retained. This log
+records the disposition of every section. A section is `fixed` only when source, tests and
+docs are in the tree and the eSDK configurations run; `planned` means the change needs a
+board vertical slice, a measurement, or an explicit product/lead decision.
 
-Evidence commands: neutral `53/53` and expanded `71/71` under eSDK QEMU. Board checks are
-listed in [QCS6490 target](../testing/qsc6490_board.md) and
+Evidence commands: expanded eSDK QEMU `123/123`. Board checks are listed in
+[QCS6490 target](../testing/qsc6490_board.md) and
 [QNN board validation](../testing/qnn_board_validation.md).
 
 ## Status
@@ -27,12 +27,12 @@ listed in [QCS6490 target](../testing/qsc6490_board.md) and
 | 8 | Direct QNN missing production preprocess/buffer manager | Planned: FastCV/converter processor + registered buffers | S03/S05 (board gate) |
 | 9 | Multi-model arm-before-submit ownership | Kept as-is (review agrees) | — |
 | 10 | Cadence QoS is uniform drop-if-busy | **Fixed (contract)**: explicit per-model policy, unsupported classes rejected | `d469495` |
-| 11 | No explicit secondary-inference/task graph | Planned; deferred until after the vertical slice to avoid more architecture ahead of hardware | Needs ADR |
+| 11 | No explicit secondary-inference/task graph | **Settled and removed**: retained-frame `cascade_coordinator` is the delivered path; the legacy `secondary_inference` contract/scheduler were deleted | ADR 0005, ADR 0006 |
 | 12 | Supervisor faults become invisible `pending` | **Fixed**: bounded fault channel + counters | `a33a87e` |
 | 13 | Stop drain semantics implicit | **Fixed**: explicit `multi_model_drain_policy` | `692cd1a` |
 | 14 | Long C++ method naming | Deferred by reviewer; AGENTS mandates the scheme, needs a lead/ADR decision to change | AGENTS.md rule 2 |
 | 15 | Root CMake too granular | Deferred to the engineering-debt phase (reviewer roadmap step 7) | — |
-| 16 | No production executable | Partially addressed: `vqec_ai_vision_applications` runs harness and `--mode production --platform fake` natively on QCS6490; real platform owners still absent | S02/S10 |
+| 16 | No production executable | **Fixed**: `vqec_ai_vision_applications` runs the reference/fake harness and the Qualcomm production composition natively on QCS6490 `.98` | see [implementation status](implementation_status.md) |
 | 17 | Reuse Qualcomm IM SDK output/encode plumbing | Strategy adopted for S09 | S09 (board gate) |
 | 18 | Suggested roadmap | Adopted as the ordering for S02–S11 | — |
 | minor | `QSC6490` vs `QCS6490` casing | **Fixed** in prose; identifiers kept | `3480be5` |

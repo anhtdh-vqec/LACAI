@@ -61,6 +61,6 @@ accepted (specified workload/contract with review). Never equate these levels. C
 FW runs are not released-FW acceptance. Pure helper limitations apply to that helper, not
 necessarily to the whole product. No blanket label can replace a checked source finding.
 
-The complete docs inventory lives in ../README.md. All document changes check links and
+The complete docs inventory lives in ../../README.md. All document changes check links and
 state whether code/board tests were run. Source changes update owners/status once, link
 other documents to them, and avoid appending a contradictory current-state paragraph.
