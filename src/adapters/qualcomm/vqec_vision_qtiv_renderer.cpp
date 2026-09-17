@@ -491,7 +491,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     if (_payload.overlay_.frame_.source_pts_ns_ != UINT64_MAX &&
         _frame.descriptor_.pts_ns_ != UINT64_MAX && _frame.descriptor_.pts_ns_ != 0 &&
         _frame.descriptor_.pts_ns_ > _payload.overlay_.frame_.source_pts_ns_ &&
-        _frame.descriptor_.pts_ns_ - _payload.overlay_.frame_.source_pts_ns_ > impl.max_observation_age_ns_) {
+        _frame.descriptor_.pts_ns_ - _payload.overlay_.frame_.source_pts_ns_ > max_age) {
         drop_boxes = true;
     }
 
@@ -499,6 +499,14 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     if (buffer == nullptr) {
         return {status_code::io_error,
             "cannot copy the NV12 frame into the Qualcomm render surface"};
+    }
+    if (drop_boxes && !_payload.overlay_.boxes_.empty()) {
+        static std::uint64_t s_last_renderer_drop_ns = 0;
+        if (now_ns - s_last_renderer_drop_ns > 2000000000ULL) {
+            std::fprintf(stderr, "qtiv_renderer dropped %zu boxes (epoch/monotonic/pts)\n",
+                _payload.overlay_.boxes_.size());
+            s_last_renderer_drop_ns = now_ns;
+        }
     }
     if (!drop_boxes) {
         for (const auto& item : _payload.overlay_.boxes_) {
@@ -516,9 +524,11 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
             if (roi == nullptr) {
                 continue;
             }
+            const guint box_color = (item.rgba_ != 0 && item.rgba_ != 0xffffffffU) ?
+                item.rgba_ : impl.config_.box_color_rgba_;
             GstStructure* structure = gst_structure_new("ObjectDetection",
                 "confidence", G_TYPE_DOUBLE, static_cast<gdouble>(1.0),
-                "color", G_TYPE_UINT, item.rgba_ != 0 ? item.rgba_ : impl.config_.box_color_rgba_, nullptr);
+                "color", G_TYPE_UINT, box_color, nullptr);
             gst_video_region_of_interest_meta_add_param(roi, structure);
         }
     }

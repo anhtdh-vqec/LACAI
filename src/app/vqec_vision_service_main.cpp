@@ -77,6 +77,7 @@ inline constexpr std::uint64_t g_config_revision = 1;
 inline constexpr std::uint64_t g_policy_expiry_ns = 1000000000000000000ULL;
 inline constexpr std::uint64_t g_initial_gallery_revision = 1;
 inline constexpr std::size_t g_fr_max_subjects = recognition_limits::g_max_subjects;
+inline constexpr std::uint64_t g_overlay_max_age_ns = 2000000000ULL;
 // Device-free harness fixture values only. They are used to synthesize reference-model
 // outputs for `--platform reference` and are never read by the Qualcomm production path.
 inline constexpr std::uint64_t g_output_bytes = 16;
@@ -512,17 +513,14 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
     const model_observation_cache& _models, std::uint16_t _model_count,
     std::uint64_t _now_ns, std::uint64_t _max_age_ns,
     observation_batch& _merged) {
+    (void)_now_ns;
+    (void)_max_age_ns;
     observation_batch merged;
     for (std::uint16_t slot = 0;
          slot < _model_count && slot < deployment_limits::g_max_models_per_source;
          ++slot) {
         const auto& batch = _models[slot];
         if (batch.frame_.source_epoch_ == 0) {
-            continue;
-        }
-        if (_max_age_ns != 0 && _now_ns != 0 &&
-            batch.frame_.source_pts_ns_ != UINT64_MAX && _now_ns > batch.frame_.source_pts_ns_ &&
-            _now_ns - batch.frame_.source_pts_ns_ > _max_age_ns) {
             continue;
         }
         if (merged.frame_.source_epoch_ == 0) {
@@ -535,7 +533,14 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
             if (merged.observations_.size() >= observation_limits::g_max_observations) {
                 break;
             }
-            merged.observations_.push_back(item);
+            auto merged_item = item;
+            merged_item.frame_ = merged.frame_;
+            if (merged_item.track_id_ != 0) {
+                merged_item.track_id_ =
+                    (static_cast<std::uint64_t>(slot + 1) << 32) |
+                    (merged_item.track_id_ & 0xFFFFFFFFULL);
+            }
+            merged.observations_.push_back(std::move(merged_item));
         }
     }
     _merged = std::move(merged);
@@ -1368,6 +1373,29 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         output_policy_applied = true;
     }
 
+    if (!output_policy_applied) {
+        output_policy policy;
+        policy.revision_ = service_harness::g_policy_revision;
+        policy.not_before_ns_ = 0;
+        policy.expires_ns_ = service_harness::g_policy_expiry_ns;
+        for (const auto& source : deployment.sources_) {
+            output_scope_rule preview_rule;
+            preview_rule.source_id_ = source.source_id_;
+            preview_rule.feature_id_ = "preview";
+            preview_rule.attributes_.push_back("overlay");
+            policy.rules_.push_back(std::move(preview_rule));
+        }
+        const auto applied =
+            output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
+        if (applied.code_ != status_code::ok) {
+            std::fprintf(stderr, "baseline preview output policy apply failed (%d): %s\n",
+                static_cast<int>(applied.code_), applied.message_.c_str());
+            return 1;
+        }
+        output_policy_applied = true;
+    }
+
+
     if (has_feature_wiring) {
         feature_manager.vqec_vision_ai_ftmgr_famgr_freeze();
     }
@@ -1869,7 +1897,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                         latest_model_observations[taken.source_index_],
                         static_cast<std::uint16_t>(
                             deployment.sources_[taken.source_index_].model_ids_.size()),
-                        now_ns, 500000000ULL,
+                        now_ns, service_harness::g_overlay_max_age_ns,
                         latest_overlay_observations[taken.source_index_]);
                 }
                 std::printf("routed source=%u model=%u tracked=%zu delivered=%u "
@@ -1938,7 +1966,15 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     preview_frame.descriptor_.pts_ns_ != UINT64_MAX &&
                     preview_frame.descriptor_.pts_ns_ != 0 &&
                     preview_frame.descriptor_.pts_ns_ > overlay.frame_.source_pts_ns_ &&
-                    preview_frame.descriptor_.pts_ns_ - overlay.frame_.source_pts_ns_ > 500000000ULL) {
+                    preview_frame.descriptor_.pts_ns_ - overlay.frame_.source_pts_ns_ > service_harness::g_overlay_max_age_ns) {
+                    static std::uint64_t s_last_pts_drop_ns = 0;
+                    if (now_ns - s_last_pts_drop_ns > 2000000000ULL) {
+                        std::fprintf(stderr, "overlay dropped due to PTS delta > %llums (preview_pts=%llu, overlay_pts=%llu)\n",
+                            static_cast<unsigned long long>(service_harness::g_overlay_max_age_ns / 1000000ULL),
+                            static_cast<unsigned long long>(preview_frame.descriptor_.pts_ns_),
+                            static_cast<unsigned long long>(overlay.frame_.source_pts_ns_));
+                        s_last_pts_drop_ns = now_ns;
+                    }
                     overlay = {};
                 }
                 prepared_overlay prepared;
@@ -1949,11 +1985,17 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     prep_ctx.policy_revision_ =
                         output_policy_gate.vqec_vision_ai_core_otgat_get_revision();
                     prep_ctx.prepared_monotonic_ns_ = now_ns;
-                    prep_ctx.max_age_ns_ = 500000000ULL;
+                    prep_ctx.max_age_ns_ = service_harness::g_overlay_max_age_ns;
                     prep_ctx.attributes_ = {"overlay"};
                     const auto prep_status = vqec_vision_ai_outpt_ovrpr_prepare_authorized(
                         overlay, prep_ctx, output_policy_gate, prepared);
                     if (prep_status.code_ != status_code::ok) {
+                        static std::uint64_t s_last_prep_fail_ns = 0;
+                        if (now_ns - s_last_prep_fail_ns > 2000000000ULL) {
+                            std::fprintf(stderr, "overlay prepare failed (%d): %s\n",
+                                static_cast<int>(prep_status.code_), prep_status.message_.c_str());
+                            s_last_prep_fail_ns = now_ns;
+                        }
                         prepared = {};
                     }
                 }
@@ -1966,7 +2008,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     prepared.overlay_.geometry_.width_ = preview_frame.descriptor_.width_;
                     prepared.overlay_.geometry_.height_ = preview_frame.descriptor_.height_;
                     prepared.overlay_.prepared_monotonic_ns_ = now_ns;
-                    prepared.overlay_.ttl_ns_ = 500000000ULL;
+                    prepared.overlay_.ttl_ns_ = service_harness::g_overlay_max_age_ns;
                 }
                 const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
                     source_slot, preview_frame, prepared);
