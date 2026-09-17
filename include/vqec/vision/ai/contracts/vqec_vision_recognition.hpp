@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_embedding_index.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_embedding.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 

@@ -50,6 +50,12 @@ status image_path_authorizer::vqec_vision_ai_fwctl_ipath_configure(
         }
         std::string canonical(buffer.data());
         if (canonical.size() > 1 && canonical.back() == '/') canonical.pop_back();
+        // The filesystem root is not a valid enrollment root: it would authorize every
+        // absolute path and defeat the containment check. Reject it at configuration time.
+        if (canonical == "/") {
+            return {status_code::invalid_argument,
+                "enrollment image root must not be the filesystem root"};
+        }
         canonical_roots.push_back(std::move(canonical));
     }
     canonical_roots_ = std::move(canonical_roots);

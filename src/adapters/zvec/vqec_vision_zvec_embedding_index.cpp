@@ -117,8 +117,10 @@ std::string vqec_vision_ai_zvec_zvidx_record_key(std::uint64_t _record_id) {
     return std::to_string(_record_id);
 }
 
+// Not noexcept: building a status message may allocate, and std::bad_alloc must propagate
+// to the caller rather than call std::terminate inside a noexcept function.
 status vqec_vision_ai_zvec_zvidx_map_error(zvec_error_code_t _error,
-    const char* _message) noexcept {
+    const char* _message) {
     if (_error == ZVEC_OK) {
         return {};
     }
@@ -147,7 +149,7 @@ bool vqec_vision_ai_zvec_zvidx_contains(
 status vqec_vision_ai_zvec_zvidx_create_collection(
     const std::string& _path, std::size_t _dimensions,
     zvec_existing_collection_policy _existing_policy,
-    zvec_collection_t*& _collection) noexcept {
+    zvec_collection_t*& _collection) {
     if (_existing_policy == zvec_existing_collection_policy::rebuild) {
         // Zvec does not consistently map an absent collection to NOT_FOUND on
         // target. Probe the configured derived path before calling its open API;

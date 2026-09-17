@@ -140,6 +140,15 @@ void vqec_vision_ai_fwctl_ucdbs_status(
         vqec_vision_ai_fwctl_ucdbs_return_error(_invocation, queried);
         return;
     }
+    for (const auto& entry : snapshot.entries_) {
+        // Bound every reply string before it reaches the bus. A port bug that produced an
+        // over-long reason must fail the call, not emit an oversized D-Bus message.
+        if (entry.reason_.size() > usecase_control_limits::g_max_reason_bytes) {
+            vqec_vision_ai_fwctl_ucdbs_return_error(_invocation,
+                {status_code::protocol_error, "usecase status reason exceeds the wire bound"});
+            return;
+        }
+    }
     GVariantBuilder entries;
     g_variant_builder_init(&entries, G_VARIANT_TYPE("a(ssbbbbbbbbss)"));
     for (const auto& entry : snapshot.entries_) {

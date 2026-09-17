@@ -1,5 +1,26 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-F update: small correctness/security fixes.
+- Removed the contracts -> ports layering inversion in `vqec_vision_recognition.hpp`: the
+  embedding-index data types and limits (`embedding_metric`, `embedding_index_config`,
+  `embedding_gallery_record`, `embedding_match`, `embedding_search_result`,
+  `embedding_index_limits`) moved from the index port into `contracts/vqec_vision_embedding.hpp`;
+  the port now declares only the interface, and `recognition_session.hpp` includes the port
+  directly.
+- Zvec `map_error`/`create_collection` are no longer `noexcept`, so an allocation failure
+  propagates instead of calling `std::terminate` inside a `noexcept` function.
+- `usecase_control_GetStatus` rejects a status `reason_` over
+  `usecase_control_limits::g_max_reason_bytes` rather than emitting an over-bound D-Bus reply.
+- The enrollment image path authorizer rejects the filesystem root `/` as an allowed root.
+- Added the missing `src/adapters/storage/README.md`, documenting the encrypted-gallery
+  contract and the tracked gap that the GCM AAD does not yet bind gallery/file identity.
+- Verified `gst_bin_add_many` returns `void` in GStreamer 1.22, so the earlier "unchecked
+  return" finding was not applicable.
+
+eSDK/QEMU suite passes 123/123. Board `.98`: native 115 (two known environment-fixture
+failures) and a live compatibility run published H.264 1920x1080 30/1 (179 frames in 6 s)
+with `first_error=0`, D-Bus 5/5 and cascade `embedded=5 cascade_failed=0`.
+
 2026-09-16 clean-base CB-E update (first slice): startup option parsing was extracted from
 the 2203-line service main into a testable unit. `vqec_vision_service_options.{hpp,cpp}`
 owns `parsed_arguments` and `vqec_vision_ai_appl_svopt_parse`, built as the
