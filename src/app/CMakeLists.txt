@@ -161,8 +161,7 @@ endif()
 # Production platform owner for the Qualcomm target: concrete RAW source, QNN graph,
 # decoder, tracker and feature owners behind neutral ports.
 if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
-   TARGET vqec_vision_ai_camera AND
-   TARGET vqec_vision_ai_camera_dbus AND TARGET vqec_vision_ai_reference AND
+   TARGET vqec_vision_ai_camera AND TARGET vqec_vision_ai_camera_dbus AND
    TARGET vqec_vision_ai_detection)
     add_library(vqec_vision_ai_production_platform STATIC
         vqec_vision_production_platform.cpp)
@@ -174,7 +173,7 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/perception/embedding>)
     target_link_libraries(vqec_vision_ai_production_platform PUBLIC
         vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
-        vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
+        vqec_vision_ai_camera_dbus vqec_vision_ai_detection
         vqec_vision_ai_tracking vqec_vision_ai_embedding_decoder
         vqec_vision_ai_feature_runtime vqec_vision_ai_qualcomm
         nlohmann_json::nlohmann_json)
@@ -216,6 +215,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_service_options
+        vqec_vision_ai_admission
         vqec_vision_ai_production_platform
         vqec_vision_ai_cascade_graph_session
         vqec_vision_ai_face_enrollment_image_pipeline

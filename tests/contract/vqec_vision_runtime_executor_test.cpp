@@ -360,6 +360,19 @@ runtime_composition_activation vqec_vision_ai_ctest_rtexe_make_activation(
     const model_catalog_entry& _model, reference_raw_source& _source,
     reference_inference_graph& _graph) {
     runtime_composition_activation activation;
+    activation.hardware_profile_.profile_id_ = "contract_fixture";
+    activation.hardware_profile_.target_id_ = "qcs6490";
+    activation.hardware_profile_.measurement_reference_ = "contract-test-fixture";
+    activation.hardware_profile_.revision_ = 1;
+    activation.hardware_profile_.max_total_resident_bytes_ = 4ULL * 1024 * 1024 * 1024;
+    activation.hardware_profile_.max_frame_pool_bytes_ = 1024ULL * 1024 * 1024;
+    activation.hardware_profile_.max_tensor_pool_bytes_ = 1024ULL * 1024 * 1024;
+    activation.hardware_profile_.max_encoder_pool_bytes_ = 512ULL * 1024 * 1024;
+    activation.hardware_profile_.max_cascade_roi_bytes_ = 512ULL * 1024 * 1024;
+    activation.hardware_profile_.max_ddr_bandwidth_mbps_ = 12000;
+    activation.hardware_profile_.max_fw_concurrency_slots_ = 16;
+    activation.hardware_profile_.max_worker_concurrency_ = 64;
+    activation.hardware_profile_.min_thermal_headroom_pct_ = 10;
     activation.source_count_ = 1;
     activation.startup_timeout_ns_ = 30000000000ULL;
     activation.stop_timeout_ns_ = 10000000000ULL;

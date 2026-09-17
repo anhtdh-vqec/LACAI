@@ -131,6 +131,17 @@ Fixed-capacity activation mapping:
 `vqec_vision_ai_admis_actsp_`; paired private header has the same stem. Test
 `tests/unit/vqec_vision_activation_snapshot_test.cpp` uses file_id `astst`, prefix
 `vqec_vision_ai_unit_astst_`; main retains the language exception.
+Strict hardware admission profile loader:
+`src/runtime/admission/vqec_vision_hardware_admission_profile.cpp`, file_id `hwprf`, prefix
+`vqec_vision_ai_admis_hwprf_`; paired private header has the same stem. Loader coverage stays
+in `vqec_vision_activation_snapshot_test.cpp` under its registered test prefix.
+
+Portable IoU tracker:
+`src/perception/tracking/vqec_vision_iou_tracker.cpp`, file_id `ioutr`, prefix
+`vqec_vision_ai_track_ioutr_`; paired private header has the same stem. Port overrides
+retain the `vqec_vision_ai_ports_trker_` names declared by `tracker_port`. Test
+`tests/unit/vqec_vision_iou_tracker_test.cpp` uses file_id `iotst`, prefix
+`vqec_vision_ai_unit_iotst_`; `main` retains the language exception.
 
 Pre-load usecase activation contract:
 `include/vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp` and

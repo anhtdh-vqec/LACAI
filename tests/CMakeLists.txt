@@ -820,6 +820,13 @@
         add_test(NAME reference_processor_preprocess
             COMMAND vqec_vision_ai_reference_processor_test)
     endif()
+    add_executable(vqec_vision_ai_iou_tracker_test
+        unit/vqec_vision_iou_tracker_test.cpp)
+    target_link_libraries(vqec_vision_ai_iou_tracker_test
+        PRIVATE vqec_vision_ai_tracking)
+    set_target_properties(vqec_vision_ai_iou_tracker_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME portable_iou_tracker_association
+        COMMAND vqec_vision_ai_iou_tracker_test)
     if(TARGET vqec_vision_ai_production_platform)
         add_executable(vqec_vision_ai_production_platform_test
             unit/vqec_vision_production_platform_test.cpp)

@@ -271,7 +271,7 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
 
         activation_snapshot admission;
         const auto admitted = vqec_vision_ai_admis_actsp_build_snapshot(
-            _deployment, _catalog, admission);
+            _deployment, _catalog, _activation.hardware_profile_, admission);
         if (admitted.code_ != status_code::ok) {
             return admitted;
         }

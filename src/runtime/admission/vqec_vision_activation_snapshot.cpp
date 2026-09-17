@@ -18,29 +18,6 @@ std::size_t vqec_vision_ai_admis_actsp_find_model_index(
 
 }  // namespace
 
-hardware_admission_profile
-vqec_vision_ai_admis_actsp_get_default_hardware_profile() noexcept {
-    hardware_admission_profile profile;
-    profile.max_total_resident_bytes_ = 4096ULL * 1024ULL * 1024ULL;
-    profile.max_frame_pool_bytes_ = 1024ULL * 1024ULL * 1024ULL;
-    profile.max_tensor_pool_bytes_ = 1024ULL * 1024ULL * 1024ULL;
-    profile.max_encoder_pool_bytes_ = 512ULL * 1024ULL * 1024ULL;
-    profile.max_cascade_roi_bytes_ = 512ULL * 1024ULL * 1024ULL;
-    profile.max_ddr_bandwidth_mbps_ = 12000;
-    profile.max_fw_concurrency_slots_ = 16;
-    profile.max_worker_concurrency_ = 64;
-    profile.min_thermal_headroom_pct_ = 10;
-    return profile;
-}
-
-status vqec_vision_ai_admis_actsp_build_snapshot(
-    const deployment_config& _deployment, const model_catalog& _catalog,
-    activation_snapshot& _snapshot) {
-    return vqec_vision_ai_admis_actsp_build_snapshot(
-        _deployment, _catalog,
-        vqec_vision_ai_admis_actsp_get_default_hardware_profile(), _snapshot);
-}
-
 status vqec_vision_ai_admis_actsp_build_snapshot(
     const deployment_config& _deployment, const model_catalog& _catalog,
     const hardware_admission_profile& _hardware_profile,
@@ -120,6 +97,10 @@ status vqec_vision_ai_admis_actsp_build_snapshot(
             ++assignment_counts[catalog_index];
 
             const auto& model = _catalog.models_[catalog_index];
+            if (model.target_id_ != _hardware_profile.target_id_) {
+                return {status_code::unsupported,
+                    "model target differs from hardware admission profile"};
+            }
             const std::uint64_t model_fps = (model.inference_fps_denominator_ > 0)
                 ? (model.inference_fps_numerator_ / model.inference_fps_denominator_)
                 : fps;

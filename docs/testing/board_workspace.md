@@ -99,7 +99,8 @@ dbus-run-session -- sh -c '
     --qnn-backend-library /usr/lib/libQnnHtp.so \
     --qnn-system-library /usr/lib/libQnnSystem.so \
     --model-root /opt/vqec/models/ \
-    --tracker-contract reference.tracker.v1 \
+    --hardware-profile /opt/lacai/config/hardware_admission_profile.json \
+    --tracker-contract portable.iou.tracker.v1 \
     --event-schema-id reference.zone --event-schema-version 1 \
     --consumer-id-prefix lacai_ai \
     --camera-socket-dir /run/camera_ai --camera-producer-uid 0 --nv12-format 23 \

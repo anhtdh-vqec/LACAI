@@ -13,6 +13,7 @@ target_link_libraries(vqec_vision_ai_detection PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_detection PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_tracking STATIC
+    tracking/vqec_vision_iou_tracker.cpp
     tracking/vqec_vision_tracking_stage.cpp
     tracking/vqec_vision_tracker_registry.cpp)
 target_include_directories(vqec_vision_ai_tracking PUBLIC

@@ -2,9 +2,10 @@
 
 Per-source tracking state, association and ID continuity with explicit source-epoch resets.
 
-- **Status:** source-delivered port + registry + coordinator — reference IoU implementation exists; production quality qualification remains
+- **Status:** source-delivered port + registry + coordinator — portable bounded IoU baseline
+  exists; production MOT quality qualification remains
 - **Layer:** perception
-- **Naming registry:** `track` (`trkst`, `trreg`)
+- **Naming registry:** `track` (`ioutr`, `trkst`, `trreg`)
 - **Depends on:** neutral `tracker_port`, decoded observation batches
 - **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`
 
@@ -19,12 +20,14 @@ Per-source tracking state, association and ID continuity with explicit source-ep
 
 | Path | Purpose |
 |---|---|
+| `vqec_vision_iou_tracker.cpp` | Bounded portable IoU baseline behind an explicit contract |
 | `vqec_vision_tracking_stage.cpp` | Serialized coordinator: validation, epoch reset, monotonic time, fault isolation |
 | `vqec_vision_tracker_registry.cpp` | Bounded activation-time mapping from tracker contract to a factory |
 
 ## Limits and next work
 
-- Reference IoU association exists in adapters/reference; replay/ID-switch qualification remains pending.
+- Portable IoU association is a baseline, not ByteTrack/MOT equivalence; replay/ID-switch
+  qualification remains pending.
 - An ambiguous update failure faults that epoch; only a successful later-epoch reset resumes.
 - Composition owns authenticating the binding and selecting the contract.
 

@@ -96,10 +96,13 @@ int main() {
         check(vqec_vision_ai_unit_sotst_parse(
                   {"app", "--deployment", "d", "--model-catalog", "c",
                       "--model-root", "/opt/lacai/models",
+                      "--hardware-profile", "/opt/lacai/config/hardware_profile.json",
                       "--max-artifact-bytes", "134217728"},
                   args),
             "model root and max artifact bytes parse");
         check(args.model_root == "/opt/lacai/models", "model_root captured");
+        check(args.hardware_profile_path == "/opt/lacai/config/hardware_profile.json",
+            "hardware profile path captured");
         check(args.max_artifact_bytes == 134217728ULL, "max_artifact_bytes captured");
     }
 

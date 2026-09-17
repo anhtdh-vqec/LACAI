@@ -43,6 +43,7 @@
 #include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
+#include "vqec_vision_hardware_admission_profile.hpp"
 #include "vqec_vision_overlay_preparation.hpp"
 #include "vqec_vision_exact_embedding_index.hpp"
 #include "vqec_vision_recognition_session.hpp"
@@ -115,6 +116,42 @@ std::uint64_t vqec_vision_ai_appl_svcmn_monotonic_ns() noexcept {
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count());
+}
+
+hardware_admission_profile vqec_vision_ai_appl_svcmn_make_fixture_hardware_profile() {
+    hardware_admission_profile profile;
+    profile.profile_id_ = "device_free_test_fixture";
+    profile.target_id_ = "qcs6490_qlinux_1_8";
+    profile.measurement_reference_ = "fixture-only-not-a-board-measurement";
+    profile.revision_ = 1;
+    profile.max_total_resident_bytes_ = 4096ULL * g_mib;
+    profile.max_frame_pool_bytes_ = 1024ULL * g_mib;
+    profile.max_tensor_pool_bytes_ = 1024ULL * g_mib;
+    profile.max_encoder_pool_bytes_ = 512ULL * g_mib;
+    profile.max_cascade_roi_bytes_ = 512ULL * g_mib;
+    profile.max_ddr_bandwidth_mbps_ = 12000;
+    profile.max_fw_concurrency_slots_ = 16;
+    profile.max_worker_concurrency_ = 64;
+    profile.min_thermal_headroom_pct_ = 10;
+    return profile;
+}
+
+status vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
+    const parsed_arguments& _args, bool _use_production_platform,
+    hardware_admission_profile& _profile) {
+    if (_args.hardware_profile_path.empty()) {
+        if (_use_production_platform) {
+            return {status_code::unsupported,
+                "Qualcomm production requires --hardware-profile"};
+        }
+        _profile = vqec_vision_ai_appl_svcmn_make_fixture_hardware_profile();
+        return {};
+    }
+    std::ifstream stream(_args.hardware_profile_path, std::ios::binary);
+    if (!stream) {
+        return {status_code::io_error, "cannot open hardware admission profile"};
+    }
+    return vqec_vision_ai_admis_hwprf_load(stream, _profile);
 }
 
 struct service_cascade_owner {
@@ -1197,6 +1234,13 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
     activation.use_session_workers_ = args.use_session_workers;
     activation.use_model_workers_ = args.use_model_workers;
+    const auto resolved_profile = vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
+        args, use_production_platform, activation.hardware_profile_);
+    if (resolved_profile.code_ != status_code::ok) {
+        std::fprintf(stderr, "hardware admission profile failed (%d): %s\n",
+            static_cast<int>(resolved_profile.code_), resolved_profile.message_.c_str());
+        return 1;
+    }
     const auto built_activations = vqec_vision_ai_appl_svcmn_build_model_activations(
         args, deployment, catalog, production, sources, use_production_platform,
         tracker_contract, reference_graphs, activation);

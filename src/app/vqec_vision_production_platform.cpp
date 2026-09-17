@@ -15,8 +15,7 @@
 #endif
 #include "vqec_vision_qtiv_renderer.hpp"
 #include "vqec_vision_raw_source_resolver.hpp"
-#include "vqec_vision_reference_feature.hpp"
-#include "vqec_vision_reference_tracker.hpp"
+#include "vqec_vision_iou_tracker.hpp"
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
@@ -132,7 +131,7 @@ tensor_spec vqec_vision_ai_appl_pdplt_tensor(const json& _entry) {
 
 class platform_tracker_factory final : public tracker_factory_port {
 public:
-    explicit platform_tracker_factory(reference_tracker_config _config) noexcept
+    explicit platform_tracker_factory(iou_tracker_config _config) noexcept
         : config_(_config) {}
     [[nodiscard]] status vqec_vision_ai_track_trfac_validate_activation(
         const std::string& _source_id, const std::string& _model_id) const override {
@@ -145,45 +144,12 @@ public:
         std::unique_ptr<tracker_port>& _tracker) override {
         (void)_source_id;
         (void)_model_id;
-        _tracker = std::make_unique<reference_tracker>(config_);
+        _tracker = std::make_unique<iou_tracker>(config_);
         return {};
     }
 
 private:
-    reference_tracker_config config_;
-};
-
-class platform_feature_factory final : public feature_processor_factory_port {
-public:
-    explicit platform_feature_factory(reference_feature_params _params)
-        : params_(std::move(_params)) {}
-    [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
-        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
-        const feature_configuration& _configuration) const override {
-        if (_feature.processor_contract_ != "reference.zone.processor.v1") {
-            return {status_code::unsupported,
-                "platform feature factory only supports reference.zone.processor.v1"};
-        }
-        (void)_processor_config;
-        (void)_configuration;
-        return {};
-    }
-    [[nodiscard]] status vqec_vision_ai_ports_ftfac_create_processor(
-        const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
-        const feature_configuration& _configuration,
-        std::unique_ptr<feature_processor_port>& _processor) override {
-        if (_feature.processor_contract_ != "reference.zone.processor.v1") {
-            return {status_code::unsupported,
-                "platform feature factory only supports reference.zone.processor.v1"};
-        }
-        (void)_processor_config;
-        (void)_configuration;
-        _processor = std::make_unique<reference_zone_feature>(params_);
-        return {};
-    }
-
-private:
-    reference_feature_params params_;
+    iou_tracker_config config_;
 };
 
 }  // namespace
@@ -195,7 +161,6 @@ struct production_platform::implementation {
     std::shared_ptr<dbus_rpc> rpc_;
     std::vector<model_slot_owner> models_;
     std::vector<std::unique_ptr<source_lifecycle>> sources_;
-    platform_feature_factory feature_factory_{reference_feature_params{}};
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
 };
@@ -270,6 +235,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_configure(
         _config.preprocess_output_timeout_ns_ == 0 ||
         _config.preprocess_output_timeout_ns_ == UINT64_MAX) {
         return {status_code::invalid_argument, "invalid production platform configuration"};
+    }
+    if (_config.tracker_contract_ != "portable.iou.tracker.v1") {
+        return {status_code::invalid_argument,
+            "production platform rejects non-production tracker contracts"};
     }
     impl.config_ = _config;
     impl.is_configured_ = true;
@@ -563,15 +532,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             std::make_unique<source_lifecycle>(impl.rpc_, lifecycle_config));
     }
 
-    impl.tracker_factory_ = std::make_unique<platform_tracker_factory>(
-        reference_tracker_config{});
-    reference_feature_params feature_params;
-    feature_params.zone_ = {0.0F, 0.0F,
-        static_cast<float>(_deployment.sources_.front().profile_.width_),
-        static_cast<float>(_deployment.sources_.front().profile_.height_), 0U, {}};
-    feature_params.event_schema_id_ = impl.config_.event_schema_id_;
-    feature_params.event_schema_version_ = impl.config_.event_schema_version_;
-    impl.feature_factory_ = platform_feature_factory{feature_params};
+    impl.tracker_factory_ = std::make_unique<platform_tracker_factory>(iou_tracker_config{});
     if (!impl.config_.output_ring_id_.empty()) {
         // Released FW exposes fixed cam0 single-writer rings and there is no versioned
         // per-source output registry yet, so one ring can only carry one source. Reject
@@ -635,9 +596,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_tracker(
         implementation_->tracker_factory_ == nullptr) {
         return {status_code::invalid_state, "production platform is not prepared"};
     }
-    if (implementation_->config_.tracker_contract_ != "reference.tracker.v1") {
+    if (implementation_->config_.tracker_contract_ != "portable.iou.tracker.v1") {
         return {status_code::unsupported,
-            "production platform currently only supports reference.tracker.v1"};
+            "production platform currently only supports portable.iou.tracker.v1"};
     }
     return _trackers.vqec_vision_ai_track_trreg_register_factory(
         implementation_->config_.tracker_contract_, *implementation_->tracker_factory_);
@@ -645,17 +606,13 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_tracker(
 
 status production_platform::vqec_vision_ai_appl_pdplt_register_features(
     const feature_catalog& _features, feature_processor_registry& _registry) const {
+    (void)_registry;
     if (implementation_ == nullptr || !implementation_->is_prepared_) {
         return {status_code::invalid_state, "production platform is not prepared"};
     }
-    for (const auto& feature : _features.features_) {
-        if (feature.processor_contract_ == "reference.zone.processor.v1") {
-            const auto registered = _registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
-                feature.processor_contract_, implementation_->feature_factory_);
-            if (registered.code_ != status_code::ok) {
-                return registered;
-            }
-        }
+    if (!_features.features_.empty()) {
+        return {status_code::unsupported,
+            "production feature catalog has no compiled production processor factory"};
     }
     return {};
 }

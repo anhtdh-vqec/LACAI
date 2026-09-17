@@ -50,6 +50,7 @@ struct parsed_arguments {
     std::string qnn_backend_library;
     std::string qnn_system_library;
     std::string model_root;
+    std::string hardware_profile_path;
     std::uint64_t max_artifact_bytes{0};
     std::string camera_socket_dir;
     std::uint32_t camera_producer_uid{0};

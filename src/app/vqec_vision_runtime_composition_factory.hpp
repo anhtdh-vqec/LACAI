@@ -43,6 +43,9 @@ struct runtime_composition_activation {
     std::uint64_t stop_timeout_ns_{0};
     std::uint16_t source_count_{0};
     int rpc_timeout_ms_{0};
+    // Supplied by the trusted startup boundary. An empty profile is invalid; composition
+    // never substitutes a board capability default.
+    hardware_admission_profile hardware_profile_;
     // Moves each blocking source/model session onto one bounded, joined worker. This is an
     // activation policy: false retains deterministic serialized execution for fixtures.
     bool use_session_workers_{false};

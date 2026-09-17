@@ -25,7 +25,7 @@ production_platform_config vqec_vision_ai_unit_pdptst_make_valid_config() {
     config.producer_uid_ = 1000;
     config.nv12_format_value_ = 23;
     config.preprocess_output_timeout_ns_ = 1000000000ULL;
-    config.tracker_contract_ = "reference.tracker.v1";
+    config.tracker_contract_ = "portable.iou.tracker.v1";
     config.event_schema_id_ = "reference.zone";
     config.event_schema_version_ = "1";
     config.consumer_id_prefix_ = "lacai_ai";
@@ -106,6 +106,12 @@ int main() {
 
     auto valid_config = vqec_vision_ai_unit_pdptst_make_valid_config();
     assert(platform.vqec_vision_ai_appl_pdplt_configure(valid_config).code_ == status_code::ok);
+
+    auto reference_tracker_config = vqec_vision_ai_unit_pdptst_make_valid_config();
+    reference_tracker_config.tracker_contract_ = "reference.tracker.v1";
+    production_platform reference_tracker_platform;
+    assert(reference_tracker_platform.vqec_vision_ai_appl_pdplt_configure(
+               reference_tracker_config).code_ == status_code::invalid_argument);
 
     // Reconfiguration is rejected
     assert(platform.vqec_vision_ai_appl_pdplt_configure(valid_config).code_ ==

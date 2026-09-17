@@ -28,6 +28,11 @@ rejected. Allocation and factory exceptions map to bounded status codes.
 The resulting tracker is passed to `tracking_stage`, which remains the serialized
 epoch/clock/validation coordinator.
 
+Qualcomm production registers only `portable.iou.tracker.v1`, backed by the bounded
+portable IoU implementation. `reference.tracker.v1` remains confined to explicit
+fake/reference composition. The portable contract describes a baseline association
+algorithm; it does not claim ByteTrack/MOT accuracy or dataset acceptance.
+
 ## Limits and next work
 
 - The registry is bounded to 64 contracts and stores borrowed factory references only.

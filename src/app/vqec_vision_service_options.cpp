@@ -106,6 +106,8 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.qnn_system_library = _argv[++index];
         } else if (option == "--model-root" && has_value) {
             _args.model_root = _argv[++index];
+        } else if (option == "--hardware-profile" && has_value) {
+            _args.hardware_profile_path = _argv[++index];
         } else if (option == "--max-artifact-bytes" && has_value) {
             _args.max_artifact_bytes = static_cast<std::uint64_t>(
                 std::strtoull(_argv[++index], nullptr, 10));

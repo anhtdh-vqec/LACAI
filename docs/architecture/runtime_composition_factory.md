@@ -36,6 +36,8 @@ those borrowed owners or the bundle are destroyed; destruction is never cancella
 Composition is transactional. Before constructing owners it requires:
 
 - exact deployment/catalog validation and source/model slot order;
+- an explicit, valid hardware admission profile with identity, target, revision and
+  measurement reference; composition never substitutes a board-capability default;
 - one source activation per deployment source and one model activation per assigned model;
 - distinct RAW-source port instances across source slots: two sessions must never
   control the same source owner, even if deployment source IDs differ;
@@ -76,8 +78,9 @@ remain positive and requires CPU/thermal measurement rather than an implicit bus
 
 ## Limits and next work
 
-- Feature activation, entitlement, artifact authentication, immutable path opening,
-  platform owner creation and measured board admission remain separate prerequisites.
+- Feature activation, entitlement, profile authentication, platform owner creation and
+  board measurement acceptance remain separate prerequisites. The profile loader records
+  provenance but does not prove that the referenced measurements were approved.
 - Composition performs no Camera Start, model load or frame submit; those happen after
   activation.
 - The two execution switches (source-level worker policy and per-model pump workers) must

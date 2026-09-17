@@ -1,14 +1,34 @@
 #include <cstdint>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
 #include "vqec_vision_activation_snapshot.hpp"
+#include "vqec_vision_hardware_admission_profile.hpp"
 
 namespace vqec::vision::ai {
 namespace {
 
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
+
+hardware_admission_profile vqec_vision_ai_unit_astst_make_profile() {
+    hardware_admission_profile profile;
+    profile.profile_id_ = "unit_fixture";
+    profile.target_id_ = "qcs6490";
+    profile.measurement_reference_ = "unit-test-fixture";
+    profile.revision_ = 1;
+    profile.max_total_resident_bytes_ = 4096ULL * g_mib;
+    profile.max_frame_pool_bytes_ = 1024ULL * g_mib;
+    profile.max_tensor_pool_bytes_ = 1024ULL * g_mib;
+    profile.max_encoder_pool_bytes_ = 512ULL * g_mib;
+    profile.max_cascade_roi_bytes_ = 512ULL * g_mib;
+    profile.max_ddr_bandwidth_mbps_ = 12000;
+    profile.max_fw_concurrency_slots_ = 16;
+    profile.max_worker_concurrency_ = 64;
+    profile.min_thermal_headroom_pct_ = 10;
+    return profile;
+}
 
 model_catalog_entry vqec_vision_ai_unit_astst_make_model() {
     model_catalog_entry model;
@@ -60,8 +80,9 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
         deployment.sources_.push_back(source);
     }
     activation_snapshot snapshot;
+    const auto fixture_profile = vqec_vision_ai_unit_astst_make_profile();
     const auto result = vqec_vision_ai_admis_actsp_build_snapshot(
-        deployment, catalog, snapshot);
+        deployment, catalog, fixture_profile, snapshot);
     if (result.code_ != status_code::ok) {
         throw std::runtime_error("valid fixed-capacity activation snapshot rejected: " + result.message_);
     }
@@ -89,7 +110,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     invalid.sources_[0].model_ids_[0] = "unknown";
     const auto preserved_revision = snapshot.deployment_revision_;
     const auto failed = vqec_vision_ai_admis_actsp_build_snapshot(
-        invalid, catalog, snapshot);
+        invalid, catalog, fixture_profile, snapshot);
     if (failed.code_ == status_code::ok ||
         snapshot.deployment_revision_ != preserved_revision) {
         throw std::runtime_error("failed snapshot build changed output");
@@ -105,8 +126,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     }
 
     // Negative test 3: FW stream concurrency exceeds limit
-    hardware_admission_profile low_fw_hw =
-        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    hardware_admission_profile low_fw_hw = fixture_profile;
     low_fw_hw.max_fw_concurrency_slots_ = 4;  // deployment has 16
     if (vqec_vision_ai_admis_actsp_build_snapshot(
             deployment, catalog, low_fw_hw, hw_snap).code_ != status_code::unsupported) {
@@ -114,8 +134,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     }
 
     // Negative test 4: Memory budget exceeded
-    hardware_admission_profile low_mem_hw =
-        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    hardware_admission_profile low_mem_hw = fixture_profile;
     low_mem_hw.max_total_resident_bytes_ = 10 * g_mib;  // far too small
     if (vqec_vision_ai_admis_actsp_build_snapshot(
             deployment, catalog, low_mem_hw, hw_snap).code_ != status_code::resource_exhausted) {
@@ -123,12 +142,27 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     }
 
     // Negative test 5: DDR bandwidth exceeded
-    hardware_admission_profile low_ddr_hw =
-        vqec_vision_ai_admis_actsp_get_default_hardware_profile();
+    hardware_admission_profile low_ddr_hw = fixture_profile;
     low_ddr_hw.max_ddr_bandwidth_mbps_ = 10;  // 10 MB/s is far too low for 16 sources
     if (vqec_vision_ai_admis_actsp_build_snapshot(
             deployment, catalog, low_ddr_hw, hw_snap).code_ != status_code::resource_exhausted) {
         throw std::runtime_error("DDR bandwidth limit not enforced");
+    }
+
+    // Strict loader records identity/provenance and rejects unknown keys transactionally.
+    std::istringstream profile_stream{
+        R"({"schema_version":1,"profile_id":"qcs6490_lab_r1","target_id":"qcs6490","revision":7,"measurement_reference":"board-report-2026-09-17","max_total_resident_bytes":4294967296,"max_frame_pool_bytes":1073741824,"max_tensor_pool_bytes":1073741824,"max_encoder_pool_bytes":536870912,"max_cascade_roi_bytes":536870912,"max_ddr_bandwidth_mbps":12000,"max_fw_concurrency_slots":16,"max_worker_concurrency":64,"min_thermal_headroom_pct":10})"};
+    hardware_admission_profile loaded;
+    if (vqec_vision_ai_admis_hwprf_load(profile_stream, loaded).code_ != status_code::ok ||
+        loaded.profile_id_ != "qcs6490_lab_r1" || loaded.revision_ != 7) {
+        throw std::runtime_error("valid hardware profile was not loaded");
+    }
+    const auto preserved_profile_id = loaded.profile_id_;
+    std::istringstream unknown_key{
+        R"({"schema_version":1,"profile_id":"x","target_id":"qcs6490","revision":1,"measurement_reference":"fixture","max_total_resident_bytes":1,"max_frame_pool_bytes":1,"max_tensor_pool_bytes":1,"max_encoder_pool_bytes":1,"max_cascade_roi_bytes":1,"max_ddr_bandwidth_mbps":1,"max_fw_concurrency_slots":1,"max_worker_concurrency":1,"min_thermal_headroom_pct":0,"unexpected":1})"};
+    if (vqec_vision_ai_admis_hwprf_load(unknown_key, loaded).code_ == status_code::ok ||
+        loaded.profile_id_ != preserved_profile_id) {
+        throw std::runtime_error("invalid hardware profile changed output");
     }
 }
 

@@ -114,6 +114,15 @@ require board-specific accounting before admission. FW separately budgets its RT
 surfaces on AI Box. The 8 GiB parser ceiling
 is a corruption guard, not a product default or a promise of available RAM.
 
+Runtime composition additionally requires an explicit hardware admission profile. Its
+strict JSON schema records `profile_id`, `target_id`, `revision`,
+`measurement_reference`, memory-pool ceilings, DDR bandwidth, FW/worker concurrency and
+minimum thermal headroom. Missing, malformed or target-mismatched profiles fail closed;
+there is no Qualcomm default. Fake/reference service modes use a visibly named test fixture.
+The loader establishes syntax and traceability only: the three owner teams still have to
+approve the measurement report referenced by a production profile. The current DDR and
+thermal calculations are conservative estimates, not measured utilization or thermal proof.
+
 Memory rules for implementation:
 
 - allocate frame/tensor/preview/result pools at revision activation, not per frame;

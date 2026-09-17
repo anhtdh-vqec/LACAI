@@ -42,6 +42,14 @@ Use a trusted immutable deployment store and atomic version activation, or add a
 artifact handle contract before claiming secure loading. Backend/system libraries and
 decoder/config artifacts also need independent verification in the eventual full kit.
 
+The Linux production artifact resolver now closes the model-byte portion of that gap: it
+opens the allowed-root source with no-follow semantics, hashes it, copies the verified bytes
+to a sealed `memfd`, rehashes the sealed copy, and retains the owner while QNN receives the
+exact `/proc/self/fd/<n>` path. Mutation or replacement of the original path therefore does
+not alter the model bytes selected for load. This is integrity continuity, not signature or
+publisher provenance; backend/system libraries and package metadata remain separate trust
+inputs.
+
 ## Build and dependencies
 
 Optional `VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST` target uses OpenSSL Crypto >=3.0
@@ -56,8 +64,8 @@ This does not claim FIPS validation.
 
 - Security/lead review is pending.
 - Board hash evidence remains pending.
-- Hash-then-reopen by path has a TOCTOU race; a trusted immutable store or a platform
-  artifact handle contract is required before claiming secure loading.
+- The standalone stream helper does not close TOCTOU. Production model loading uses a
+  sealed retained descriptor, but signature/provenance policy remains pending.
 - Backend/system libraries and decoder/config artifacts also need independent verification.
 
 ## See also

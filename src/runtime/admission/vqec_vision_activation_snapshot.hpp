@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 
@@ -44,18 +45,24 @@ struct admission_resource_breakdown {
 };
 
 struct hardware_admission_profile {
-    std::uint64_t max_total_resident_bytes_{4096ULL * 1024ULL * 1024ULL};
-    std::uint64_t max_frame_pool_bytes_{1024ULL * 1024ULL * 1024ULL};
-    std::uint64_t max_tensor_pool_bytes_{1024ULL * 1024ULL * 1024ULL};
-    std::uint64_t max_encoder_pool_bytes_{512ULL * 1024ULL * 1024ULL};
-    std::uint64_t max_cascade_roi_bytes_{512ULL * 1024ULL * 1024ULL};
-    std::uint32_t max_ddr_bandwidth_mbps_{12000};
-    std::uint16_t max_fw_concurrency_slots_{16};
-    std::uint16_t max_worker_concurrency_{64};
-    std::uint16_t min_thermal_headroom_pct_{10};
+    std::string profile_id_;
+    std::string target_id_;
+    std::string measurement_reference_;
+    std::uint64_t revision_{0};
+    std::uint64_t max_total_resident_bytes_{0};
+    std::uint64_t max_frame_pool_bytes_{0};
+    std::uint64_t max_tensor_pool_bytes_{0};
+    std::uint64_t max_encoder_pool_bytes_{0};
+    std::uint64_t max_cascade_roi_bytes_{0};
+    std::uint32_t max_ddr_bandwidth_mbps_{0};
+    std::uint16_t max_fw_concurrency_slots_{0};
+    std::uint16_t max_worker_concurrency_{0};
+    std::uint16_t min_thermal_headroom_pct_{0};
 
     [[nodiscard]] bool is_valid() const noexcept {
-        return max_total_resident_bytes_ > 0 &&
+        return !profile_id_.empty() && !target_id_.empty() &&
+               !measurement_reference_.empty() && revision_ > 0 &&
+               max_total_resident_bytes_ > 0 &&
                max_frame_pool_bytes_ > 0 &&
                max_tensor_pool_bytes_ > 0 &&
                max_encoder_pool_bytes_ > 0 &&
@@ -82,15 +89,8 @@ struct activation_snapshot {
     std::array<activation_model_slot, model_catalog_limits::g_max_models> models_{};
 };
 
-[[nodiscard]] hardware_admission_profile
-vqec_vision_ai_admis_actsp_get_default_hardware_profile() noexcept;
-
 // Cold-path build; performs complete deployment/catalog cross-validation first.
 // Evaluates resource envelope against hardware limits (pool, queue, encoder, DDR, thermal, FW load).
-[[nodiscard]] status vqec_vision_ai_admis_actsp_build_snapshot(
-    const deployment_config& _deployment, const model_catalog& _catalog,
-    activation_snapshot& _snapshot);
-
 [[nodiscard]] status vqec_vision_ai_admis_actsp_build_snapshot(
     const deployment_config& _deployment, const model_catalog& _catalog,
     const hardware_admission_profile& _hardware_profile,
