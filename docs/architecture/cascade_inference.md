@@ -12,6 +12,7 @@ execution probes and live compatibility FD-to-embedding runs on the currently as
 `.98` target pass; golden parity, post-fix multi-face, released-FW and attendance validation
 remain open. **Layer:** app. **Source:**
 `src/app/vqec_vision_cascade_coordinator.cpp`,
+`src/app/vqec_vision_cascade_execution_worker.cpp`,
 `src/app/vqec_vision_cascade_graph_session.cpp`,
 `src/perception/detection/vqec_vision_anchor_distance_decoder.cpp`,
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp`,
@@ -96,6 +97,17 @@ adapter returns the exact tensor transform so downstream evidence can be mapped 
 source frame. Golden crop/tensor parity remains required.
 
 ## Model-package and graph composition
+
+Production binds one persistent asynchronous cascade worker per admitted source, not the
+synchronous coordinator on the service progress loop. Pending, executing and completed
+batches count against the same bounded queue budget; overload closes exact-frame admission
+without replacing a live owner. The frame store synchronizes pump/worker access.
+Completions retain the primary frame key, geometry, observations and captured policy revision.
+Secondary faces within one graph remain serialized; multiple embeddings do not prove
+concurrent NPU execution. Stop closes admission and joins workers before primary/source
+reconciliation and secondary graph unload. A join timeout retains the live owner/thread;
+it never detaches a thread capturing the destroyed worker. Unresolved destruction fails
+stop rather than permitting use-after-free. BSP reset/quiescence remains an external contract.
 
 Each catalog model resolves its own package/artifact via the model package registry.
 Production supports explicit primary decoder selection and resolves secondary embedding

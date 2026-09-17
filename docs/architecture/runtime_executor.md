@@ -119,9 +119,12 @@ it simply does not join across models yet.
 
 The composition factory derives at most one cascade-root model slot per source from exact
 catalog dependencies. Before the first executor step, that source must bind one configured
-`cascade_coordinator`; an unbound required coordinator fails before source acquisition.
-After decode/tracking, the executor invokes the coordinator only for that primary slot and
-records bounded accepted/embedded/failed counts. Embedding values remain internal and are
+`cascade_execution_worker` (production) or a synchronous coordinator (compatibility tests).
+An unbound required cascade fails before source acquisition. After decode/tracking, production
+schedules only that primary slot; subsequent steps poll the bounded completion queue before
+source progress. A completion preserves frame identity, geometry, tracked observations and
+the captured policy revision. The output gate is bound even for FR-only operation with no
+feature fan-out; identity output revalidates that revision. Embedding values remain internal and are
 cleared when the routed result is taken or discarded; the recognition owner may move them
 through the explicit embedding take variant while keeping them behind its policy gate. They
 are not logged or published by this boundary. A primary decode failure still invokes the
@@ -150,9 +153,11 @@ metrics sink/transport remain open.
   feature-event sink. The production seam is bounded but not durable; shutdown discard is
   explicit. The reference sink is a development placeholder, not FW transport,
   durability, dedup or retry.
-- Cascade alignment and synchronous QNN execution currently run on the serialized service
-  progress thread. A bounded worker/completion state machine is required before claiming
-  multi-face latency or CPU scalability.
+- Production cascade uses one joined worker per admitted source; secondary tasks within one
+  graph are serialized. Pending, executing and completed batches share one bounded budget.
+  Stop closes admission, joins completed worker work, then reconciles primary/source and
+  secondary graph owners. A timed-out join never detaches or frees the worker; destruction
+  of an unresolved worker is fail-stop, not a BSP reset or cancellation guarantee.
 - No supervision/IPK packaging beyond SIGINT/SIGTERM handling.
 - `temporal_join` features remain an activation-time gap; the harness wires only
   `single_model` features.

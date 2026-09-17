@@ -221,6 +221,21 @@ int main() {
            manager.vqec_vision_ai_ftmgr_famgr_get_stage(0)->
                vqec_vision_ai_ftmgr_ftstg_is_active());
 
+    auto scoped = requests;
+    scoped[0].association_ = ready->association_;
+    scoped[0].association_.usecase_id_ = "people_counting";
+    scoped[0].association_.policy_revision_ = 3;
+    scoped[0].association_.state_ = usecase_effective_state::ready;
+    assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(
+               scoped, 1, registry, snapshot).code_ == status_code::ok);
+    const auto* scoped_ready = manager.vqec_vision_ai_ftmgr_famgr_get_record(0);
+    assert(scoped_ready != nullptr && scoped_ready->association_.usecase_id_ ==
+            "people_counting" && scoped_ready->association_.policy_revision_ == 3);
+    scoped[0].association_.model_slot_ = 1;
+    assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(
+               scoped, 1, registry, snapshot).code_ == status_code::invalid_argument);
+    ready = manager.vqec_vision_ai_ftmgr_famgr_get_record(0);
+
     auto malformed = requests;
     malformed[0].source_id_.clear();
     assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(

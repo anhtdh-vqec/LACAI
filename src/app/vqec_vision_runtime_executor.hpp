@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "vqec_vision_cascade_coordinator.hpp"
+#include "vqec_vision_cascade_execution_worker.hpp"
 #include "vqec_vision_application_composition.hpp"
 #include "vqec_vision_multi_model_feature_pipeline.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
@@ -101,6 +102,9 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_bind_cascade(
         std::uint16_t _source_index, std::uint16_t _model_slot,
         cascade_coordinator& _coordinator, std::size_t _max_results);
+    [[nodiscard]] status vqec_vision_ai_appl_rtexe_bind_cascade_worker(
+        std::uint16_t _source_index, std::uint16_t _model_slot,
+        cascade_execution_worker& _worker);
     // _policy_revision must be the revision captured with the result, never a freshly
     // read one. Only stages selected by _success_mask are dispatched.
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_dispatch_events(
@@ -121,6 +125,8 @@ private:
         pipelines_{};
     std::array<cascade_coordinator*, deployment_limits::g_max_sources>
         cascade_coordinators_{};
+    std::array<cascade_execution_worker*, deployment_limits::g_max_sources>
+        cascade_workers_{};
     std::array<std::uint16_t, deployment_limits::g_max_sources> cascade_root_slots_{};
     std::array<std::uint32_t, deployment_limits::g_max_sources> camera_ids_{};
     std::array<std::uint32_t, deployment_limits::g_max_sources> channel_ids_{};

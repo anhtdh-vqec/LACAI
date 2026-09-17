@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "profile_id": "qcs6490_rb3gen2_measured_profile",
+  "profile_id": "qcs6490_rb3gen2_single_source_observed",
   "target_id": "qcs6490",
   "revision": 1,
-  "measurement_reference": "QCS6490_RB3Gen2_Rev1_Measured_2026_09_17",
-  "max_total_resident_bytes": 4294967296,
-  "max_frame_pool_bytes": 1073741824,
-  "max_tensor_pool_bytes": 1073741824,
-  "max_encoder_pool_bytes": 536870912,
-  "max_cascade_roi_bytes": 536870912,
-  "max_ddr_bandwidth_mbps": 12000,
-  "max_fw_concurrency_slots": 16,
-  "max_worker_concurrency": 64,
-  "min_thermal_headroom_pct": 10
+  "measurement_reference": "docs/architecture/hardware_admission_profile.md#qcs6490-98-observation-2026-09-17",
+  "max_total_resident_bytes": 536870912,
+  "max_frame_pool_bytes": 8388608,
+  "max_tensor_pool_bytes": 33554432,
+  "max_encoder_pool_bytes": 6220800,
+  "max_cascade_roi_bytes": 16777216,
+  "max_ddr_bandwidth_mbps": 1200,
+  "max_fw_concurrency_slots": 1,
+  "max_worker_concurrency": 4,
+  "min_thermal_headroom_pct": 20
 }

@@ -3,7 +3,8 @@
 This startup schema supplies an explicit resource ceiling to runtime composition. It is a
 traceable input to admission, not a claim that the limits have been measured or approved.
 
-**Status:** schema-backed and logic-tested — schema delivered at `config/schemas/hardware_admission_profile.schema.json`, example profile at `config/defaults/hardware_admission_profile.qcs6490.example.json`; board profile measured on QCS6490 `.98`. **Layer:** runtime.
+**Status:** board-smoke — schema and single-source observation profile cross-tested;
+QCS6490 `.98` workload observations recorded below. **Layer:** runtime.
 **Source:** `src/runtime/admission/vqec_vision_hardware_admission_profile.{hpp,cpp}`,
 `src/runtime/admission/vqec_vision_activation_snapshot.{hpp,cpp}`.
 
@@ -44,11 +45,63 @@ signed or approved measurement.
 
 ## Measurement and acceptance
 
+The service rejects a preview surface count that differs from the deployment's admitted
+`preview_surface_count` before constructing vendor owners. An independent CLI pool size
+must not silently bypass the encoder envelope.
+Tensor-pool admission sums each source's declared `max_tensor_bytes`; model-context
+resident bytes are accounted separately. Model context bytes must not stand in for tensor
+storage. The example's tensor and worker ceilings match the actual candidate configuration.
+
 Before product use, the three teams must pin a workload and profile revision, capture
 real memory allocations including sealed model copies, QNN/encoder/FW surfaces, gallery/
 index, process overhead, source/frame concurrency, DDR and sustained thermal measurements,
 and record units, headroom and owner approvals. On a profile revision change, recompose
 after draining the old generation; never change limits in place beneath live owners.
+
+## QCS6490 .98 observation 2026-09-17
+
+AI APP collected these observations on the user-authorized Qualcomm RB3 Gen2 vision
+mezzanine board, QCS6490, Qualcomm Linux 1.8, kernel `6.6.119`. This is a compatibility-source
+smoke, not released-Camera-Service coexistence or a maximum-capacity benchmark.
+The profile identity is `qcs6490_rb3gen2_single_source_observed`, revision 1.
+
+Workload: one 1920x1080 NV12 source at 30 FPS; YOLOv8n person and SCRFD primary graphs,
+exact-frame FastCV alignment and EdgeFace secondary embedding, portable IoU tracking,
+QTI overlay/H.264 ring preview at 4 Mbit/s, two admitted preview surfaces, protected-gallery
+and derived-index configuration. Models and biometric fixtures are not repository assets.
+The final candidate and native results are pinned in the [Plan 0 review](
+../development/production_composition_foundation_review.md).
+
+| Observation | Method and result | Interpretation |
+|---|---|---|
+| System RAM | `/proc/meminfo`: `MemTotal=5496292 kB` | OS-visible RAM, not AI-exclusive capacity |
+| CPUs | Eight online processors | Not eight guaranteed free AI workers |
+| Process memory | Final ten live samples: maximum `VmHWM=382144 kB`, `VmRSS=380316 kB`, 47–48 threads; earlier four-surface diagnostic HWM `384816 kB` | Process-resident pages, not all device allocations |
+| Thermal | Final CPU/DDR/camera samples 57.7–59.3 C; initial 51–53 C | Short run; earlier live sample 54.6–56.6 C, not sustained thermal acceptance |
+| Trip points | CPU: 110/118/125 C; DDR: 118/125 C; camera: 100/118/125 C, from thermal sysfs | Reported thresholds, not an AI thermal-control contract |
+| CPU memcpy | Native `perf bench mem memcpy -l 1000 -s 16MB`: `5.431499 GB/s` | Cached CPU-copy benchmark, not a measured sustained DDR bandwidth budget |
+| Copy-test thermal | CPU/DDR/camera from 51.2/51.5/51.5 C to 57.7/57.0/55.4 C | Stress-test context only |
+
+The JSON values are conservative startup ceilings for this observed workload. They are
+not all direct hardware measurements. Fields that cannot be attributed to a device counter
+use the actual validated workload's declared envelopes, with that limitation explicit:
+
+| Profile field | Value | Provenance |
+|---|---|---|
+| Total resident | 512 MiB | Actual deployment ceiling, above final sampled 373.2 MiB process HWM; not total system RAM |
+| Frame pool | 8 MiB | Deployment: two admitted frames at a 4 MiB maximum allocation each |
+| Tensor pool | 32 MiB | Actual source `max_tensor_bytes` budget, covering declared model tensors; not a measured QNN allocation trace |
+| Encoder pool | 6220800 bytes | Two packed 1920x1080 NV12 surfaces; GPU padding, ring and vendor internal surfaces are additional overhead |
+| Cascade ROI | 16 MiB | Actual candidate's configured bounded cascade byte budget |
+| DDR estimate | 1200 MiB/s | Startup estimated-load ceiling for the candidate; memcpy is only context and does not prove this limit |
+| FW concurrency | One source | Only one source was exercised; additional sources fail admission |
+| Worker concurrency | Four | One source + two root models + one cascade scheduler slot; not process thread count or measured NPU parallelism |
+| Thermal headroom | 20 percent minimum | Conservative policy input; runtime estimate is not live thermal feedback |
+
+Do not multiply this profile for traffic or multi-source workloads. Re-measure with the
+actual models, source rate, preview demand, gallery size and concurrent FW recording/encoding.
+Do not claim measured DSP preprocessing, end-to-end zero-copy, CPU-target attainment or
+long-duration thermal safety from this record.
 
 ## Limits and next work
 
@@ -57,7 +110,9 @@ after draining the old generation; never change limits in place beneath live own
   exceeded, not that an admitted workload is safe under thermal/FW coexistence.
 - The file is opened by path at startup without signed provenance verification. Provision
   it through an authenticated authority and version it with the deployment/model catalog.
-- No accepted native `.98` profile or released-FW coexistence evidence is recorded.
+- Native `.98` observations support this single-source startup baseline. Independent
+  BSP+FW/AI Model owner acceptance, sustained DDR/thermal telemetry and released-FW
+  coexistence remain Plan 1/5 gates; this is not a general accepted hardware-capacity profile.
 
 ## See also
 

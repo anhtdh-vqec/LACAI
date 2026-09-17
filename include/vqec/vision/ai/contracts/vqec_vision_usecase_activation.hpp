@@ -3,10 +3,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_feature_catalog.hpp"
 
 namespace vqec::vision::ai {
 
@@ -84,7 +85,7 @@ struct feature_scoped_association_record {
     std::string source_id_;
     std::string usecase_id_;
     std::string feature_id_;
-    std::uint16_t model_slot_{0};
+    std::uint16_t model_slot_{std::numeric_limits<std::uint16_t>::max()};
     std::vector<std::string> attribute_scopes_;
     std::uint64_t deployment_revision_{0};
     std::uint64_t usecase_catalog_revision_{0};
@@ -147,7 +148,7 @@ struct feature_authority_projection {
 [[nodiscard]] status vqec_vision_ai_core_ucact_project_feature_association(
     const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
     const deployment_config& _deployment, const std::string& _source_id,
-    const std::string& _feature_id, feature_scoped_association_record& _association);
+    const feature_catalog_entry& _feature, feature_scoped_association_record& _association);
 
 }  // namespace vqec::vision::ai
 

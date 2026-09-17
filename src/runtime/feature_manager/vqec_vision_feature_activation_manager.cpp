@@ -168,6 +168,24 @@ status feature_activation_manager::vqec_vision_ai_ftmgr_famgr_reconcile(
         for (const auto& attr_dep : feature->attribute_dependencies_) {
             record.association_.attribute_scopes_.push_back(attr_dep.schema_id_);
         }
+        if (!request.association_.usecase_id_.empty()) {
+            const auto& scoped = request.association_;
+            if (scoped.source_id_ != request.source_id_ ||
+                scoped.feature_id_ != request.feature_id_ ||
+                scoped.deployment_revision_ != deployment_->revision_ ||
+                scoped.model_catalog_revision_ != models_->revision_ ||
+                scoped.model_slot_ != record.association_.model_slot_ ||
+                scoped.config_revision_ != request.configuration_.revision_ ||
+                scoped.policy_revision_ == 0 ||
+                scoped.attribute_scopes_ != record.association_.attribute_scopes_ ||
+                scoped.desired_enabled_ != request.desired_enabled_ ||
+                scoped.entitlement_granted_ != request.entitlement_granted_ ||
+                scoped.resource_admitted_ != request.resource_admitted_) {
+                return {status_code::invalid_argument,
+                    "feature activation scoped authority does not match catalog or request"};
+            }
+            record.association_ = scoped;
+        }
 
         if (!request.desired_enabled_) {
             record.state_ = feature_effective_state::disabled;

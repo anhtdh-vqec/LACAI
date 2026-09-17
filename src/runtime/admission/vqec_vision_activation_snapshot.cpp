@@ -112,6 +112,7 @@ status vqec_vision_ai_admis_actsp_build_snapshot(
             static_cast<std::uint32_t>(total_bps / (1024ULL * 1024ULL));
 
         candidate.resources_.frame_pool_bytes_ += slot.frame_pool_bytes_;
+        candidate.resources_.tensor_pool_bytes_ += source.memory_.max_tensor_bytes_;
         candidate.resources_.encoder_pool_bytes_ += slot.encoder_pool_bytes_;
         candidate.resources_.cascade_roi_bytes_ += source.cascade_.max_bytes_;
         candidate.resources_.estimated_ddr_bandwidth_mbps_ += slot.estimated_ddr_mbps_;
@@ -139,7 +140,6 @@ status vqec_vision_ai_admis_actsp_build_snapshot(
         ++candidate.active_model_count_;
     }
 
-    candidate.resources_.tensor_pool_bytes_ = required_model_bytes;
     candidate.resources_.fw_concurrency_slots_ = candidate.source_count_;
     candidate.resources_.total_memory_bytes_ = candidate.total_resident_bytes_ +
         candidate.resources_.encoder_pool_bytes_ +

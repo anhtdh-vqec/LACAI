@@ -21,12 +21,16 @@ inline constexpr std::uint64_t g_default_join_timeout_ns = 500000000ULL;  // 500
 
 struct cascade_worker_task {
     std::uint64_t steady_now_ns_{0};
+    std::uint64_t policy_revision_{0};
     preview_frame_key key_{};
+    preview_geometry geometry_{};
     std::vector<observation> observations_{};
 };
 
 struct cascade_worker_completion {
     preview_frame_key key_{};
+    std::uint64_t policy_revision_{0};
+    observation_batch tracked_{};
     std::vector<alignment_result> aligned_{};
     std::vector<embedding_result> embeddings_{};
     cascade_coordinator_report report_{};
@@ -48,7 +52,8 @@ public:
         const cascade_coordinator_config& _config);
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_start();
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_schedule(
-        std::uint64_t _steady_now_ns, const observation_batch& _batch);
+        std::uint64_t _steady_now_ns, const observation_batch& _batch,
+        std::uint64_t _policy_revision = 0);
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_poll_completion(
         cascade_worker_completion& _completion);
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_quiescent_reset(

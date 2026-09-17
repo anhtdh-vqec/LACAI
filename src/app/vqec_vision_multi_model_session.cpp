@@ -246,6 +246,10 @@ status multi_model_session::vqec_vision_ai_appl_mmses_request_stop(
 status multi_model_session::vqec_vision_ai_appl_mmses_stop_graph(
     std::uint64_t _steady_now_ns) {
     if (drain_graph_slot_ >= config_.graph_count_) {
+        // The pump retained accepted primary frames while the graphs were outstanding.
+        // Their results were consumed by this drain path rather than pump_poll_result;
+        // now every graph is reconciled, release only these completed primary owners.
+        pump_.vqec_vision_ai_appl_mmump_begin_stop();
         // Release the FW source only after every retained cascade frame has been completed
         // by its dependent; timeout is handled by the session stop deadline, not here.
         if (cascade_store_ != nullptr &&

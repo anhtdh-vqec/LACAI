@@ -6,13 +6,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <mutex>
 #include <vector>
 #include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 
-// Serial owner. Acquired frame copies MUST survive every submitted hardware read.
+// Thread-safe owner. Acquired frame copies MUST survive every submitted hardware read.
 // Retire closes admission; complete is called only after actual task completion.
 //
 // A completion ticket carries a store domain in its high bits. Tickets are therefore not
@@ -43,6 +44,7 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_sched_cfstr_retain(
         const preview_frame_key& _key, const raw_frame& _frame) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_valid_) {
             return {status_code::invalid_state, "cascade frame store has no admitted budget"};
         }
@@ -74,6 +76,7 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_sched_cfstr_acquire(
         const preview_frame_key& _key, raw_frame& _frame, std::uint64_t& _ticket) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_valid_) {
             return {status_code::invalid_state, "cascade frame store has no admitted budget"};
         }
@@ -97,19 +100,23 @@ public:
         return {status_code::invalid_state, "exact cascade frame unavailable"};
     }
     [[nodiscard]] status vqec_vision_ai_sched_cfstr_retire(const preview_frame_key& _key) {
+        raw_frame released_frame;
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_valid_) {
             return {status_code::invalid_state, "cascade frame store has no admitted budget"};
         }
         for (auto& entry : slots_) {
             if (entry.occupied_ && vqec_vision_ai_sched_cfstr_equal(entry.key_, _key)) {
                 entry.admits_tasks_ = false;
-                vqec_vision_ai_sched_cfstr_reclaim(entry);
+                vqec_vision_ai_sched_cfstr_reclaim(entry, released_frame);
                 return {};
             }
         }
         return {status_code::invalid_state, "frame is not retained"};
     }
     [[nodiscard]] status vqec_vision_ai_sched_cfstr_complete(std::uint64_t _ticket) {
+        raw_frame released_frame;
+        std::lock_guard<std::mutex> lock(mutex_);
         // Reject a ticket minted by another (or an older) store instance.
         if (!is_valid_ || _ticket == 0 ||
             (_ticket >> g_domain_shift) != domain_) {
@@ -119,13 +126,14 @@ public:
             auto found = std::find(entry.tickets_.begin(), entry.tickets_.end(), _ticket);
             if (entry.occupied_ && found != entry.tickets_.end()) {
                 *found = 0;
-                vqec_vision_ai_sched_cfstr_reclaim(entry);
+                vqec_vision_ai_sched_cfstr_reclaim(entry, released_frame);
                 return {};
             }
         }
         return {status_code::invalid_state, "completion ticket is not outstanding"};
     }
     [[nodiscard]] std::uint64_t vqec_vision_ai_sched_cfstr_bytes() const noexcept {
+        std::lock_guard<std::mutex> lock(mutex_);
         return bytes_;
     }
 private:
@@ -156,15 +164,16 @@ private:
             _left.frame_id_ == _right.frame_id_ &&
             _left.source_pts_ns_ == _right.source_pts_ns_;
     }
-    void vqec_vision_ai_sched_cfstr_reclaim(slot& _slot) {
+    void vqec_vision_ai_sched_cfstr_reclaim(slot& _slot, raw_frame& _released_frame) {
         if (!_slot.admits_tasks_ && std::all_of(_slot.tickets_.begin(), _slot.tickets_.end(),
                 [](std::uint64_t _ticket) { return _ticket == 0; })) {
             bytes_ -= _slot.frame_.descriptor_.allocation_size_bytes_;
-            _slot.frame_ = {};
+            _released_frame = std::move(_slot.frame_);
             _slot.occupied_ = false;
         }
     }
     std::vector<slot> slots_;
+    mutable std::mutex mutex_;
     std::uint64_t max_bytes_{0};
     std::uint64_t bytes_{0};
     std::uint64_t next_counter_{1};

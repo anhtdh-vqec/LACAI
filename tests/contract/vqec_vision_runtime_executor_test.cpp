@@ -6,8 +6,10 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -513,7 +515,7 @@ int main() {
            bundle->vqec_vision_ai_appl_rcfac_get_feature_pipeline(0) != nullptr);
     auto* executor = bundle->vqec_vision_ai_appl_rcfac_get_executor();
     vqec_vision_ai_ctest_rtexe_aligner aligner;
-    cascade_coordinator coordinator;
+    cascade_execution_worker worker;
     cascade_coordinator_config cascade_config;
     cascade_config.aligner_ = &aligner;
     cascade_config.lease_ = bundle->vqec_vision_ai_appl_rcfac_get_session(0);
@@ -524,10 +526,11 @@ int main() {
     cascade_config.template_.reference_points_ = {{20.0F, 30.0F}, {80.0F, 30.0F},
         {50.0F, 55.0F}, {30.0F, 90.0F}, {70.0F, 90.0F}};
     cascade_config.max_tasks_per_frame_ = 4;
-    assert(coordinator.vqec_vision_ai_appl_cscrd_configure(cascade_config).code_ ==
+    assert(worker.vqec_vision_ai_appl_cxwrk_configure(cascade_config).code_ ==
            status_code::ok);
-    assert(executor->vqec_vision_ai_appl_rtexe_bind_cascade(
-               0, 0, coordinator, 4).code_ == status_code::ok);
+    assert(worker.vqec_vision_ai_appl_cxwrk_start().code_ == status_code::ok);
+    assert(executor->vqec_vision_ai_appl_rtexe_bind_cascade_worker(
+               0, 0, worker).code_ == status_code::ok);
     executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(output_policy_gate, event_sink);
     auto* composition = bundle->vqec_vision_ai_appl_rcfac_get_composition();
     assert(composition->vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
@@ -542,15 +545,18 @@ int main() {
     }
 
     bool routed = false;
+    bool cascade_completed = false;
     std::uint64_t tracked_count = 0;
     std::uint64_t event_count = 0;
     std::uint64_t now_ns = 1000000;
-    for (unsigned step = 0; step < 400 && !routed; ++step, now_ns += 1000000) {
+    for (unsigned step = 0; step < 800 && (!routed || !cascade_completed);
+         ++step, now_ns += 1000000) {
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
         assert(stepped.code_ == status_code::ok || stepped.code_ == status_code::pending ||
                stepped.code_ == status_code::invalid_state);
         if (stepped.code_ != status_code::ok) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
         std::array<observation_batch, deployment_limits::g_max_models_per_source>
@@ -563,10 +569,14 @@ int main() {
             continue;
         }
         assert(taken.source_index_ == 0 && taken.model_slot_ == 0);
-        assert(taken.has_cascade_ && taken.cascade_.accepted_ == 1 &&
-               taken.cascade_.failed_ == 0);
         assert(tracked_by_model[0].observations_.size() == 1);
         assert(tracked_by_model[0].observations_[0].track_id_ == 1);
+        if (taken.has_cascade_) {
+            assert(taken.cascade_.accepted_ == 1 && taken.cascade_.failed_ == 0);
+            assert(taken.captured_policy_revision_ == 1);
+            cascade_completed = true;
+            continue;
+        }
         tracked_count = tracked_by_model[0].observations_.size();
         // One healthy feature plus one failing feature must both be retained: the tracked
         // output and the successful batch survive, and the first error is recorded.
@@ -587,6 +597,7 @@ int main() {
         routed = true;
     }
     assert(routed);
+    assert(cascade_completed);
     assert(tracked_count == 1);
     assert(event_count == 1);
 
@@ -598,7 +609,11 @@ int main() {
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, step_report);
         assert(progressed.code_ == status_code::ok ||
                progressed.code_ == status_code::pending);
-        stale_pending = executor->vqec_vision_ai_appl_rtexe_has_pending();
+        stale_pending = executor->vqec_vision_ai_appl_rtexe_has_pending() &&
+            step_report.has_feature_fanout_;
+        if (!stale_pending && executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            executor->vqec_vision_ai_appl_rtexe_discard_pending();
+        }
     }
     assert(stale_pending);
     std::array<observation_batch, deployment_limits::g_max_models_per_source> stale_tracked;
@@ -633,6 +648,9 @@ int main() {
         executor->vqec_vision_ai_appl_rtexe_request_stop(now_ns);
     assert(stop_request.code_ == status_code::ok ||
            stop_request.code_ == status_code::pending);
+    // Mirror production: complete worker work before synthetic-clock source drain.
+    assert(worker.vqec_vision_ai_appl_cxwrk_drain_and_join(1000000000ULL).code_ ==
+           status_code::ok);
     now_ns += 1000000;
     bool stopped = false;
     for (unsigned step = 0; step < 400 && !stopped; ++step, now_ns += 1000000) {
@@ -648,5 +666,7 @@ int main() {
             application_composition_state::stopped;
     }
     assert(stopped);
+    assert(worker.vqec_vision_ai_appl_cxwrk_drain_and_join(1000000000ULL).code_ ==
+           status_code::ok);
     return 0;
 }

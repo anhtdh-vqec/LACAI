@@ -327,14 +327,17 @@ status vqec_vision_ai_core_ucact_project_feature_authority(
 status vqec_vision_ai_core_ucact_project_feature_association(
     const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
     const deployment_config& _deployment, const std::string& _source_id,
-    const std::string& _feature_id, feature_scoped_association_record& _association) {
+    const feature_catalog_entry& _feature, feature_scoped_association_record& _association) {
     if (!vqec_vision_ai_cntr_ident_is_valid(
             _source_id, usecase_activation_limits::g_max_identifier_bytes) ||
         !vqec_vision_ai_cntr_ident_is_valid(
-            _feature_id, usecase_activation_limits::g_max_identifier_bytes) ||
+            _feature.feature_id_, usecase_activation_limits::g_max_identifier_bytes) ||
+        _feature.input_mode_ != feature_input_mode::single_model ||
+        _feature.model_dependencies_.size() != 1 ||
         _usecases.revision_ == 0 ||
         _snapshot.usecase_catalog_revision_ != _usecases.revision_ ||
-        _snapshot.deployment_revision_ != _deployment.revision_) {
+        _snapshot.deployment_revision_ != _deployment.revision_ ||
+        _snapshot.policy_revision_ == 0 || _snapshot.config_revision_ == 0) {
         return {status_code::invalid_argument,
             "feature association projection identity or revision is invalid"};
     }
@@ -344,13 +347,20 @@ status vqec_vision_ai_core_ucact_project_feature_association(
     if (source == nullptr) {
         return {status_code::invalid_argument, "source not found in deployment"};
     }
+    const auto& dependency = _feature.model_dependencies_[0].model_id_;
+    const auto model_position = std::find(
+        source->model_ids_.begin(), source->model_ids_.end(), dependency);
+    if (model_position == source->model_ids_.end()) {
+        return {status_code::unsupported, "feature model is not assigned to source"};
+    }
 
     feature_scoped_association_record best_candidate{};
     bool found_association = false;
 
     for (const auto& usecase : _usecases.usecases_) {
         if (std::find(usecase.feature_ids_.begin(), usecase.feature_ids_.end(),
-                _feature_id) == usecase.feature_ids_.end()) {
+                _feature.feature_id_) == usecase.feature_ids_.end() ||
+            !vqec_vision_ai_core_ucact_usecase_contains_root(usecase, dependency)) {
             continue;
         }
         for (const auto& record : _snapshot.records_) {
@@ -362,20 +372,17 @@ status vqec_vision_ai_core_ucact_project_feature_association(
             feature_scoped_association_record candidate{};
             candidate.source_id_ = _source_id;
             candidate.usecase_id_ = usecase.usecase_id_;
-            candidate.feature_id_ = _feature_id;
+            candidate.feature_id_ = _feature.feature_id_;
             candidate.deployment_revision_ = _snapshot.deployment_revision_;
             candidate.usecase_catalog_revision_ = _snapshot.usecase_catalog_revision_;
             candidate.model_catalog_revision_ = _snapshot.model_catalog_revision_;
             candidate.policy_revision_ = _snapshot.policy_revision_;
             candidate.config_revision_ = _snapshot.config_revision_;
 
-            candidate.model_slot_ = 0;
-            for (std::size_t m = 0; m < source->model_ids_.size(); ++m) {
-                if (std::find(usecase.root_model_ids_.begin(), usecase.root_model_ids_.end(),
-                        source->model_ids_[m]) != usecase.root_model_ids_.end()) {
-                    candidate.model_slot_ = static_cast<std::uint16_t>(m);
-                    break;
-                }
+            candidate.model_slot_ = static_cast<std::uint16_t>(
+                std::distance(source->model_ids_.begin(), model_position));
+            for (const auto& attribute : _feature.attribute_dependencies_) {
+                candidate.attribute_scopes_.push_back(attribute.schema_id_);
             }
 
             candidate.state_ = record.state_;

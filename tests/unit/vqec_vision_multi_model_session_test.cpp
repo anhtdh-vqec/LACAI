@@ -401,17 +401,20 @@ int main() {
             ++now;
         }
         drain_source.vqec_vision_ai_unit_mmsts_supply_frame(1);
+        const std::weak_ptr<const void> draining_owner = drain_source.frame_.owner_;
         check(drain_session.vqec_vision_ai_appl_mmses_step(now++, result, progress).code_ ==
               status_code::ok);
         drain_graph.vqec_vision_ai_unit_mmsts_complete_result();
         check(drain_session.vqec_vision_ai_appl_mmses_request_stop(now++).code_ ==
               status_code::ok);
+        check(!draining_owner.expired());
         while (drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
                    multi_model_session_state::stopped && now <= 40) {
             (void)drain_session.vqec_vision_ai_appl_mmses_step(now++, result, progress);
         }
         check(drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
               multi_model_session_state::stopped);
+        check(draining_owner.expired());
         tensor_result drained;
         check(drain_session.vqec_vision_ai_appl_mmses_take_drain_result(drained).code_ ==
               status_code::ok);

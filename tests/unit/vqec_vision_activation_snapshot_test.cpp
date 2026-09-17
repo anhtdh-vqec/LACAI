@@ -97,6 +97,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
 
     // Verify resource breakdown is computed and non-zero
     if (snapshot.resources_.frame_pool_bytes_ == 0 ||
+        snapshot.resources_.tensor_pool_bytes_ != 16ULL * 8ULL * g_mib ||
         snapshot.resources_.encoder_pool_bytes_ == 0 ||
         snapshot.resources_.cascade_roi_bytes_ == 0 ||
         snapshot.resources_.estimated_ddr_bandwidth_mbps_ == 0 ||
@@ -104,6 +105,14 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
         snapshot.resources_.worker_concurrency_ == 0 ||
         snapshot.resources_.thermal_headroom_pct_ == 0) {
         throw std::runtime_error("resource envelope breakdown not properly populated");
+    }
+
+    auto insufficient_tensors = fixture_profile;
+    insufficient_tensors.max_tensor_pool_bytes_ = 32ULL * g_mib;
+    activation_snapshot tensor_rejected;
+    if (vqec_vision_ai_admis_actsp_build_snapshot(deployment, catalog,
+            insufficient_tensors, tensor_rejected).code_ != status_code::resource_exhausted) {
+        throw std::runtime_error("tensor admission used shared model bytes instead of source pools");
     }
 
     // Negative test 1: invalid model ID in deployment
@@ -166,7 +175,7 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
         throw std::runtime_error("invalid hardware profile changed output");
     }
 
-    // Validate that the QCS6490 example profile loads and admits the 16-source deployment
+    // The observed profile admits one source, never the 16-source schema ceiling.
     const std::string candidate_paths[] = {
         "config/defaults/hardware_admission_profile.qcs6490.example.json",
         "../config/defaults/hardware_admission_profile.qcs6490.example.json",
@@ -191,14 +200,22 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
     if (load_res.code_ != status_code::ok) {
         throw std::runtime_error("failed to load QCS6490 example profile: " + load_res.message_);
     }
-    if (qcs_profile.profile_id_ != "qcs6490_rb3gen2_measured_profile" ||
+    if (qcs_profile.profile_id_ != "qcs6490_rb3gen2_single_source_observed" ||
         qcs_profile.target_id_ != "qcs6490" ||
-        qcs_profile.revision_ != 1) {
+        qcs_profile.revision_ != 1 || qcs_profile.max_fw_concurrency_slots_ != 1) {
         throw std::runtime_error("QCS6490 example profile fields mismatch");
     }
     activation_snapshot qcs_snapshot;
+    if (vqec_vision_ai_admis_actsp_build_snapshot(
+            deployment, catalog, qcs_profile, qcs_snapshot).code_ !=
+        status_code::unsupported) {
+        throw std::runtime_error("single-source QCS6490 profile admitted 16 sources");
+    }
+    auto single_source = deployment;
+    single_source.sources_.resize(1);
+    single_source.max_total_resident_bytes_ = 256 * g_mib;
     const auto adm_res = vqec_vision_ai_admis_actsp_build_snapshot(
-        deployment, catalog, qcs_profile, qcs_snapshot);
+        single_source, catalog, qcs_profile, qcs_snapshot);
     if (adm_res.code_ != status_code::ok) {
         throw std::runtime_error("QCS6490 example profile failed admission: " + adm_res.message_);
     }

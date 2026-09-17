@@ -16,6 +16,8 @@ using namespace vqec::vision::ai;
 
 namespace {
 
+constexpr auto g_worker_poll_interval = std::chrono::milliseconds(1);
+
 class async_session final : public source_session_port {
 public:
     explicit async_session(bool _gate) : gate_(_gate) {}
@@ -114,6 +116,7 @@ int main() {
         if (report.has_result_ && report.source_index_ == 0) {
             saw_fast_result = true;
         }
+        std::this_thread::sleep_for(g_worker_poll_interval);
     }
     check(saw_fast_result);
 
@@ -121,6 +124,7 @@ int main() {
     // deterministically blocked in the session call.
     for (unsigned spin = 0; spin < 2000 && !slow.has_started(); ++spin) {
         (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
+        std::this_thread::sleep_for(g_worker_poll_interval);
     }
     // The slow source is blocked in its worker; the control step must return quickly.
     check(slow.wait_started(1));
@@ -138,6 +142,7 @@ int main() {
         if (report.has_result_ && report.source_index_ == 1) {
             saw_slow_result = true;
         }
+        std::this_thread::sleep_for(g_worker_poll_interval);
     }
     check(saw_slow_result);
 
@@ -148,6 +153,7 @@ int main() {
             multi_source_supervisor_state::stopped) {
             break;
         }
+        std::this_thread::sleep_for(g_worker_poll_interval);
     }
     check(fast.stop_calls_ == 1 && slow.stop_calls_ == 1);
     check(supervisor.vqec_vision_ai_appl_mssup_get_state() ==

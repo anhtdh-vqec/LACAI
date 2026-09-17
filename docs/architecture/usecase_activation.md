@@ -37,6 +37,13 @@ non-empty result is passed through deployment and model-catalog validation befor
 
 ## Transactional behavior
 
+Single-model feature projection selects one complete usecase association whose declared
+feature and root-model dependency match the source assignment. Its immutable record includes
+the exact model slot (an unset slot is invalid), attribute schema scopes and nonzero
+configuration/policy revisions. No ready record may combine gates from unrelated usecases.
+Missing model assignment leaves the caller's prior projection unchanged. Production passes
+this record through feature reconciliation and derives output scopes from it.
+
 The resolver is transactional: malformed, incomplete or duplicate snapshots leave its
 output objects unchanged. The service now implements full-generation replacement: stop
 scheduling/output, drain backend work and source leases, destroy obsolete owners, then

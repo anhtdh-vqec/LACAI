@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <new>
 #include <utility>
@@ -52,8 +53,13 @@ status vqec_vision_ai_appl_cxwrk_quantize(
 }  // namespace
 
 cascade_execution_worker::~cascade_execution_worker() noexcept {
-    (void)vqec_vision_ai_appl_cxwrk_drain_and_join(
+    const auto drained = vqec_vision_ai_appl_cxwrk_drain_and_join(
         cascade_worker_limits::g_default_join_timeout_ns);
+    // A timed-out worker still borrows this object and its hardware ports. The process
+    // must fail-stop rather than detach the thread and destroy those owners underneath it.
+    if (drained.code_ != status_code::ok) {
+        std::terminate();
+    }
 }
 
 status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_configure(
@@ -162,17 +168,29 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_start() {
 }
 
 status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_schedule(
-    std::uint64_t _steady_now_ns, const observation_batch& _batch) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::uint64_t _steady_now_ns, const observation_batch& _batch,
+    std::uint64_t _policy_revision) {
+    std::unique_lock<std::mutex> lock(mutex_);
     if (!is_configured_ || !is_running_ || is_stopping_ || is_exiting_) {
-        return {status_code::invalid_state, "cascade worker is not accepting tasks"};
+        auto* lease = config_.lease_;
+        const bool is_drain = is_stopping_ || is_exiting_;
+        lock.unlock();
+        if (lease != nullptr && _batch.frame_.source_epoch_ != 0 &&
+            _batch.frame_.frame_id_ != 0) {
+            (void)lease->vqec_vision_ai_ports_cflse_retire(_batch.frame_);
+        }
+        return is_drain ? status{} :
+            status{status_code::invalid_state, "cascade worker is not accepting tasks"};
     }
     if (_batch.frame_.source_epoch_ == 0 || _batch.frame_.frame_id_ == 0) {
         return {status_code::invalid_argument, "cascade batch has no source frame identity"};
     }
-    if (pending_queue_.size() >= cascade_worker_limits::g_max_queue_depth) {
+    if (pending_queue_.size() + completion_queue_.size() +
+            static_cast<std::size_t>(has_inflight_) >=
+        cascade_worker_limits::g_max_queue_depth) {
         const auto count = static_cast<std::uint64_t>(_batch.observations_.size());
         metrics_.tasks_skipped_ += count;
+        lock.unlock();
         if (config_.lease_ != nullptr) {
             (void)config_.lease_->vqec_vision_ai_ports_cflse_retire(_batch.frame_);
         }
@@ -180,7 +198,9 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_schedule(
     }
     cascade_worker_task task;
     task.steady_now_ns_ = _steady_now_ns;
+    task.policy_revision_ = _policy_revision;
     task.key_ = _batch.frame_;
+    task.geometry_ = _batch.geometry_;
     task.observations_ = _batch.observations_;
     pending_queue_.push_back(std::move(task));
     metrics_.queue_depth_ = pending_queue_.size();
@@ -225,12 +245,13 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_worker_loop() noexcept 
         if (current_task.key_.source_epoch_ != 0) {
             cascade_worker_completion completion;
             vqec_vision_ai_appl_cxwrk_process_task(current_task, completion);
+            completion.tracked_.frame_ = current_task.key_;
+            completion.tracked_.geometry_ = current_task.geometry_;
+            completion.tracked_.observations_ = std::move(current_task.observations_);
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 has_inflight_ = false;
-                if (completion_queue_.size() < cascade_worker_limits::g_max_completions) {
-                    completion_queue_.push_back(std::move(completion));
-                }
+                completion_queue_.push_back(std::move(completion));
                 idle_cv_.notify_all();
             }
         }
@@ -240,6 +261,7 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_worker_loop() noexcept 
 void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
     const cascade_worker_task& _task, cascade_worker_completion& _completion) noexcept {
     _completion.key_ = _task.key_;
+    _completion.policy_revision_ = _task.policy_revision_;
     _completion.report_ = {};
     _completion.task_status_ = {};
 
@@ -271,7 +293,10 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
             observation.landmarks_.schema_id_.empty() ||
             budget_exhausted) {
             ++_completion.report_.skipped_;
-            ++metrics_.tasks_skipped_;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                ++metrics_.tasks_skipped_;
+            }
             continue;
         }
 
@@ -287,11 +312,17 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                 _completion.task_status_ = acquired;
             }
             ++_completion.report_.failed_;
-            ++metrics_.tasks_failed_;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                ++metrics_.tasks_failed_;
+            }
             continue;
         }
 
-        ++metrics_.active_tasks_;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ++metrics_.active_tasks_;
+        }
         alignment_result result;
         std::uint64_t align_ticket = 0;
         const auto aligned = config_.aligner_->vqec_vision_ai_ports_imaln_align(
@@ -300,6 +331,7 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
         bool task_ok = alignment_submitted;
         if (!task_ok && _completion.task_status_.code_ == status_code::ok) {
             _completion.task_status_ = aligned;
+            std::lock_guard<std::mutex> lock(mutex_);
             metrics_.root_backend_error_code_ = aligned.code_;
         }
 
@@ -309,8 +341,11 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                 vqec_vision_ai_ports_imaln_poll_completion(align_ticket, align_complete);
             if (completion.code_ != status_code::ok || !align_complete) {
                 task_ok = false;
-                metrics_.root_backend_error_code_ = completion.code_ != status_code::ok ?
-                    completion.code_ : status_code::protocol_error;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    metrics_.root_backend_error_code_ = completion.code_ != status_code::ok ?
+                        completion.code_ : status_code::protocol_error;
+                }
                 if (_completion.task_status_.code_ == status_code::ok) {
                     _completion.task_status_ = completion.code_ != status_code::ok ?
                         completion : status{status_code::protocol_error, "alignment incomplete"};
@@ -335,6 +370,7 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                     armed_source_epoch_ = key.source_epoch_;
                 } else {
                     task_ok = false;
+                    std::lock_guard<std::mutex> lock(mutex_);
                     metrics_.root_backend_error_code_ = armed.code_;
                     if (_completion.task_status_.code_ == status_code::ok) {
                         _completion.task_status_ = armed;
@@ -361,6 +397,7 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                         _task.steady_now_ns_, secondary_ticket);
                 if (submitted.code_ != status_code::ok) {
                     task_ok = false;
+                    std::lock_guard<std::mutex> lock(mutex_);
                     metrics_.root_backend_error_code_ = submitted.code_;
                     if (_completion.task_status_.code_ == status_code::ok) {
                         _completion.task_status_ = submitted;
@@ -377,10 +414,14 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                     if (decoded.code_ == status_code::ok) {
                         _completion.embeddings_.push_back(std::move(embedding));
                         ++_completion.report_.embedded_;
-                        ++metrics_.tasks_embedded_;
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            ++metrics_.tasks_embedded_;
+                        }
                         pushed_embedding = true;
                     } else {
                         task_ok = false;
+                        std::lock_guard<std::mutex> lock(mutex_);
                         metrics_.root_backend_error_code_ = decoded.code_;
                         if (_completion.task_status_.code_ == status_code::ok) {
                             _completion.task_status_ = decoded;
@@ -394,8 +435,11 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
         const bool must_quarantine = alignment_submitted && !align_complete;
         if (must_quarantine) {
             task_recovery_required = true;
-            recovery_required_ = true;
-            ++metrics_.quarantine_count_;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recovery_required_ = true;
+                ++metrics_.quarantine_count_;
+            }
             if (_completion.task_status_.code_ == status_code::ok) {
                 _completion.task_status_ = {status_code::timeout,
                     "alignment backend timed out; frame lease quarantined"};
@@ -410,15 +454,24 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
             _completion.task_status_ = {status_code::invalid_state,
                 "cascade frame lease completion failed"};
         }
-        if (complete_ok && metrics_.active_tasks_ > 0) {
-            --metrics_.active_tasks_;
+        if (complete_ok) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (metrics_.active_tasks_ > 0) {
+                --metrics_.active_tasks_;
+            }
         }
         if (task_ok && complete_ok) {
             ++_completion.report_.accepted_;
-            ++metrics_.tasks_accepted_;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                ++metrics_.tasks_accepted_;
+            }
         } else {
             ++_completion.report_.failed_;
-            ++metrics_.tasks_failed_;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                ++metrics_.tasks_failed_;
+            }
             if (pushed_aligned) {
                 _completion.aligned_.pop_back();
                 --accepted;
@@ -426,6 +479,7 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
             if (pushed_embedding) {
                 _completion.embeddings_.pop_back();
                 --_completion.report_.embedded_;
+                std::lock_guard<std::mutex> lock(mutex_);
                 --metrics_.tasks_embedded_;
             }
         }
@@ -437,7 +491,10 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
             _completion.task_status_ = retired;
         }
         ++_completion.report_.failed_;
-        ++metrics_.tasks_failed_;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ++metrics_.tasks_failed_;
+        }
     }
     if (task_recovery_required && _completion.task_status_.code_ == status_code::ok) {
         _completion.task_status_ = {status_code::timeout, "retained frame requires recovery"};
@@ -451,16 +508,21 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_quiescent_reset(
         return {};
     }
     // Flush pending unstarted tasks and retire their frame leases safely
-    while (!pending_queue_.empty()) {
-        auto task = std::move(pending_queue_.front());
-        pending_queue_.pop_front();
+    is_stopping_ = true;
+    std::deque<cascade_worker_task> discarded;
+    discarded.swap(pending_queue_);
+    for (const auto& task : discarded) {
         metrics_.tasks_skipped_ += task.observations_.size();
+    }
+    metrics_.queue_depth_ = 0;
+    metrics_.oldest_job_ns_ = 0;
+    lock.unlock();
+    for (const auto& task : discarded) {
         if (config_.lease_ != nullptr) {
             (void)config_.lease_->vqec_vision_ai_ports_cflse_retire(task.key_);
         }
     }
-    metrics_.queue_depth_ = 0;
-    metrics_.oldest_job_ns_ = 0;
+    lock.lock();
 
     // Wait for inflight task to complete within the bounded timeout
     const auto wait_limit = std::chrono::nanoseconds(_timeout_ns);
@@ -473,14 +535,17 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_quiescent_reset(
         return {status_code::timeout,
             "quiescent reset timed out waiting for inflight task; recovery required"};
     }
+    if (stop_ns_ == 0 && !is_exiting_) {
+        is_stopping_ = false;
+    }
     return {};
 }
 
 status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_request_stop(
     std::uint64_t _steady_now_ns) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!is_stopping_) {
-        is_stopping_ = true;
+    is_stopping_ = true;
+    if (stop_ns_ == 0) {
         stop_ns_ = _steady_now_ns;
     }
     metrics_.stop_duration_ns_ = _steady_now_ns >= stop_ns_ ? _steady_now_ns - stop_ns_ : 0;
@@ -507,11 +572,7 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_drain_and_join(
     });
     if (!finished) {
         recovery_required_ = true;
-        if (worker_.joinable()) {
-            worker_.detach();
-        }
-        is_running_ = false;
-        return {status_code::timeout, "cascade execution worker join timed out; thread detached"};
+        return {status_code::timeout, "cascade execution worker join timed out; owner retained"};
     }
     if (worker_.joinable()) {
         worker_.join();

@@ -223,6 +223,10 @@ void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
     usecases.usecases_[2].feature_ids_ = {"person_feature"};
 
     const auto deployment = vqec_vision_ai_unit_ucatst_make_deployment();
+    feature_catalog_entry feature;
+    feature.feature_id_ = "person_feature";
+    feature.model_dependencies_.push_back({"detector", "person_model"});
+    feature.attribute_dependencies_.push_back({"person.color", "1", 1});
     usecase_activation_snapshot snapshot;
     snapshot.usecase_catalog_revision_ = usecases.revision_;
     snapshot.deployment_revision_ = deployment.revision_;
@@ -260,11 +264,12 @@ void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
 
     feature_scoped_association_record association;
     auto projected = vqec_vision_ai_core_ucact_project_feature_association(
-        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+        usecases, snapshot, deployment, "camera_front", feature, association);
     if (projected.code_ != status_code::ok || !association.is_ready() ||
         association.usecase_id_ != "person_detection" ||
         association.feature_id_ != "person_feature" ||
         association.model_slot_ != 0 ||
+        association.attribute_scopes_ != std::vector<std::string>{"person.color"} ||
         association.policy_revision_ != 10 ||
         association.config_revision_ != 20 ||
         association.deployment_revision_ != deployment.revision_ ||
@@ -277,7 +282,7 @@ void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
     snapshot.records_[0].state_ = usecase_effective_state::denied;
     snapshot.records_[0].reason_code_ = status_code::unauthorized;
     projected = vqec_vision_ai_core_ucact_project_feature_association(
-        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+        usecases, snapshot, deployment, "camera_front", feature, association);
     if (projected.code_ != status_code::ok || association.is_ready() ||
         association.state_ != usecase_effective_state::denied ||
         association.reason_code_ != status_code::unauthorized ||
@@ -294,7 +299,7 @@ void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
     snapshot.records_[1].entitlement_granted_ = true;
     snapshot.records_[1].state_ = usecase_effective_state::disabled;
     projected = vqec_vision_ai_core_ucact_project_feature_association(
-        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+        usecases, snapshot, deployment, "camera_front", feature, association);
     if (projected.code_ != status_code::ok || association.is_ready()) {
         throw std::runtime_error("cross-grant combining allowed unverified ready association");
     }
@@ -305,10 +310,18 @@ void vqec_vision_ai_unit_ucatst_check_feature_association_projection() {
     snapshot.records_[1].desired_enabled_ = false;
     snapshot.records_[1].state_ = usecase_effective_state::disabled;
     projected = vqec_vision_ai_core_ucact_project_feature_association(
-        usecases, snapshot, deployment, "camera_front", "person_feature", association);
+        usecases, snapshot, deployment, "camera_front", feature, association);
     if (projected.code_ != status_code::ok || association.is_ready() ||
         association.state_ != usecase_effective_state::disabled) {
         throw std::runtime_error("all-off did not yield disabled scoped association");
+    }
+    feature.model_dependencies_[0].model_id_ = "unassigned_model";
+    const auto previous = association;
+    projected = vqec_vision_ai_core_ucact_project_feature_association(
+        usecases, snapshot, deployment, "camera_front", feature, association);
+    if (projected.code_ != status_code::unsupported ||
+        association.model_slot_ != previous.model_slot_) {
+        throw std::runtime_error("unassigned feature model changed scoped association");
     }
 }
 

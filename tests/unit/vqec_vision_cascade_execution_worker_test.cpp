@@ -179,7 +179,10 @@ int vqec_vision_ai_unit_cxwts_test_normal_async_pipeline() {
         return 1;
     }
 
-    if (completion.report_.accepted_ != 2 || completion.aligned_.size() != 2) {
+    if (completion.report_.accepted_ != 2 || completion.aligned_.size() != 2 ||
+        completion.tracked_.geometry_.width_ != batch.geometry_.width_ ||
+        completion.tracked_.geometry_.height_ != batch.geometry_.height_ ||
+        completion.tracked_.observations_.size() != batch.observations_.size()) {
         std::cerr << "FAIL: unexpected completion report accepted="
                   << completion.report_.accepted_ << std::endl;
         return 1;
@@ -325,6 +328,32 @@ int vqec_vision_ai_unit_cxwts_test_quiescent_reset() {
     return 0;
 }
 
+int vqec_vision_ai_unit_cxwts_test_stop_retires_late_primary() {
+    fake_lease lease;
+    fake_aligner aligner;
+    aligner.template_ = vqec_vision_ai_unit_cxwts_make_template();
+    cascade_coordinator_config config;
+    config.aligner_ = &aligner;
+    config.lease_ = &lease;
+    config.template_ = aligner.template_;
+    config.max_tasks_per_frame_ = 1;
+    cascade_execution_worker worker;
+    if (worker.vqec_vision_ai_appl_cxwrk_configure(config).code_ != status_code::ok ||
+        worker.vqec_vision_ai_appl_cxwrk_start().code_ != status_code::ok ||
+        worker.vqec_vision_ai_appl_cxwrk_request_stop(1000).code_ != status_code::ok) {
+        return 1;
+    }
+    const auto batch = vqec_vision_ai_unit_cxwts_make_batch(1, 300, 1);
+    if (worker.vqec_vision_ai_appl_cxwrk_schedule(1001, batch).code_ != status_code::ok ||
+        lease.retire_calls_ != 1 || lease.acquire_calls_ != 0 ||
+        worker.vqec_vision_ai_appl_cxwrk_drain_and_join(1000000000ULL).code_ !=
+            status_code::ok) {
+        std::cerr << "FAIL: late primary frame was not retired during stop" << std::endl;
+        return 1;
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main() {
@@ -339,6 +368,9 @@ int main() {
     }
     if (vqec_vision_ai_unit_cxwts_test_quiescent_reset() != 0) {
         return 4;
+    }
+    if (vqec_vision_ai_unit_cxwts_test_stop_retires_late_primary() != 0) {
+        return 5;
     }
     std::cout << "PASS: all cascade execution worker tests passed" << std::endl;
     return 0;

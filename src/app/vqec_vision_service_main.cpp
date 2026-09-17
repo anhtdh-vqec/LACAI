@@ -27,6 +27,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
+#include "vqec_vision_cascade_execution_worker.hpp"
 #include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
@@ -159,6 +160,7 @@ struct service_cascade_owner {
     const model_catalog_entry* model_{nullptr};
     std::unique_ptr<cascade_graph_session> graph_session_;
     std::unique_ptr<cascade_coordinator> coordinator_;
+    std::unique_ptr<cascade_execution_worker> worker_;
     std::uint16_t root_model_slot_{g_invalid_model_slot};
 };
 
@@ -380,6 +382,19 @@ status vqec_vision_ai_appl_svcmn_stop_cascade_graphs(
     auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
     status first_error;
     for (auto& owner : _owners) {
+        if (owner.worker_ == nullptr) {
+            continue;
+        }
+        (void)owner.worker_->vqec_vision_ai_appl_cxwrk_request_stop(now_ns);
+        const auto drained = owner.worker_->vqec_vision_ai_appl_cxwrk_drain_and_join(
+            service_harness::g_default_stop_timeout_ns);
+        if (drained.code_ != status_code::ok) {
+            // The graph and source owners are still borrowed by the live worker. Do not
+            // unload them after an incomplete drain; the supervisor must recover us.
+            return drained;
+        }
+    }
+    for (auto& owner : _owners) {
         if (owner.graph_session_ == nullptr) {
             continue;
         }
@@ -415,6 +430,29 @@ status vqec_vision_ai_appl_svcmn_stop_cascade_graphs(
         }
         if (!all_stopped) {
             std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
+        }
+    }
+    return first_error;
+}
+
+status vqec_vision_ai_appl_svcmn_drain_cascade_workers(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    std::uint64_t _steady_now_ns) {
+    status first_error;
+    for (auto& owner : _owners) {
+        if (owner.worker_ == nullptr) {
+            continue;
+        }
+        (void)owner.worker_->vqec_vision_ai_appl_cxwrk_request_stop(_steady_now_ns);
+    }
+    for (auto& owner : _owners) {
+        if (owner.worker_ == nullptr) {
+            continue;
+        }
+        const auto drained = owner.worker_->vqec_vision_ai_appl_cxwrk_drain_and_join(
+            service_harness::g_default_stop_timeout_ns);
+        if (drained.code_ != status_code::ok && first_error.code_ == status_code::ok) {
+            first_error = drained;
         }
     }
     return first_error;
@@ -697,6 +735,8 @@ service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
             result.exit_code = 1;
             return result;
         }
+        activation_snapshot.policy_revision_ = control.control_revision_;
+        activation_snapshot.config_revision_ = control.control_revision_;
         if (_effective_deployment != nullptr) {
             result.deployment = *_effective_deployment;
         } else {
@@ -1063,6 +1103,15 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     const bool use_reference_platform = startup.use_reference_platform;
     const bool use_production_platform = startup.use_production_platform;
     const bool fr_effectively_enabled = startup.fr_effectively_enabled;
+    if (use_production_platform && !args.output_ring_id.empty()) {
+        for (const auto& source : deployment.sources_) {
+            if (args.output_surface_count != source.memory_.preview_surface_count_) {
+                std::fprintf(stderr,
+                    "preview surface count differs from admitted deployment envelope\n");
+                return 1;
+            }
+        }
+    }
     // Platform owners: registered for every catalog contract so the composition has a
     // concrete decoder/tracker/feature set. Selected explicitly, never implicitly.
     const auto source_width = deployment.sources_.front().profile_.width_;
@@ -1292,13 +1341,31 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 auto& request = requests[request_count];
                 request.source_id_ = source.source_id_;
                 request.feature_id_ = feature.feature_id_;
-                const auto auth = vqec_vision_ai_appl_svcmn_resolve_feature_authority(
-                    startup, args, source.source_id_, feature.feature_id_);
-                request.desired_enabled_ = auth.desired_enabled_;
-                request.entitlement_granted_ = auth.entitlement_granted_;
-                request.resource_admitted_ = auth.resource_admitted_;
+                if (startup.has_usecase_control) {
+                    const auto projected =
+                        vqec_vision_ai_core_ucact_project_feature_association(
+                            startup.usecase_control.catalog_, startup.usecase_activation,
+                            deployment, source.source_id_, feature, request.association_);
+                    if (projected.code_ != status_code::ok) {
+                        std::fprintf(stderr, "feature association rejected (%d): %s\n",
+                            static_cast<int>(projected.code_), projected.message_.c_str());
+                        return 1;
+                    }
+                    request.desired_enabled_ = request.association_.desired_enabled_;
+                    request.entitlement_granted_ =
+                        request.association_.entitlement_granted_;
+                    request.resource_admitted_ = request.association_.resource_admitted_;
+                } else {
+                    const auto auth = vqec_vision_ai_appl_svcmn_resolve_feature_authority(
+                        startup, args, source.source_id_, feature.feature_id_);
+                    request.desired_enabled_ = auth.desired_enabled_;
+                    request.entitlement_granted_ = auth.entitlement_granted_;
+                    request.resource_admitted_ = auth.resource_admitted_;
+                }
                 request.configuration_.schema_id_ = feature.configuration_schema_;
-                request.configuration_.revision_ = service_harness::g_config_revision;
+                request.configuration_.revision_ = startup.has_usecase_control ?
+                    startup.usecase_activation.config_revision_ :
+                    service_harness::g_config_revision;
                 request_slots[request_count] = {source_slot, slot};
                 ++request_count;
             }
@@ -1314,7 +1381,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             }
             // Explicit output entitlement for the wired associations that are actually ready.
             output_policy policy;
-            policy.revision_ = service_harness::g_policy_revision;
+            policy.revision_ = startup.has_usecase_control ?
+                startup.usecase_activation.policy_revision_ :
+                service_harness::g_policy_revision;
             policy.not_before_ns_ = 0;
             policy.expires_ns_ = service_harness::g_policy_expiry_ns;
             for (std::uint16_t index = 0; index < request_count; ++index) {
@@ -1323,7 +1392,11 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     output_scope_rule rule;
                     rule.source_id_ = record->source_id_;
                     rule.feature_id_ = record->feature_id_;
-                    rule.attributes_.push_back(attribute_schema_id);
+                    if (startup.has_usecase_control) {
+                        rule.attributes_ = record->association_.attribute_scopes_;
+                    } else {
+                        rule.attributes_.push_back(attribute_schema_id);
+                    }
                     policy.rules_.push_back(std::move(rule));
                 }
             }
@@ -1398,7 +1471,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 
     if (fr_effectively_enabled && !output_policy_applied) {
         output_policy policy;
-        policy.revision_ = service_harness::g_policy_revision;
+        policy.revision_ = startup.has_usecase_control ?
+            startup.usecase_activation.policy_revision_ :
+            service_harness::g_policy_revision;
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
         for (const auto& source : deployment.sources_) {
@@ -1426,7 +1501,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 
     if (!output_policy_applied) {
         output_policy policy;
-        policy.revision_ = service_harness::g_policy_revision;
+        policy.revision_ = startup.has_usecase_control ?
+            startup.usecase_activation.policy_revision_ :
+            service_harness::g_policy_revision;
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
         for (const auto& source : deployment.sources_) {
@@ -1541,20 +1618,26 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 deployment.sources_[source_slot].cascade_.tasks_per_frame_;
             coordinator_config.control_budget_ns_ =
                 cascade_coordinator_limits::g_default_control_budget_ns;
-            owner.coordinator_ = std::make_unique<cascade_coordinator>();
-            const auto coordinator_configured =
-                owner.coordinator_->vqec_vision_ai_appl_cscrd_configure(
-                    coordinator_config);
-            if (coordinator_configured.code_ != status_code::ok) {
-                std::fprintf(stderr, "cascade coordinator configure failed (%d): %s\n",
-                    static_cast<int>(coordinator_configured.code_),
-                    coordinator_configured.message_.c_str());
+            owner.worker_ = std::make_unique<cascade_execution_worker>();
+            const auto worker_configured =
+                owner.worker_->vqec_vision_ai_appl_cxwrk_configure(coordinator_config);
+            if (worker_configured.code_ != status_code::ok) {
+                std::fprintf(stderr, "cascade worker configure failed (%d): %s\n",
+                    static_cast<int>(worker_configured.code_),
+                    worker_configured.message_.c_str());
                 (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
                 return 1;
             }
-            const auto cascade_bound = executor->vqec_vision_ai_appl_rtexe_bind_cascade(
-                source_slot, owner.root_model_slot_, *owner.coordinator_,
-                coordinator_config.max_tasks_per_frame_);
+            const auto worker_started = owner.worker_->vqec_vision_ai_appl_cxwrk_start();
+            if (worker_started.code_ != status_code::ok) {
+                std::fprintf(stderr, "cascade worker start failed (%d): %s\n",
+                    static_cast<int>(worker_started.code_), worker_started.message_.c_str());
+                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                return 1;
+            }
+            const auto cascade_bound =
+                executor->vqec_vision_ai_appl_rtexe_bind_cascade_worker(
+                    source_slot, owner.root_model_slot_, *owner.worker_);
             if (cascade_bound.code_ != status_code::ok) {
                 std::fprintf(stderr, "runtime cascade binding failed (%d): %s\n",
                     static_cast<int>(cascade_bound.code_),
@@ -1791,7 +1874,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 #endif
         recognition_enabled = true;
     }
-    if (has_feature_wiring) {
+    if (output_policy_applied) {
         executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(
             output_policy_gate, active_event_sink);
     }
@@ -1834,7 +1917,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         // enqueue a replacement in the same call. Session-owned preview/cascade state is
         // therefore quiescent until the next loop iteration. Pending can mean a worker is
         // active, so the control/output thread must not touch the session mailbox then.
-        const bool source_session_quiescent = stepped.code_ == status_code::ok;
+        const bool source_session_quiescent =
+            stepped.code_ == status_code::ok && !report.has_cascade_;
         if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
             first_error_code = report.first_error_code_;
         }
@@ -1922,14 +2006,19 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                         const auto& owner = cascade_owners[taken.source_index_];
                         if (owner.root_model_slot_ < deployment_limits::g_max_models_per_source) {
                             const output_authorization identity_scope{
-                                service_harness::g_policy_revision,
+                                taken.captured_policy_revision_,
                                 deployment.sources_[taken.source_index_].source_id_,
                                 args.fr_feature_id, {args.fr_identity_attribute}};
                             const auto authorized = output_policy_gate
                                 .vqec_vision_ai_core_otgat_authorize(identity_scope, now_ns);
                             if (authorized.code_ != status_code::ok) {
-                                std::fprintf(stderr, "FR identity output denied (%d): %s\n",
-                                    static_cast<int>(authorized.code_), authorized.message_.c_str());
+                                std::fprintf(stderr,
+                                    "FR identity output denied (%d): %s "
+                                    "(captured_policy=%llu active_policy=%llu)\n",
+                                    static_cast<int>(authorized.code_), authorized.message_.c_str(),
+                                    static_cast<unsigned long long>(taken.captured_policy_revision_),
+                                    static_cast<unsigned long long>(output_policy_gate
+                                        .vqec_vision_ai_core_otgat_get_revision()));
                             } else {
                                 const auto labelled = recognition
                                     .vqec_vision_ai_embed_rcses_apply_labels(
@@ -2098,6 +2187,12 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     std::printf("stopping after %llu steps\n", static_cast<unsigned long long>(steps));
     const auto stop = executor->vqec_vision_ai_appl_rtexe_request_stop(now_ns);
     (void)stop;
+    const auto cascade_workers_drained =
+        vqec_vision_ai_appl_svcmn_drain_cascade_workers(cascade_owners, now_ns);
+    if (cascade_workers_drained.code_ != status_code::ok &&
+        first_error_code == status_code::ok) {
+        first_error_code = cascade_workers_drained.code_;
+    }
     bool stopped = false;
     for (unsigned drain = 0; drain < 1000 && !stopped; ++drain) {
         // Drain must consume/discard a retained result, otherwise the executor refuses to

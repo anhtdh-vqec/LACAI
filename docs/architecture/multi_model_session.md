@@ -54,6 +54,12 @@ draining after all hardware work is already complete. Graph slots are reconciled
 4. unload ready, drained or faulted graphs;
 5. accept only empty/configured with zero outstanding work as reconciled.
 
+After every graph is reconciled, the session repeats the idempotent pump stop gate to
+release completed primary-frame copies. Drain polls results directly rather than through
+the normal pump result-transfer path; without this final owner reconciliation, an obsolete
+pump copy could keep the FW source draining forever. Cascade tickets remain charged until
+their own completion; this step does not clear the cascade store or cancel submitted DMA.
+
 A result that becomes ready during step 2 follows an explicit `drain_policy`, never an
 implicit one: `drain_and_discard` (default) reconciles ownership and drops the business
 result, while `drain_and_deliver` retains the last result for the caller through

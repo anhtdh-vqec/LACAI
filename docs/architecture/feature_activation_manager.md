@@ -36,6 +36,12 @@ bounded to 16 sources × 64 feature entries. Every `ready` association owns a di
 processor and `feature_stage`, which prevents stateful feature packages from being shared
 accidentally across sources.
 
+Production requests carry the immutable scoped usecase projection. Before construction,
+the manager validates source/feature, exact assigned model slot, deployment/model revisions,
+configuration/policy revisions, authority booleans and attribute dependency schema IDs.
+A mismatch rejects the candidate transaction; records retain the validated association.
+The unscoped request path remains for explicit development fixtures.
+
 ## Limits and next work
 
 - Authentication, FW RAW source resolution, model artifact loading and board/hardware

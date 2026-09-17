@@ -30,6 +30,7 @@ enum class feature_effective_state {
 struct feature_activation_request {
     std::string source_id_;
     std::string feature_id_;
+    feature_scoped_association_record association_{};
     bool desired_enabled_{false};
     bool entitlement_granted_{false};
     bool resource_admitted_{false};

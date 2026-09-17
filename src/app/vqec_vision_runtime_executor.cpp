@@ -31,8 +31,47 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         return {status_code::pending, "consume the routed result before progress"};
     }
     for (std::uint16_t source = 0; source < source_count_; ++source) {
+        auto* worker = cascade_workers_[source];
+        if (worker == nullptr) {
+            continue;
+        }
+        cascade_worker_completion completion;
+        const auto polled = worker->vqec_vision_ai_appl_cxwrk_poll_completion(completion);
+        if (polled.code_ == status_code::pending) {
+            continue;
+        }
+        if (polled.code_ != status_code::ok) {
+            return polled;
+        }
+        const auto composition_snapshot =
+            composition_.vqec_vision_ai_cntr_acomp_get_snapshot();
+        pending_tracked_ = {};
+        pending_events_ = {};
+        pending_tracked_[cascade_root_slots_[source]] = std::move(completion.tracked_);
+        cascade_embeddings_ = std::move(completion.embeddings_);
+        pending_report_ = {};
+        pending_report_.source_index_ = source;
+        pending_report_.model_slot_ = cascade_root_slots_[source];
+        pending_report_.captured_policy_revision_ = completion.policy_revision_;
+        pending_report_.captured_catalog_revision_ = composition_snapshot.catalog_revision_;
+        pending_report_.captured_deployment_revision_ =
+            composition_snapshot.deployment_revision_;
+        pending_report_.cascade_ = completion.report_;
+        pending_report_.has_tracked_ = true;
+        pending_report_.has_cascade_ = true;
+        pending_report_.first_error_code_ = completion.task_status_.code_;
+        metrics_.cascade_tasks_accepted_ += completion.report_.accepted_;
+        metrics_.cascade_embeddings_ += completion.report_.embedded_;
+        metrics_.cascade_tasks_failed_ += completion.report_.failed_;
+        has_pending_ = true;
+        ++metrics_.results_routed_;
+        _report = pending_report_;
+        return {};
+    }
+    for (std::uint16_t source = 0; source < source_count_; ++source) {
         if (cascade_root_slots_[source] != g_invalid_model_slot &&
-            cascade_coordinators_[source] == nullptr) {
+            cascade_coordinators_[source] == nullptr &&
+            cascade_workers_[source] == nullptr) {
             return {status_code::invalid_state,
                 "catalog cascade root has no bound coordinator"};
         }
@@ -68,6 +107,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
             pipeline_report);
     const auto cascade_root_slot = cascade_root_slots_[source_index];
     auto* cascade = cascade_coordinators_[source_index];
+    auto* cascade_worker = cascade_workers_[source_index];
     if (!pipeline_report.result_.has_tracked_) {
         // A failed primary decode still closes admission for the exact retained frame.
         // Otherwise the source could never drain after one malformed model result.
@@ -82,6 +122,19 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
             const auto retired = cascade->vqec_vision_ai_appl_cscrd_process(
                 _steady_now_ns, empty, cascade_aligned_, cascade_embeddings_,
                 discarded_report);
+            if (retired.code_ != status_code::ok) {
+                return retired;
+            }
+        }
+        if (cascade_worker != nullptr &&
+            pump_report.result_model_slot_ == cascade_root_slot) {
+            observation_batch empty;
+            empty.frame_ = {camera_ids_[source_index], channel_ids_[source_index],
+                pump_report.result_ticket_.source_epoch_,
+                pump_report.result_ticket_.source_frame_id_,
+                pump_report.result_ticket_.source_pts_ns_};
+            const auto retired = cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
+                _steady_now_ns, empty);
             if (retired.code_ != status_code::ok) {
                 return retired;
             }
@@ -116,6 +169,16 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         if (cascaded.code_ != status_code::ok &&
             pending_report_.first_error_code_ == status_code::ok) {
             pending_report_.first_error_code_ = cascaded.code_;
+        }
+    }
+    if (cascade_worker != nullptr &&
+        pipeline_report.result_.model_slot_ == cascade_root_slot) {
+        const auto scheduled = cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
+            _steady_now_ns, pending_tracked_[cascade_root_slot],
+            pending_report_.captured_policy_revision_);
+        if (scheduled.code_ != status_code::ok &&
+            pending_report_.first_error_code_ == status_code::ok) {
+            pending_report_.first_error_code_ = scheduled.code_;
         }
     }
     // Latency is measured entirely in the steady-clock domain: from the monotonic time the
@@ -185,6 +248,11 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_request_stop(
             (void)coordinator->vqec_vision_ai_appl_cscrd_request_stop(_steady_now_ns);
         }
     }
+    for (auto* worker : cascade_workers_) {
+        if (worker != nullptr) {
+            (void)worker->vqec_vision_ai_appl_cxwrk_request_stop(_steady_now_ns);
+        }
+    }
     return composition_.vqec_vision_ai_cntr_acomp_request_stop(_steady_now_ns);
 }
 
@@ -214,6 +282,22 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_bind_cascade(
             "runtime cascade result reservation failed"};
     }
     cascade_coordinators_[_source_index] = &_coordinator;
+    return {};
+}
+
+status runtime_executor::vqec_vision_ai_appl_rtexe_bind_cascade_worker(
+    std::uint16_t _source_index, std::uint16_t _model_slot,
+    cascade_execution_worker& _worker) {
+    if (_source_index >= source_count_ ||
+        cascade_root_slots_[_source_index] == g_invalid_model_slot ||
+        cascade_root_slots_[_source_index] != _model_slot ||
+        cascade_coordinators_[_source_index] != nullptr ||
+        cascade_workers_[_source_index] != nullptr ||
+        !_worker.vqec_vision_ai_appl_cxwrk_is_running() ||
+        metrics_.steps_ != 0) {
+        return {status_code::invalid_argument, "invalid runtime cascade worker binding"};
+    }
+    cascade_workers_[_source_index] = &_worker;
     return {};
 }
 
