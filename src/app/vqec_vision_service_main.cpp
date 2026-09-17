@@ -544,10 +544,70 @@ struct service_startup_resolution {
     deployment_config deployment;
     feature_catalog features;
     model_package_registry model_packages;
+    usecase_control_snapshot usecase_control;
+    usecase_activation_snapshot usecase_activation;
+    bool has_usecase_control{false};
     bool use_reference_platform{false};
     bool use_production_platform{false};
     bool fr_effectively_enabled{false};
 };
+
+struct service_feature_authority_state {
+    bool desired_enabled_{false};
+    bool entitlement_granted_{false};
+    bool resource_admitted_{false};
+};
+
+service_feature_authority_state vqec_vision_ai_appl_svcmn_resolve_feature_authority(
+    const service_startup_resolution& _startup,
+    const parsed_arguments& _args,
+    const std::string& _source_id,
+    const std::string& _feature_id) {
+    if (_startup.has_usecase_control) {
+        service_feature_authority_state state;
+        bool matched_usecase = false;
+        for (const auto& usecase : _startup.usecase_control.catalog_.usecases_) {
+            bool has_feature = false;
+            for (const auto& fid : usecase.feature_ids_) {
+                if (fid == _feature_id) {
+                    has_feature = true;
+                    break;
+                }
+            }
+            if (!has_feature) {
+                continue;
+            }
+            matched_usecase = true;
+            for (const auto& record : _startup.usecase_activation.records_) {
+                if (record.source_id_ == _source_id &&
+                    record.usecase_id_ == usecase.usecase_id_) {
+                    if (record.desired_enabled_) {
+                        state.desired_enabled_ = true;
+                    }
+                    if (record.entitlement_granted_) {
+                        state.entitlement_granted_ = true;
+                    }
+                    if (record.resource_admitted_) {
+                        state.resource_admitted_ = true;
+                    }
+                }
+            }
+        }
+        if (!matched_usecase) {
+            state.desired_enabled_ = false;
+            state.entitlement_granted_ = false;
+            state.resource_admitted_ = false;
+        }
+        return state;
+    }
+    if (!_args.production_mode) {
+        return {true, true, true};
+    }
+    if (_args.platform == "fake" || _args.platform == "reference") {
+        return {true, true, true};
+    }
+    return {false, false, false};
+}
 
 service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
     const parsed_arguments& _args, const deployment_config* _effective_deployment,
@@ -593,6 +653,9 @@ service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
             return result;
         }
         result.deployment = std::move(effective_deployment);
+        result.usecase_control = control;
+        result.usecase_activation = std::move(activation_snapshot);
+        result.has_usecase_control = true;
         std::printf("usecase plan control_revision=%llu entitlement_revision=%llu "
                     "active_sources=%zu\n",
             static_cast<unsigned long long>(control.control_revision_),
@@ -1162,9 +1225,11 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 auto& request = requests[request_count];
                 request.source_id_ = source.source_id_;
                 request.feature_id_ = feature.feature_id_;
-                request.desired_enabled_ = true;
-                request.entitlement_granted_ = true;
-                request.resource_admitted_ = true;
+                const auto auth = vqec_vision_ai_appl_svcmn_resolve_feature_authority(
+                    startup, args, source.source_id_, feature.feature_id_);
+                request.desired_enabled_ = auth.desired_enabled_;
+                request.entitlement_granted_ = auth.entitlement_granted_;
+                request.resource_admitted_ = auth.resource_admitted_;
                 request.configuration_.schema_id_ = feature.configuration_schema_;
                 request.configuration_.revision_ = service_harness::g_config_revision;
                 request_slots[request_count] = {source_slot, slot};
@@ -1180,18 +1245,20 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     static_cast<int>(reconciled.code_), reconciled.message_.c_str());
                 return 1;
             }
-            // Explicit output entitlement for the wired associations. The fixture feature
-            // emits one field, so the rule must list it or delivery is denied.
+            // Explicit output entitlement for the wired associations that are actually ready.
             output_policy policy;
             policy.revision_ = service_harness::g_policy_revision;
             policy.not_before_ns_ = 0;
             policy.expires_ns_ = service_harness::g_policy_expiry_ns;
             for (std::uint16_t index = 0; index < request_count; ++index) {
-                output_scope_rule rule;
-                rule.source_id_ = requests[index].source_id_;
-                rule.feature_id_ = requests[index].feature_id_;
-                rule.attributes_.push_back(attribute_schema_id);
-                policy.rules_.push_back(std::move(rule));
+                const auto* record = feature_manager.vqec_vision_ai_ftmgr_famgr_get_record(index);
+                if (record != nullptr && record->state_ == feature_effective_state::ready) {
+                    output_scope_rule rule;
+                    rule.source_id_ = record->source_id_;
+                    rule.feature_id_ = record->feature_id_;
+                    rule.attributes_.push_back(attribute_schema_id);
+                    policy.rules_.push_back(std::move(rule));
+                }
             }
             if (fr_effectively_enabled) {
                 vqec_vision_ai_appl_svcmn_append_fr_policy_rules(

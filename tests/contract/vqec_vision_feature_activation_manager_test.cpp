@@ -73,6 +73,15 @@ feature_catalog vqec_vision_ai_ctest_famct_make_features() {
     feature.model_dependencies_.push_back({"person_tracks", "person_detector"});
     feature.resources_ = {g_mib, 4, 8, 8};
     features.features_.push_back(std::move(feature));
+
+    feature_catalog_entry intrusion;
+    intrusion.feature_id_ = "intrusion";
+    intrusion.feature_version_ = "1.0";
+    intrusion.processor_contract_ = "intrusion.processor.v1";
+    intrusion.configuration_schema_ = "intrusion.configuration.v1";
+    intrusion.model_dependencies_.push_back({"person_tracks", "person_detector"});
+    intrusion.resources_ = {g_mib, 4, 8, 8};
+    features.features_.push_back(std::move(intrusion));
     return features;
 }
 
@@ -111,8 +120,10 @@ public:
         const feature_catalog_entry& _feature,
         const feature_processor_config& _processor_config,
         const feature_configuration& _configuration) const override {
-        if (_feature.processor_contract_ != "counting.processor.v1" ||
-            _processor_config.feature_id_ != "counting" ||
+        if ((_feature.processor_contract_ != "counting.processor.v1" &&
+             _feature.processor_contract_ != "intrusion.processor.v1") ||
+            (_processor_config.feature_id_ != "counting" &&
+             _processor_config.feature_id_ != "intrusion") ||
             _configuration.payload_ != std::vector<std::uint8_t>{1, 2, 3}) {
             return {status_code::invalid_argument, "fixture configuration rejected"};
         }
@@ -140,6 +151,18 @@ feature_activation_request vqec_vision_ai_ctest_famct_make_request(
     request.entitlement_granted_ = _entitled;
     request.resource_admitted_ = _resource;
     request.configuration_ = {"counting.configuration.v1", 7, {1, 2, 3}};
+    return request;
+}
+
+feature_activation_request vqec_vision_ai_ctest_famct_make_named_request(
+    const std::string& _feature_id, bool _desired, bool _entitled, bool _resource) {
+    feature_activation_request request;
+    request.source_id_ = "source.front";
+    request.feature_id_ = _feature_id;
+    request.desired_enabled_ = _desired;
+    request.entitlement_granted_ = _entitled;
+    request.resource_admitted_ = _resource;
+    request.configuration_ = {_feature_id + ".configuration.v1", 7, {1, 2, 3}};
     return request;
 }
 
@@ -171,6 +194,8 @@ int main() {
     vqec_vision_ai_ctest_famct_factory factory;
     assert(registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
                "counting.processor.v1", factory).code_ == status_code::ok);
+    assert(registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
+               "intrusion.processor.v1", factory).code_ == status_code::ok);
     requests[0] = vqec_vision_ai_ctest_famct_make_request(true, false, true);
     assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(
                requests, 1, registry, snapshot).code_ == status_code::ok);
@@ -207,5 +232,21 @@ int main() {
     assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(
                duplicate, 2, registry, snapshot).code_ == status_code::invalid_argument);
     assert(manager.vqec_vision_ai_ftmgr_famgr_get_count() == 1U);
+
+    // Two features sharing the same person_detector model: counting is entitled, intrusion is denied.
+    requests[0] = vqec_vision_ai_ctest_famct_make_named_request("counting", true, true, true);
+    requests[1] = vqec_vision_ai_ctest_famct_make_named_request("intrusion", true, false, true);
+    assert(manager.vqec_vision_ai_ftmgr_famgr_reconcile(
+               requests, 2, registry, snapshot).code_ == status_code::ok);
+    assert(snapshot.association_count_ == 2U);
+    assert(snapshot.ready_count_ == 1U);
+    assert(snapshot.denied_count_ == 1U);
+    const auto* rec0 = manager.vqec_vision_ai_ftmgr_famgr_get_record(0);
+    const auto* rec1 = manager.vqec_vision_ai_ftmgr_famgr_get_record(1);
+    assert(rec0 != nullptr && rec0->state_ == feature_effective_state::ready &&
+           rec0->processor_ != nullptr && rec0->stage_ != nullptr);
+    assert(rec1 != nullptr && rec1->state_ == feature_effective_state::denied &&
+           rec1->processor_ == nullptr && rec1->stage_ == nullptr);
+    assert(manager.vqec_vision_ai_ftmgr_famgr_get_count() == 2U);
     return 0;
 }
