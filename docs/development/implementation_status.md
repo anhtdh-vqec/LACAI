@@ -1,5 +1,20 @@
 # Implementation status — 2026-09-16
 
+2026-09-16 clean-base CB-G/CB-T update: CI and board evidence truth.
+- `host-sanitizers`, `clang-tidy`, `fuzz` and `esdk-neutral` now configure with
+  `VQEC_VISION_AI_ENABLE_ZVEC=OFF`, so a clean runner no longer hits the Zvec `FATAL_ERROR`
+  when the untracked SDK is absent; `esdk-expanded` runs `vqec_vision_prepare_zvec.sh`
+  before configure.
+- Added `tools/vqec_vision_board_native_tests.sh`, the reproducible native board runner.
+  It supplies the fixtures two device-free tests need: the staged `manifests/models` tree
+  for `decoder_package_test`, and a non-tmpfs scratch path plus a current-UID mode-0700
+  tmpfs directory for `zvec_embedding_index_test`. The Zvec test now reports its failing
+  source line. On `.98` the cross-built native suite is **117/117 passed**; the earlier
+  two "failures" were missing-fixture usage exits, not code faults.
+- `tests/unit/README.md` no longer carries stale fixed test counts and links the runner.
+
+eSDK/QEMU suite passes 123/123.
+
 2026-09-16 clean-base CB-E2 update: two cohesive startup/report phases were extracted from
 `run_generation`. `vqec_vision_ai_appl_svcmn_resolve_startup` now owns catalog load, usecase
 composition, the idle no-source loop, FR/enrollment argument validation, model package

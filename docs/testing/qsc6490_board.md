@@ -436,3 +436,18 @@ LACAI runs models at **full 30 FPS** (matching preview rate, per user requiremen
 - Dual-model + FR flow: **~64% of 1 core** (~8.0% SoC load).
 - Output stream: **Steady 28–30.1 FPS live real-time video with zero frame drops**.
 
+
+## 2026-09-17 clean-base native suite runner
+
+The ad-hoc native batch loop is replaced by
+`tools/vqec_vision_board_native_tests.sh <test_dir> <manifest_models_dir> <zvec_tmpfs_root>
+<zvec_scratch_base>`. Two device-free tests need fixtures and otherwise exit non-zero (a
+missing-fixture result, not a code failure):
+
+- `vqec_vision_ai_decoder_package_test` needs the staged `manifests/models` tree;
+- `vqec_vision_ai_zvec_embedding_index_test` needs an unused collection path on a NON-tmpfs
+  parent plus a current-UID-owned mode-0700 tmpfs directory for its private-index checks.
+
+With those supplied on `.98`, the cross-built native suite is **117/117 passed**. This is
+logic/contract evidence; it is not device DMA completion, model accuracy, released-FW or
+performance acceptance.

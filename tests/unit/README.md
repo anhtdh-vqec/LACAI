@@ -2,8 +2,11 @@
 
 Single-module unit tests for contracts, validation, bookkeeping and scheduler arithmetic.
 
-- **Status:** source-delivered — default configuration registers 53 tests; expanded registers 71
-- **Runner:** eSDK AArch64 compiler and SDK QEMU (`ctest`)
+- **Status:** source-delivered. The exact registration is authoritative in `tests/CMakeLists.txt`;
+  the expanded eSDK configuration currently registers 123 CTest tests, and the cross-built
+  target binaries pass natively on QCS6490 via [the board runner](../../tools/vqec_vision_board_native_tests.sh).
+- **Runner:** eSDK AArch64 compiler and SDK QEMU (`ctest`); native target execution uses the
+  board runner, which supplies the manifest and Zvec fixtures two device-free tests need.
 
 ## Responsibility
 

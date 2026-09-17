@@ -6,15 +6,20 @@
 
 #include "vqec_vision_zvec_embedding_index.hpp"
 
+// Every check reports its source line so a target-side failure is identifiable without a
+// debugger. Expands to the nearest in-scope `check` lambda.
+#define VQEC_VISION_AI_UNIT_ZVITST_CHECK(_condition) check((_condition), __LINE__)
+
 namespace {
 
 void vqec_vision_ai_unit_zvitst_check_private_storage(
     const std::string& _volatile_root,
     const vqec::vision::ai::embedding_index_config& _config, unsigned& _failures) {
     using namespace vqec::vision::ai;
-    const auto check = [&_failures](bool _condition) {
+    const auto check = [&_failures](bool _condition, int _line) {
         if (!_condition) {
             ++_failures;
+            std::cerr << "failed check at line " << _line << '\n';
         }
     };
     std::string pattern = _volatile_root + "/vqec_vision_zvec_private_XXXXXX";
@@ -31,22 +36,22 @@ void vqec_vision_ai_unit_zvitst_check_private_storage(
         std::filesystem::perms::group_read | std::filesystem::perms::group_exec);
     {
         zvec_embedding_index exposed(collection.string());
-        check(exposed.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(exposed.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
             status_code::unauthorized);
-        check(!std::filesystem::exists(collection));
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(!std::filesystem::exists(collection));
     }
     std::filesystem::permissions(parent, std::filesystem::perms::owner_all);
     const auto alias = parent / "symlink";
     std::filesystem::create_directory_symlink(parent, alias);
     {
         zvec_embedding_index symlink_parent((alias / "collection").string());
-        check(symlink_parent.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(symlink_parent.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
             status_code::unauthorized);
         zvec_embedding_index symlink_leaf(alias.string());
-        check(symlink_leaf.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(symlink_leaf.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
             status_code::unauthorized);
         zvec_embedding_index relative("relative_collection");
-        check(relative.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(relative.vqec_vision_ai_ports_emidx_configure(_config).code_ ==
             status_code::invalid_argument);
     }
     std::filesystem::remove(alias);
@@ -54,13 +59,13 @@ void vqec_vision_ai_unit_zvitst_check_private_storage(
     {
         zvec_embedding_index private_index(collection.string());
         const auto configured = private_index.vqec_vision_ai_ports_emidx_configure(_config);
-        check(configured.code_ == status_code::ok);
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(configured.code_ == status_code::ok);
         if (configured.code_ == status_code::ok) {
-            check(std::filesystem::status(collection).permissions() ==
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(std::filesystem::status(collection).permissions() ==
                 std::filesystem::perms::owner_all);
             // The vendor path must continue to address the pinned original directory.
             std::filesystem::rename(parent, moved_parent);
-            check(private_index.vqec_vision_ai_ports_emidx_upsert(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(private_index.vqec_vision_ai_ports_emidx_upsert(
                 {1, "synthetic_private", {1.0F, 0.0F}}, 1, 2).code_ == status_code::ok);
             embedding_result query;
             query.model_id_ = _config.model_id_;
@@ -69,12 +74,12 @@ void vqec_vision_ai_unit_zvitst_check_private_storage(
             query.is_l2_normalized_ = true;
             embedding_search_result result;
             result.matches_.reserve(_config.max_results_);
-            check(private_index.vqec_vision_ai_ports_emidx_search(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(private_index.vqec_vision_ai_ports_emidx_search(
                 query, 2, 1, 0.5F, result).code_ == status_code::ok);
-            check(result.matches_.size() == 1);
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_.size() == 1);
         }
     }
-    check(!std::filesystem::exists(moved_parent / "collection"));
+    VQEC_VISION_AI_UNIT_ZVITST_CHECK(!std::filesystem::exists(moved_parent / "collection"));
     std::filesystem::remove_all(parent);
     std::filesystem::remove_all(moved_parent);
 }
@@ -89,9 +94,10 @@ int main(int _argc, char** _argv) {
         return 2;
     }
     unsigned failures = 0;
-    const auto check = [&failures](bool _condition) {
+    const auto check = [&failures](bool _condition, int _line) {
         if (!_condition) {
             ++failures;
+            std::cerr << "failed check at line " << _line << '\n';
         }
     };
     embedding_index_config config;
@@ -104,9 +110,9 @@ int main(int _argc, char** _argv) {
     vqec_vision_ai_unit_zvitst_check_private_storage(_argv[2], config, failures);
     {
         zvec_embedding_index unqualified(_argv[1]);
-        check(unqualified.vqec_vision_ai_ports_emidx_configure(config).code_ ==
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(unqualified.vqec_vision_ai_ports_emidx_configure(config).code_ ==
             status_code::unauthorized);
-        check(!std::filesystem::exists(_argv[1]));
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(!std::filesystem::exists(_argv[1]));
     }
     {
         // Production recovery starts with a fresh derived collection.
@@ -118,20 +124,20 @@ int main(int _argc, char** _argv) {
             std::cerr << "Zvec fresh rebuild configure failed: "
                       << opened.message_ << '\n';
         }
-        check(opened.code_ == status_code::ok);
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(opened.code_ == status_code::ok);
     }
     std::filesystem::remove_all(_argv[1]);
     {
         zvec_embedding_index index(_argv[1], zvec_existing_collection_policy::reject,
             zvec_storage_policy::synthetic_filesystem_fixture);
         const auto configured = index.vqec_vision_ai_ports_emidx_configure(config);
-        check(configured.code_ == status_code::ok);
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(configured.code_ == status_code::ok);
         if (configured.code_ == status_code::ok) {
-            check(index.vqec_vision_ai_ports_emidx_upsert(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_upsert(
                 {1, "synthetic_a", {1.0F, 0.0F}}, 1, 2).code_ == status_code::ok);
-            check(index.vqec_vision_ai_ports_emidx_upsert(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_upsert(
                 {2, "synthetic_b", {0.0F, 1.0F}}, 2, 3).code_ == status_code::ok);
-            check(index.vqec_vision_ai_ports_emidx_upsert(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_upsert(
                 {3, "synthetic_c", {-1.0F, 0.0F}}, 3, 4).code_ == status_code::ok);
             embedding_result query;
             query.model_id_ = config.model_id_;
@@ -140,20 +146,20 @@ int main(int _argc, char** _argv) {
             query.is_l2_normalized_ = true;
             embedding_search_result result;
             result.matches_.reserve(config.max_results_);
-            check(index.vqec_vision_ai_ports_emidx_search(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_search(
                 query, 4, 3, 0.5F, result).code_ == status_code::ok);
-            check(result.matches_.size() == 1);
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_.size() == 1);
             if (result.matches_.size() == 1) {
-                check(result.matches_[0].record_id_ == 1);
-                check(result.matches_[0].subject_ref_ == "synthetic_a");
-                check(result.matches_[0].similarity_ > 0.99F);
+                VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_[0].record_id_ == 1);
+                VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_[0].subject_ref_ == "synthetic_a");
+                VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_[0].similarity_ > 0.99F);
             }
-            check(index.vqec_vision_ai_ports_emidx_search(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_search(
                 query, 3, 3, 0.5F, result).code_ == status_code::invalid_state);
-            check(index.vqec_vision_ai_ports_emidx_remove(1, 4, 5).code_ == status_code::ok);
-            check(index.vqec_vision_ai_ports_emidx_search(
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_remove(1, 4, 5).code_ == status_code::ok);
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(index.vqec_vision_ai_ports_emidx_search(
                 query, 5, 3, 0.5F, result).code_ == status_code::ok);
-            check(result.matches_.empty());
+            VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_.empty());
         }
     }
     {
@@ -173,7 +179,7 @@ int main(int _argc, char** _argv) {
             std::cerr << "Zvec rebuild configure failed: "
                       << rebuilt_status.message_ << '\n';
         }
-        check(rebuilt_status.code_ == status_code::ok);
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(rebuilt_status.code_ == status_code::ok);
         embedding_result query;
         query.model_id_ = config.model_id_;
         query.model_version_ = config.model_version_;
@@ -187,8 +193,8 @@ int main(int _argc, char** _argv) {
             std::cerr << "Zvec rebuilt search failed: "
                       << search_status.message_ << '\n';
         }
-        check(search_status.code_ == status_code::ok);
-        check(result.matches_.empty());
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(search_status.code_ == status_code::ok);
+        VQEC_VISION_AI_UNIT_ZVITST_CHECK(result.matches_.empty());
     }
     // This directory was absent before this test and contains only synthetic records.
     std::filesystem::remove_all(_argv[1]);

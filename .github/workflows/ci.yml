@@ -26,7 +26,8 @@ jobs:
         run: |
           set -euo pipefail
           cmake -S . -B build-asan -DCMAKE_CXX_COMPILER=clang++ \
-            -DVQEC_VISION_AI_SANITIZE=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+            -DVQEC_VISION_AI_SANITIZE=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DVQEC_VISION_AI_ENABLE_ZVEC=OFF
       - name: Build
         run: cmake --build build-asan -j"$(nproc)"
       - name: Test
@@ -45,7 +46,8 @@ jobs:
         run: |
           set -euo pipefail
           cmake -S . -B build-tidy -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TESTING=OFF
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TESTING=OFF \
+            -DVQEC_VISION_AI_ENABLE_ZVEC=OFF
       - name: Run clang-tidy on core and app
         run: |
           set -euo pipefail
@@ -64,6 +66,7 @@ jobs:
           set -euo pipefail
           cmake -S . -B build-fuzz -DCMAKE_CXX_COMPILER=clang++ \
             -DVQEC_VISION_AI_BUILD_FUZZERS=ON -DBUILD_TESTING=OFF \
+            -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
             -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
             -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON
       - name: Build
@@ -91,6 +94,7 @@ jobs:
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
           cmake -S . -B build-ci-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
             "-DCMAKE_CROSSCOMPILING_EMULATOR=${{ vars.ESDK_ROOT }}/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
       - name: Build (neutral)
         run: |
@@ -112,6 +116,8 @@ jobs:
         run: |
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
+          # Zvec is on by default; acquire the checksum-verified public SDK unless present.
+          bash tools/vqec_vision_prepare_zvec.sh
           qnn=OFF
           qairt_arg=""
           if [ -n "${{ vars.QAIRT_ROOT }}" ]; then
