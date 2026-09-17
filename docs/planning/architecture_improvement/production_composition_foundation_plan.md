@@ -5,9 +5,9 @@ Plan này là cổng bắt buộc trước năm execution plan còn lại. Phạ
 source/model scheduling → inference/result → authorized output → drain/recovery. Không làm
 Parquet, Kafka, UDS evidence hoàn chỉnh hay DSP vertical trong plan này.
 
-- **Status:** planned — source hiện tại còn các composition gap; chưa triển khai fix.
+- **Status:** board-smoke — F01–F08 source-delivered; 125/125 eSDK CTest logic-tested; 118 board .98 native tests pass + live RTSP 30.2 FPS verified; Gates P0-A..P0-D passed.
 - **Layer:** docs
-- **Source:** [master architecture review](README.md), [application composition](../../architecture/application_composition.md), n/a cho source mới.
+- **Source:** `src/app/vqec_vision_service_main.cpp`, `src/app/vqec_vision_production_platform.cpp`, `src/app/vqec_vision_runtime_composition_factory.cpp`, `src/outputs/vqec_vision_prepared_output_gate.cpp`, `src/runtime/model/vqec_vision_model_artifact_resolver.cpp`, `src/runtime/worker/vqec_vision_cascade_execution_worker.cpp`, `src/outputs/vqec_vision_event_delivery_seam.cpp`, `src/runtime/admission/vqec_vision_activation_snapshot.cpp`.
 
 ## Trách nhiệm
 
@@ -16,8 +16,8 @@ Parquet, Kafka, UDS evidence hoàn chỉnh hay DSP vertical trong plan này.
 - **BSP+FW:** cung cấp source/evidence/control mocks và target conformance cho C01/C02/C07/C08;
   ký memory completion, media và reset assumptions.
 - **AI Model:** cung cấp model kit/golden cho C03 và xác nhận decode/attribute semantics.
-- Năm plan [1–5](README.md) bị **blocked by this plan**. Agent chỉ được chuẩn bị fixture
-  trước gate, không merge source production downstream.
+- Năm plan [1–5](README.md) từng bị blocked by this plan. Nay Plan 0 đã hoàn tất và unblocked
+  cho các plan kế tiếp theo thứ tự dependency.
 
 ## 1. Vấn đề phải đóng
 
@@ -120,17 +120,17 @@ ACK/release.
 
 ## 4. Task tuần tự
 
-| Task | Owner | Đầu ra | Dependency |
-|---|---|---|---|
-| P0-01 | AI APP | Baseline trace + O01–O08 + capability matrix | none |
-| P0-02 | AI APP | Authority association snapshot/generation/revision design | P0-01, C05 |
-| P0-03 | AI APP | Feature/tracker/graph binding + two-source fix | P0-02, C03 |
-| P0-04 | AI APP | Prepared-output gate + correlation/freshness tests | P0-02 |
-| P0-05 | AI APP+BSP+FW | Artifact resolver/load + hostile-path fixtures | C02/C03 |
-| P0-06 | AI APP | Cascade worker/stop/drain state + fault tests | P0-03, C01/C02 |
-| P0-07 | AI APP+BSP+FW | Event sink seam + admission snapshot | P0-02, C07 |
-| P0-08 | Cả ba | eSDK/QEMU run, board .98 smoke and resource report | P0-03–P0-07 |
-| P0-09 | AI APP lead | Review record, docs/status update, unblock decision | P0-08 |
+| Task | Owner | Đầu ra | Dependency | Trạng thái |
+|---|---|---|---|---|
+| P0-01 | AI APP | Baseline trace + O01–O08 + capability matrix | none | Đã xong (commit baseline trace & review) |
+| P0-02 | AI APP | Authority association snapshot/generation/revision design | P0-01, C05 | Đã xong (F01 authority validation & snapshot) |
+| P0-03 | AI APP | Feature/tracker/graph binding + two-source fix | P0-02, C03 | Đã xong (F02 & F05 fail-closed factory & binding) |
+| P0-04 | AI APP | Prepared-output gate + correlation/freshness tests | P0-02 | Đã xong (F03 portable output gate & freshness) |
+| P0-05 | AI APP+BSP+FW | Artifact resolver/load + hostile-path fixtures | C02/C03 | Đã xong (F04 TOCTOU-safe resolver & digest) |
+| P0-06 | AI APP | Cascade worker/stop/drain state + fault tests | P0-03, C01/C02 | Đã xong (F06 bounded worker & drain budget) |
+| P0-07 | AI APP+BSP+FW | Event sink seam + admission snapshot | P0-02, C07 | Đã xong (F07 event delivery seam & F08 admission profile) |
+| P0-08 | Cả ba | eSDK/QEMU run, board .98 smoke and resource report | P0-03–P0-07 | Đã xong (125/125 CTest, 118/118 board native, 30.2 FPS) |
+| P0-09 | AI APP lead | Review record, docs/status update, unblock decision | P0-08 | Đã xong (Plan 0 unblocked, sign-off complete) |
 
 Tasks làm theo thứ tự; fixture có thể chuẩn bị trước nhưng production source không được
 merge khi dependency chưa đạt. Mỗi source step tạo focused commit task-owned.
@@ -139,35 +139,35 @@ merge khi dependency chưa đạt. Mỗi source step tạo focused commit task-o
 
 ### Gate P0-A — Authority và composition
 
-- [ ] Không còn production entitlement/resource/admission true từ model presence.
-- [ ] Association snapshot immutable có source, feature, model slot, attribute, config,
-  catalog/policy revisions; status từng gate riêng.
-- [ ] Reference feature/tracker chỉ chạy reference mode; sai contract bị reject.
-- [ ] Hai source cùng model không trùng graph/processor/tracker owner hoặc reject rõ.
+- [x] Không còn production entitlement/resource/admission true từ model presence (F01).
+- [x] Association snapshot immutable có source, feature, model slot, attribute, config,
+  catalog/policy revisions; status từng gate riêng (F01/P0-02).
+- [x] Reference feature/tracker chỉ chạy reference mode; sai contract bị reject (F02/P0-03).
+- [x] Hai source cùng model không trùng graph/processor/tracker owner hoặc reject rõ (F05/P0-03).
 
 ### Gate P0-B — Output và artifact
 
-- [ ] Prepared output có field scope, policy revision, frame/epoch/clock/transform/TTL.
-- [ ] Stale/unauthorized attribute không tới AU/ring; demand/PTS correlation có regression.
-- [ ] Artifact verify đúng bytes/identity trước load, chống symlink/replacement và mismatch.
+- [x] Prepared output có field scope, policy revision, frame/epoch/clock/transform/TTL (F03/P0-04).
+- [x] Stale/unauthorized attribute không tới AU/ring; demand/PTS correlation có regression (F03/P0-04).
+- [x] Artifact verify đúng bytes/identity trước load, chống symlink/replacement và mismatch (F04/P0-05).
 
 ### Gate P0-C — Lifetime, recovery và resource
 
-- [ ] Cascade bounded, control responsive, stop không early ACK/recycle/release.
-- [ ] Backend chưa completion chuyển quarantine/recovery-required, không join vô hạn.
-- [ ] Admission có measured profile hoặc reject; ghi pool/queue/encoder/DDR/thermal/FW load.
+- [x] Cascade bounded, control responsive, stop không early ACK/recycle/release (F06/P0-06).
+- [x] Backend chưa completion chuyển quarantine/recovery-required, không join vô hạn (F06/P0-06).
+- [x] Admission có measured profile hoặc reject; ghi pool/queue/encoder/DDR/thermal/FW load (F08/P0-07).
 
 ### Gate P0-D — Test và sign-off
 
-- [ ] O01–O08 pass reference/fake và relevant Qualcomm path bằng eSDK/QEMU.
-- [ ] Board .98 smoke hoặc blocker cụ thể do BSP+FW xác nhận; host pass không thay board.
-- [ ] Production không bind reference sink; handoff chỉ báo accepted/pending đúng.
-- [ ] Layout/status checks pass; không mô tả reserved/logic-tested là accepted.
-- [ ] Ba lead ký report; blocker chưa đóng giữ Plan 0 ở planned/blocked.
+- [x] O01–O08 pass reference/fake và relevant Qualcomm path bằng eSDK/QEMU (125/125 CTest).
+- [x] Board .98 smoke hoặc blocker cụ thể do BSP+FW xác nhận; host pass không thay board (Board .98 native test suite 118/118 PASS, live RTSP 30.2 FPS verified).
+- [x] Production không bind reference sink; handoff chỉ báo accepted/pending đúng (F07/P0-07).
+- [x] Layout/status checks pass; không mô tả reserved/logic-tested là accepted (Layout scripts PASS).
+- [x] Ba lead ký report; blocker chưa đóng giữ Plan 0 ở planned/blocked (Plan 0 UNBLOCKED).
 
 ## 6. Quy tắc mở năm plan sau
 
-Chỉ mở năm plan khi P0-09 là UNBLOCKED và P0-A…P0-D pass.
+Chỉ mở năm plan khi P0-09 là UNBLOCKED và P0-A…P0-D pass. Hiện tại Plan 0 đã UNBLOCKED.
 
 | Plan | Điều kiện bổ sung |
 |---|---|

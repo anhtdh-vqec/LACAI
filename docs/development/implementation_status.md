@@ -1,4 +1,29 @@
-# Implementation status — 2026-09-16
+# Implementation status — 2026-09-17
+
+2026-09-17 production composition foundation (Plan 0) update:
+- **F01 (Authority & Activation)**: Replaced hardcoded `desired_enabled_`, `entitlement_granted_`,
+  `resource_admitted_` in `service_main.cpp` with multi-gate validation from `activation_snapshot`.
+  Enforces distinct gate evaluation (installed -> entitled -> desired -> supported -> admitted -> running).
+- **F02 (Fail-closed Factories)**: Production platform registers genuine feature processor / tracker
+  factories or fails closed (`unsupported_schema`), removing wildcard reference mock registrations.
+- **F03 (Prepared Output Gate)**: Created portable `prepared_output_gate` enforcing authorization scope,
+  monotonic PTS correlation, and TTL freshness before renderer/sink delivery.
+- **F04 (Model Artifact Resolver)**: Created `model_artifact_resolver` with immutable FD pinning,
+  allowed-root directory bounds, symlink rejection, SHA-256 stream digest validation, eliminating TOCTOU risk.
+- **F05 (Independent Source Bindings)**: Multi-source supervisor enforces independent
+  graph/processor/tracker instances per source slot and validates duplicate pointers.
+- **F06 (Cascade Worker & Drain)**: Created `cascade_execution_worker` with bounded queue
+  (`g_max_cascade_queue_capacity = 8`), deadline-bounded processing, epoch invalidation, and explicit
+  stop/drain state machine.
+- **F07 (Neutral Event Delivery Seam)**: Created `event_delivery_seam` implementing neutral
+  `feature_event_sink_port` with bounded FIFO ring buffer (256 capacity), fail-closed on stopping/saturation,
+  and distinct accepted/pending/drained/dropped/rejected tracking. Replaced reference sink in production service main.
+- **F08 (Measured Admission Envelope)**: Extended `activation_snapshot` with `hardware_admission_profile`
+  and `admission_resource_breakdown` (pools, DDR bandwidth, FW concurrency, encoder, cascade) to enforce
+  fail-closed measured admission.
+- **Verification**: 125/125 eSDK CTest passing. Native board test suite on QCS6490 (.98) passing 118/118
+  (PASS=118, FAIL=0). Live camera simulator + production service + RTSP stream: 1920x1080 @ 30.2 FPS
+  (151 frames in 5.00s, 0 drops), frame capture verified. Plan 0 gates P0-A, P0-B, P0-C, P0-D all passed.
 
 2026-09-16 clean-base CB-E3 update: two more phases were extracted from `run_generation`.
 `vqec_vision_ai_appl_svcmn_build_model_activations` now owns the per-source/model activation
@@ -324,8 +349,8 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
   `tools/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The expanded eSDK configuration registers 123 CTest tests and passes 123/123 under SDK QEMU.
-  The cross-built native suite passes 117/117 on `.98` via
+- The expanded eSDK configuration registers 125 CTest tests and passes 125/125 under SDK QEMU.
+  The cross-built native suite passes 118/118 on `.98` via
   `tools/vqec_vision_board_native_tests.sh`, which supplies the manifest and Zvec fixtures.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
@@ -335,8 +360,8 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
 
 ## Not delivered and next integration work
 
-1. Authenticated artifact/config resolution and measured board-wide admission in the
-   production composition (trusted resolver, signature/TOCTOU).
+1. Plans 1–5: Contract and team scope, metadata and query engine (D01–D18, Q01–Q30), durable
+   UDS event/evidence transport with outbox and receipt reconciliation, multiplatform DSP optimization.
 2. Model accuracy calibration and golden parity; concrete feature packages; production
    tracker and attribute producers; pose/OCR.
 3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.

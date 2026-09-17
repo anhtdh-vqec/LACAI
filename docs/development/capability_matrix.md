@@ -23,6 +23,10 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Zvec index | C API adapter, default build, private tmpfs lifecycle | Real library synthetic search/mutation test; `.98` private-storage pass | Capacity/performance/load benchmark |
 | Recognition matching policy | Subject aggregation + configurable threshold/margin; durable encrypted gallery | eSDK logic test; `.98` clean-restart recovery | Calibration, temporal state and attendance events |
 | QTI overlay/H264/ring | Production compatibility path | Person 30 encoded FPS | Released FW conformance and generic output ports |
+| Prepared output gate | Implemented + logic tests | Native output gate `.98` pass | Full multi-stream dynamic scene overlay |
+| Event delivery seam | Implemented + logic tests | Native event seam `.98` pass | Durable UDS / outbox transport (Plan 3) |
+| Model artifact resolver | Implemented + logic tests | Native artifact resolver `.98` pass | Signature / PKI verification |
+| Hardware admission envelope | Implemented + logic tests | Native admission profile `.98` pass | Real-time dynamic thermal / DDR throttling |
 | FD→embedding→attendance | Source-composed through typed embedding | FD→embedding compatibility smoke `.98`; attendance absent | Golden/released-FW cascade, enrollment, matching, recovery, events |
 | Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |
 | Performance target | `.98` compatibility: single-model 36-38% of one core; dual-model+FR ~60-65% | Historical diagnostics; `route_latency_*` steady metric | Requested CPU 15–25%, 25-30 FPS FR and thermal |
