@@ -181,8 +181,9 @@ merge khi dependency chưa đạt. Mỗi source step tạo focused commit task-o
   cụ thể do BSP+FW xác nhận: BatchMode SSH `.98` trả `Permission denied (publickey,password)`;
   chưa có xác nhận BSP+FW hay board test mới.
 - [x] Production không bind reference sink; handoff chỉ báo accepted/pending đúng (F07/P0-07).
-- [ ] Layout/status checks pass; không mô tả reserved/logic-tested là accepted (P0-09):
-  chờ chạy lại sau mọi cập nhật tài liệu và lưu kết quả review cuối.
+- [x] Layout/status checks pass; không mô tả reserved/logic-tested là accepted (P0-09):
+  Bash source/docs layout và `git diff --check` pass; bản PowerShell không chạy vì
+  môi trường không có `pwsh`.
 - [ ] Ba lead ký report; blocker chưa đóng giữ Plan 0 ở `source-delivered`/blocked.
 
 ## 6. Quy tắc mở năm plan sau
