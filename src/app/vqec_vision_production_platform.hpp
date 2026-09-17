@@ -164,9 +164,6 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_pdplt_render(
         std::uint16_t _source_slot, const raw_frame& _frame,
         const prepared_overlay& _payload);
-    [[nodiscard]] status vqec_vision_ai_appl_pdplt_render(
-        std::uint16_t _source_slot, const raw_frame& _frame,
-        const observation_batch& _observations);
 
 private:
     struct implementation;

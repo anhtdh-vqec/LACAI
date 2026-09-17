@@ -598,6 +598,27 @@ service_feature_authority_state vqec_vision_ai_appl_svcmn_resolve_feature_author
     return {false, false, false};
 }
 
+bool vqec_vision_ai_appl_svcmn_is_preview_authorized(
+    const service_startup_resolution& _startup, const parsed_arguments& _args,
+    const std::string& _source_id) noexcept {
+    if (!_args.production_mode || _args.platform == "fake" ||
+        _args.platform == "reference") {
+        return true;
+    }
+    if (!_startup.has_usecase_control) {
+        return false;
+    }
+    for (const auto& record : _startup.usecase_activation.records_) {
+        if (record.source_id_ == _source_id &&
+            record.state_ == usecase_effective_state::ready &&
+            record.desired_enabled_ && record.entitlement_granted_ &&
+            record.resource_admitted_) {
+            return true;
+        }
+    }
+    return false;
+}
+
 service_startup_resolution vqec_vision_ai_appl_svcmn_resolve_startup(
     const parsed_arguments& _args, const deployment_config* _effective_deployment,
     usecase_control_manager* _control_manager, const std::function<void()>& _poll_control,
@@ -1259,6 +1280,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 }
             }
             for (const auto& source : deployment.sources_) {
+                if (!vqec_vision_ai_appl_svcmn_is_preview_authorized(
+                        startup, args, source.source_id_)) {
+                    continue;
+                }
                 output_scope_rule preview_rule;
                 preview_rule.source_id_ = source.source_id_;
                 preview_rule.feature_id_ = "preview";
@@ -1329,6 +1354,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
         for (const auto& source : deployment.sources_) {
+            if (!vqec_vision_ai_appl_svcmn_is_preview_authorized(
+                    startup, args, source.source_id_)) {
+                continue;
+            }
             output_scope_rule preview_rule;
             preview_rule.source_id_ = source.source_id_;
             preview_rule.feature_id_ = "preview";
@@ -1353,6 +1382,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         policy.not_before_ns_ = 0;
         policy.expires_ns_ = service_harness::g_policy_expiry_ns;
         for (const auto& source : deployment.sources_) {
+            if (!vqec_vision_ai_appl_svcmn_is_preview_authorized(
+                    startup, args, source.source_id_)) {
+                continue;
+            }
             output_scope_rule preview_rule;
             preview_rule.source_id_ = source.source_id_;
             preview_rule.feature_id_ = "preview";
@@ -1952,7 +1985,27 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     overlay = {};
                 }
                 prepared_overlay prepared;
-                if (output_policy_applied && !overlay.observations_.empty()) {
+                if (!output_policy_applied) {
+                    continue;
+                }
+                observation_batch render_observations = overlay;
+                if (render_observations.frame_.source_epoch_ == 0) {
+                    render_observations.frame_.camera_id_ =
+                        deployment.sources_[source_slot].camera_id_;
+                    render_observations.frame_.channel_id_ =
+                        deployment.sources_[source_slot].channel_id_;
+                    render_observations.frame_.source_epoch_ =
+                        preview_frame.descriptor_.session_epoch_;
+                    render_observations.frame_.frame_id_ =
+                        preview_frame.descriptor_.buffer_id_;
+                    render_observations.frame_.source_pts_ns_ =
+                        preview_frame.descriptor_.pts_ns_;
+                    render_observations.geometry_.width_ =
+                        preview_frame.descriptor_.width_;
+                    render_observations.geometry_.height_ =
+                        preview_frame.descriptor_.height_;
+                }
+                {
                     overlay_preparation_context prep_ctx;
                     prep_ctx.source_id_ = deployment.sources_[source_slot].source_id_;
                     prep_ctx.feature_id_ = "preview";
@@ -1962,7 +2015,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     prep_ctx.max_age_ns_ = service_harness::g_overlay_max_age_ns;
                     prep_ctx.attributes_ = {"overlay"};
                     const auto prep_status = vqec_vision_ai_outpt_ovrpr_prepare_authorized(
-                        overlay, prep_ctx, output_policy_gate, prepared);
+                        render_observations, prep_ctx, output_policy_gate, prepared);
                     if (prep_status.code_ != status_code::ok) {
                         static std::uint64_t s_last_prep_fail_ns = 0;
                         if (now_ns - s_last_prep_fail_ns > 2000000000ULL) {
@@ -1970,19 +2023,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                                 static_cast<int>(prep_status.code_), prep_status.message_.c_str());
                             s_last_prep_fail_ns = now_ns;
                         }
-                        prepared = {};
+                        continue;
                     }
-                }
-                if (prepared.overlay_.frame_.source_epoch_ == 0) {
-                    prepared.overlay_.frame_.camera_id_ = source_slot;
-                    prepared.overlay_.frame_.channel_id_ = 0;
-                    prepared.overlay_.frame_.source_epoch_ = preview_frame.descriptor_.session_epoch_;
-                    prepared.overlay_.frame_.frame_id_ = preview_frame.descriptor_.buffer_id_;
-                    prepared.overlay_.frame_.source_pts_ns_ = preview_frame.descriptor_.pts_ns_;
-                    prepared.overlay_.geometry_.width_ = preview_frame.descriptor_.width_;
-                    prepared.overlay_.geometry_.height_ = preview_frame.descriptor_.height_;
-                    prepared.overlay_.prepared_monotonic_ns_ = now_ns;
-                    prepared.overlay_.ttl_ns_ = service_harness::g_overlay_max_age_ns;
                 }
                 const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
                     source_slot, preview_frame, prepared);

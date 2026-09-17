@@ -476,6 +476,27 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
     const std::uint64_t now_ns = static_cast<std::uint64_t>(ts.tv_sec) * 1000000000ULL +
         static_cast<std::uint64_t>(ts.tv_nsec);
 
+    if (_payload.rendered_scopes_.empty() ||
+        _payload.rendered_scopes_.size() > output_policy_limits::g_max_rendered_scopes ||
+        _payload.overlay_.policy_revision_ == 0) {
+        return {status_code::unauthorized,
+            "renderer requires a prepared authorized scope"};
+    }
+    for (const auto& scope : _payload.rendered_scopes_) {
+        if (scope.policy_revision_ != _payload.overlay_.policy_revision_ ||
+            scope.source_id_.empty() || scope.feature_id_.empty() ||
+            scope.attributes_.size() > output_policy_limits::g_max_attributes_per_scope) {
+            return {status_code::unauthorized,
+                "renderer prepared scope identity is invalid"};
+        }
+    }
+    const auto prepared = vqec_vision_ai_core_pvctr_validate_overlay(
+        _payload.overlay_, _payload.overlay_.frame_, _payload.overlay_.geometry_,
+        _payload.overlay_.policy_revision_, now_ns, _payload.overlay_.ttl_ns_);
+    if (prepared.code_ != status_code::ok) {
+        return prepared;
+    }
+
     bool drop_boxes = false;
     if (_payload.overlay_.frame_.source_epoch_ != 0 &&
         _payload.overlay_.frame_.source_epoch_ != _frame.descriptor_.session_epoch_) {
@@ -579,32 +600,6 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         return {status_code::pending, "encoder produced no access unit"};
     }
     return result;
-}
-
-status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
-    const raw_frame& _frame, const observation_batch& _observations) {
-    if (implementation_ == nullptr || !implementation_->is_open_) {
-        return {status_code::invalid_state, "qtiv renderer is not initialized"};
-    }
-    struct timespec ts{};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    const std::uint64_t now_ns = static_cast<std::uint64_t>(ts.tv_sec) * 1000000000ULL +
-        static_cast<std::uint64_t>(ts.tv_nsec);
-
-    prepared_overlay prepared;
-    prepared.overlay_.frame_ = _observations.frame_;
-    prepared.overlay_.geometry_ = _observations.geometry_;
-    prepared.overlay_.prepared_monotonic_ns_ = now_ns;
-    prepared.overlay_.ttl_ns_ = implementation_->max_observation_age_ns_;
-    prepared.overlay_.boxes_.reserve(_observations.observations_.size());
-    for (const auto& obs : _observations.observations_) {
-        auto box = obs.box_;
-        if (box.label_.empty()) {
-            box.label_ = obs.class_id_;
-        }
-        prepared.overlay_.boxes_.push_back(std::move(box));
-    }
-    return vqec_vision_ai_qcom_qtvr_render(_frame, prepared);
 }
 
 void qtiv_renderer::vqec_vision_ai_qcom_qtvr_set_demand(bool _has_demand) noexcept {

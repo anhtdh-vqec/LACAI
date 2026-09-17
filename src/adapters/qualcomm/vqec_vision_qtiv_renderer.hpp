@@ -48,9 +48,6 @@ public:
     // writes one AU to the ring. Stale or mismatched observations are dropped.
     [[nodiscard]] status vqec_vision_ai_qcom_qtvr_render(
         const raw_frame& _frame, const prepared_overlay& _payload);
-    // Adapts raw observations into a default prepared overlay and renders.
-    [[nodiscard]] status vqec_vision_ai_qcom_qtvr_render(
-        const raw_frame& _frame, const observation_batch& _observations);
     void vqec_vision_ai_qcom_qtvr_set_demand(bool _has_demand) noexcept;
     [[nodiscard]] bool vqec_vision_ai_qcom_qtvr_has_demand() const noexcept;
     void vqec_vision_ai_qcom_qtvr_set_demand_gating(bool _enabled) noexcept;
