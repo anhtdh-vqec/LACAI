@@ -126,9 +126,10 @@ owned QNN path does not currently provide that mapping. The owned engine still e
 SCRFD and YOLOv8n on HTP (latency varies with board
 load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
 
-Board workspace `/opt/lacai` (a deployment-chosen path; the historical logs below used a
-personal directory name that is not reproduced here) holds `bin/`, `config/`, `inputs/`,
-`models/` and `out/`.
+The board workspace is standardized under `/opt/lacai`; see
+[board workspace and workflow](board_workspace.md) for the layout, build/stage, native test
+and production smoke procedure. Historical logs below may name an older personal directory
+that is no longer used.
 
 ## 2026-09-16 AI-owned protected gallery on `.98`
 

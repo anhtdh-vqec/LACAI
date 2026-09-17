@@ -52,7 +52,9 @@ unfinished work and do not carry current-capability claims.
 ## Testing
 
 `docs/testing/` documents the eSDK/QEMU and QCS6490 board evidence, configuration matrix and
-validation runbooks. Dated raw runs are retained and never retroactively updated.
+validation runbooks. Start with the [board workspace and workflow](testing/board_workspace.md)
+for the standard `/opt/lacai` layout and the build/stage/test/run procedure; dated raw runs
+are retained and never retroactively updated.
 
 ## Research
 

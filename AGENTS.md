@@ -193,5 +193,7 @@ is logic evidence only and never device/BSP acceptance.
 
 The user-authorized QCS6490 test target is `.98`; `.99` and `.48` are currently in use by
 other developers and must not be accessed. Connection guidance is recorded in
-docs/testing/qsc6490_board.md. Verify any local alias resolves to `.98`, then try BatchMode
+docs/testing/qsc6490_board.md. The board workspace is standardized under `/opt/lacai`; use
+the layout and build/stage/test/run procedure in docs/testing/board_workspace.md and never
+use a personal directory name. Verify any local alias resolves to `.98`, then try BatchMode
 before asking for credentials. Never record or echo a password.

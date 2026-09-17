@@ -19,6 +19,18 @@ manifest_models="${2:?manifest models directory required}"
 zvec_tmpfs_root="${3:?zvec tmpfs root required}"
 zvec_scratch_base="${4:?zvec scratch base required}"
 
+# Resolve to absolute so the per-test `cd "$test_dir"` cannot reinterpret relative args.
+resolve_path() {
+    case "$1" in
+        /*) printf '%s' "$1" ;;
+        *) printf '%s/%s' "$(pwd)" "$1" ;;
+    esac
+}
+test_dir="$(resolve_path "$test_dir")"
+manifest_models="$(resolve_path "$manifest_models")"
+zvec_tmpfs_root="$(resolve_path "$zvec_tmpfs_root")"
+zvec_scratch_base="$(resolve_path "$zvec_scratch_base")"
+
 if [ ! -d "$manifest_models" ]; then
     echo "manifest models directory is missing: $manifest_models" >&2
     exit 2
