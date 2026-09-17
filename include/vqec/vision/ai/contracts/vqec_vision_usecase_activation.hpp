@@ -76,6 +76,17 @@ struct usecase_activation_snapshot {
     std::vector<usecase_activation_record> records_;
 };
 
+// Projection used when one runtime feature is referenced by more than one usecase. Gates
+// are monotonic: entitlement is considered only for a desired association and resource
+// admission only for a desired, entitled association. This prevents combining unrelated
+// grants from different usecases into one effective ready feature.
+struct feature_authority_projection {
+    bool has_association_{false};
+    bool desired_enabled_{false};
+    bool entitlement_granted_{false};
+    bool resource_admitted_{false};
+};
+
 // Validates product usecase metadata against primary model roots. Authentication and
 // installation provenance remain outside this pure contract.
 [[nodiscard]] status vqec_vision_ai_core_ucact_validate_catalog(
@@ -90,6 +101,14 @@ struct usecase_activation_snapshot {
     const usecase_catalog& _usecases,
     const std::vector<usecase_activation_request>& _requests,
     usecase_activation_snapshot& _snapshot, deployment_config& _effective_deployment);
+
+// Resolves the authority gates for one source/feature from one immutable activation
+// snapshot. Failure preserves _projection. A feature is ready only when at least one
+// single usecase association supplies the complete desired+entitled+admitted chain.
+[[nodiscard]] status vqec_vision_ai_core_ucact_project_feature_authority(
+    const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
+    const std::string& _source_id, const std::string& _feature_id,
+    feature_authority_projection& _projection);
 
 }  // namespace vqec::vision::ai
 

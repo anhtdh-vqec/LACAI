@@ -1,5 +1,6 @@
 #include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
 
+#include <algorithm>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
@@ -280,6 +281,46 @@ status vqec_vision_ai_core_ucact_compose_effective_deployment(
 
     _snapshot = std::move(candidate_snapshot);
     _effective_deployment = std::move(candidate_deployment);
+    return {};
+}
+
+status vqec_vision_ai_core_ucact_project_feature_authority(
+    const usecase_catalog& _usecases, const usecase_activation_snapshot& _snapshot,
+    const std::string& _source_id, const std::string& _feature_id,
+    feature_authority_projection& _projection) {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _source_id, usecase_activation_limits::g_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _feature_id, usecase_activation_limits::g_max_identifier_bytes) ||
+        _usecases.revision_ == 0 ||
+        _snapshot.usecase_catalog_revision_ != _usecases.revision_) {
+        return {status_code::invalid_argument,
+            "feature authority projection identity or revision is invalid"};
+    }
+
+    feature_authority_projection candidate;
+    for (const auto& usecase : _usecases.usecases_) {
+        if (std::find(usecase.feature_ids_.begin(), usecase.feature_ids_.end(),
+                _feature_id) == usecase.feature_ids_.end()) {
+            continue;
+        }
+        for (const auto& record : _snapshot.records_) {
+            if (record.source_id_ != _source_id ||
+                record.usecase_id_ != usecase.usecase_id_) {
+                continue;
+            }
+            candidate.has_association_ = true;
+            const bool desired = record.desired_enabled_;
+            const bool entitled = desired && record.entitlement_granted_;
+            const bool admitted = entitled && record.resource_admitted_ &&
+                record.state_ == usecase_effective_state::ready;
+            candidate.desired_enabled_ = candidate.desired_enabled_ || desired;
+            candidate.entitlement_granted_ =
+                candidate.entitlement_granted_ || entitled;
+            candidate.resource_admitted_ = candidate.resource_admitted_ || admitted;
+        }
+    }
+    _projection = candidate;
     return {};
 }
 

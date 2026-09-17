@@ -165,6 +165,58 @@ void vqec_vision_ai_unit_ucatst_check_transactional_validation() {
     }
 }
 
+void vqec_vision_ai_unit_ucatst_check_feature_authority_projection() {
+    auto usecases = vqec_vision_ai_unit_ucatst_make_usecases();
+    usecases.usecases_[0].feature_ids_ = {"shared_feature"};
+    usecases.usecases_[2].feature_ids_ = {"shared_feature"};
+
+    usecase_activation_snapshot snapshot;
+    snapshot.usecase_catalog_revision_ = usecases.revision_;
+    usecase_activation_record denied;
+    denied.source_id_ = "camera_front";
+    denied.usecase_id_ = "person_detection";
+    denied.state_ = usecase_effective_state::denied;
+    denied.desired_enabled_ = true;
+    denied.entitlement_granted_ = false;
+    denied.resource_admitted_ = true;
+    usecase_activation_record disabled;
+    disabled.source_id_ = "camera_front";
+    disabled.usecase_id_ = "people_counting";
+    disabled.state_ = usecase_effective_state::disabled;
+    disabled.desired_enabled_ = false;
+    disabled.entitlement_granted_ = true;
+    disabled.resource_admitted_ = true;
+    snapshot.records_ = {denied, disabled};
+
+    feature_authority_projection projection;
+    const auto projected = vqec_vision_ai_core_ucact_project_feature_authority(
+        usecases, snapshot, "camera_front", "shared_feature", projection);
+    if (projected.code_ != status_code::ok || !projection.has_association_ ||
+        !projection.desired_enabled_ || projection.entitlement_granted_ ||
+        projection.resource_admitted_) {
+        throw std::runtime_error("feature authority combined gates across usecases");
+    }
+
+    snapshot.records_[1].desired_enabled_ = true;
+    snapshot.records_[1].state_ = usecase_effective_state::ready;
+    const auto ready = vqec_vision_ai_core_ucact_project_feature_authority(
+        usecases, snapshot, "camera_front", "shared_feature", projection);
+    if (ready.code_ != status_code::ok || !projection.desired_enabled_ ||
+        !projection.entitlement_granted_ || !projection.resource_admitted_) {
+        throw std::runtime_error("ready usecase did not authorize its shared feature");
+    }
+
+    auto stale = snapshot;
+    stale.usecase_catalog_revision_ += 1;
+    const auto preserved = projection;
+    if (vqec_vision_ai_core_ucact_project_feature_authority(
+            usecases, stale, "camera_front", "shared_feature", projection).code_ !=
+            status_code::invalid_argument ||
+        projection.resource_admitted_ != preserved.resource_admitted_) {
+        throw std::runtime_error("stale authority projection changed output");
+    }
+}
+
 }  // namespace
 }  // namespace vqec::vision::ai
 
@@ -173,6 +225,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_model_filtering();
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_denial_idle_and_shared_root();
         vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_transactional_validation();
+        vqec::vision::ai::vqec_vision_ai_unit_ucatst_check_feature_authority_projection();
     } catch (const std::exception& error) {
         return error.what() == nullptr ? 2 : 1;
     }

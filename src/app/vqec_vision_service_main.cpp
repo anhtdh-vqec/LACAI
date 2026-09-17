@@ -579,41 +579,15 @@ service_feature_authority_state vqec_vision_ai_appl_svcmn_resolve_feature_author
     const std::string& _source_id,
     const std::string& _feature_id) {
     if (_startup.has_usecase_control) {
-        service_feature_authority_state state;
-        bool matched_usecase = false;
-        for (const auto& usecase : _startup.usecase_control.catalog_.usecases_) {
-            bool has_feature = false;
-            for (const auto& fid : usecase.feature_ids_) {
-                if (fid == _feature_id) {
-                    has_feature = true;
-                    break;
-                }
-            }
-            if (!has_feature) {
-                continue;
-            }
-            matched_usecase = true;
-            for (const auto& record : _startup.usecase_activation.records_) {
-                if (record.source_id_ == _source_id &&
-                    record.usecase_id_ == usecase.usecase_id_) {
-                    if (record.desired_enabled_) {
-                        state.desired_enabled_ = true;
-                    }
-                    if (record.entitlement_granted_) {
-                        state.entitlement_granted_ = true;
-                    }
-                    if (record.resource_admitted_) {
-                        state.resource_admitted_ = true;
-                    }
-                }
-            }
+        feature_authority_projection projection;
+        const auto projected = vqec_vision_ai_core_ucact_project_feature_authority(
+            _startup.usecase_control.catalog_, _startup.usecase_activation,
+            _source_id, _feature_id, projection);
+        if (projected.code_ != status_code::ok || !projection.has_association_) {
+            return {};
         }
-        if (!matched_usecase) {
-            state.desired_enabled_ = false;
-            state.entitlement_granted_ = false;
-            state.resource_admitted_ = false;
-        }
-        return state;
+        return {projection.desired_enabled_, projection.entitlement_granted_,
+            projection.resource_admitted_};
     }
     if (!_args.production_mode) {
         return {true, true, true};
