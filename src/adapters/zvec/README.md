@@ -4,6 +4,7 @@ Implements `embedding_index_port` through the pinned external Zvec v0.7.0 C API.
 The collection is derived from AI's authenticated encrypted gallery and has no authority.
 
 - **Status:** source-delivered — real-library tests pass eSDK/QEMU and QCS6490 `.98`
+- **Layer:** adapters
 - **Naming registry:** `zvec` (`zvidx`)
 - **Depends on:** neutral core/contracts and external Zvec C API
 - **Used by:** production recognition composition through `embedding_index_port`

@@ -4,6 +4,7 @@ Bounded model/artifact metadata loaders and neutral cross-validation. Never a si
 authority or an execution executor.
 
 - **Status:** source-delivered optional catalog/package loaders (JSON + SHA-256) — trusted resolution still open
+- **Layer:** runtime
 - **Naming registry:** `mreg` (`mdcat`, `otman`, `ardgt`, `artsr`)
 - **Depends on:** `include/vqec/vision/ai/contracts/` model/output contracts
 - **Used by:** runtime composition factory and the optional `vqec_vision_ai_manifest_check` tool

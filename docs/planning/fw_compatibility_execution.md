@@ -82,3 +82,7 @@ concurrent main/sub/recording; rollback with old FW reader.
 Measure preview FPS/latency, inference cadence, source hold time, queue age/drop reason,
 copy bytes, encoder/AU size, FD/RSS/pool use and thermal behavior. Budgets require
 FW/BSP agreement; source-only verification cannot pass these board gates.
+
+## Xem thêm
+
+- [FW release compatibility](../contracts/fw_release_compatibility.md), [implementation status](../development/implementation_status.md)

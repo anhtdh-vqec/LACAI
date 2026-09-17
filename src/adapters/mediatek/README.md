@@ -3,6 +3,7 @@
 Reserved platform boundary.
 
 - **Status:** planned — not implemented
+- **Layer:** adapters
 - **Naming registry:** `mtek`
 - **Blocker:** SDK/product family must be supplied before design completion
 

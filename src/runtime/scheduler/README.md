@@ -3,6 +3,7 @@
 Allocation-free per-source model cadence selection and bounded future job scheduling.
 
 - **Status:** source-delivered cadence + cascade frame store, both tested; `inference_worker` is a reserved unwired module (ADR 0006)
+- **Layer:** runtime
 - **Naming registry:** `sched` (`mdcad`, `jobsc`)
 - **Depends on:** source/model activation slots
 - **Used by:** `multi_model_pump` and `multi_model_session`

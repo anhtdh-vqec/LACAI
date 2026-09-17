@@ -127,3 +127,7 @@ Feature: kit/version/dataset/KPIs, golden+replay, lifecycle/config/license/outpu
 mixed workload budget + known limitations, owner sign-off.
 Release: no unresolved critical buffer/security/ABI faults; supported workload
 matrix, clean installation and rollback, measured soak report, operations docs.
+
+## Xem thêm
+
+- [Model integration plan](model_integration_plan.md), [FR completion plan](face_recognition_completion_plan.md)

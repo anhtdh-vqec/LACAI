@@ -118,3 +118,8 @@ Ghi source commit, tests/configuration, evidence location, giới hạn, owner v
 `planned / source-delivered / logic-tested / board-smoke / accepted` theo documentation_style.
 `accepted` phải có workload/contract-specific evidence và owner review. Docs chỉ phản ánh
 source đã có; A01–A25 chỉ đóng khi đạt tiêu chí evidence tương ứng.
+
+## See also
+
+- [Implementation status](implementation_status.md), [capability matrix](capability_matrix.md)
+- [FR validation](../testing/face_recognition_production_validation.md)

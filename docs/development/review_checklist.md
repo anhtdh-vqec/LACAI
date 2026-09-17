@@ -64,3 +64,7 @@ binary native chạy trên QCS6490 `.98` đạt 117/117 qua
 `tools/vqec_vision_board_native_tests.sh` (xem `docs/testing/qsc6490_board.md`);
 đã có workflow structural/eSDK; chưa xác minh runner run và chưa có AST naming checker**.
 .editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.
+
+## See also
+
+- [Code convention](code_convention.md), [review resolution log](review_codebase_1309_resolution.md)

@@ -4,6 +4,7 @@ Private Qualcomm adapter for QCS6490 / Qualcomm Linux 1.8. Contains the released
 graph backend, the optional LACAI-owned QNN engine and the private preview renderer.
 
 - **Status:** board-verified (sync) — plugin lifecycle fixtures pass on QCS6490; owned QNN engine composes/finalizes/executes SCRFD+YOLOv8n on HTP with byte-identical parity to `qnn-net-run`; async/shared/update still unqualified
+- **Layer:** adapters
 - **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`, `qtvr`)
 - **Depends on:** neutral `inference_graph_port`, core plan/contract validation
 - **Used by:** application composition through `inference_graph_port` only

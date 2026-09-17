@@ -3,6 +3,7 @@
 Start/stop/drain/recovery orchestration boundary. Timeout is never hardware completion.
 
 - **Status:** source-delivered bounded deployment JSON loader — supervision missing
+- **Layer:** runtime
 - **Naming registry:** `life` (`dpcfg`)
 - **Depends on:** `src/core/` deployment validation
 - **Used by:** service startup and runtime composition

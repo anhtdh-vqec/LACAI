@@ -4,6 +4,7 @@ Compute/state: object detection/MOT + person-object relation.
 
 - **Feature ID:** `luggage_tracking`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `ltrak`
 - **Acceptance focus:** tracks/relations; continuity under occlusion
 

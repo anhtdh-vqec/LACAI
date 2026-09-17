@@ -5,6 +5,7 @@ It is the authoritative durable gallery; the Zvec index is derived from it and h
 authority.
 
 - **Status:** source-delivered — encrypted restart recognition, stale CAS and tamper
+- **Layer:** adapters
   rejection pass eSDK/QEMU and on QCS6490 `.98`
 - **Naming registry:** `stor` (`eglry`)
 - **Depends on:** neutral contracts and OpenSSL 3.0 `libcrypto`

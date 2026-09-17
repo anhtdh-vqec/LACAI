@@ -4,6 +4,7 @@ Compute/state: person/hand/face/object or action model with ROI quality and temp
 
 - **Feature ID:** `smoking`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `smoke`
 - **Acceptance focus:** smoking event; tiny-object visibility, hard negatives, false alarms
 

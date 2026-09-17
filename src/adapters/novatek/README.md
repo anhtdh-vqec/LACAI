@@ -3,6 +3,7 @@
 Reserved platform boundary.
 
 - **Status:** planned — not implemented
+- **Layer:** adapters
 - **Naming registry:** `ntek`
 - **Blocker:** private SDK and BSP contracts required
 

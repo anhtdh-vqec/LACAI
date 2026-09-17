@@ -4,6 +4,7 @@ Compute/state: attributes/embedding + track entity refs + external search index.
 
 - **Feature ID:** `retrieval`
 - **Status:** matching policy contract delivered; processor, configuration schema and
+- **Layer:** features
   entitlement are still pending
 - **Naming registry:** `retr`
 - **Acceptance focus:** search records/results; recall@k, latency, authorization

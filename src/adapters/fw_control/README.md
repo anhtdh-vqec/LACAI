@@ -5,6 +5,7 @@ Private adapter reserved for the legacy AI D-Bus compatibility server
 future config/entitlement/health bindings.
 
 - **Status:** face-enrollment DBus adapter is source-delivered behind
+- **Layer:** adapters
   `VQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS`. The usecase-control v1 adapter is
   source-delivered behind `VQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS`; service-level live
   generation replacement remains pending. Legacy model-toggle compatibility methods

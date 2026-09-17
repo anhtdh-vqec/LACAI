@@ -4,6 +4,7 @@ Neutral public C++17 descriptors and interfaces. No vendor, GStreamer or OpenCV 
 this directory.
 
 - **Status:** source-delivered contract surface — built with the eSDK configuration
+- **Layer:** contracts
 - **Naming registry:** `cntr`
 - **Used by:** `src/core/` validation and every adapter
 

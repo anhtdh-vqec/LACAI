@@ -3,6 +3,7 @@
 Reserved platform boundary.
 
 - **Status:** planned — not implemented
+- **Layer:** adapters
 - **Naming registry:** `rchip`
 - **Blocker:** SDK/SoC not selected; no RKNN/RGA compatibility or performance claimed
 

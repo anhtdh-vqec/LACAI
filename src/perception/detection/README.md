@@ -4,6 +4,7 @@ Neutral model-decoding boundary from owned tensor results to tracked observation
 model algorithms and vendor types out of `src/core` and `src/app`.
 
 - **Status:** source-delivered contract + registry — dense, YOLO and anchor-distance decoder cores available
+- **Layer:** perception
 - **Naming registry:** `detec` (`mdstg`, `mdreg`, `tnrd`)
 - **Depends on:** `model_decoder_port`, output-manifest identity, neutral observation contract
 - **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`

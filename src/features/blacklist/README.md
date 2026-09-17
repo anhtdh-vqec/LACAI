@@ -4,6 +4,7 @@ Compute/state: face detect/align/quality/FR + versioned gallery.
 
 - **Feature ID:** `blacklist`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `blist`
 - **Acceptance focus:** match candidate/alarm; FAR/FRR at the agreed threshold, privacy
 

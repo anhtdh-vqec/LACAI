@@ -32,3 +32,7 @@ AI Camera/Box share the intended RAW boundary; this does not prove every FW orig
 been integrated. Zvec SDK execution is CPU/index evidence, not Adreno acceleration.
 **Status:** current — capability snapshot.
 
+
+## See also
+
+- [Implementation status](implementation_status.md), [architecture alignment review](architecture_alignment_review.md)

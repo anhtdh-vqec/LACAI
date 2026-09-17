@@ -101,6 +101,15 @@ ADRs keep their conventional sections instead of the template above:
 `# ADR NNNN — <title>`, then `Status:`, `Date:`, `Owner:`, `## Context`, `## Decision`,
 `## Alternatives`, `## Consequences`, and optionally `## Approve after (gates)`.
 
+### Normative rule and status documents
+
+Rule/reference documents (`code_convention.md`, `naming_registry.md`,
+`documentation_style.md`, `review_checklist.md`, `implementation_status.md`,
+`capability_matrix.md`, `architecture_alignment_review.md`, the resolution log and the
+`docs/planning/` roadmaps) keep their own numbered/domain sections instead of a
+`## Responsibility` section, but still carry the header block and a `## See also` section.
+A plan may use Vietnamese headings.
+
 ### README template
 
 Module/directory READMEs use:
@@ -111,7 +120,7 @@ Module/directory READMEs use:
 <One short paragraph: what this area owns and why.>
 
 - **Status:** <vocabulary> — <evidence>
-- **Layer:** <layer>
+- **Layer:** <layer> (required for `src/` and `include/`; optional for tests, config, tools, packaging)
 - **Naming registry:** `<dir_id>` (<file_ids>)
 - **Depends on:** <layers>
 - **Used by:** <layers>

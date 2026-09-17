@@ -3,6 +3,7 @@
 Reserved runtime graph/owner-construction boundary.
 
 - **Status:** planned — not implemented
+- **Layer:** runtime
 - **Naming registry:** `graph`
 - **Depends on:** `src/runtime/lifecycle` and neutral ports
 

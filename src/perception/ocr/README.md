@@ -3,6 +3,7 @@
 Reserved plate/OCR boundary for traffic workflows.
 
 - **Status:** planned — not implemented
+- **Layer:** perception
 - **Naming registry:** `ocr`
 - **Depends on:** vehicle detection, association and lane/calibration contracts
 

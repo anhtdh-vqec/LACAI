@@ -3,6 +3,7 @@
 Versioned C-compatible ABI for independently packaged trusted modules.
 
 - **Status:** planned — not implemented
+- **Layer:** contracts
 - **Naming registry:** `plug`
 - **Requirements:** opaque handles, explicit struct size and ABI major/minor, no STL objects
   or exceptions crossing the boundary

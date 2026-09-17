@@ -435,3 +435,8 @@ ngừng các phần việc độc lập đã được cho phép.
 - [Qualcomm plugin reference](../research/qualcomm_plugins_reference.md)
 - [Source inventory](../development/implementation_status.md)
 - [Code convention](../development/code_convention.md)
+
+## Xem thêm
+
+- [Recognition session](../architecture/recognition_session.md), [face gallery storage](../contracts/fw_face_gallery_storage.md)
+- [FR validation](../testing/face_recognition_production_validation.md)

@@ -563,3 +563,7 @@ AI-owned encrypted gallery store `src/adapters/storage/vqec_vision_encrypted_fac
 uses file_id `efgal`, prefix `vqec_vision_ai_stor_efgal_`. Its unit test
 `tests/unit/vqec_vision_encrypted_face_gallery_store_test.cpp` uses file_id `efgtst`,
 prefix `vqec_vision_ai_unit_efgtst_`; `main` retains the language entrypoint spelling.
+
+## See also
+
+- [Code convention](code_convention.md), [documentation style](documentation_style.md)

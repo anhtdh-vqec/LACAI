@@ -354,3 +354,8 @@ Delivered component details live in the architecture and contract docs, not here
 [recognition session](../architecture/recognition_session.md),
 [FW release compatibility](../contracts/fw_release_compatibility.md) and
 [FR validation](../testing/face_recognition_production_validation.md).
+
+## See also
+
+- [Capability matrix](capability_matrix.md), [architecture alignment review](architecture_alignment_review.md)
+- [Clean-base plan](../planning/clean_base_plan.md), [QCS6490 target](../testing/qsc6490_board.md)

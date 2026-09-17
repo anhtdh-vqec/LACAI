@@ -4,6 +4,7 @@ Application composition: binds admitted sessions, modules and owner factories to
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
 - **Status:** source-delivered — reference/fake paths run under QEMU; Qualcomm person flow is board-smoked through compatibility FW services
+- **Layer:** app
 - **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
 - **Used by:** `vqec_ai_vision_applications` executable

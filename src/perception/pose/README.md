@@ -3,6 +3,7 @@
 Reserved pose/action boundary for behavior and fall/conflict workflows.
 
 - **Status:** planned — not implemented
+- **Layer:** perception
 - **Naming registry:** `pose`
 - **Depends on:** person detection/tracking and multi-person context
 

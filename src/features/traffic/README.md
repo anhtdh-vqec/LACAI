@@ -4,6 +4,7 @@ Compute/state: vehicle detection/tracking + attributes/plate OCR + lane/polygon 
 
 - **Feature ID:** `traffic`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `traff`
 - **Acceptance focus:** vehicle count/class, lane/direction, plate association; not committed for initial production
 

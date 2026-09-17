@@ -4,6 +4,7 @@ Compute/state: person + pose/action temporal with multi-person context.
 
 - **Feature ID:** `abnormal_behavior`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `abnor`
 - **Acceptance focus:** alarm episode; precision/recall, false alarms per hour, onset delay
 

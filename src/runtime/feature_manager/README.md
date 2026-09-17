@@ -4,6 +4,7 @@ Desired/effective feature state, dependency reconciliation and entitlement-aware
 plus the serialized feature processor/stage boundary.
 
 - **Status:** source-delivered manager, registry, stage and loader — concrete packages missing
+- **Layer:** runtime
 - **Naming registry:** `ftmgr` (`ftmgr`, `ftreg`, `ftstg`, `famgr`, `ftcat`)
 - **Depends on:** feature catalog, feature processor factory port, model catalog
 - **Used by:** runtime composition / feature fan-out

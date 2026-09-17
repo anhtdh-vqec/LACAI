@@ -4,6 +4,7 @@ Vendor-neutral runtime interfaces used by application composition. No GStreamer,
 FastCV, Camera Service wire or product-origin types may cross this directory.
 
 - **Status:** source-delivered port surface
+- **Layer:** contracts
 - **Naming registry:** `ports`
 - **Implemented by:** `src/adapters/camera`, `src/adapters/qualcomm`, `src/adapters/reference`, `src/adapters/zvec`, `src/adapters/storage`, `src/adapters/fw_control`
 

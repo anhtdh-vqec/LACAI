@@ -49,3 +49,8 @@ benchmark. Thiếu capability phải trả unsupported, không silently skip tro
 Chốt workload: số nguồn/profile/rational FPS, models/cadence, viewers/recording, memory,
 latency/age/drop/thermal budget và dataset trước tối ưu. Nếu không đạt, giảm workload
 qua admission có lý do hoặc tối ưu bottleneck đo được; không tăng trần queue để che lag.
+
+## Xem thêm
+
+- [Implementation status](../development/implementation_status.md), [alignment review](../development/architecture_alignment_review.md)
+- [Clean-base plan](clean_base_plan.md)

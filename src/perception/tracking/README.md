@@ -3,6 +3,7 @@
 Per-source tracking state, association and ID continuity with explicit source-epoch resets.
 
 - **Status:** source-delivered port + registry + coordinator — reference IoU implementation exists; production quality qualification remains
+- **Layer:** perception
 - **Naming registry:** `track` (`trkst`, `trreg`)
 - **Depends on:** neutral `tracker_port`, decoded observation batches
 - **Used by:** `src/app/perception_result_stage` and `perception_stage_factory`

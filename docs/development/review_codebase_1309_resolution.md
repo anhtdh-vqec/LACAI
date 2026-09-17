@@ -94,3 +94,7 @@ The choice is validated at activation and tested on both paths.
 - **Execution:** `qnn_inference_graph::submit_tensors` still executes synchronously inside
   the submit call; the port shape is asynchronous, the backend is not yet. This is the
   highest-impact remaining architecture/performance item (§6/§7).
+
+## See also
+
+- [Architecture alignment review](architecture_alignment_review.md), [implementation status](implementation_status.md)

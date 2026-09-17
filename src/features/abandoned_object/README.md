@@ -4,6 +4,7 @@ Compute/state: object track + stationary timer + person-object relation, with oc
 
 - **Feature ID:** `abandoned_object`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `aband`
 - **Acceptance focus:** abandonment event; owner-absence ambiguity, reset correctness
 

@@ -4,6 +4,7 @@ Compute/state: person positions/tracks + dwell grid + time buckets.
 
 - **Feature ID:** `heatmap`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `heat`
 - **Acceptance focus:** heatmap; exposure, occupancy/dwell accuracy, gap handling
 

@@ -4,6 +4,7 @@ Typed tracked-attribute schema, confidence/unknown handling, quality/freshness a
 temporal-fusion boundary.
 
 - **Status:** source-delivered reader — concrete attribute producers pending
+- **Layer:** perception
 - **Naming registry:** `attr` (`atrdr`)
 - **Depends on:** detection/tracking condition contracts
 - **Used by:** feature processors and output authorization

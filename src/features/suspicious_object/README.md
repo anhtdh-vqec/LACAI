@@ -4,6 +4,7 @@ Compute/state: dedicated detector + person association + temporal policy.
 
 - **Feature ID:** `suspicious_object`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `susp`
 - **Acceptance focus:** suspicious-object event; false positives per hour, minimum pixels
 

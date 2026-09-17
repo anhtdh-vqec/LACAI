@@ -264,3 +264,8 @@ External callbacks dùng context object; không dùng global để tìm instance
 - ASan/UBSan/TSan trên target hỗ trợ; host mock không chứng minh device sync.
 - Mỗi PR có checklist; ABI/sync/security cần lead + module owner.
 - Sửa rule bằng PR tài liệu/ADR, không tự exception trong một source file.
+
+## See also
+
+- [Documentation style](documentation_style.md), [naming registry](naming_registry.md)
+- [Review checklist](review_checklist.md), [AGENTS.md](../../AGENTS.md)

@@ -4,6 +4,7 @@ Compute/state: person/PPE detection/classification + body association.
 
 - **Feature ID:** `ppe`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `ppe`
 - **Acceptance focus:** PPE violation; per-class quality, missing vs not observable
 

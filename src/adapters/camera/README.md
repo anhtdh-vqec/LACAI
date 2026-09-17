@@ -5,6 +5,7 @@ activation-time RAW-reference resolution. Implements the neutral `raw_source_por
 leaking Camera Service wire or product-origin types into application code.
 
 - **Status:** source-delivered — not board-qualified; no live FW inference run yet
+- **Layer:** adapters
 - **Naming registry:** `camer` (`lwire`, `frsrc`, `cctrl`, `cmrpc`, `dbrpc`, `srclc`, `rsrsv`, `cmpro`)
 - **Depends on:** neutral `raw_source_port` and core source-binding validation
 - **Used by:** `src/app/camera_graph_pump`, `camera_session`, `multi_source_supervisor`

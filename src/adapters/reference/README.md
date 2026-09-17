@@ -4,6 +4,7 @@ Device-free synthetic backend implementing the neutral ports for contract, wirin
 scheduler tests. Proves lifecycle and composition only, never hardware correctness.
 
 - **Status:** implemented — device-free tests run under the eSDK QEMU configuration
+- **Layer:** adapters
 - **Naming registry:** `refer` (`rfsrc`, `rfgph`, `rfsnk`, `rfprc`)
 - **Depends on:** neutral `raw_source_port`, `inference_graph_port`, `encoded_sink`, `image_processor_port`
 - **Used by:** runtime executor harness and contract tests

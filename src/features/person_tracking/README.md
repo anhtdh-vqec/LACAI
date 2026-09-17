@@ -4,6 +4,7 @@ Compute/state: detector + MOT, optional ReID.
 
 - **Feature ID:** `person_tracking`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `ptrak`
 - **Acceptance focus:** tracks; IDF1/HOTA or a unified metric, ID switches
 

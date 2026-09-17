@@ -4,6 +4,7 @@ Compute/state: person tracks + directional lines/polygons + hysteresis.
 
 - **Feature ID:** `counting`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `count`
 - **Acceptance focus:** windowed counts; count error, direction, duplicate/restart correctness
 

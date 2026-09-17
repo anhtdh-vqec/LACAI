@@ -5,6 +5,7 @@ delivery. AI owns preview overlay/encode/ring production through private adapter
 RTSP/UI, recording and persistent evidence/search.
 
 - **Status:** helpers plus Qualcomm production renderer are source-delivered and board-smoked
+- **Layer:** outputs
 - **Naming registry:** `outpt` (`encdp`, `ftdsp`, `ovrpr`)
 - **Depends on:** `src/core/` output policy and neutral `encoded_sink`/event-sink contracts
 - **Used by:** runtime executor and, later, a threaded service event loop

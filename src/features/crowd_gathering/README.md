@@ -4,6 +4,7 @@ Compute/state: person tracking + zone density/dwell/group rules.
 
 - **Feature ID:** `crowd_gathering`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `crowd`
 - **Acceptance focus:** crowd event; crowd recall, false alarms, dwell timing
 

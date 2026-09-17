@@ -4,6 +4,7 @@ Private adapter for the released FW shared-memory encoded AI ring SDK. Implement
 neutral `encoded_sink` contract over an already-open borrowed ring buffer.
 
 - **Status:** source-delivered, optional — not built or tested; closed-ring guard test source only
+- **Layer:** adapters
 - **Naming registry:** `fwout` (`rgsnk`)
 - **Build option:** `VQEC_VISION_AI_ENABLE_FW_RING` with an externally supplied pinned SDK target
 - **Used by:** encoded dispatch/sink wiring (not yet runtime-wired)

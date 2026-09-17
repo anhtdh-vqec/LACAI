@@ -3,6 +3,7 @@
 Admission by measured workload/camera/model/ROI/memory budgets, with explicit rejection reasons.
 
 - **Status:** source-delivered cold-path snapshot — board capability admission not implemented
+- **Layer:** runtime
 - **Naming registry:** `admis` (`actsp`)
 - **Depends on:** deployment/model/feature catalogs
 - **Used by:** runtime composition factory

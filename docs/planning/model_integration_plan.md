@@ -262,3 +262,7 @@ integration blocker.
   artifact and record it in the package.
 - `dense_decoder` only matches a per-stride grid `cx,cy,w,h` layout; the flat `[1,4,8400]`
   `boxes_out` likely needs a dedicated `yolov8_decoder`.
+
+## Xem thêm
+
+- [Model catalog](../architecture/model_catalog.md), [model integration contract](../contracts/model_integration.md)

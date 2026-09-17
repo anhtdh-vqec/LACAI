@@ -161,3 +161,7 @@ Gate: unit test tương ứng.
 
 Feature package thật, tracker production, attribute producer, pose/OCR, attendance,
 liveness/PAD, TEE/hardware key, signed provisioning, async/shared QNN, multi-vendor.
+
+## Xem thêm
+
+- [Implementation status](../development/implementation_status.md), [base completion plan](base_completion_plan.md)

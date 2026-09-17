@@ -4,6 +4,7 @@ Compute/state: person/object tracks + polygon/line rules.
 
 - **Feature ID:** `intrusion`
 - **Status:** planned — no processor, configuration schema, tests or entitlement yet
+- **Layer:** features
 - **Naming registry:** `intr`
 - **Acceptance focus:** entry/exit/intrusion event; geometry, duplicate suppression
 

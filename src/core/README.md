@@ -4,6 +4,7 @@ Pure, header-visible validation and bookkeeping shared by every adapter and appl
 module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenCV types.
 
 - **Status:** source-delivered — unit/contract tests run under the eSDK QEMU configuration
+- **Layer:** core
 - **Naming registry:** `core` (`dpval`, `infpl`, `subwn`, `srcbd`, `tnctr`, `inexe`, `otgat`, `ftevt`, `ftcat`, `otgen`, `encot`, `pvpol`, `encwn`, `pvsrf`, `pvctr`)
 - **Depends on:** `include/vqec/vision/ai/contracts/`
 - **Used by:** `src/app/`, `src/outputs/`, adapters through neutral contracts

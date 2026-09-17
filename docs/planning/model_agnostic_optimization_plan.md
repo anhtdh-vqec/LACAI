@@ -321,3 +321,7 @@ Quy ước trạng thái: `Đã triển khai (device-free)` nghĩa là source + 
 và chạy dưới eSDK QEMU; không phải board/BSP, model-accuracy, performance hay zero-copy
 acceptance. Reviewer ký ownership/ABI/entitlement được ghi khi có.
 
+
+## Xem thêm
+
+- [Qualcomm execution policy](../architecture/qualcomm_execution_policy.md), [implementation status](../development/implementation_status.md)
