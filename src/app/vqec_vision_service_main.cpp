@@ -1450,6 +1450,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 submission_limits::g_default_job_timeout_ns;
             coordinator_config.max_tasks_per_frame_ =
                 deployment.sources_[source_slot].cascade_.tasks_per_frame_;
+            coordinator_config.control_budget_ns_ =
+                cascade_coordinator_limits::g_default_control_budget_ns;
             owner.coordinator_ = std::make_unique<cascade_coordinator>();
             const auto coordinator_configured =
                 owner.coordinator_->vqec_vision_ai_appl_cscrd_configure(
@@ -1627,6 +1629,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             cascade_config.cycle_id_ = detector_config.cycle_id_ + 1U;
             cascade_config.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
             cascade_config.max_tasks_per_frame_ = 1U;
+            cascade_config.control_budget_ns_ =
+                cascade_coordinator_limits::g_default_control_budget_ns;
             if (prepared.code_ == status_code::ok) {
                 prepared = enrollment_cascade->vqec_vision_ai_appl_cscrd_configure(
                     cascade_config);

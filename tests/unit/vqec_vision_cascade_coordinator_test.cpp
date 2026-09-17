@@ -255,9 +255,12 @@ cascade_coordinator_config make_config(
 
 int main() {
     unsigned failures = 0;
-    const auto check = [&failures](bool _condition) {
+    unsigned check_id = 0;
+    const auto check = [&failures, &check_id](bool _condition) {
+        ++check_id;
         if (!_condition) {
             ++failures;
+            std::cout << "failed check " << check_id << std::endl;
         }
     };
     std::vector<alignment_result> aligned;
@@ -401,6 +404,60 @@ int main() {
         cascade_coordinator coordinator;
         check(coordinator.vqec_vision_ai_appl_cscrd_configure(
                   make_config(aligner, lease, 0)).code_ == status_code::invalid_argument);
+    }
+
+    // Control budget: when control_budget_ns_ is exceeded after the first task, remaining
+    // tasks in the batch are skipped to protect control responsiveness.
+    {
+        fake_aligner aligner;
+        fake_lease lease;
+        auto config = make_config(aligner, lease, 4);
+        config.control_budget_ns_ = 1;  // 1 nanosecond forces skip after first task
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(config).code_ == status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  1000, make_batch(3), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 1 && report.skipped_ == 2 && report.failed_ == 0 &&
+              aligned.size() == 1);
+        const auto metrics = coordinator.vqec_vision_ai_appl_cscrd_get_metrics();
+        check(metrics.tasks_accepted_ == 1 && metrics.tasks_skipped_ == 2 &&
+              metrics.tasks_failed_ == 0);
+    }
+
+    // Stop state: request_stop() causes subsequent process() calls to reject new tasks fail-closed
+    // and retire admission without acquiring frames or executing work.
+    {
+        fake_aligner aligner;
+        fake_lease lease;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(
+                  make_config(aligner, lease, 2)).code_ == status_code::ok);
+        check(!coordinator.vqec_vision_ai_appl_cscrd_is_stopping());
+        check(coordinator.vqec_vision_ai_appl_cscrd_request_stop(5000).code_ == status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_is_stopping());
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  6000, make_batch(2), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 0 && report.skipped_ == 2 && report.failed_ == 0 &&
+              aligned.empty());
+        check(lease.acquire_calls_ == 0 && lease.retire_calls_ == 1);
+        const auto metrics = coordinator.vqec_vision_ai_appl_cscrd_get_metrics();
+        check(metrics.stop_duration_ns_ == 1000 && metrics.tasks_skipped_ == 2);
+    }
+
+    // Backend completion not signalled: frame is quarantined and NOT early-released to lease.
+    {
+        fake_aligner aligner;
+        aligner.completion_pending_ = true;  // Simulates device completion not yet signalled
+        fake_lease lease;
+        cascade_coordinator coordinator;
+        check(coordinator.vqec_vision_ai_appl_cscrd_configure(
+                  make_config(aligner, lease, 1)).code_ == status_code::ok);
+        check(coordinator.vqec_vision_ai_appl_cscrd_process(
+                  1000, make_batch(1), aligned, embeddings, report).code_ == status_code::ok);
+        check(report.accepted_ == 0 && report.failed_ == 1 && aligned.empty());
+        check(lease.complete_calls_ == 1 && lease.retire_calls_ == 1);
+        const auto metrics = coordinator.vqec_vision_ai_appl_cscrd_get_metrics();
+        check(metrics.quarantine_count_ == 1 && metrics.tasks_failed_ == 1);
     }
 
     std::cout << "cascade coordinator failures: " << failures << '\n';

@@ -111,8 +111,11 @@ void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
     vqec_vision_ai_appl_mmump_stop_model_workers();
     preview_frame_ = {};
     has_preview_frame_ = false;
-    for (auto& retained : retained_frames_) {
-        retained = {};
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        if (bindings_[slot].graph_ == nullptr ||
+            bindings_[slot].graph_->vqec_vision_ai_ports_infgr_get_outstanding() == 0) {
+            retained_frames_[slot] = {};
+        }
     }
 }
 
@@ -630,6 +633,14 @@ void multi_model_pump::vqec_vision_ai_appl_mmump_stop_model_workers() noexcept {
             job.exiting_ = true;
             if (job.pending_) {
                 job.pending_ = false;
+                if (bindings_[slot].cascade_root_ && cascade_store_ != nullptr &&
+                    job.frame_.owner_ != nullptr) {
+                    const preview_frame_key key{camera_id_, channel_id_,
+                        job.frame_.descriptor_.session_epoch_,
+                        job.frame_.descriptor_.buffer_id_,
+                        job.frame_.descriptor_.pts_ns_};
+                    (void)cascade_store_->vqec_vision_ai_sched_cfstr_retire(key);
+                }
                 job.frame_ = {};
             }
         }

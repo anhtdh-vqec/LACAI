@@ -34,13 +34,33 @@ struct cascade_coordinator_config {
     std::uint64_t job_timeout_ns_{0};
     // Maximum faces aligned per primary frame.
     std::size_t max_tasks_per_frame_{0};
+    // Optional steady-nanosecond budget per frame batch to preserve control response.
+    // When nonzero, remaining unstarted tasks in the batch are skipped once elapsed >= budget.
+    std::uint64_t control_budget_ns_{0};
 };
+
+namespace cascade_coordinator_limits {
+inline constexpr std::uint64_t g_default_control_budget_ns = 25000000ULL;  // 25 ms
+}  // namespace cascade_coordinator_limits
 
 struct cascade_coordinator_report {
     std::uint16_t accepted_{0};
     std::uint16_t embedded_{0};
     std::uint16_t skipped_{0};
     std::uint16_t failed_{0};
+};
+
+struct cascade_coordinator_metrics {
+    std::uint64_t oldest_job_ns_{0};
+    std::uint64_t stop_duration_ns_{0};
+    std::size_t active_tasks_{0};
+    std::size_t queue_depth_{0};
+    std::size_t quarantine_count_{0};
+    status_code root_backend_error_code_{status_code::ok};
+    std::uint64_t tasks_accepted_{0};
+    std::uint64_t tasks_embedded_{0};
+    std::uint64_t tasks_skipped_{0};
+    std::uint64_t tasks_failed_{0};
 };
 
 // Serialized cascade coordinator. For one decoded primary observation batch it acquires the
@@ -71,6 +91,11 @@ public:
     [[nodiscard]] bool vqec_vision_ai_appl_cscrd_is_configured() const noexcept;
     [[nodiscard]] const status&
     vqec_vision_ai_appl_cscrd_get_last_task_error() const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_cscrd_request_stop(
+        std::uint64_t _steady_now_ns);
+    [[nodiscard]] bool vqec_vision_ai_appl_cscrd_is_stopping() const noexcept;
+    [[nodiscard]] cascade_coordinator_metrics
+    vqec_vision_ai_appl_cscrd_get_metrics() const noexcept;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_cscrd_process_with_lease(
@@ -90,6 +115,10 @@ private:
     std::uint64_t job_timeout_ns_{0};
     std::uint64_t armed_source_epoch_{0};
     std::size_t max_tasks_per_frame_{0};
+    std::uint64_t control_budget_ns_{0};
+    std::uint64_t stop_ns_{0};
+    bool is_stopping_{false};
+    cascade_coordinator_metrics metrics_{};
     // Full model input spec taken from the loaded graph (name, dims, dtype, quantization).
     tensor_spec embedding_input_spec_{};
     // The coordinator is serialized, so one activation-sized quantization workspace and

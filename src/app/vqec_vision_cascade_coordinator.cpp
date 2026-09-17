@@ -1,5 +1,6 @@
 #include "vqec_vision_cascade_coordinator.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -166,6 +167,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     cycle_id_ = _config.cycle_id_;
     job_timeout_ns_ = _config.job_timeout_ns_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
+    control_budget_ns_ = _config.control_budget_ns_;
+    is_stopping_ = false;
+    stop_ns_ = 0;
+    metrics_ = {};
     embedding_input_spec_ = input_spec;
     if (wants_embedding) {
         const auto elements = static_cast<std::size_t>(input_spec.dimensions_[1]) *
@@ -195,6 +200,28 @@ bool cascade_coordinator::vqec_vision_ai_appl_cscrd_is_configured() const noexce
 const status& cascade_coordinator::
 vqec_vision_ai_appl_cscrd_get_last_task_error() const noexcept {
     return last_task_error_;
+}
+
+status cascade_coordinator::vqec_vision_ai_appl_cscrd_request_stop(
+    std::uint64_t _steady_now_ns) {
+    if (_steady_now_ns == std::numeric_limits<std::uint64_t>::max()) {
+        return {status_code::invalid_argument, "cascade stop requires steady time"};
+    }
+    if (!is_stopping_) {
+        is_stopping_ = true;
+        stop_ns_ = _steady_now_ns;
+    }
+    metrics_.stop_duration_ns_ = _steady_now_ns >= stop_ns_ ? _steady_now_ns - stop_ns_ : 0;
+    return {};
+}
+
+bool cascade_coordinator::vqec_vision_ai_appl_cscrd_is_stopping() const noexcept {
+    return is_stopping_;
+}
+
+cascade_coordinator_metrics
+cascade_coordinator::vqec_vision_ai_appl_cscrd_get_metrics() const noexcept {
+    return metrics_;
 }
 
 status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
@@ -260,18 +287,41 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
     if (key.source_epoch_ == 0 || key.frame_id_ == 0) {
         return {status_code::invalid_argument, "cascade batch has no source frame identity"};
     }
+    if (is_stopping_) {
+        const auto count = static_cast<std::uint16_t>(_tracked.observations_.size());
+        _report.skipped_ = count;
+        metrics_.tasks_skipped_ += count;
+        metrics_.queue_depth_ = 0;
+        metrics_.active_tasks_ = 0;
+        metrics_.stop_duration_ns_ = _steady_now_ns >= stop_ns_ ? _steady_now_ns - stop_ns_ : 0;
+        (void)_lease.vqec_vision_ai_ports_cflse_retire(key);
+        return {};
+    }
     const bool embed = embedding_graph_ != nullptr;
     if (embed && armed_source_epoch_ != 0 && armed_source_epoch_ != key.source_epoch_) {
         (void)_lease.vqec_vision_ai_ports_cflse_retire(key);
         return {status_code::invalid_state,
             "secondary graph must restart before the source epoch changes"};
     }
+    const std::uint64_t start_batch_ns = _steady_now_ns;
+    metrics_.queue_depth_ = _tracked.observations_.size();
+    if (metrics_.oldest_job_ns_ == 0 && !_tracked.observations_.empty()) {
+        metrics_.oldest_job_ns_ = start_batch_ns;
+    }
+    const auto batch_start_tp = std::chrono::steady_clock::now();
     std::size_t accepted = 0;
     for (const auto& observation : _tracked.observations_) {
+        const auto elapsed_ns = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - batch_start_tp).count());
+        const bool budget_exhausted = (control_budget_ns_ != 0) &&
+            (accepted > 0) && (elapsed_ns >= control_budget_ns_);
         if (accepted >= max_tasks_per_frame_ ||
             observation.landmarks_.points_.empty() ||
-            observation.landmarks_.schema_id_.empty()) {
+            observation.landmarks_.schema_id_.empty() ||
+            budget_exhausted) {
             ++_report.skipped_;
+            ++metrics_.tasks_skipped_;
             continue;
         }
         alignment_request request;
@@ -286,8 +336,10 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                 last_task_error_ = acquired;
             }
             ++_report.failed_;
+            ++metrics_.tasks_failed_;
             continue;
         }
+        metrics_.active_tasks_ = 1;
         alignment_result result;
         std::uint64_t align_ticket = 0;
         const auto aligned = aligner_->vqec_vision_ai_ports_imaln_align(
@@ -295,15 +347,18 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
         bool task_ok = aligned.code_ == status_code::ok;
         if (!task_ok && last_task_error_.code_ == status_code::ok) {
             last_task_error_ = aligned;
+            metrics_.root_backend_error_code_ = aligned.code_;
         }
         // The alignment transform is not complete until the backend reports device
         // completion; a pending transform is a task failure, not a successful crop.
+        bool align_complete = false;
         if (task_ok) {
-            bool complete = false;
             const auto completion =
-                aligner_->vqec_vision_ai_ports_imaln_poll_completion(align_ticket, complete);
-            if (completion.code_ != status_code::ok || !complete) {
+                aligner_->vqec_vision_ai_ports_imaln_poll_completion(align_ticket, align_complete);
+            if (completion.code_ != status_code::ok || !align_complete) {
                 task_ok = false;
+                metrics_.root_backend_error_code_ = completion.code_ != status_code::ok ?
+                    completion.code_ : status_code::protocol_error;
                 if (last_task_error_.code_ == status_code::ok) {
                     last_task_error_ = completion.code_ != status_code::ok ? completion :
                         status{status_code::protocol_error,
@@ -327,6 +382,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                     armed_source_epoch_ = key.source_epoch_;
                 } else {
                     task_ok = false;
+                    metrics_.root_backend_error_code_ = armed.code_;
                     if (last_task_error_.code_ == status_code::ok) {
                         last_task_error_ = armed;
                     }
@@ -351,6 +407,7 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                         _steady_now_ns, secondary_ticket);
                 if (submitted.code_ != status_code::ok) {
                     task_ok = false;
+                    metrics_.root_backend_error_code_ = submitted.code_;
                     if (last_task_error_.code_ == status_code::ok) {
                         last_task_error_ = submitted;
                     }
@@ -366,9 +423,11 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                     if (decoded.code_ == status_code::ok) {
                         _embeddings.push_back(std::move(embedding));
                         ++_report.embedded_;
+                        ++metrics_.tasks_embedded_;
                         pushed_embedding = true;
                     } else {
                         task_ok = false;
+                        metrics_.root_backend_error_code_ = decoded.code_;
                         if (last_task_error_.code_ == status_code::ok) {
                             last_task_error_ = decoded;
                         }
@@ -376,18 +435,26 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                 }
             }
         }
-        // Release the frame-retention ticket regardless of downstream success; it is a
-        // different ticket from the alignment-completion ticket above.
+        if (!align_complete) {
+            ++metrics_.quarantine_count_;
+            if (last_task_error_.code_ == status_code::ok) {
+                last_task_error_ = {status_code::timeout,
+                    "alignment backend did not complete; frame quarantined"};
+            }
+        }
         const bool complete_ok =
             _lease.vqec_vision_ai_ports_cflse_complete(frame_ticket).code_ == status_code::ok;
+        if (!complete_ok && last_task_error_.code_ == status_code::ok) {
+            last_task_error_ = {status_code::invalid_state,
+                "cascade frame lease completion failed"};
+        }
+        metrics_.active_tasks_ = 0;
         if (task_ok && complete_ok) {
             ++_report.accepted_;
+            ++metrics_.tasks_accepted_;
         } else {
-            if (!complete_ok && last_task_error_.code_ == status_code::ok) {
-                last_task_error_ = {status_code::invalid_state,
-                    "cascade frame lease completion failed"};
-            }
             ++_report.failed_;
+            ++metrics_.tasks_failed_;
             if (pushed_aligned) {
                 _aligned.pop_back();
                 --accepted;
@@ -395,15 +462,18 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
             if (pushed_embedding) {
                 _embeddings.pop_back();
                 --_report.embedded_;
+                --metrics_.tasks_embedded_;
             }
         }
     }
+    metrics_.queue_depth_ = 0;
     const auto retired = _lease.vqec_vision_ai_ports_cflse_retire(key);
     if (retired.code_ != status_code::ok && retired.code_ != status_code::invalid_state) {
         if (last_task_error_.code_ == status_code::ok) {
             last_task_error_ = retired;
         }
         ++_report.failed_;
+        ++metrics_.tasks_failed_;
     }
     return {};
 }

@@ -180,6 +180,11 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_request_stop(
         return {status_code::invalid_argument, "executor requires monotonic steady time"};
     }
     last_now_ns_ = _steady_now_ns;
+    for (auto* coordinator : cascade_coordinators_) {
+        if (coordinator != nullptr) {
+            (void)coordinator->vqec_vision_ai_appl_cscrd_request_stop(_steady_now_ns);
+        }
+    }
     return composition_.vqec_vision_ai_cntr_acomp_request_stop(_steady_now_ns);
 }
 
