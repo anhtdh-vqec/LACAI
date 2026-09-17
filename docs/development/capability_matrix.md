@@ -1,10 +1,11 @@
 # Capability matrix
 
-Snapshot 2026-09-17, synchronized with the clean-base source. Board smoke khác product acceptance.
-Số test/configuration nằm ở [implementation status](implementation_status.md); không suy
-capability từ SDK/plugin đã cài. Quy tắc evidence: [documentation style](documentation_style.md).
+Snapshot 2026-09-17, synchronized with the clean-base source. Board smoke differs from
+product acceptance. Test/configuration counts live in
+[implementation status](implementation_status.md); do not infer capability from an
+installed SDK/plugin. Evidence rules: [documentation style](documentation_style.md).
 
-| Capability | Source / logic | Native evidence | Chưa nghiệm thu |
+| Capability | Source / logic | Native evidence | Not yet accepted |
 |---|---|---|---|
 | Static single-image catalog/manifest | Implemented, tested | Model-specific probes | Generic model accuracy |
 | Dynamic/multi-input/stateful/batch | Rejected where unsupported | None | Implementation/capacity |

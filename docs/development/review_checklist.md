@@ -2,7 +2,7 @@
 
 **Status:** normative — current per-PR and per-boundary checklist.
 
-## Mọi PR
+## Every PR
 
 - [ ] No magic number/string/hardcode: semantic owner, units/provenance, validated
       configuration for deployment policy, documented defaults and boundary tests.
@@ -13,57 +13,59 @@
 - [ ] External wire/ring/D-Bus/executable names preserved; behavior changes reviewed
       against docs/contracts/fw_release_compatibility.md, not inferred from filename rules.
 
-- [ ] Scope/owner rõ; đọc AGENTS + convention + relevant contract.
-- [ ] Tên hàm theo registered dir/file; override giữ declaration prefix.
+- [ ] Scope/owner clear; read AGENTS + convention + relevant contract.
+- [ ] Function names follow the registered dir/file; overrides keep the declaration prefix.
 - [ ] Parameters _snake_case; globals/static g_; members snake_case_.
-- [ ] Không reserved identifiers; ngoại lệ có record, không blanket suppression.
-- [ ] No vendor/OpenCV leakage; target dependencies không cycle.
-- [ ] API ghi ownership/thread/blocking/completion/errors.
-- [ ] Validate bounds/overflow/type/version; partial-init cleanup đúng.
-- [ ] Tests happy/error/stop path; golden/replay nếu semantics thay đổi.
-- [ ] Docs/registry/manifest cập nhật; report tests not run và lý do.
-- [ ] Small reviewable change; không mix refactor rộng với behavior change.
-- [ ] Build/test (khi được yêu cầu) dùng toolchain eSDK tại `/home/a/Workspace/eSDK`;
-      không dùng host compiler và không coi host build là bằng chứng target.
-- [ ] Không ghi username/password/token hoặc credential URL vào repo, log, commit hay
-      remote; push dùng credential helper/SSH agent/secret store của môi trường.
-- [ ] Sau mỗi bước source hoàn chỉnh: kiểm tra `git status`, chỉ stage thay đổi thuộc
-      bước này và tạo focused commit. Theo chỉ đạo hiện tại, người dùng tự push;
-      chỉ push khi được yêu cầu lại, không coi local commit là đã đồng bộ.
-- [ ] Không stage/commit thay đổi không thuộc task, secrets, model binaries, biometric
-      data hoặc private SDK libraries.
+- [ ] No reserved identifiers; exceptions are recorded, no blanket suppression.
+- [ ] No vendor/OpenCV leakage; target dependencies do not cycle.
+- [ ] API documents ownership/thread/blocking/completion/errors.
+- [ ] Validate bounds/overflow/type/version; correct partial-init cleanup.
+- [ ] Tests cover happy/error/stop path; golden/replay if semantics change.
+- [ ] Docs/registry/manifest updated; report tests not run and why.
+- [ ] Small reviewable change; do not mix broad refactor with behavior change.
+- [ ] Build/test (when requested) uses the eSDK toolchain at `/home/a/Workspace/eSDK`;
+      do not use the host compiler and do not treat a host build as target evidence.
+- [ ] Do not write username/password/token or credential URL into the repo, logs, commit
+      or remote; push uses the environment's credential helper/SSH agent/secret store.
+- [ ] After each complete source step: check `git status`, stage only changes owned by
+      this step and create a focused commit. Per current direction, the user pushes;
+      push only when asked again, do not treat a local commit as synchronized.
+- [ ] Do not stage/commit unrelated changes, secrets, model binaries, biometric data or
+      private SDK libraries.
 
 ## Buffer/backend PR — lead + platform owner review
 
-- [ ] Acquire sync, CPU cache scope và device completion được phân biệt.
-- [ ] Timeout/disconnect không release active readers.
+- [ ] Acquire sync, CPU cache scope and device completion are distinguished.
+- [ ] Timeout/disconnect does not release active readers.
 - [ ] FD reuse/cache invalidation/epoch/context lifetime test.
 - [ ] Bounded pools/queues, overload policy, no lock across SDK/RPC.
 - [ ] Stride/modifier/color/transform/quantization golden.
 - [ ] SDK ABI/version checks; no guessed API or blind provider selection.
-- [ ] Metrics actual CPU/copies/memory; hardware claim có board evidence.
+- [ ] Metrics actual CPU/copies/memory; hardware claims have board evidence.
 
 ## Feature/entitlement/output PR
 
-- [ ] Dependencies share compatible only; disable không phá consumer khác.
-- [ ] Unknown/quality/freshness; attribute scopes kiểm tra riêng.
-- [ ] Revoke during job + queued retry output được chặn đúng.
-- [ ] Event dedup/checkpoint; reset/source-gap không tạo alarm/count giả.
+- [ ] Dependencies share only compatible ones; disable does not break other consumers.
+- [ ] Unknown/quality/freshness; attribute scopes are checked separately.
+- [ ] Revoke during job + queued retry output is correctly blocked.
+- [ ] Event dedup/checkpoint; reset/source-gap does not create false alarms/counts.
 - [ ] Privacy: no raw image/embedding/token logs; retention policy.
-- [ ] Dataset quality và workload report, không chỉ demo clip.
+- [ ] Dataset quality and workload report, not just a demo clip.
 
-## CI dự kiến triển khai P0
+## Planned P0 CI rollout
 
 PR target: formatter + AST naming + include/dependency rules + eSDK unit/contracts.
 Merge: clean cross-build + package contents/dependencies validation.
-Nightly target: golden/replay + eSDK ASan/UBSan; TSan khi target/toolchain hỗ trợ.
+Nightly target: golden/replay + eSDK ASan/UBSan; TSan when target/toolchain supports it.
 Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
-Current source: **đã có unit/contract test source và CTest cho validators, session,
-cadence, ownership và output helpers; eSDK cross-build đạt; eSDK/QEMU hiện 123/123 và bộ
-binary native chạy trên QCS6490 `.98` đạt 117/117 qua
-`tools/vqec_vision_board_native_tests.sh` (xem `docs/testing/qsc6490_board.md`);
-đã có workflow structural/eSDK; chưa xác minh runner run và chưa có AST naming checker**.
-.editorconfig/.clang-format chỉ là cấu hình, không tự cưỡng chế mọi quy tắc.
+Current source: **unit/contract test source and CTest exist for validators, session,
+cadence, ownership and output helpers; eSDK cross-build passes; eSDK/QEMU currently
+123/123 and the native binary set on QCS6490 `.98` passes 117/117 via
+`tools/vqec_vision_board_native_tests.sh` (see `docs/testing/qsc6490_board.md`);
+the structural/eSDK workflow exists; runner run is not verified and there is no AST
+naming checker**.
+.editorconfig/.clang-format is only configuration, it does not enforce every rule by
+itself.
 
 ## See also
 

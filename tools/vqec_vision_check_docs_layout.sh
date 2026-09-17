@@ -17,12 +17,25 @@ python3 - <<'PY'
 import os, re, sys
 
 SKIP_DIRS = (".git", "third_party")
+# Repository meta files that are intentionally not template documents.
+EXEMPT_FILES = {os.path.normpath("./AGENTS.md"), os.path.normpath("./README.md")}
 violations = []
 checked = 0
 
 def is_skipped(path):
     parts = path.split(os.sep)
     return any(p in SKIP_DIRS or p.startswith("build-") for p in parts)
+
+def strip_fences(text):
+    out = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            out.append(line)
+    return out
 
 for dirpath, dirnames, filenames in os.walk("."):
     dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith("build-")]
@@ -32,8 +45,10 @@ for dirpath, dirnames, filenames in os.walk("."):
         path = os.path.join(dirpath, name)
         if is_skipped(path):
             continue
-        checked += 1
         rel = os.path.relpath(path)
+        if os.path.normpath(path) in EXEMPT_FILES:
+            continue
+        checked += 1
 
         # filename
         if name == "README.md":
@@ -44,7 +59,7 @@ for dirpath, dirnames, filenames in os.walk("."):
             violations.append(f"{rel}: filename must be lowercase snake_case (README.md or NNNN_slug.md)")
 
         text = open(path, encoding="utf-8", errors="ignore").read()
-        lines = text.splitlines()
+        lines = strip_fences(text)
 
         # single H1
         h1 = [i for i, l in enumerate(lines) if re.match(r"^# ", l)]
@@ -57,7 +72,7 @@ for dirpath, dirnames, filenames in os.walk("."):
         if not re.search(r"Status:", head):
             violations.append(f"{rel}: missing a 'Status:' line before the first '##' section")
 
-        # relative links
+        # relative links (scan raw text so code examples are still validated)
         for m in re.finditer(r"\]\(([^)]+)\)", text):
             link = m.group(1).strip()
             if link.startswith(("http://", "https://", "#", "mailto:", "<")):

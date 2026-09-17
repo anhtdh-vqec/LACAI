@@ -9,11 +9,11 @@ prefix `vqec_vision_ai_tools_frdbt_`. Its deployment/biometric fixture stays out
 Ring-generation regression: `tools/vqec_vision_ring_rtsp_test.py`, file_id `rrtst`,
 prefix `vqec_vision_ai_tools_rrtst_`; synthetic file-backed ring only.
 
-Registry này là nguồn chuẩn, không tự viết tắt theo cảm tính.
-Các file ở bảng Reserved là **reserved/planned**; bảng Implementation additions
-ghi các file đã bắt đầu có source, chưa build.
-Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp cùng API
-được coi là một owner. Không tái sử dụng prefix đã export cho ý nghĩa khác.
+This registry is the source of truth; do not invent abbreviations.
+Files in the Reserved table are **reserved/planned**; the Implementation additions
+table records files that already have source started, not yet built.
+Each dir_id + file_id pair has exactly one logical owner; a header/source pair for the
+same API counts as one owner. Do not reuse an exported prefix for a different meaning.
 
 **Status:** normative — current dir_id/file_id registry.
 
@@ -72,8 +72,8 @@ Mỗi cặp dir_id + file_id chỉ có một logical owner; header/source cặp 
 | tests/board | board |
 | tools | tools |
 
-Thêm thư mục con chứa source cần ID riêng trước khi tạo hàm ở đó.
-Chỉ thư mục có hàm cần ID; thư mục tài liệu/manifest không cần.
+Add an ID for a subdirectory containing source before creating functions there.
+Only directories with functions need an ID; documentation/manifest directories do not.
 
 ## Reserved file IDs
 
@@ -99,11 +99,11 @@ Chỉ thư mục có hàm cần ID; thư mục tài liệu/manifest không cần
 | include/vqec/vision/ai/contracts/vqec_vision_buffer_manager.hpp | bufmg | vqec_vision_ai_cntr_bufmg_ |
 | include/vqec/vision/ai/plugin/vqec_vision_backend_api.h | bkapi | vqec_vision_ai_plug_bkapi_ |
 
-Ví dụ override image_processor vẫn mang tên
-vqec_vision_ai_cntr_imgpr_submit_image, không đổi thành qcom_fcprc.
-Ví dụ helper resize riêng FastCV dùng vqec_vision_ai_qcom_fcprc_resize_image.
-Khi thêm source mới: thêm row exact path, owner reviewer, kiểm tra collision.
-Đổi owner public cần ADR và kế hoạch compatibility.
+For example, an image_processor override still carries the name
+vqec_vision_ai_cntr_imgpr_submit_image, not changed to qcom_fcprc.
+For example, a FastCV-specific resize helper uses vqec_vision_ai_qcom_fcprc_resize_image.
+When adding new source: add an exact path row, owner reviewer, check for collisions.
+Changing a public owner needs an ADR and a compatibility plan.
 
 ## Implementation additions (2026-09-06)
 
@@ -514,9 +514,9 @@ accessors share that implementation owner. Tests' main uses the language excepti
 | Per-class special members | constructor/destructor/operator | C++ language requirement | baseline |
 | Interface overrides | exact declaring interface symbol | C++ override identity | baseline |
 
-External callbacks chỉ được miễn prefix nếu framework lookup tên cố định;
-callback function pointer tự đặt tên KHÔNG được miễn.
-Không có ngoại lệ mutable global hoặc production OpenCV.
+External callbacks are exempt from the prefix only if the framework looks up a fixed
+name; a self-named callback function pointer is NOT exempt.
+There is no exception for mutable globals or production OpenCV.
 
 Source perception factory registrations (source delivered):
 

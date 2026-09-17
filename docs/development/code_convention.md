@@ -26,31 +26,34 @@ do NOT inherit the configuration-file exception. Any further exception needs rev
 
 This section takes precedence over older illustrative filenames below.
 
-Ngày: 2026-09-06. MUST = bắt buộc; SHOULD = mặc định, ngoại lệ cần review.
-Áp dụng source tự viết, tests và tooling; third-party giữ upstream style riêng.
-C++17 là baseline. Tài liệu này thay thế convention PascalCase đã thảo luận trước.
+Date: 2026-09-06. MUST = required; SHOULD = default, exceptions need review.
+Applies to self-written source, tests and tooling; third-party keeps its own upstream style.
+C++17 is the baseline. This document replaces the PascalCase convention discussed earlier.
 
-## 1. Tên hàm — bắt buộc
+## 1. Function names — required
 
 `vqec_vision_ai_<dir_id>_<file_id>_<verb_object>`
 
-- Dùng underscore giữa mọi thành phần; dấu * trong yêu cầu được hiểu là nối ý
-  nghĩa function, không phải ký tự literal.
-- dir_id: thư mục trực tiếp chứa implementation; 3–5 ký tự chữ thường/số,
-  bắt đầu bằng chữ, lấy từ registry. Không tự cắt chuỗi tên thư mục.
-- file_id: stem file không extension, viết tắt 3–5 ký tự theo registry.
-- verb_object: snake_case, động từ diễn tả hành động + đối tượng đủ rõ.
-- Áp dụng free function, method public/private/protected, static, inline,
-  template, callback tự đặt tên và helper anonymous namespace.
-- Header/source cùng một API dùng cùng prefix dựa trên implementation owner.
-- Interface thuần/header-only dùng thư mục và file khai báo làm owner.
-  Override ở Qualcomm/reference phải giữ nguyên tên interface khai báo.
-  Helper riêng của backend dùng prefix theo file implementation backend.
-- Di chuyển file chứa API public: giữ prefix cũ bằng compatibility exception +
-  ADR/deprecation; không đổi symbol âm thầm. Private API đổi đồng bộ caller/tests.
-- File có nhiều class vẫn một prefix; thêm tên đối tượng ở suffix để phân biệt.
+- Use an underscore between every component; the * in the requirement means joining
+  the function's semantic parts, not a literal character.
+- dir_id: the directory directly containing the implementation; 3–5 lowercase
+  letters/digits, starting with a letter, taken from the registry. Do not truncate
+  the directory name on your own.
+- file_id: the file stem without extension, abbreviated to 3–5 characters per registry.
+- verb_object: snake_case, a verb describing the action + a sufficiently clear object.
+- Applies to free functions, public/private/protected methods, static, inline,
+  template, self-named callbacks and anonymous-namespace helpers.
+- Header/source for the same API use the same prefix based on the implementation owner.
+- Pure/header-only interfaces use the declaring directory and file as owner.
+  Overrides in Qualcomm/reference must retain the declared interface name.
+  A backend's own helper uses the prefix of the backend implementation file.
+- Moving a file containing a public API: keep the old prefix via a compatibility
+  exception + ADR/deprecation; do not change symbols silently. Private APIs change
+  caller/tests in sync.
+- A file with many classes still uses one prefix; add the object name in the suffix
+  to distinguish them.
 
-Ví dụ registry dự kiến:
+Expected registry examples:
 `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp` →
 `vqec_vision_ai_qcom_qneng_load_model`.
 `src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` →
@@ -58,91 +61,102 @@ Ví dụ registry dự kiến:
 `src/runtime/scheduler/vqec_vision_job_scheduler.cpp` →
 `vqec_vision_ai_sched_jobsc_submit_job`.
 
-Không hợp lệ: `loadModel`, `qnn_run`, `vqec_vision_ai_qc_qnn_run`,
+Invalid: `loadModel`, `qnn_run`, `vqec_vision_ai_qc_qnn_run`,
 `vqec_vision_ai_qcom_qneng_do_stuff`.
 
-### Ngoại lệ hữu hạn
+### Finite exceptions
 
-- Constructor/destructor: tên class do C++ quy định.
-- Operator/conversion operator: spelling của C++; chỉ dùng khi semantics tự nhiên.
-- `main`, entrypoint/symbol hoặc virtual method do external ABI bắt buộc.
-- Standard customization như `begin/end` chỉ khi thực sự cần tương tác generic
-  library, ghi ngoại lệ cụ thể; không dùng để né convention.
-- Lambda không có tên hàm: biến chứa lambda snake_case; tham số vẫn có _.
-- Test macro/framework generated names giữ cú pháp framework; helper tuân prefix.
-- Tên API vendor đang gọi không đổi; wrapper tự viết phải đúng prefix.
+- Constructor/destructor: class name is dictated by C++.
+- Operator/conversion operator: C++ spelling; only use when semantics are natural.
+- `main`, entrypoint/symbol or virtual method required by an external ABI.
+- Standard customization such as `begin/end` only when generic library interaction is
+  genuinely needed, with the specific exception recorded; do not use it to dodge the
+  convention.
+- A lambda with no function name: the variable holding the lambda is snake_case; its
+  parameters still carry _.
+- Test macro/framework generated names keep the framework syntax; helpers follow the prefix.
+- Names of vendor APIs being called do not change; self-written wrappers must use the
+  correct prefix.
 
-Ngoại lệ lưu trong registry kèm file/symbol/reason/owner; không wildcard toàn repo.
+Exceptions are recorded in the registry with file/symbol/reason/owner; no repo-wide wildcard.
 
-## 2. Tên biến và kiểu
+## 2. Variable and type names
 
-| Loại | Quy tắc | Ví dụ |
+| Category | Rule | Example |
 |---|---|---|
-| Tham số khai báo và định nghĩa | _snake_case, cùng tên hai nơi | _frame, _timeout_ms |
-| Biến local | snake_case, rõ vai trò | input_stride_bytes, pending_jobs |
-| Member không static | snake_case_ | source_epoch_, job_queue_ |
+| Parameter declaration and definition | _snake_case, same name in both places | _frame, _timeout_ms |
+| Local variable | snake_case, clear role | input_stride_bytes, pending_jobs |
+| Non-static member | snake_case_ | source_epoch_, job_queue_ |
 | Global, namespace-scope object | g_snake_case | g_build_version |
 | Static data member | g_snake_case | g_instance_count |
 | Function-local static | g_snake_case | g_lookup_table |
-| Constant local/member | như storage scope tương ứng | max_planes, max_planes_ |
+| Constant local/member | same as the corresponding storage scope | max_planes, max_planes_ |
 | Class/struct/enum/type alias | snake_case | frame_lease, tensor_descriptor |
 | Enum value | snake_case | status_code::invalid_argument |
 | Namespace | snake_case | vqec::vision::ai |
 | Macro/include guard | VQEC_VISION_AI_UPPER_SNAKE_CASE | VQEC_VISION_AI_API |
-| File/thư mục | snake_case | vqec_vision_frame_lease.hpp, vqec_vision_qnn_engine.cpp |
+| File/directory | snake_case | vqec_vision_frame_lease.hpp, vqec_vision_qnn_engine.cpp |
 
-- _ chỉ dùng cho parameter ở parameter scope; không khai báo namespace/global
-  bắt đầu bằng _. Cấm __ và _Upper ở identifier tự viết.
-- Không biến global mutable trong business logic. Prefix g_ không phải cho phép
-  singleton/global state; ngoại lệ runtime SDK cần owner và lifecycle rõ.
-- Không Hungarian notation p/pp/u32 theo kiểu; dùng tên vai trò và ownership:
-  borrowed_frame, frame_fd, tensor_bytes; không data1/tmp2/obj/x trừ toán cục bộ.
-- Tên thông thường 2–4 từ; đây là hướng dẫn, không cắt mất nghĩa để đạt giới hạn.
-  i/j được phép vòng lặp nhỏ, x/y trong tọa độ. Kích thước/thời gian có đơn vị.
+- _ is used only for parameters in parameter scope; do not declare a namespace/global
+  starting with _. __ and _Upper are forbidden in self-written identifiers.
+- No mutable global variables in business logic. The g_ prefix is not permission for
+  singleton/global state; runtime SDK exceptions need a clear owner and lifecycle.
+- No type-based Hungarian notation p/pp/u32; use role and ownership names:
+  borrowed_frame, frame_fd, tensor_bytes; no data1/tmp2/obj/x except local math.
+- Names are normally 2–4 words; this is guidance, do not cut meaning to meet a limit.
+  i/j are allowed for small loops, x/y in coordinates. Sizes/durations carry units.
 - Boolean: is_/has_/can_/should_; parameter: _is_enabled; member: is_ready_.
-- Không đặt tên biến model là person nếu nó chứa cả bộ metadata nhiều model.
+- Do not name a model variable person if it holds the metadata set of multiple models.
 
-## 3. Layout và format
+## 3. Layout and format
 
 ### Literal policy — MUST: no magic number, magic string, hardcode
 
-Áp dụng production code, tools, config defaults và fixture/harness. Cấm literal không
-có semantics/provenance và cấm nhúng quyết định triển khai vào thuật toán.
+Applies to production code, tools, config defaults and fixture/harness. Literals without
+semantics/provenance are forbidden, as is embedding deployment decisions into algorithms.
 
-- Giá trị thay đổi theo board/model/usecase/deployment (path, endpoint, factory selection,
+- Values that change by board/model/usecase/deployment (path, endpoint, factory selection,
   model/feature ID, threshold, FPS, dimensions, timeout, queue/pool budget, retry, log
-  level) MUST đến từ configuration/catalog/manifest đã validate tại activation.
-  Chuyển literal thành `constexpr` không làm nó hết hardcode.
-- Protocol/schema/ABI keys, vendor property names, enum nicks và safety ceilings MUST
-  có một owner theo domain, tên có nghĩa, đơn vị, nguồn contract/version và chính sách
-  thay đổi. Vendor strings ở adapter; không kéo chúng vào neutral layer. Không đổi
-  spelling wire để làm đẹp code. Không gom các giá trị khác nghĩa chỉ vì bằng nhau.
-- Numeric enum/sentinel MUST dùng kiểu hoặc constant có tên; kiểm overflow trước tính
-  toán. Giá trị mặc định chỉ hợp lệ khi schema ghi rõ và validation kiểm giới hạn;
-  giá trị bắt buộc thiếu phải bị reject, không tự chọn backend/model thay thế.
-- Không hardcode entitlement/admission thành true ở production. Harness phải nhận diện
-  rõ fixture mode; fixture values có tên hoặc data file, không tái sử dụng làm default
-  sản phẩm. Test boundary độc lập được giữ literal và ghi lý do để bắt contract drift.
-- Ngoại lệ có semantics tự rõ: zero/one của khởi tạo/toán học, index cục bộ, công thức
-  định dạng chuẩn có giải thích, diagnostic prose, include path và external ABI spelling.
-  Ngoại lệ không cho phép chôn timeout, port, schema ID hoặc policy vào code.
-- Mỗi PR rà literal theo domain: fixed contract hay configurable policy, nguồn và unit,
-  missing/invalid/boundary tests, không silent fallback. Registry ngoại lệ ghi file,
-  literal/domain, lý do, owner và điều kiện bỏ. Không tuyên bố sạch hardcode bằng grep.
-- Enforcement: structural checker hiện KHÔNG kiểm semantics literal. Review thủ công
-  bắt buộc; AST/literal lint có allowlist là bước kế tiếp, không phải bằng chứng đã có.
+  level) MUST come from configuration/catalog/manifest validated at activation.
+  Converting a literal to `constexpr` does not make it any less hardcoded.
+- Protocol/schema/ABI keys, vendor property names, enum nicks and safety ceilings MUST
+  have a single per-domain owner, a meaningful name, units, contract/version provenance
+  and a change policy. Vendor strings live in the adapter; do not pull them into the
+  neutral layer. Do not change wire spelling to make code look nice. Do not group values
+  with different meanings just because they are equal.
+- Numeric enum/sentinel MUST use a named type or constant; check overflow before
+  arithmetic. Default values are valid only when the schema states them and validation
+  checks the limits; a missing required value must be rejected, not silently replaced by
+  a chosen backend/model.
+- Do not hardcode entitlement/admission to true in production. The harness must clearly
+  identify fixture mode; fixture values have names or a data file and are not reused as
+  product defaults. Independent boundary tests may keep literals and record the reason to
+  catch contract drift.
+- Exceptions with self-evident semantics: zero/one of initialization/arithmetic, local
+  index, standard format formulas with explanation, diagnostic prose, include paths and
+  external ABI spelling. Exceptions do not permit burying a timeout, port, schema ID or
+  policy in code.
+- Each PR reviews literals by domain: fixed contract or configurable policy, source and
+  unit, missing/invalid/boundary tests, no silent fallback. The exception registry records
+  file, literal/domain, reason, owner and removal condition. Do not declare hardcode
+  cleanliness via grep.
+- Enforcement: the structural checker currently does NOT check literal semantics. Manual
+  review is required; AST/literal lint with an allowlist is the next step, not existing
+  evidence.
 
-- UTF-8, LF, newline cuối file; 4 spaces; không tab; 100 columns.
-- .hpp cho C++; .h chỉ C-compatible ABI; .cpp implementation.
-- Brace attached; luôn braces cho if/for/while, kể cả một dòng.
-- Header tự include đủ; include guard theo project prefix, không reserved names.
-- Include: own header; standard; third-party; project (nhóm cách dòng).
-  Tool formatter là nguồn chuẩn về whitespace.
-- Không using namespace trong header; không public vendor include.
-- Comment giải thích WHY, invariant, đơn vị; không kể lại câu lệnh.
-- TODO phải có issue/owner/điều kiện bỏ; không để TODO vô danh trên đường lỗi.
+- UTF-8, LF, trailing newline at end of file; 4 spaces; no tabs; 100 columns.
+- .hpp for C++; .h only for C-compatible ABI; .cpp implementation.
+- Brace attached; always use braces for if/for/while, even for a single line.
+- Header includes everything it needs; include guards follow the project prefix, no
+  reserved names.
+- Include order: own header; standard; third-party; project (groups separated by a blank
+  line). The formatter tool is the authority on whitespace.
+- No using namespace in headers; no public vendor include.
+- Comments explain WHY, invariants, units; they do not restate the statement.
+- TODO must have an issue/owner/removal condition; do not leave anonymous TODOs on an
+  error path.
 
-## 4. Ví dụ chữ ký (minh họa, chưa phải API đã implement)
+## 4. Signature examples (illustrative, not an implemented API)
 
 ```cpp
 namespace vqec::vision::ai {
@@ -162,24 +176,26 @@ private:
 }  // namespace vqec::vision::ai
 ```
 
-Prototype function pointer cũng đặt tên tham số: `void (*callback)(void* _context)`.
-External callbacks dùng context object; không dùng global để tìm instance.
+Prototype function pointers also name their parameters: `void (*callback)(void* _context)`.
+External callbacks use a context object; do not use a global to find the instance.
 
-## 5. Ownership và resource lifetime
+## 5. Ownership and resource lifetime
 
-- RAII cho FD, map, pool lease, SDK context, dynamic library, worker.
-- unique_ptr/move-only mặc định. shared_ptr chỉ khi thực sự nhiều owner, ghi
-  release point; không dùng shared_ptr để che vòng đời không hiểu.
-- Raw pointer/reference là borrow; owner phải sống đủ lâu, đặc biệt async.
-- Không new/delete/malloc/free rải trong logic; resource wrapper là nơi quản lý.
-- FD nhận từ IPC: quy định transfer/dup/close, CLOEXEC, invalid=-1.
-- FD numeric không phải identity: cache theo allocation identity + generation,
-  plane layout + device/context; invalidation khi epoch/context đổi.
-- frame_lease destructor không được ACK sớm khi job còn đọc. Job sở hữu lease
-  đến completion; shutdown phải drain, không dựa destructor để cancel SDK.
-- Destructor noexcept, không throw, không chờ vô hạn. Explicit shutdown báo lỗi;
-  nếu không chứng minh quiescence, quarantine resource và báo FW recovery.
-- Validate kích thước/overflow trước allocate/map/index/crop.
+- RAII for FD, map, pool lease, SDK context, dynamic library, worker.
+- unique_ptr/move-only by default. shared_ptr only with genuinely multiple owners, with
+  the release point documented; do not use shared_ptr to hide an unclear lifetime.
+- A raw pointer/reference is a borrow; the owner must live long enough, especially async.
+- No scattered new/delete/malloc/free in logic; the resource wrapper is the place to
+  manage it.
+- FD received from IPC: specify transfer/dup/close, CLOEXEC, invalid=-1.
+- An FD number is not identity: cache by allocation identity + generation, plane layout +
+  device/context; invalidate when epoch/context changes.
+- The frame_lease destructor must not ACK early while a job is still reading. The job owns
+  the lease until completion; shutdown must drain, not rely on the destructor to cancel
+  the SDK.
+- Destructor noexcept, no throw, no unbounded wait. Explicit shutdown reports errors; if
+  quiescence cannot be proven, quarantine the resource and report FW recovery.
+- Validate size/overflow before allocate/map/index/crop.
 
 ## 6. Threading
 
@@ -203,67 +219,72 @@ External callbacks dùng context object; không dùng global để tìm instance
 - Collect pool occupancy, high-water bytes, allocation count and fallback-copy counters.
   A memory optimization without correctness and workload measurements is not accepted.
 
-- Một owner serial cho state của mỗi source/tracker/temporal feature.
-- Camera callbacks chỉ validate/enqueue; vendor callbacks chỉ enqueue completion.
-- Không detached thread, polling busy loop hoặc queue vô hạn.
-- Queue phải có capacity + overflow policy + stop policy + metrics.
-- Không giữ mutex khi gọi RPC/SDK blocking/I/O/callback ra ngoài.
-- Lock order cố định; atomic dùng cho dữ liệu nhỏ, không thay lock state phức hợp.
-- Timeout là hết thời gian chờ, KHÔNG đồng nghĩa hủy hardware job.
-- Chỉ mark completed sau completion thật, hoặc recovery bảo đảm DMA đã dừng.
-- Dùng steady/monotonic clock cho duration/deadline; UTC chỉ correlation/export.
+- A single owner serializes the state of each source/tracker/temporal feature.
+- Camera callbacks only validate/enqueue; vendor callbacks only enqueue completion.
+- No detached thread, polling busy loop or unbounded queue.
+- Queues must have capacity + overflow policy + stop policy + metrics.
+- Do not hold a mutex while calling RPC/blocking SDK/I/O/outward callbacks.
+- Fixed lock order; atomics for small data, not as a replacement for complex lock state.
+- A timeout is the end of the wait, and does NOT mean the hardware job is cancelled.
+- Mark completed only after real completion, or after recovery guarantees DMA has stopped.
+- Use steady/monotonic clocks for duration/deadline; UTC only for correlation/export.
 
-## 7. Error handling và API
+## 7. Error handling and API
 
-- status/result<T> cho lỗi dự kiến; không bool mất nguyên nhân ở external boundary.
-- Phân biệt invalid_argument, unsupported, incompatible_model, resource_exhausted,
+- status/result<T> for expected errors; no bool that loses the cause at an external
+  boundary.
+- Distinguish invalid_argument, unsupported, incompatible_model, resource_exhausted,
   timeout, cancelled, source_lost, backend_fault, unauthorized.
-- [[nodiscard]] cho kết quả không được bỏ qua.
-- Không exception vượt C ABI hoặc vendor callback; catch và chuyển status.
-  Nội bộ dùng RAII và exception có kiểm soát, không throw mỗi frame bình thường.
-- Không assert cho dữ liệu IPC/model/user có thể sai; validate trả lỗi.
-- Hàm public ghi input/output, ownership, thread safety, blocking/deadline,
+- [[nodiscard]] for results that must not be ignored.
+- No exception across a C ABI or vendor callback; catch and convert to status.
+  Internally use RAII and controlled exceptions; do not throw on every normal frame.
+- No assert for IPC/model/user data that can be wrong; validate and return an error.
+- Public functions document input/output, ownership, thread safety, blocking/deadline,
   completion semantics, errors, pre/postconditions.
-- Không expose std::string/vector/exception/C++ object layout qua binary plugin ABI.
+- Do not expose std::string/vector/exception/C++ object layout across a binary plugin ABI.
 - Export opaque handles + fixed-width fields + struct_size + abi_major/minor;
-  allocator/release phải cùng owner, không tự free memory của module khác.
+  allocator/release must have the same owner, do not free another module's memory.
 
 ## 8. Image/tensor correctness
 
-- Mỗi plane có offset/stride/size; không mặc định width == stride.
-- NV12/NV21/RGB/BGR, color range/matrix, crop/rotate/letterbox là metadata rõ.
-- Giữ source-to-tensor transform để ánh xạ box/landmark; test border/odd ROI.
-- Tensor có dtype/layout/rank/dims/strides/quantization riêng từng tensor.
-- Không mặc định mọi output float32 hoặc cùng type; không ép toàn bộ để tiện NMS.
-- Golden test phải bao gồm interpolation, rounding, clipping, pad, channel order.
-- CPU normalization/postprocess được phép không OpenCV khi có budget và lý do;
-  không gắn nhãn hardware cho CPU loop.
+- Each plane has offset/stride/size; do not assume width == stride.
+- NV12/NV21/RGB/BGR, color range/matrix, crop/rotate/letterbox are explicit metadata.
+- Keep the source-to-tensor transform to map boxes/landmarks; test border/odd ROI.
+- Each tensor has its own dtype/layout/rank/dims/strides/quantization.
+- Do not assume every output is float32 or the same type; do not cast everything for NMS
+  convenience.
+- Golden tests must cover interpolation, rounding, clipping, pad, channel order.
+- CPU normalization/postprocess may avoid OpenCV when there is budget and a reason; do not
+  label a CPU loop as hardware.
 
-## 9. Build, dependency và security
+## 9. Build, dependency and security
 
-- CMake target-scoped compile options/includes/libs; không global link_directories.
-- Không kéo header từ sibling repo bằng ../../; contract SDK/version là dependency.
-- Vendor library chỉ adapter target; logic-only eSDK profile không cần vendor SDK.
-  Không configure/build C++ bằng host compiler.
-- Pin toolchain/sysroot/compiler/runtime; không download dependency ngầm khi build.
-- Warnings as errors trên source tự viết trong CI; third-party tách scope.
-- Chọn -Wall -Wextra -Wpedantic và kiểm tra conversion theo compiler/toolchain.
-- Không -ffast-math mặc định; không thay numerical semantics nếu thiếu golden.
-- Library/model paths đến từ verified manifest + allowed root, không raw remote input.
-- Không log ảnh, face embedding, license key/token; giới hạn kích thước parser/message.
-- Quyền feature/attribute/output kiểm tra ở runtime và output boundary.
+- CMake target-scoped compile options/includes/libs; no global link_directories.
+- Do not pull headers from a sibling repo with ../../; the contract SDK/version is the
+  dependency.
+- Vendor libraries only in the adapter target; the logic-only eSDK profile does not need
+  the vendor SDK. Do not configure/build C++ with the host compiler.
+- Pin toolchain/sysroot/compiler/runtime; do not download dependencies implicitly at build.
+- Warnings as errors on self-written source in CI; third-party is scoped separately.
+- Choose -Wall -Wextra -Wpedantic and check conversions per compiler/toolchain.
+- No -ffast-math by default; do not change numerical semantics without golden evidence.
+- Library/model paths come from a verified manifest + allowed root, not raw remote input.
+- Do not log images, face embeddings, license key/token; bound parser/message sizes.
+- Feature/attribute/output permissions are checked at runtime and at the output boundary.
 
-## 10. Testing và enforcement
+## 10. Testing and enforcement
 
-- clang-format kiểm whitespace, KHÔNG chứng minh đúng tên hoặc ownership.
-- Naming cần AST checker hiểu declaration owner/override/ngoại lệ; regex chỉ lint sơ bộ.
-- Đã có structural filename/include/CMake checker; AST registry/naming checker chưa triển khai; workflow CI structural/eSDK đã có
-  nhưng eSDK job phụ thuộc runner/ESDK_ROOT. Structural checker không chứng minh symbol naming đúng.
-- Reviewer kiểm 100% tên hàm/parameter/global trong thời gian chưa có AST checker.
-- Unit + contract + golden + replay; board test bắt buộc cho DMA/SDK/performance.
-- ASan/UBSan/TSan trên target hỗ trợ; host mock không chứng minh device sync.
-- Mỗi PR có checklist; ABI/sync/security cần lead + module owner.
-- Sửa rule bằng PR tài liệu/ADR, không tự exception trong một source file.
+- clang-format checks whitespace, it does NOT prove names or ownership are correct.
+- Naming needs an AST checker that understands declaration owner/override/exceptions;
+  regex only does preliminary lint.
+- A structural filename/include/CMake checker exists; the AST registry/naming checker is
+  not implemented; the structural/eSDK CI workflow exists but the eSDK job depends on the
+  runner/ESDK_ROOT. The structural checker does not prove symbol naming is correct.
+- A reviewer checks 100% of function/parameter/global names while no AST checker exists.
+- Unit + contract + golden + replay; board tests are required for DMA/SDK/performance.
+- ASan/UBSan/TSan on supported targets; a host mock does not prove device sync.
+- Each PR has a checklist; ABI/sync/security need lead + module owner.
+- Change rules via a documentation/ADR PR, not a private exception in one source file.
 
 ## See also
 

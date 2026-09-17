@@ -1,4 +1,4 @@
-# Architecture alignment review và danh sách vấn đề còn lại
+# Architecture alignment review and remaining issue list
 
 2026-09-16 follow-up: same-process desired-plan drain/rebuild/publication and private
 volatile Zvec lifecycle are now delivered and compatibility-tested on `.98`. The initial
@@ -8,82 +8,91 @@ measured cases, resource sample and remaining release gates are consolidated in
 below retain their review context; signed provisioning, durable receipts, asynchronous
 control, hardware-key/swap policy and workload qualification remain open.
 
-Ngày: 2026-09-15. Cập nhật theo source cascade/runtime hiện tại.
-Phạm vi: Markdown trong docs, root rules/README và module READMEs, đối chiếu source/CMake
-ở các boundary liên quan. Đây là architecture/documentation review, không phải audit mọi
-nhánh code hay một lần benchmark/board qualification mới.
+Date: 2026-09-15. Updated to match the current cascade/runtime source.
+Scope: Markdown under docs, root rules/README and module READMEs, cross-checked against
+source/CMake at the relevant boundaries. This is an architecture/documentation review, not
+an audit of every code branch or a new benchmark/board qualification run.
 
 **Status:** current — open architecture issue backlog A01–A25.
 
-## 1. Kết luận về định hướng
+## 1. Conclusion on direction
 
-**Chưa lệch mục tiêu cốt lõi, nhưng có khoảng cách đáng kể giữa kiến trúc mong muốn,
-production composition và các tài liệu được cập nhật không đồng bộ.**
+**Not yet off the core goals, but there is a significant gap between the intended
+architecture, the production composition and the inconsistently updated documents.**
 
-Giữ nguyên: AI nhận RAW từ FW, một acquisition mỗi source, multi-model qua neutral ports,
-AI sở hữu usecase và preview output, Qualcomm tối ưu ở adapters, portable qua vendor ports,
-không OpenCV production và không viết lại kernel vendor chỉ để tự sở hữu implementation.
+Unchanged: AI receives RAW from FW, one acquisition per source, multi-model through
+neutral ports, AI owns usecase and preview output, Qualcomm optimizes in adapters,
+portability through vendor ports, no production OpenCV and no rewriting vendor kernels
+just to own the implementation ourselves.
 
-Hai thay đổi có chủ đích cần phân biệt với sai lệch:
+Two intentional changes need to be distinguished from deviations:
 
-| Quyết định | Ban đầu | Hiện hành | Đánh giá |
+| Decision | Initially | Currently | Assessment |
 |---|---|---|---|
-| Qualcomm | Plugin-first ADR 0002 | Thêm owned QNN adapter ADR 0003; production dùng FastCV/QNN | Hợp hướng nếu có capability/evidence; generic selection chưa xong |
-| FR gallery/search | Đề xuất FW service | AI sở hữu matching, encrypted gallery/key và Zvec theo ADR 0004 | Đúng scope mới; hardware key/power-cut/performance còn mở |
-| Push | Tự commit + push | Commit theo bước, người dùng tự push | Rule đã đồng bộ theo chỉ đạo mới nhất |
+| Qualcomm | Plugin-first ADR 0002 | Added owned QNN adapter ADR 0003; production uses FastCV/QNN | On track if capability/evidence exists; generic selection not finished |
+| FR gallery/search | Proposed FW service | AI owns matching, encrypted gallery/key and Zvec per ADR 0004 | Correct new scope; hardware key/power-cut/performance still open |
+| Push | Self commit + push | Commit per step, user pushes | Rule synchronized with the latest direction |
 
-Portable không có nghĩa mọi model/vendor đã hỗ trợ. Default build có Zvec không đồng
-nghĩa mọi luồng dùng FR; Zvec là dependency FR, các neutral targets vẫn cần độc lập.
-13 feature entries và 16 source ceiling không phải bằng chứng 13 feature/16 camera chạy thật.
+Portable does not mean every model/vendor is supported. A default build with Zvec does not
+mean every flow uses FR; Zvec is an FR dependency, and the neutral targets must still remain
+independent. 13 feature entries and a 16 source ceiling are not evidence that 13
+features/16 cameras run for real.
 
-## 2. Những mâu thuẫn tài liệu đã sửa trong lần này
+## 2. Documentation contradictions fixed in this pass
 
-- System architecture còn nói service, tracker, renderer và QNN direct chưa có.
-- README báo base-ready, số test cũ và default all-options-OFF dù Zvec mặc định ON.
-- ADR 0002 nói direct SDK chưa implement; ADR 0004 giữ đoạn thiếu lib đã được giải quyết.
-- FW control/system plan còn giao matching/search cho FW trái quyết định FR mới.
-- Cascade design nói chưa có package binding/decoder dù đã có; tách primitive và integration.
-- Rules còn yêu cầu push tự động, convention/delivery plan còn nhắc host build.
-- Capability matrix còn báo FastCV/render chưa có và gọi smoke là qualification toàn phần.
-- Tài liệu lịch sử và tài liệu hiện hành chưa có bản đồ, thứ tự authority và thuật ngữ evidence.
+- System architecture still said service, tracker, renderer and QNN direct did not exist.
+- README reported base-ready, old test counts and default all-options-OFF even though Zvec
+  is ON by default.
+- ADR 0002 said direct SDK was not implemented; ADR 0004 kept a missing-library section
+  that had already been resolved.
+- The FW control/system plan still assigned matching/search to FW, contrary to the new FR
+  decision.
+- The cascade design said there was no package binding/decoder even though there was;
+  separate primitive and integration.
+- Rules still required automatic push; convention/delivery plan still mentioned host build.
+- The capability matrix still reported FastCV/render as absent and called smoke a full
+  qualification.
+- Historical and current documents had no map, authority order and evidence vocabulary.
 
-Các báo cáo test cũ giữ nguyên ngày/phạm vi, không đổi số cũ thành 97. Tài liệu research
-mô tả upstream API không tự là capability của adapter LACAI. Contract proposal không tự
-là FW implementation đã released. Index tài liệu giúp phân biệt các loại này.
+Older test reports keep their date/scope; do not repaint an old number as 97. A research
+document describing an upstream API is not by itself a capability of the LACAI adapter. A
+contract proposal is not by itself a released FW implementation. The document index helps
+distinguish these categories.
 
-## 3. Backlog kiến trúc/code còn mở
+## 3. Open architecture/code backlog
 
-P0: correctness/ownership hoặc chặn usecase; P1: production generality/performance;
-P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳng định mọi case
-đã tái hiện bằng test. Owner là vai trò đề xuất; chưa gán cá nhân hoặc ngày nghiệm thu.
+P0: correctness/ownership or blocking a usecase; P1: production generality/performance;
+P2: maturity/tooling. Source references point to places needing review; they do not claim
+every case has been reproduced by a test. Owner is a proposed role, not an assigned person
+or acceptance date.
 
-| ID | Mức | Vấn đề / evidence | Việc phải làm | Tiêu chí đóng / owner |
+| ID | Level | Issue / evidence | Work required | Closure criteria / owner |
 |---|---|---|---|---|
-| A01 | P0 | FD→exact-frame alignment→EdgeFace đã nối ở source nhưng chưa chạy live/golden end-to-end | Chạy camera với approved golden capture; đối chiếu crop/input/embedding và correlation | Camera → embedding đúng frame/epoch, drain và parity; AI runtime/BSP/model |
-| A02 | P1 | FastCV aligner còn map/copy/allocate ROI và tensor cho từng mặt; QTI color khác neutral golden chưa được quyết định | Golden hóa color/border; pool destination/input/output; profile và chọn offload theo evidence | Input/crop/tensor chuẩn, real completion và copy/CPU budget; AI/BSP/model |
-| A03 | P0 | Cascade execute đồng bộ trên service progress thread; epoch đổi yêu cầu restart graph | Bounded worker/completion state machine, fair admission, stale-result cleanup và graph epoch reconciliation | Multi-face không block camera/output; stop/restart không ACK sớm; runtime |
-| A04 | P0 | **Đã xử lý**: protected encrypted gallery + revision CAS + reopen/rebuild; Zvec derived index private tmpfs, destroyed on close | Còn lại: hardware-bound key, capacity/load benchmark | Restart/delete/replay đúng revision; AI/FW |
-| A05 | P0 | **Đã xử lý (loader)**: strict decoder_package loader rejects unknown/duplicate/out-of-range và cross-check catalog | Còn lại: golden thật của model | Reject invalid trước activation; model/app |
-| A06 | P0 | DMA-BUF retention/reference count không chứng minh hardware completion | Trace input/crop/tensor owners, fence/cache/import and drain protocol | No early ACK/reuse trong native fault tests; BSP/adapter |
+| A01 | P0 | FD→exact-frame alignment→EdgeFace is wired at source but has not run live/golden end-to-end | Run the camera with an approved golden capture; compare crop/input/embedding and correlation | Camera → embedding on the correct frame/epoch, drain and parity; AI runtime/BSP/model |
+| A02 | P1 | The FastCV aligner still maps/copies/allocates ROI and tensor per face; QTI color differing from the neutral golden is undecided | Golden color/border; pool destination/input/output; profile and choose offload based on evidence | Correct input/crop/tensor, real completion and copy/CPU budget; AI/BSP/model |
+| A03 | P0 | Cascade execute is synchronous on the service progress thread; an epoch change requires a graph restart | Bounded worker/completion state machine, fair admission, stale-result cleanup and graph epoch reconciliation | Multi-face does not block camera/output; stop/restart does not ACK early; runtime |
+| A04 | P0 | **Handled**: protected encrypted gallery + revision CAS + reopen/rebuild; Zvec derived index private tmpfs, destroyed on close | Remaining: hardware-bound key, capacity/load benchmark | Restart/delete/replay on the correct revision; AI/FW |
+| A05 | P0 | **Handled (loader)**: strict decoder_package loader rejects unknown/duplicate/out-of-range and cross-checks the catalog | Remaining: real model golden | Reject invalid before activation; model/app |
+| A06 | P0 | DMA-BUF retention/reference count does not prove hardware completion | Trace input/crop/tensor owners, fence/cache/import and drain protocol | No early ACK/reuse in native fault tests; BSP/adapter |
 | A07 | P0 | Compatibility camera/RTSP != released FW acceptance | Validate released wire/ring/control, disconnect, demand, ACK, permissions | FW end-to-end conformance report; FW/AI |
-| A08 | P0 | **Đã xử lý (source+board)**: protected gallery, multi-template enrollment/search, matching, clean-restart recovery | Còn lại: calibration, liveness/PAD, attendance output | Delete/restart đúng; AI/FW/model |
-| A09 | P1 | QNN build qua `qnn_backend_bundle` factory; FastCV vẫn constructed trực tiếp | Generic capability/policy selection cho mọi backend | Thay backend không sửa orchestration; platform |
-| A10 | P1 | Production còn dùng reference tracker/zone factory | Tách fixture/production registration; qualified tracker/processor contracts | Không nhận fixture success làm feature acceptance; app/features |
-| A11 | P1 | **Đã xử lý**: production config bỏ default, CLI bắt buộc + fail-closed (CB-B); YOLO defaults đã bỏ | Còn lại: version compatibility schema | Missing policy reject; app |
-| A12 | P1 | Renderer/feature geometry vẫn dùng sources_.front(), decoder chia sẻ hạn chế | Per-source owners/output routes; chốt supported concurrency | Multi-source khác profile chạy hoặc reject trước acquisition; app |
-| A13 | P1 | Generic native capability factory chưa được production dùng toàn bộ | Reconcile capability/entitlement/admission và effective state từ execution thực | Không advertise async/shared/dynamic unsupported; runtime |
-| A14 | P1 | Anchor decoder vẫn tạo observation strings/vectors mỗi batch | Pool/reuse output, stable numeric IDs, atomic delivery không mất owner | Allocation counters bounded/measured; perception |
-| A15 | P1 | QNN output tensor allocation/client staging, compatibility render copy | Profile từng copy; reusable registered memory khi BSP hỗ trợ | Numeric parity + completion + measured CPU/copies; adapter |
-| A16 | P1 | Zvec mutex bao vendor calls, allocate query/doc, FLAT fixed | Bounded search worker, explicit queue/deadline, measured index selection | Không block camera, latency/recall budget; FR/index |
-| A17 | P1 | 30 FPS person chưa đủ target CPU; FR chưa có workload budget | Đo stage p50/p95/p99, faces/gallery sweep, thermal, FR jobs/s | 25–30 FPS và CPU 15–25% theo workload/CPU convention đã chốt; perf |
-| A18 | P1 | Model-specific capacity/threshold còn chưa calibration | Admit ROI rates theo measurements, version model/preprocess/policy | Không giảm refresh 1s để che backlog; model/runtime |
-| A19 | P0 | Model artifact digest không xác thực signer/TOCTOU | Review resolver/load authority, signed bundle/revision trust boundary | Load không đổi artifact sau kiểm tra; platform/FW |
-| A20 | P1 | Async/shared-QNN/update mới contract hoặc unsupported | Chỉ triển khai khi usecase cần; probe capability thực, no silent fallback | Native correctness + throughput/lifetime evidence; adapter |
-| A21 | P1 | Nhận diện không có liveness từ SCRFD+EdgeFace | Chốt anti-spoof requirement, PAD hoặc cơ chế được duyệt và budget riêng | Accuracy + spoof acceptance nếu sản phẩm yêu cầu; product/model |
-| A22 | P1 | Feature/gallery output authorization còn phải nối tới identity payload | Revoke theo revision, cache invalidation, delete pending matches | Không publish identity đã revoke/delete; FW/features |
-| A23 | P2 | Bootstrap public ARM64 SDK chưa là deployment package portable | Target/ABI validation, redistribution notices, offline packaging và upgrade | Reproducible install/rollback theo target; build/release |
-| A24 | P2 | **Đã chuẩn hóa** trong đợt clean-base docs: bỏ record lỗi thời, sửa contract/architecture/readme lệch code | Duy trì docs map và link check mỗi PR | Không có hai status hiện hành trái nhau; mọi module owner |
-| A25 | P2 | Structural checker không kiểm literal semantics/ownership/ABI | AST/literal lint có allowlist; CI eSDK/native evidence | Không dùng grep pass để tuyên bố sạch hardcode; tooling |
+| A08 | P0 | **Handled (source+board)**: protected gallery, multi-template enrollment/search, matching, clean-restart recovery | Remaining: calibration, liveness/PAD, attendance output | Delete/restart correct; AI/FW/model |
+| A09 | P1 | QNN built through the `qnn_backend_bundle` factory; FastCV is still constructed directly | Generic capability/policy selection for every backend | Swapping a backend does not change orchestration; platform |
+| A10 | P1 | Production still uses the reference tracker/zone factory | Separate fixture/production registration; qualified tracker/processor contracts | Do not accept fixture success as feature acceptance; app/features |
+| A11 | P1 | **Handled**: production config drops defaults, required + fail-closed CLI (CB-B); YOLO defaults removed | Remaining: version compatibility schema | Missing policy is rejected; app |
+| A12 | P1 | Renderer/feature geometry still uses sources_.front(), limited decoder sharing | Per-source owners/output routes; settle supported concurrency | Multi-source with a different profile runs or is rejected before acquisition; app |
+| A13 | P1 | The generic native capability factory is not fully used by production | Reconcile capability/entitlement/admission and effective state from real execution | Do not advertise unsupported async/shared/dynamic; runtime |
+| A14 | P1 | The anchor decoder still creates observation strings/vectors per batch | Pool/reuse output, stable numeric IDs, atomic delivery without losing an owner | Allocation counters bounded/measured; perception |
+| A15 | P1 | QNN output tensor allocation/client staging, compatibility render copy | Profile each copy; reusable registered memory when the BSP supports it | Numeric parity + completion + measured CPU/copies; adapter |
+| A16 | P1 | Zvec mutex wraps vendor calls, allocates query/doc, FLAT fixed | Bounded search worker, explicit queue/deadline, measured index selection | Does not block camera, latency/recall budget; FR/index |
+| A17 | P1 | 30 FPS person does not yet meet the target CPU; FR has no workload budget | Measure stage p50/p95/p99, faces/gallery sweep, thermal, FR jobs/s | 25–30 FPS and 15–25% CPU per the settled workload/CPU convention; perf |
+| A18 | P1 | Model-specific capacity/threshold is not yet calibrated | Admit ROI rates per measurements, version model/preprocess/policy | Do not lower the 1s refresh to hide backlog; model/runtime |
+| A19 | P0 | Model artifact digest does not verify the signer/TOCTOU | Review resolver/load authority, signed bundle/revision trust boundary | Load does not change the artifact after verification; platform/FW |
+| A20 | P1 | Async/shared-QNN/update is either new contract or unsupported | Implement only when a usecase needs it; probe real capability, no silent fallback | Native correctness + throughput/lifetime evidence; adapter |
+| A21 | P1 | Recognition has no liveness from SCRFD+EdgeFace | Settle the anti-spoof requirement, PAD or an approved mechanism, with its own budget | Accuracy + spoof acceptance if the product requires it; product/model |
+| A22 | P1 | Feature/gallery output authorization must still be connected to the identity payload | Revoke by revision, cache invalidation, delete pending matches | Do not publish a revoked/deleted identity; FW/features |
+| A23 | P2 | The public bootstrapped ARM64 SDK is not yet a portable deployment package | Target/ABI validation, redistribution notices, offline packaging and upgrade | Reproducible install/rollback per target; build/release |
+| A24 | P2 | **Normalized** during the clean-base docs pass: removed stale records, fixed contract/architecture/readme drift from code | Maintain the docs map and link check each PR | No two current statuses contradict each other; every module owner |
+| A25 | P2 | The structural checker does not check literal semantics/ownership/ABI | AST/literal lint with an allowlist; CI eSDK/native evidence | Do not use a grep pass to declare hardcode cleanliness; tooling |
 
 ### Source anchors
 
@@ -101,23 +110,25 @@ P2: maturity/tooling. Source references chỉ ra nơi cần review, không khẳ
 - A19: `src/runtime/model_registry/` and production package loading require end-to-end review;
   existence of a secure resolver helper alone does not prove every load path uses it.
 
-## 4. Thứ tự xử lý
+## 4. Processing order
 
-1. Chạy live/golden FD-to-embedding và sửa mọi mismatch contract/correlation trước khi
-   publish identity.
-2. Tách cascade khỏi service thread, pool/cắt copy theo profile; gallery recovery dùng
-   synthetic vectors có thể làm độc lập. Theo [FR completion plan](../planning/face_recognition_completion_plan.md).
-3. Nối enrollment/matching/attendance và FW storage/event boundary, sau đó release fault/soak.
-4. Đo performance từ đầu; ưu tiên hotspot thật. Backend factory/multi-source ownership được
-   sửa khi mở rộng scope, không che hạn chế bằng docs hoặc flags.
-5. Async/shared context không phải điều kiện tiên quyết cho synchronous correctness.
+1. Run live/golden FD-to-embedding and fix every contract/correlation mismatch before
+   publishing identity.
+2. Separate cascade from the service thread, pool/trim copies per profile; gallery
+   recovery using synthetic vectors can be done independently. Per the
+   [FR completion plan](../planning/face_recognition_completion_plan.md).
+3. Connect enrollment/matching/attendance and the FW storage/event boundary, then release
+   fault/soak.
+4. Measure performance from the start; prioritize real hotspots. Backend factory/multi-source
+   ownership is fixed when scope expands, do not hide limitations with docs or flags.
+5. Async/shared context is not a prerequisite for synchronous correctness.
 
-## 5. Quy tắc đóng issue
+## 5. Issue closure rules
 
-Ghi source commit, tests/configuration, evidence location, giới hạn, owner và trạng thái
-`planned / source-delivered / logic-tested / board-smoke / accepted` theo documentation_style.
-`accepted` phải có workload/contract-specific evidence và owner review. Docs chỉ phản ánh
-source đã có; A01–A25 chỉ đóng khi đạt tiêu chí evidence tương ứng.
+Record the source commit, tests/configuration, evidence location, limits, owner and status
+`planned / source-delivered / logic-tested / board-smoke / accepted` per documentation_style.
+`accepted` must have workload/contract-specific evidence and owner review. Docs only reflect
+source that exists; A01–A25 close only when the corresponding evidence criterion is met.
 
 ## See also
 
