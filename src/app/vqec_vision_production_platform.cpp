@@ -30,6 +30,12 @@ namespace {
 
 using nlohmann::json;
 
+struct model_source_instance {
+    std::uint16_t source_slot_{0};
+    std::unique_ptr<qnn_backend_bundle> backend_;
+    std::unique_ptr<fastcv_processor> processor_;
+};
+
 struct model_slot_owner {
     std::string model_id_;
     model_role role_{model_role::primary};
@@ -37,8 +43,7 @@ struct model_slot_owner {
     resolved_model_paths paths_;
     inference_plan plan_;
     model_outputs outputs_;
-    std::unique_ptr<qnn_backend_bundle> backend_;
-    std::unique_ptr<fastcv_processor> processor_;
+    std::vector<model_source_instance> instances_;
     std::unique_ptr<model_decoder_port> decoder_;
     std::unique_ptr<embedding_decoder> embedding_decoder_;
     std::size_t embedding_dimensions_{0};
@@ -152,7 +157,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
         const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
         const feature_configuration& _configuration) const override {
-        (void)_feature;
+        if (_feature.processor_contract_ != "reference.zone.processor.v1") {
+            return {status_code::unsupported,
+                "platform feature factory only supports reference.zone.processor.v1"};
+        }
         (void)_processor_config;
         (void)_configuration;
         return {};
@@ -161,7 +169,10 @@ public:
         const feature_catalog_entry& _feature, const feature_processor_config& _processor_config,
         const feature_configuration& _configuration,
         std::unique_ptr<feature_processor_port>& _processor) override {
-        (void)_feature;
+        if (_feature.processor_contract_ != "reference.zone.processor.v1") {
+            return {status_code::unsupported,
+                "platform feature factory only supports reference.zone.processor.v1"};
+        }
         (void)_processor_config;
         (void)_configuration;
         _processor = std::make_unique<reference_zone_feature>(params_);
@@ -346,15 +357,6 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             return planned;
         }
 
-        // Capability-checked backend selection: the factory opens the engine, probes the
-        // adapter capabilities, validates the requested execution policy against them and
-        // only then constructs the graph binding. An unsupported policy fails closed here
-        // instead of being discovered at execute time.
-        const auto created = vqec_vision_ai_qcom_bfact_create(
-            owner.paths_, impl.config_.execution_policy_, owner.backend_);
-        if (created.code_ != status_code::ok) {
-            return created;
-        }
         // Declared package metadata. The graph validates it against the composed QNN
         // graph during activation; the platform must not prepare the engine here because
         // the graph port owns the prepare/load lifecycle.
@@ -489,9 +491,21 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             if (decoder_status.code_ != status_code::ok) {
                 return decoder_status;
             }
-            owner.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-                max_frame_allocation_bytes,
-                impl.config_.preprocess_output_timeout_ns_});
+        }
+        for (const auto slot : owner.source_slots_) {
+            model_source_instance instance;
+            instance.source_slot_ = slot;
+            const auto created = vqec_vision_ai_qcom_bfact_create(
+                owner.paths_, impl.config_.execution_policy_, instance.backend_);
+            if (created.code_ != status_code::ok) {
+                return created;
+            }
+            if (owner.decoder_ != nullptr) {
+                instance.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
+                    _deployment.sources_[slot].memory_.max_frame_allocation_bytes_,
+                    impl.config_.preprocess_output_timeout_ns_});
+            }
+            owner.instances_.push_back(std::move(instance));
         }
         impl.models_.push_back(std::move(owner));
     }
@@ -596,6 +610,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_tracker(
         implementation_->tracker_factory_ == nullptr) {
         return {status_code::invalid_state, "production platform is not prepared"};
     }
+    if (implementation_->config_.tracker_contract_ != "reference.tracker.v1") {
+        return {status_code::unsupported,
+            "production platform currently only supports reference.tracker.v1"};
+    }
     return _trackers.vqec_vision_ai_track_trreg_register_factory(
         implementation_->config_.tracker_contract_, *implementation_->tracker_factory_);
 }
@@ -606,10 +624,12 @@ status production_platform::vqec_vision_ai_appl_pdplt_register_features(
         return {status_code::invalid_state, "production platform is not prepared"};
     }
     for (const auto& feature : _features.features_) {
-        const auto registered = _registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
-            feature.processor_contract_, implementation_->feature_factory_);
-        if (registered.code_ != status_code::ok) {
-            return registered;
+        if (feature.processor_contract_ == "reference.zone.processor.v1") {
+            const auto registered = _registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
+                feature.processor_contract_, implementation_->feature_factory_);
+            if (registered.code_ != status_code::ok) {
+                return registered;
+            }
         }
     }
     return {};
@@ -637,14 +657,17 @@ raw_source_port* production_platform::vqec_vision_ai_appl_pdplt_source(
 
 inference_graph_port* production_platform::vqec_vision_ai_appl_pdplt_graph(
     std::uint16_t _source_slot, const std::string& _model_id) noexcept {
-    (void)_source_slot;
     if (implementation_ == nullptr) {
         return nullptr;
     }
     for (auto& owner : implementation_->models_) {
         if (owner.model_id_ == _model_id) {
-            return owner.backend_ != nullptr ?
-                owner.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+            for (auto& instance : owner.instances_) {
+                if (instance.source_slot_ == _source_slot) {
+                    return instance.backend_ != nullptr ?
+                        instance.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+                }
+            }
         }
     }
     return nullptr;
@@ -652,13 +675,16 @@ inference_graph_port* production_platform::vqec_vision_ai_appl_pdplt_graph(
 
 image_processor_port* production_platform::vqec_vision_ai_appl_pdplt_processor(
     std::uint16_t _source_slot, const std::string& _model_id) noexcept {
-    (void)_source_slot;
     if (implementation_ == nullptr) {
         return nullptr;
     }
     for (auto& owner : implementation_->models_) {
         if (owner.model_id_ == _model_id) {
-            return owner.processor_.get();
+            for (auto& instance : owner.instances_) {
+                if (instance.source_slot_ == _source_slot) {
+                    return instance.processor_.get();
+                }
+            }
         }
     }
     return nullptr;
@@ -714,8 +740,14 @@ status production_platform::vqec_vision_ai_appl_pdplt_cascade_binding(
                 owner.source_slots_.end()) {
             continue;
         }
-        auto* graph = owner.backend_ != nullptr ?
-            owner.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+        inference_graph_port* graph = nullptr;
+        for (auto& instance : owner.instances_) {
+            if (instance.source_slot_ == _source_slot) {
+                graph = instance.backend_ != nullptr ?
+                    instance.backend_->vqec_vision_ai_qcom_bfact_get_graph() : nullptr;
+                break;
+            }
+        }
         if (graph == nullptr || owner.embedding_decoder_ == nullptr ||
             owner.aligner_ == nullptr) {
             return {status_code::invalid_state,

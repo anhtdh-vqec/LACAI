@@ -540,6 +540,7 @@ Runtime composition factory registrations (source delivered):
 | src/app/vqec_vision_reference_platform.cpp | rplat | vqec_vision_ai_appl_rplat_ |
 | src/app/vqec_vision_fixture_detector.cpp | fxdet | vqec_vision_ai_appl_fxdet_ |
 | src/app/vqec_vision_production_platform.cpp | pdplt | vqec_vision_ai_appl_pdplt_ |
+| tests/unit/vqec_vision_production_platform_test.cpp | pdptst | vqec_vision_ai_unit_pdptst_ |
 | src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp | qtvr | vqec_vision_ai_qcom_qtvr_ |
 | src/app/vqec_vision_source_session_worker.cpp | sswrk | vqec_vision_ai_appl_sswrk_ |
 | tests/unit/vqec_vision_source_session_worker_test.cpp | sswtst | vqec_vision_ai_unit_sswtst_ |

@@ -810,6 +810,16 @@
         add_test(NAME reference_processor_preprocess
             COMMAND vqec_vision_ai_reference_processor_test)
     endif()
+    if(TARGET vqec_vision_ai_production_platform)
+        add_executable(vqec_vision_ai_production_platform_test
+            unit/vqec_vision_production_platform_test.cpp)
+        target_link_libraries(vqec_vision_ai_production_platform_test
+            PRIVATE vqec_vision_ai_production_platform)
+        set_target_properties(vqec_vision_ai_production_platform_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME production_platform_contract
+            COMMAND vqec_vision_ai_production_platform_test)
+    endif()
     if(TARGET vqec_ai_vision_applications)
         add_test(NAME service_executable_smoke COMMAND vqec_ai_vision_applications
             --deployment ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_deployment.json

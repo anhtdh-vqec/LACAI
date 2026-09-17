@@ -175,8 +175,8 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
     target_link_libraries(vqec_vision_ai_production_platform PUBLIC
         vqec_vision_ai_core vqec_vision_ai_qnn_engine vqec_vision_ai_camera
         vqec_vision_ai_camera_dbus vqec_vision_ai_reference vqec_vision_ai_detection
-        vqec_vision_ai_embedding_decoder vqec_vision_ai_feature_runtime
-        vqec_vision_ai_qualcomm
+        vqec_vision_ai_tracking vqec_vision_ai_embedding_decoder
+        vqec_vision_ai_feature_runtime vqec_vision_ai_qualcomm
         nlohmann_json::nlohmann_json)
     if(TARGET vqec_vision_ai_fastcv_aligner)
         target_link_libraries(vqec_vision_ai_production_platform PUBLIC
