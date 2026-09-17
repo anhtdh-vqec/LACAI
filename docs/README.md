@@ -53,9 +53,6 @@ unfinished work and do not carry current-capability claims.
   source-based assessment, three-team ownership/handoff contracts, security/traffic data and
   query catalogs, storage options, Kafka, FW evidence IPC, video ownership migration and
   portable DSP offload with validation gates.
-- [Architecture optimization plan](planning/architecture_optimization_plan.md): ordered
-  P0–P7 execution plan derived from the review, with priorities, contracts, gates and the
-  decisions that must be settled first.
 
 ## Testing
 

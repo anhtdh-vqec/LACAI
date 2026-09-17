@@ -38,6 +38,8 @@ README này chứa toàn bộ phân tích; không cần đọc thêm một báo 
 | 10 | DSP, memory ownership và adapter đa nền tảng |
 | 11 | Phương pháp benchmark và kiểm chứng |
 | 12 | Lộ trình, đầu ra và checklist review tiếp |
+| 13 | Plan 0 bắt buộc: đóng production composition trước |
+| 14 | Năm execution plan có task và acceptance để giao agent |
 
 ## 1. Kết luận
 
@@ -1205,6 +1207,27 @@ dependency neutral → port, adapter → SDK; không cho perception include Kafk
 - [ ] C++ build/tests dùng eSDK; DSP toolchain được duyệt; không dùng host pass thay target.
 - [ ] Có acceptance released-FW thay vì chỉ harness; rollback và observability đủ.
 - [ ] Chạy naming/layout/docs checks; docs phản ánh đúng source wiring và bằng chứng.
+
+### 12.5. Năm execution plan có thể giao ngay
+
+Năm file dưới đây là các kế hoạch thực thi sau Plan 0. Agent phải hoàn thành Plan 0 trước;
+chỉ sau khi P0-09 là UNBLOCKED và bốn gate P0-A…P0-D pass mới mở Plan 1. Sau đó Plan 2/3/4
+có thể bắt đầu theo dependency, còn Plan 5 tích hợp cuối cùng. Mỗi plan có owner, task ID,
+output và acceptance riêng; status của một plan không tự nâng status các plan khác.
+
+| Plan | Chủ trì | Bắt đầu khi | Kết quả chính |
+|---|---|---|---|
+| [Plan 0. Production composition foundation](production_composition_foundation_plan.md) | AI APP lead | Ngay lập tức; blocking | Authority → inference → output → recovery thống nhất |
+| [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | Plan 0 pass | C01–C10, stable IDs, owner/sign-off matrix |
+| [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
+| [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
+| [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | Plan 0 + Plan 1; C02/C03 | Neutral tensor lease, Qualcomm vertical, golden/A-B report |
+| [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1–4 pass | Profiles, board/release acceptance |
+
+Quy tắc giao agent: ghi plan/task ID trong issue; không sửa sibling repository; không đổi
+contract hiện hành mà không ADR/review; commit chỉ chứa task-owned files; báo rõ test chưa
+chạy và lý do. Các agent có thể làm fixture/mock trước source production, nhưng không
+được mô tả mock là released-FW hoặc target acceptance.
 
 ## Giới hạn và công việc tiếp theo
 
