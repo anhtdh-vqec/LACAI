@@ -24,6 +24,7 @@ and [capability matrix](development/capability_matrix.md); this map only routes.
 | [Implementation status](development/implementation_status.md) | Current delivery/evidence claims |
 | [Capability matrix](development/capability_matrix.md) | Per-capability source/native/open state |
 | [Architecture alignment review](development/architecture_alignment_review.md) | Open architecture issues A01–A25 |
+| [Plan 0 production composition review](development/production_composition_foundation_review.md) | Current gate audit and unblock decision |
 | [Clean-base plan](planning/clean_base_plan.md) | Completed clean-base workstreams and residual work |
 
 ## Architecture
@@ -32,6 +33,8 @@ and [capability matrix](development/capability_matrix.md); this map only routes.
 boundary, Qualcomm adapter, perception/feature pipeline, runtime composition and output.
 Read [system architecture](architecture/system_architecture.md) first, then the module that
 owns the boundary you are changing.
+For production resource input, see the
+[hardware admission profile](architecture/hardware_admission_profile.md).
 
 ## Contracts
 

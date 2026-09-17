@@ -16,7 +16,7 @@ name. The layout is:
 | Path | Contents |
 |---|---|
 | `bin/` | Canonical service binary `vqec_ai_vision_applications` only |
-| `config/` | Deployment, model catalog, model registry, usecase snapshot, FR fixture |
+| `config/` | Deployment, model catalog, model registry, usecase snapshot, reviewed hardware admission profile, FR fixture |
 | `models/` | Licensed model artifacts and their package dirs |
 | `manifests/` | Staged repository `manifests/models` tree (decoder/IO/preprocess fixtures) |
 | `lib/` | Zvec shared libraries for `LD_LIBRARY_PATH` |
@@ -70,7 +70,9 @@ LD_LIBRARY_PATH=/opt/lacai/lib sh tools/vqec_vision_board_native_tests.sh \
 - Relative arguments are resolved to absolute by the runner, but absolute paths are
   recommended.
 
-Expected on `.98`: `PASS=117 FAIL=0`.
+The historical 2026-09-17 runner result was `PASS=117 FAIL=0`. The current source has a
+new IoU tracker test and requires a new staged native run; do not use 117 as an acceptance
+target for the present binary set.
 
 ## Production smoke workflow
 
@@ -80,6 +82,11 @@ with its full explicit configuration (the service refuses to start with any requ
 missing).
 
 Canonical service invocation (all flags are required):
+
+Provision `config/hardware_admission_profile.json` from the measured, owner-reviewed
+schema in [hardware admission profile](../architecture/hardware_admission_profile.md).
+No repository fixture supplies product capacity. The example below cannot run until the
+file and its evidence are available; do not fabricate limits to make it start.
 
 ```bash
 dbus-run-session -- sh -c '

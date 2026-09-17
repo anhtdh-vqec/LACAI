@@ -1,29 +1,34 @@
 # Implementation status — 2026-09-17
 
-2026-09-17 production composition foundation (Plan 0) update:
-- **F01 (Authority & Activation)**: Replaced hardcoded `desired_enabled_`, `entitlement_granted_`,
-  `resource_admitted_` in `service_main.cpp` with multi-gate validation from `activation_snapshot`.
-  Enforces distinct gate evaluation (installed -> entitled -> desired -> supported -> admitted -> running).
-- **F02 (Fail-closed Factories)**: Production platform registers genuine feature processor / tracker
-  factories or fails closed (`unsupported_schema`), removing wildcard reference mock registrations.
-- **F03 (Prepared Output Gate)**: Created portable `prepared_output_gate` enforcing authorization scope,
-  monotonic PTS correlation, and TTL freshness before renderer/sink delivery.
-- **F04 (Model Artifact Resolver)**: Created `model_artifact_resolver` with immutable FD pinning,
-  allowed-root directory bounds, symlink rejection, SHA-256 stream digest validation, eliminating TOCTOU risk.
-- **F05 (Independent Source Bindings)**: Multi-source supervisor enforces independent
-  graph/processor/tracker instances per source slot and validates duplicate pointers.
-- **F06 (Cascade Worker & Drain)**: Created `cascade_execution_worker` with bounded queue
-  (`g_max_cascade_queue_capacity = 8`), deadline-bounded processing, epoch invalidation, and explicit
-  stop/drain state machine.
-- **F07 (Neutral Event Delivery Seam)**: Created `event_delivery_seam` implementing neutral
-  `feature_event_sink_port` with bounded FIFO ring buffer (256 capacity), fail-closed on stopping/saturation,
-  and distinct accepted/pending/drained/dropped/rejected tracking. Replaced reference sink in production service main.
-- **F08 (Measured Admission Envelope)**: Extended `activation_snapshot` with `hardware_admission_profile`
-  and `admission_resource_breakdown` (pools, DDR bandwidth, FW concurrency, encoder, cascade) to enforce
-  fail-closed measured admission.
-- **Verification**: 125/125 eSDK CTest passing. Native board test suite on QCS6490 (.98) passing 118/118
-  (PASS=118, FAIL=0). Live camera simulator + production service + RTSP stream: 1920x1080 @ 30.2 FPS
-  (151 frames in 5.00s, 0 drops), frame capture verified. Plan 0 gates P0-A, P0-B, P0-C, P0-D all passed.
+2026-09-17 Plan 0 audit and corrective source update (decision: **BLOCKED**):
+- F01: source/usecase gate projection no longer combines desired, entitlement and admission
+  across unrelated associations. A complete immutable feature/model/attribute/policy record
+  and trusted provisioning remain open.
+- F02/F05: Qualcomm composition rejects reference tracker/feature contracts, uses an
+  explicit portable bounded IoU baseline and distinct per-source/model graph/processor
+  bindings. Production feature catalogs without real factories fail closed; feature/MOT
+  quality is not accepted.
+- F03: renderer accepts only prepared, scoped overlays; the service constructs the
+  prepared payload for the current source frame. FW demand/PTS/revoke conformance and a
+  generic encoded-dispatch vertical are not established.
+- F04: model resolver copies verified bytes to a sealed, retained `memfd` and verifies the
+  copy before QNN opens its descriptor path. This closes original-path replacement for
+  model bytes, not signature/provenance for expected digest, package or backend libraries.
+- F06: cascade pending alignment no longer completes the retained frame early. Cascade
+  execution is still synchronous on the progress thread; worker/recovery/bounded stop
+  remain open.
+- F07: production has a bounded in-memory event seam; acceptance and explicit discard are
+  not downstream delivery. Durable transport/ACK is Plan 3.
+- F08: composition rejects a missing/invalid hardware profile; Qualcomm requires an
+  explicit file with target/revision/measurement reference. Fake/reference use an identified
+  fixture. No signed measured board envelope exists; DDR/thermal remain estimates and
+  sealed model bytes/FR index require aggregate accounting.
+- Current corrective source passes 126/126 eSDK/QEMU CTest (2026-09-17); the earlier
+  125/125 eSDK and 118/118 board figures were historical pre-audit runs, not target
+  acceptance for these commits. BatchMode SSH to `.98` was denied, so no post-fix native
+  run was performed. See the
+  [Plan 0 review](production_composition_foundation_review.md) for gate-level evidence and
+  required three-team approvals.
 
 2026-09-16 clean-base CB-E3 update: two more phases were extracted from `run_generation`.
 `vqec_vision_ai_appl_svcmn_build_model_activations` now owns the per-source/model activation
@@ -349,9 +354,9 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
   `tools/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The expanded eSDK configuration registers 125 CTest tests and passes 125/125 under SDK QEMU.
-  The cross-built native suite passes 118/118 on `.98` via
-  `tools/vqec_vision_board_native_tests.sh`, which supplies the manifest and Zvec fixtures.
+- The current expanded eSDK configuration passes 126/126 CTest tests under SDK QEMU
+  (2026-09-17). The pre-audit cross-built native suite passed 118/118 on `.98` via
+  `tools/vqec_vision_board_native_tests.sh`; no post-fix board run is recorded.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
   scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.
