@@ -7,6 +7,7 @@
 
 - [ ] Source/header/tools filename starts vqec_vision_; logical function owner unchanged.
 - [ ] Run source-layout checker; include/CMake/docs references migrated together.
+- [ ] Run docs-layout checker; filenames, title, Status line and links follow documentation_style.md.
 - [ ] External wire/ring/D-Bus/executable names preserved; behavior changes reviewed
       against docs/contracts/fw_release_compatibility.md, not inferred from filename rules.
 

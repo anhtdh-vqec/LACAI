@@ -6,6 +6,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 
 - docs/development/code_convention.md
 - docs/development/naming_registry.md
+- docs/development/documentation_style.md (file naming, template, language, status vocabulary)
 - docs/architecture/system_architecture.md
 - The relevant contract and module README.
 - For Qualcomm: docs/research/qualcomm_source_review.md and
@@ -64,6 +65,12 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 14. No magic numbers, magic strings or deployment hardcoding. Follow code_convention.md
     section 3: semantic constants for fixed contracts, validated configuration for policy.
     Renaming a hardcoded value to constexpr is not compliance.
+15. Documentation follows docs/development/documentation_style.md: lowercase snake_case
+    filenames (README.md and NNNN_slug.md ADRs excepted), one H1, a `Status:` line before
+    the first `##`, English for architecture/contracts/development/testing/adr/operations,
+    Vietnamese allowed only under docs/planning, and one language per file. Run
+    tools/vqec_vision_check_docs_layout.sh and update docs/README.md when adding or
+    removing a document. A new document that violates the template is a defect.
 
 ## Change workflow
 
