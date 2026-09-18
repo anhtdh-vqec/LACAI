@@ -76,13 +76,14 @@ int main() {
                   {"app", "--deployment", "d", "--model-catalog", "c",
                       "--inference-perf-profile", "low_latency", "--mode", "production",
                       "--platform", "qualcomm", "--enrollment-image-root", "a",
-                      "--enrollment-image-root", "b"},
+                      "--enrollment-image-root", "b", "--allow-qaic-copy-input"},
                   args),
             "production parse");
         check(args.production_mode && args.platform == "qualcomm", "production mode/platform");
         check(args.execution_policy.profile_ == inference_perf_profile::low_latency,
             "perf profile captured");
         check(args.enrollment_image_roots.size() == 2, "repeated image roots accumulate");
+        check(args.allow_qaic_copy_input, "explicit QAIC copy input captured");
 
         parsed_arguments bad_profile;
         check(!vqec_vision_ai_unit_sotst_parse(

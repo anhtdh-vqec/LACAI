@@ -49,6 +49,8 @@ struct parsed_arguments {
     std::string model_library;
     std::string qnn_backend_library;
     std::string qnn_system_library;
+    // Explicit device-free fixture mode. Production defaults to registered DMA-BUF input.
+    bool allow_qaic_copy_input{false};
     std::string model_root;
     std::string hardware_profile_path;
     std::uint64_t max_artifact_bytes{0};

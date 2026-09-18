@@ -27,14 +27,14 @@ struct dsp_buffer_cache_entry {
     void* addr_{nullptr};
     std::size_t size_{0};
     std::uint64_t last_used_{0};
-    bool fastrpc_mapped_{false};
+    bool fastrpc_registered_{false};
     bool initializing_{true};
     bool retired_{false};
 
     ~dsp_buffer_cache_entry() noexcept {
 #if defined(VQEC_VISION_AI_HAVE_CDSP)
-        if (fastrpc_mapped_) {
-            (void)::fastrpc_munmap(CDSP_DOMAIN_ID, dup_fd_, addr_, size_);
+        if (fastrpc_registered_) {
+            ::remote_register_buf_attr2(addr_, size_, -1, FASTRPC_ATTR_NON_COHERENT);
         }
 #endif
         if (addr_ != nullptr && addr_ != MAP_FAILED) {
@@ -151,11 +151,21 @@ dsp_buffer_mapping dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_map(
             mapped = {status_code::resource_exhausted, "cannot map retained allocation"};
         } else if (implementation_->config_.enable_fastrpc_) {
 #if defined(VQEC_VISION_AI_HAVE_CDSP)
-            const int result = ::fastrpc_mmap(CDSP_DOMAIN_ID, created->dup_fd_,
-                created->addr_, 0, _size, FASTRPC_MAP_FD);
-            created->fastrpc_mapped_ = result == 0;
-            if (result != 0) {
-                mapped = {status_code::io_error, "FastRPC allocation registration failed"};
+#if defined(F_GET_SEALS)
+            if (::fcntl(created->dup_fd_, F_GET_SEALS) >= 0) {
+                mapped = {status_code::unsupported,
+                    "FastRPC registered input requires DMA-BUF, not memfd"};
+            } else
+#endif
+            {
+                // QAIC-generated stubs pass this CPU pointer to remote_handle64_invoke.
+                // Associate its FD with FastRPC so the pointer-marshalling path can
+                // share it through the SMMU and perform non-coherent cache maintenance.
+                // fastrpc_mmap(FASTRPC_MAP_FD) is a different contract: DSP code must
+                // acquire that mapping with HAP_mmap_get, which these kernels do not.
+                ::remote_register_buf_attr2(created->addr_, _size, created->dup_fd_,
+                    FASTRPC_ATTR_NON_COHERENT | FASTRPC_ATTR_TRY_MAP_STATIC);
+                created->fastrpc_registered_ = true;
             }
 #else
             mapped = {status_code::unsupported, "FastRPC mapping API is unavailable"};

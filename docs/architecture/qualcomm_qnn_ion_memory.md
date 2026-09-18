@@ -85,6 +85,11 @@ execution must define every declared output byte. The heap workspace is allocate
 complete registered set cannot be established, so startup does not allocate and touch two full
 output sets.
 
+QNN client buffers expose packed dimensions but no tensor strides. Rank-one through rank-three
+results are therefore reported as neutral `flat` layout; a batch-one rank-four image with a
+three-channel trailing dimension is `nhwc`. Other rank-four layouts remain `unknown` and must be
+qualified by a stronger graph/manifest contract rather than guessed by the decoder.
+
 ### 3. Pre-allocated output workspace
 
 To eliminate per-frame dynamic heap allocations when `execute()` produces results:

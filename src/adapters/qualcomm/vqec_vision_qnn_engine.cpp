@@ -95,6 +95,11 @@ tensor_spec vqec_vision_ai_qcom_qneng_make_spec(const Qnn_Tensor_t& _tensor) {
         }
         if (spec.dimensions_.size() == 4 && spec.dimensions_[0] == 1 && spec.dimensions_[3] == 3) {
             spec.layout_ = tensor_layout::nhwc;
+        } else if (!spec.dimensions_.empty() && spec.dimensions_.size() <= 3) {
+            // QNN client buffers are contiguous and carry no stride metadata. Rank-one
+            // through rank-three graph tensors therefore satisfy the neutral packed-flat
+            // contract; do not leave decoder-visible outputs ambiguously unknown.
+            spec.layout_ = tensor_layout::flat;
         }
     }
     if (v2.quantizeParams.encodingDefinition == QNN_DEFINITION_DEFINED &&

@@ -22,9 +22,9 @@ struct dsp_buffer_mapping {
     std::shared_ptr<const void> owner_;
 };
 
-// Manages persistent CPU virtual memory and FastRPC cDSP SMMU mappings for
-// camera DMA-BUF frames. Caches mappings across acquisition cycles so that
-// repeated fastrpc_mmap system calls are avoided on the frame hot path.
+// Manages persistent CPU virtual memory and FastRPC buffer registrations for
+// camera DMA-BUF frames. Caches registrations across acquisition cycles so
+// that the generated QAIC pointer-marshalling path can reuse the FD association.
 class dsp_buffer_cache final {
 public:
     explicit dsp_buffer_cache(dsp_buffer_cache_config _config = {});
@@ -35,7 +35,7 @@ public:
     dsp_buffer_cache(dsp_buffer_cache&&) noexcept;
     dsp_buffer_cache& operator=(dsp_buffer_cache&&) noexcept;
 
-    // Resolves or establishes CPU and FastRPC mappings for the given DMA-BUF FD and size.
+    // Resolves or establishes CPU mapping and FastRPC registration for the DMA-BUF.
     [[nodiscard]] dsp_buffer_mapping vqec_vision_ai_qcom_dspbc_map(
         int _fd, std::size_t _size, status& _status);
 

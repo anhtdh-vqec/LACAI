@@ -168,13 +168,24 @@ bool vqec_vision_ai_unit_dbctst_check_invalid_descriptors() {
     return state.code_ == status_code::invalid_argument && !mapping.owner_;
 }
 
+bool vqec_vision_ai_unit_dbctst_reject_registered_memfd() {
+    test_file file(79);
+    dsp_buffer_cache cache({1, true});
+    status state;
+    const auto mapping = cache.vqec_vision_ai_qcom_dspbc_map(
+        file.fd_, g_test_bytes, state);
+    return state.code_ == status_code::unsupported && !mapping.owner_ &&
+        cache.vqec_vision_ai_qcom_dspbc_entry_count() == 0;
+}
+
 }  // namespace
 
 int main() {
     if (!vqec_vision_ai_unit_dbctst_check_leases() ||
         !vqec_vision_ai_unit_dbctst_check_move_and_fd_reuse() ||
         !vqec_vision_ai_unit_dbctst_check_concurrent_retirement() ||
-        !vqec_vision_ai_unit_dbctst_check_invalid_descriptors()) {
+        !vqec_vision_ai_unit_dbctst_check_invalid_descriptors() ||
+        !vqec_vision_ai_unit_dbctst_reject_registered_memfd()) {
         std::cerr << "mapping lease regression failed\n";
         return 1;
     }

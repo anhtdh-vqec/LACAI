@@ -1133,6 +1133,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         production_config.execution_policy_ = args.execution_policy;
         production_config.backend_library_ = args.qnn_backend_library;
         production_config.system_library_ = args.qnn_system_library;
+        production_config.allow_qaic_copy_input_ = args.allow_qaic_copy_input;
         production_config.model_root_ = args.model_root;
         production_config.max_artifact_bytes_ = args.max_artifact_bytes > 0
             ? args.max_artifact_bytes

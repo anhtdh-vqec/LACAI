@@ -17,7 +17,7 @@ Changing the wire ABI or device-completion policy needs lead and BSP owner revie
 ## Mapping ownership contract
 
 `dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_map` returns a `dsp_buffer_mapping`, not a naked
-pointer. Its owner pins the duplicated FD, CPU mapping and optional FastRPC mapping for the
+pointer. Its owner pins the duplicated FD, CPU mapping and optional FastRPC registration for the
 whole access. Preprocessing, alignment and preview copying retain this lease until their
 last synchronous access. The caller separately retains the RAW frame owner, including the
 original FD, throughout acquisition/access. A mapping lease does not own camera acquisition
@@ -30,12 +30,20 @@ or establish a CPU cache-acquire fence.
   If every entry is leased, mapping returns `resource_exhausted`, without growing the cache.
 - Clear retires pinned entries and removes unpinned ones. A retired entry cannot be acquired
   again while it has readers. Subsequent acquisition can replace released retired entries.
-- Entry destruction releases the device mapping before the CPU mapping and duplicated FD.
+- Entry destruction unregisters the FastRPC association before the CPU mapping and duplicated FD.
   Moving over a cache releases its former entries; extant leases remain valid.
 - Bookkeeping locks are not held across SDK mapping/unmapping calls. Concurrent acquisition
   of an initializing allocation returns `pending`, rather than waiting for RPC.
-- Configured FastRPC registration must succeed; failure is reported, not silently advertised
-  as registered memory. CPU-only tests explicitly disable registration.
+- The generated QAIC stub passes CPU pointers to `remote_handle64_invoke`, so the cache uses
+  `remote_register_buf_attr2` with non-coherent cache maintenance. `fastrpc_mmap` with
+  `FASTRPC_MAP_FD` is not interchangeable: that contract requires DSP code to resolve the mapping
+  with `HAP_mmap_get`. The registration API has no result value; a completed DSP smoke call is
+  therefore the first observable registration/import check, not proof of coherency. CPU-only tests
+  explicitly disable registration.
+- A memfd is not a DMA-BUF and cannot be imported through the QCS6490 SMMU. Registered production
+  mode rejects a sealable memfd before RPC. `--allow-qaic-copy-input` is an explicit device-free
+  fixture mode that leaves the buffer unregistered and lets the generated QAIC transport copy it.
+  It still executes the remote kernel, but its CPU result is not production performance evidence.
 
 A synchronous SDK return is completion only under its documented backend contract.
 Connection reset, timeout, close or source disconnect is not DMA cancellation. A future async

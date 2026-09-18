@@ -114,6 +114,18 @@ tensor_element_type vqec_vision_ai_appl_pdplt_dtype(const std::string& _name) {
     return tensor_element_type::unknown;
 }
 
+tensor_layout vqec_vision_ai_appl_pdplt_layout(const std::string& _name) {
+    if (_name == "nhwc") {
+        return tensor_layout::nhwc;
+    }
+    if (_name == "nchw") {
+        return tensor_layout::nchw;
+    }
+    if (_name == "flat") {
+        return tensor_layout::flat;
+    }
+    return tensor_layout::unknown;
+}
 
 tensor_spec vqec_vision_ai_appl_pdplt_tensor(const json& _entry) {
     tensor_spec spec;
@@ -124,6 +136,7 @@ tensor_spec vqec_vision_ai_appl_pdplt_tensor(const json& _entry) {
         }
     }
     spec.dtype_ = vqec_vision_ai_appl_pdplt_dtype(_entry.value("dtype", std::string{}));
+    spec.layout_ = vqec_vision_ai_appl_pdplt_layout(_entry.value("layout", std::string{}));
     if (_entry.contains("quantization")) {
         const auto& quantization = _entry["quantization"];
         spec.quantization_.is_quantized_ = true;
@@ -280,7 +293,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             impl.dsp_session_.reset();
             return dsp_opened;
         }
-        impl.dsp_buffer_cache_ = std::make_shared<dsp_buffer_cache>();
+        dsp_buffer_cache_config cache_config;
+        cache_config.enable_fastrpc_ = !impl.config_.allow_qaic_copy_input_;
+        impl.dsp_buffer_cache_ = std::make_shared<dsp_buffer_cache>(cache_config);
     }
 
     for (const auto& model : _catalog.models_) {

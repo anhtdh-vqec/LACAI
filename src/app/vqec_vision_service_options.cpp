@@ -104,6 +104,8 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.qnn_backend_library = _argv[++index];
         } else if (option == "--qnn-system-library" && has_value) {
             _args.qnn_system_library = _argv[++index];
+        } else if (option == "--allow-qaic-copy-input") {
+            _args.allow_qaic_copy_input = true;
         } else if (option == "--model-root" && has_value) {
             _args.model_root = _argv[++index];
         } else if (option == "--hardware-profile" && has_value) {

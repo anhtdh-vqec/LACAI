@@ -48,6 +48,9 @@ struct production_platform_config {
     model_package_registry model_packages_;
     std::string backend_library_;
     std::string system_library_;
+    // Allows QAIC pointer copy for memfd-based test sources. False requires FastRPC
+    // registration and is the only mode eligible for production performance evidence.
+    bool allow_qaic_copy_input_{false};
     std::string model_root_;
     std::uint64_t max_artifact_bytes_{0};
     inference_execution_policy execution_policy_;
