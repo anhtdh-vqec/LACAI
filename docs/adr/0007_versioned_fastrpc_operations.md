@@ -29,6 +29,12 @@ algorithms or the identity of the deployed skeleton.
   checked lengths and offsets. No model name or usecase ID appears in the device ABI.
   Unsupported colour/range/interpolation/quantization/shape is rejected before source
   acquisition; an approximate kernel is not selected.
+- The project-owned `vqec_vision_dsp_v2.idl` is only a QAIC-parseable transport draft.
+  Its `execute` method currently carries one packed input byte sequence, which may add
+  an ARM copy for multiple QNN outputs. The exact descriptor layout, capability response,
+  maximum sequence lengths and scatter/gather or registered-buffer transport must be
+  reviewed and measured before an implementation may call it. Generating a stub and
+  skeleton does not establish a usable v2 kernel or permit product activation.
 - QAIC artifacts are generated at build time from project-owned IDL with a pinned
   SDK path/version/command and never hand-edited. Only authored project code and the
   reviewed IDL are committed. DSP builds use the Hexagon toolchain; ARM C++ builds and

@@ -104,6 +104,13 @@ Do not change legacy method ordinals or call a new method against an old binary.
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain
 generation and completion mode before model activation.
 
+`vqec_vision_dsp_v2.idl` is a proposed transport draft. The eSDK CMake build runs QAIC
+against it and checks that a v2 header/stub/skeleton can be generated, but does not compile,
+deploy or open that skeleton. Its single packed input sequence is not yet accepted for the
+multi-tensor hot path: it could require another ARM copy. Capability wire format, bounded
+lengths, registered-buffer/scatter-gather design and kernel implementation remain under
+AI APP/BSP review. No runtime chooses v2 based on the presence of these generated files.
+
 The transport exposes operation families, not model IDs:
 
 - Image transform: NV12 plane offsets/strides, colour matrix/range, crop/resize,

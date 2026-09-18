@@ -261,6 +261,13 @@ golden, decode golden và quality report. AI APP có thể hoàn thiện adapter
 | D02 | BSP+FW | Cấp approved Hexagon SDK 5.5.7, build container và signing/deploy procedure | Clean build skeleton từ IDL/source; digest reproducible; deploy `.98` không dùng binary copy tay |
 | D03 | AI Model | Bàn giao golden M0–M4 cho bốn model | Fixtures hợp lệ/lỗi; tolerances và quality owner ký |
 
+Theo xác nhận của AI APP lead, đường đang chạy là baseline hồi quy ban đầu. AI APP có thể
+capture input cố định và output hiện tại, ghi hash artifact/binary, source epoch, config,
+tensor bytes/observations và tolerance để khóa regression. Điều đó **không** tự xác nhận
+semantics BT.709/bilinear/quantization hoặc độ chính xác nghiệp vụ; AI Model vẫn phải review
+M2–M4 và quality/hard-negative. D03 được chia thành capture regression (AI APP) và ký oracle
+semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ dữ liệu mới.
+
 ### P1 — Baseline có thể lặp lại
 
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
@@ -351,7 +358,7 @@ Board report phải có:
 - [ ] Qualcomm và reference conformance pass; neutral layer không có vendor type.
 - [ ] AI APP lead, BSP+FW lead và AI Model lead ký đúng phần ownership của mình.
 
-Plan chưa được đóng ở revision hiện tại: candidate fixture còn 20.29% CPU và startup đạt
+Plan chưa được đóng ở revision hiện tại: candidate fixture gần nhất còn 19.47% CPU và startup đạt
 90–95% trong khoảng năm giây; DMA-BUF production A/B chưa có. Hexagon toolchain/provenance và
 model golden chưa đủ, fire/smoke postprocess vẫn ở ARM, preprocessing semantics chưa được
 chứng minh, startup/soak chưa có acceptance evidence.
@@ -362,8 +369,10 @@ chứng minh, startup/soak chưa có acceptance evidence.
   memfd không thay board acceptance của registered input.
 - Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
   trước khi so số.
-- Không thể hoàn thành P2/P3 cDSP binary khi approved Hexagon SDK/toolchain và AI Model golden
-  chưa được bàn giao. Đây là dependency có owner, không phải lý do để copy thêm code legacy.
+- SDK 5.5.7.0 đã được cấp và QAIC sinh được legacy/v2 draft. P2/P3 cDSP binary vẫn phụ
+  thuộc runtime `libtinfo.so.5` được BSP phê duyệt cho host compiler, ABI/ownership review,
+  kernel source/build/signing và oracle semantics/quality của AI Model. Đây là dependency
+  có owner, không phải lý do để copy thêm code legacy.
 
 ## See also
 

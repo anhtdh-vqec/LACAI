@@ -1,0 +1,16 @@
+#ifndef VQEC_VISION_DSP_V2_IDL
+#define VQEC_VISION_DSP_V2_IDL
+
+#include "AEEStdDef.idl"
+#include "remote.idl"
+
+// Proposed ABI. No product path may open this skeleton before BSP/AI APP review.
+// Descriptors are versioned little-endian bytes; input/output buffers are bounded
+// by the negotiated capability response and remain owned until synchronous return.
+interface vqec_vision_dsp_v2 : remote_handle64 {
+    AEEResult query_capabilities(rout sequence<uint8> response);
+    AEEResult execute(in sequence<uint8> descriptor, in sequence<uint8> input,
+                      rout sequence<uint8> output, rout sequence<uint8> response);
+};
+
+#endif

@@ -58,6 +58,24 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
             "${vqec_vision_ai_legacy_idl}"
         DEPENDS "${vqec_vision_ai_legacy_idl}"
         VERBATIM)
+    set(vqec_vision_ai_v2_idl "${CMAKE_CURRENT_SOURCE_DIR}/vqec_vision_dsp_v2.idl")
+    set(vqec_vision_ai_v2_qaic_output "${CMAKE_CURRENT_BINARY_DIR}/fastrpc_v2")
+    add_custom_command(
+        OUTPUT "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2.h"
+               "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2_stub.c"
+               "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2_skel.c"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${vqec_vision_ai_v2_qaic_output}"
+        COMMAND "${VQEC_VISION_AI_QAIC_EXECUTABLE}" -mdll
+            -o "${vqec_vision_ai_v2_qaic_output}"
+            -I "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs/stddef"
+            -I "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs"
+            "${vqec_vision_ai_v2_idl}"
+        DEPENDS "${vqec_vision_ai_v2_idl}"
+        VERBATIM)
+    add_custom_target(vqec_vision_ai_dsp_v2_idl_check ALL
+        DEPENDS "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2.h"
+                "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2_stub.c"
+                "${vqec_vision_ai_v2_qaic_output}/vqec_vision_dsp_v2_skel.c")
 
     add_library(vqec_vision_ai_fastrpc_c STATIC
         vqec_vision_dsp_legacy_post_common.c
