@@ -43,6 +43,20 @@ adapter must attach mapping and RAW owners to an explicit completion/quarantine 
 release a local lease when a submit call returns. Legacy kernels do not qualify recovery or
 hardware completion by themselves. Lead/BSP review and device evidence remain open.
 
+## Legacy execution constraints
+
+Production requires a successfully opened accelerator session. A failed open or closed
+session cannot run the copied host kernels. Tests explicitly construct `reference_cpu`
+sessions; those kernels are legacy regression fixtures, not the model team's golden oracle.
+CPU scratch is allocated only in this explicit reference mode, not on the production cold path.
+
+The legacy dense head is exactly 640-square, 8400 predictions, one class and channel-first
+packed uint16. SCRFD is exactly 640-square with three stride levels and five landmarks.
+Lengths and exact tensor roles are checked before kernel entry. Unknown shapes/kinds cannot
+be reinterpreted as these envelopes. Neutral quantization uses `(q - zero_point) * scale`;
+the legacy wire uses `(q + offset) * scale`, so the adapter sends `offset = -zero_point`.
+Reusing compact-result workspace avoids fresh result-vector allocation after warmup.
+
 ## Model-independent protocol requirements
 
 Do not change legacy method ordinals or call a new method against an old binary. A separate

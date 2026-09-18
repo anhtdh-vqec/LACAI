@@ -5,6 +5,7 @@
 #include <cstring>
 #include <limits>
 #include <utility>
+#include <vqec_dsp_types.h>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 
@@ -12,7 +13,7 @@ namespace vqec::vision::ai {
 
 namespace {
 
-constexpr std::size_t g_geom_size = 12;
+constexpr std::size_t g_geom_size = VQEC_GEOM_INTS;
 constexpr std::uint32_t g_rgb_channels = 3;
 
 }  // namespace
@@ -20,6 +21,7 @@ constexpr std::uint32_t g_rgb_channels = 3;
 struct dsp_preprocessor::implementation {
     dsp_preprocessor_config config_;
     std::shared_ptr<dsp_buffer_cache> buffer_cache_;
+    tensor_blob scratch_;
 
     explicit implementation(dsp_preprocessor_config _config)
         : config_(std::move(_config)),
@@ -41,7 +43,11 @@ std::array<std::int32_t, 12> dsp_preprocessor::vqec_vision_ai_qcom_dsppr_compute
     std::int32_t _y_stride, std::uint32_t _uv_offset, std::int32_t _uv_stride,
     std::uint32_t _tensor_side) {
     std::array<std::int32_t, 12> geom{};
-    if (_src_w == 0 || _src_h == 0 || _tensor_side == 0) {
+    if (_src_w == 0 || _src_h == 0 || _src_w > VQEC_MAX_FRAME_SIDE ||
+        _src_h > VQEC_MAX_FRAME_SIDE || _tensor_side < inference_limits::g_min_tensor_dimension ||
+        _tensor_side > inference_limits::g_max_tensor_dimension ||
+        _uv_offset > static_cast<std::uint32_t>(std::numeric_limits<int>::max()) ||
+        (_kind != dsp_preprocessor_kind::yolov8 && _kind != dsp_preprocessor_kind::scrfd)) {
         return geom;
     }
 
@@ -101,11 +107,20 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_validate(
     if (implementation_ == nullptr) {
         return {status_code::unsupported, "dsp_preprocessor implementation is null"};
     }
-    if (_frame.descriptor_.width_ == 0 || _frame.descriptor_.height_ == 0) {
+    const auto& descriptor = _frame.descriptor_;
+    if (descriptor.width_ == 0 || descriptor.height_ == 0 ||
+        descriptor.width_ > VQEC_MAX_FRAME_SIDE ||
+        descriptor.height_ > VQEC_MAX_FRAME_SIDE ||
+        descriptor.width_ % 2U != 0 || descriptor.height_ % 2U != 0) {
         return {status_code::invalid_argument,
             "dsp_preprocessor requires non-zero frame dimensions"};
     }
-    if (_frame.native_handle_ < 0) {
+    if (_frame.native_handle_ < 0 || _frame.native_handle_ > std::numeric_limits<int>::max() ||
+        !_frame.owner_ || descriptor.allocation_size_bytes_ == 0 ||
+        descriptor.view_size_bytes_ == 0 ||
+        descriptor.view_size_bytes_ > static_cast<std::uint64_t>(std::numeric_limits<int>::max()) ||
+        descriptor.memory_offset_bytes_ > descriptor.allocation_size_bytes_ ||
+        descriptor.view_size_bytes_ > descriptor.allocation_size_bytes_ - descriptor.memory_offset_bytes_) {
         return {status_code::invalid_argument,
             "dsp_preprocessor requires a valid dma-buf native handle"};
     }
@@ -113,8 +128,7 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_validate(
         return {status_code::invalid_argument,
             "dsp_preprocessor target must be quantized uint16"};
     }
-    if (_target.layout_ != tensor_layout::nhwc &&
-        _target.layout_ != tensor_layout::unknown) {
+    if (_target.layout_ != tensor_layout::nhwc) {
         return {status_code::invalid_argument,
             "dsp_preprocessor target layout must be NHWC"};
     }
@@ -123,11 +137,67 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_validate(
         return {status_code::invalid_argument,
             "dsp_preprocessor target dimensions must be 1xHxWx3"};
     }
-    if (_target.dimensions_[1] != _target.dimensions_[2]) {
+    if (_target.dimensions_[1] != _target.dimensions_[2] ||
+        _target.dimensions_[1] < inference_limits::g_min_tensor_dimension ||
+        _target.dimensions_[1] > inference_limits::g_max_tensor_dimension) {
         return {status_code::invalid_argument,
             "dsp_preprocessor target must be a square tensor"};
     }
-    (void)_plan;
+    if (implementation_->config_.kind_ != dsp_preprocessor_kind::yolov8 &&
+        implementation_->config_.kind_ != dsp_preprocessor_kind::scrfd) {
+        return {status_code::unsupported, "unknown DSP preprocessing operation"};
+    }
+    for (std::size_t plane = 0; plane < descriptor.strides_.size(); ++plane) {
+        const auto rows = plane == 0 ? descriptor.height_ : descriptor.height_ / 2U;
+        if (descriptor.strides_[plane] < static_cast<std::int32_t>(descriptor.width_) ||
+            descriptor.offsets_[plane] > descriptor.view_size_bytes_ ||
+            rows > (descriptor.view_size_bytes_ - descriptor.offsets_[plane]) /
+                static_cast<std::uint64_t>(descriptor.strides_[plane])) {
+            return {status_code::invalid_argument, "DSP source plane exceeds memory view"};
+        }
+    }
+    const auto luma_end = descriptor.offsets_[0] +
+        static_cast<std::uint64_t>(descriptor.strides_[0]) * descriptor.height_;
+    if (descriptor.offsets_[1] < luma_end) {
+        return {status_code::invalid_argument, "DSP source planes overlap"};
+    }
+    if (_plan.source_width_ != descriptor.width_ || _plan.source_height_ != descriptor.height_ ||
+        _plan.tensor_width_ != _target.dimensions_[2] ||
+        _plan.tensor_height_ != _target.dimensions_[1]) {
+        return {status_code::invalid_argument, "DSP source/target does not match admitted plan"};
+    }
+    if (!_target.quantization_.is_quantized_ || !std::isfinite(_target.quantization_.scale_) ||
+        _target.quantization_.scale_ <= 0 ||
+        vqec_vision_ai_core_ppspc_validate(_plan.preprocess_).code_ != status_code::ok ||
+        _plan.preprocess_.source_format_ != source_pixel_format::nv12 ||
+        _plan.preprocess_.channels_ != channel_order::rgb ||
+        _plan.preprocess_.resize_ != resize_mode::letterbox ||
+        _plan.preprocess_.normalization_ != normalization_formula::offset_scale ||
+        _plan.preprocess_.placement_ != (implementation_->config_.kind_ == dsp_preprocessor_kind::yolov8 ?
+            image_placement::centre : image_placement::top_left)) {
+        return {status_code::unsupported, "preprocess contract exceeds legacy DSP envelope"};
+    }
+    // Legacy kernels widen RGB bytes by 257. Prove compatibility with the
+    // declared affine for all possible byte values, not merely tensor dtype.
+    constexpr std::uint32_t g_pixel_max = std::numeric_limits<std::uint8_t>::max();
+    constexpr std::uint32_t g_widen_factor = std::numeric_limits<std::uint16_t>::max() / g_pixel_max;
+    constexpr double g_quantized_rounding_lsb = 1.0;
+    for (std::size_t channel = 0; channel < g_rgb_channels; ++channel) {
+        if (_plan.preprocess_.pad_value_[channel] != _plan.preprocess_.pad_value_[0] ||
+            std::floor(_plan.preprocess_.pad_value_[channel]) != _plan.preprocess_.pad_value_[channel]) {
+            return {status_code::unsupported, "legacy DSP requires one integer RGB pad value"};
+        }
+        for (std::uint32_t pixel = 0; pixel <= g_pixel_max; ++pixel) {
+            const double real = (static_cast<double>(pixel) - _plan.preprocess_.offset_[channel]) *
+                _plan.preprocess_.scale_[channel];
+            const double quantized = std::clamp(std::round(real / _target.quantization_.scale_ +
+                _target.quantization_.zero_point_), 0.0,
+                static_cast<double>(std::numeric_limits<std::uint16_t>::max()));
+            if (std::abs(quantized - pixel * g_widen_factor) > g_quantized_rounding_lsb) {
+                return {status_code::unsupported, "legacy DSP widening does not match input quantization"};
+            }
+        }
+    }
     return {};
 }
 
@@ -152,31 +222,29 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
         return map_status.code_ != status_code::ok ? map_status :
             status{status_code::io_error, "dsp_buffer_cache map returned null"};
     }
-    const auto* frame_base = mapping.data_;
+    const auto* frame_base = mapping.data_ + _frame.descriptor_.memory_offset_bytes_ +
+        _frame.descriptor_.offsets_[0];
 
     const std::uint32_t tensor_side = _target.dimensions_[1];
-    const auto geom = vqec_vision_ai_qcom_dsppr_compute_geom(
+    auto geom = vqec_vision_ai_qcom_dsppr_compute_geom(
         implementation_->config_.kind_,
         _frame.descriptor_.width_, _frame.descriptor_.height_,
         _frame.descriptor_.strides_[0],
-        _frame.descriptor_.offsets_[1],
+        _frame.descriptor_.offsets_[1] - _frame.descriptor_.offsets_[0],
         _frame.descriptor_.strides_[1],
         tensor_side);
+    geom[VQEC_GEOM_PAD] = static_cast<std::int32_t>(_plan.preprocess_.pad_value_[0]);
 
-    const std::size_t tensor_elements = static_cast<std::size_t>(tensor_side * tensor_side * g_rgb_channels);
+    const std::size_t tensor_elements = static_cast<std::size_t>(tensor_side) * tensor_side * g_rgb_channels;
     const std::size_t expected_bytes = tensor_elements * sizeof(std::uint16_t);
 
-    tensor_blob candidate;
-    const bool can_reuse = (_outputs.size() == 1U &&
-                            _outputs[0].bytes_.size() == expected_bytes &&
-                            _outputs[0].spec_.dtype_ == _target.dtype_);
+    auto& candidate = implementation_->scratch_;
     try {
-        if (can_reuse) {
-            candidate = std::move(_outputs[0]);
-        } else {
+        if (candidate.bytes_.size() != expected_bytes) {
             candidate.bytes_.resize(expected_bytes);
         }
         candidate.spec_ = _target;
+        _outputs.reserve(1U);
     } catch (const std::bad_alloc&) {
         return {status_code::resource_exhausted,
             "cannot allocate dsp_preprocessor output tensor"};
@@ -184,7 +252,8 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
 
     auto* tensor_ptr = reinterpret_cast<std::uint16_t*>(candidate.bytes_.data());
     const int tensor_len = static_cast<int>(tensor_elements);
-    const int frame_len = static_cast<int>(_frame.descriptor_.allocation_size_bytes_);
+    const int frame_len = static_cast<int>(_frame.descriptor_.view_size_bytes_ -
+        _frame.descriptor_.offsets_[0]);
 
     status prep_status;
     if (implementation_->config_.kind_ == dsp_preprocessor_kind::yolov8) {
@@ -201,12 +270,11 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
         return prep_status;
     }
 
-    if (can_reuse) {
-        _outputs[0] = std::move(candidate);
-    } else {
-        _outputs.clear();
-        _outputs.push_back(std::move(candidate));
+    if (_outputs.empty()) {
+        _outputs.emplace_back();
     }
+    std::swap(_outputs[0], candidate);
+    _outputs.resize(1U);
     return {};
 }
 

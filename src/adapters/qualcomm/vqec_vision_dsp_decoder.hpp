@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,8 @@ struct dsp_decoder_config {
     float confidence_threshold_{0.25F};
     float iou_threshold_{0.45F};
     std::string class_id_{"person"};
+    std::string box_tensor_{"boxes_out"};
+    std::string score_tensor_{"conf_out"};
     std::string landmark_schema_id_{"scrfd.5point"};
     std::string landmark_schema_version_{"1"};
     std::size_t landmark_count_{5};
@@ -42,8 +45,8 @@ public:
 
     dsp_decoder(const dsp_decoder&) = delete;
     dsp_decoder& operator=(const dsp_decoder&) = delete;
-    dsp_decoder(dsp_decoder&&) noexcept = default;
-    dsp_decoder& operator=(dsp_decoder&&) noexcept = default;
+    dsp_decoder(dsp_decoder&&) noexcept = delete;
+    dsp_decoder& operator=(dsp_decoder&&) noexcept = delete;
 
     [[nodiscard]] status vqec_vision_ai_cntr_mddec_validate(
         const model_outputs& _outputs) const override;
@@ -57,6 +60,8 @@ public:
 private:
     dsp_decoder_config config_;
     std::shared_ptr<dsp_session> owned_session_;
+    std::mutex decode_mutex_;
+    dsp_post_result post_workspace_;
 };
 
 }  // namespace vqec::vision::ai

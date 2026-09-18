@@ -29,6 +29,7 @@ int vqec_vision_ai_unit_dspdt_test_yolov8_decode() {
     using namespace vqec::vision::ai;
 
     dsp_decoder_config config;
+    config.session_ = std::make_shared<dsp_session>(dsp_execution_mode::reference_cpu);
     config.kind_ = dsp_decoder_kind::yolov8;
     config.source_width_ = 1920;
     config.source_height_ = 1080;
@@ -50,7 +51,8 @@ int vqec_vision_ai_unit_dspdt_test_yolov8_decode() {
     box_blob.spec_.name_ = "boxes_out";
     box_blob.spec_.dtype_ = tensor_element_type::uint16;
     box_blob.spec_.dimensions_ = {1, 4, static_cast<std::uint32_t>(kAnchors)};
-    box_blob.spec_.quantization_ = {true, kBoxScale, 0};
+    constexpr std::uint16_t kBoxZeroPoint = 128;
+    box_blob.spec_.quantization_ = {true, kBoxScale, kBoxZeroPoint};
     box_blob.bytes_.assign(4 * kAnchors * sizeof(std::uint16_t), 0);
 
     tensor_blob conf_blob;
@@ -66,10 +68,10 @@ int vqec_vision_ai_unit_dspdt_test_yolov8_decode() {
     auto* conf_u16 = reinterpret_cast<std::uint16_t*>(conf_blob.bytes_.data());
 
     const std::size_t idx = 100;
-    boxes_u16[0 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(320.0F / kBoxScale)); // cx
-    boxes_u16[1 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(320.0F / kBoxScale)); // cy
-    boxes_u16[2 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(100.0F / kBoxScale)); // w
-    boxes_u16[3 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(200.0F / kBoxScale)); // h
+    boxes_u16[0 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(320.0F / kBoxScale) + kBoxZeroPoint); // cx
+    boxes_u16[1 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(320.0F / kBoxScale) + kBoxZeroPoint); // cy
+    boxes_u16[2 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(100.0F / kBoxScale) + kBoxZeroPoint); // w
+    boxes_u16[3 * kAnchors + idx] = static_cast<std::uint16_t>(std::round(200.0F / kBoxScale) + kBoxZeroPoint); // h
     conf_u16[idx] = static_cast<std::uint16_t>(std::round(0.85F / kConfScale)); // conf 0.85
 
     result.tensors_.push_back(std::move(box_blob));
@@ -103,6 +105,32 @@ int vqec_vision_ai_unit_dspdt_test_yolov8_decode() {
         std::cerr << "Invalid box dimensions: " << obs.box_.width_ << "x" << obs.box_.height_ << "\n";
         return 1;
     }
+    if (std::abs(obs.box_.width_ - 300.0F) > 0.1F) {
+        std::cerr << "nonzero box zero-point decoded with incorrect sign\n";
+        return 1;
+    }
+
+    const float accepted_width = obs.box_.width_;
+    for (std::size_t invalid_case = 0; invalid_case < 5; ++invalid_case) {
+        auto malformed = result;
+        if (invalid_case == 0) malformed.tensors_[0].spec_.dtype_ = tensor_element_type::float32;
+        if (invalid_case == 1) malformed.tensors_[0].spec_.dimensions_[2] = 2100;
+        if (invalid_case == 2) malformed.tensors_[0].spec_.name_ = "prefix_boxes_out";
+        if (invalid_case == 3) malformed.tensors_[0].bytes_.pop_back();
+        if (invalid_case == 4) malformed.tensors_[0].spec_.quantization_.scale_ = NAN;
+        if (decoder.vqec_vision_ai_cntr_mddec_decode(malformed, frame_key, batch).code_ == status_code::ok ||
+            batch.observations_.size() != 1 || batch.observations_[0].box_.width_ != accepted_width) {
+            std::cerr << "malformed result accepted or changed output\n";
+            return 1;
+        }
+    }
+    dsp_decoder_config required = config;
+    required.session_ = std::make_shared<dsp_session>();
+    dsp_decoder closed(required);
+    if (closed.vqec_vision_ai_cntr_mddec_decode(result, frame_key, batch).code_ != status_code::invalid_state) {
+        std::cerr << "closed accelerator silently ran CPU\n";
+        return 1;
+    }
 
     return 0;
 }
@@ -111,7 +139,9 @@ int vqec_vision_ai_unit_dspdt_test_scrfd_decode() {
     using namespace vqec::vision::ai;
 
     dsp_decoder_config config;
+    config.session_ = std::make_shared<dsp_session>(dsp_execution_mode::reference_cpu);
     config.kind_ = dsp_decoder_kind::scrfd;
+    config.placement_ = image_placement::top_left;
     config.source_width_ = 1920;
     config.source_height_ = 1080;
     config.tensor_width_ = 640;
@@ -140,15 +170,18 @@ int vqec_vision_ai_unit_dspdt_test_scrfd_decode() {
         blob.spec_.name_ = g_names[i];
         blob.spec_.dtype_ = tensor_element_type::uint16;
         blob.spec_.quantization_ = {true, 0.01F, 0};
+        blob.spec_.dimensions_ = {1, static_cast<std::uint32_t>(counts[i] /
+            (i < 3 ? 1U : (i < 6 ? 4U : 10U))), i < 3 ? 1U : (i < 6 ? 4U : 10U)};
+        blob.spec_.layout_ = tensor_layout::flat;
         blob.bytes_.assign(counts[i] * sizeof(std::uint16_t), 0);
         result.tensors_.push_back(std::move(blob));
     }
 
     // Set detection at stage 0 (stride 8), anchor 50
     constexpr float kScoreScale = 0.003921568627F; // 1/255
-    result.tensors_[0].spec_.quantization_ = {true, kScoreScale, 0};
+    result.tensors_[0].spec_.quantization_ = {true, kScoreScale, 100};
     auto* score8 = reinterpret_cast<std::uint16_t*>(result.tensors_[0].bytes_.data());
-    score8[50] = static_cast<std::uint16_t>(std::round(0.9F / kScoreScale));
+    score8[50] = static_cast<std::uint16_t>(std::round(0.9F / kScoreScale) + 100);
 
     auto* bbox8 = reinterpret_cast<std::uint16_t*>(result.tensors_[3].bytes_.data());
     bbox8[50 * 4 + 0] = 500; // l
@@ -157,8 +190,9 @@ int vqec_vision_ai_unit_dspdt_test_scrfd_decode() {
     bbox8[50 * 4 + 3] = 500; // b
 
     auto* kps8 = reinterpret_cast<std::uint16_t*>(result.tensors_[6].bytes_.data());
+    result.tensors_[6].spec_.quantization_.zero_point_ = 1000;
     for (std::size_t k = 0; k < 10; ++k) {
-        kps8[50 * 10 + k] = 100;
+        kps8[50 * 10 + k] = 1100;
     }
 
     preview_frame_key frame_key;
@@ -185,6 +219,12 @@ int vqec_vision_ai_unit_dspdt_test_scrfd_decode() {
         std::cerr << "Expected 5 landmarks, got " << obs.landmarks_.points_.size() << "\n";
         return 1;
     }
+    if (std::abs(obs.confidence_ - 0.9F) > 0.01F ||
+        std::abs(obs.landmarks_.points_[0].x_ - 624.0F) > 0.01F ||
+        std::abs(obs.landmarks_.points_[0].y_ - 24.0F) > 0.01F) {
+        std::cerr << "nonzero zero-point sign regression\n";
+        return 1;
+    }
 
     return 0;
 }
@@ -192,13 +232,6 @@ int vqec_vision_ai_unit_dspdt_test_scrfd_decode() {
 }  // namespace
 
 int main() {
-    {
-        using namespace vqec::vision::ai;
-        dsp_session session;
-        dsp_session_config config;
-        config.skel_dir_ = "/opt/lacai/dsp";
-        (void)session.vqec_vision_ai_qcom_dspsn_open(config);
-    }
     if (vqec_vision_ai_unit_dspdt_test_dsp_session_describe() != 0) {
         return 1;
     }

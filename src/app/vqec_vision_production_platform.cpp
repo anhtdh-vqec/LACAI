@@ -275,7 +275,11 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         const std::string::size_type slash = impl.config_.model_root_.rfind('/');
         dsp_cfg.skel_dir_ = (slash != std::string::npos) ?
             impl.config_.model_root_.substr(0, slash) + "/dsp" : "/opt/lacai/dsp";
-        (void)impl.dsp_session_->vqec_vision_ai_qcom_dspsn_open(dsp_cfg);
+        const auto dsp_opened = impl.dsp_session_->vqec_vision_ai_qcom_dspsn_open(dsp_cfg);
+        if (dsp_opened.code_ != status_code::ok) {
+            impl.dsp_session_.reset();
+            return dsp_opened;
+        }
         impl.dsp_buffer_cache_ = std::make_shared<dsp_buffer_cache>();
     }
 
@@ -476,7 +480,8 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             }
             const auto labels = vqec_vision_ai_appl_pdplt_load_labels(
                 package, binding->package_dir_);
-            if (package.class_count_ == 1 && model.model_id_ == "yolov8n_person") {
+            bool legacy_dsp_selected = false;
+            if (package.class_count_ == 1 && labels.size() == 1) {
                 dsp_decoder_config dsp_config;
                 dsp_config.kind_ = dsp_decoder_kind::yolov8;
                 dsp_config.source_width_ = model_source->profile_.width_;
@@ -486,12 +491,19 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 dsp_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
                     declared_input.dimensions_[1] : 0;
                 dsp_config.placement_ = model.placement_;
-                dsp_config.class_id_ = labels.empty() ? "person" : labels[0];
+                dsp_config.class_id_ = labels[0];
+                dsp_config.box_tensor_ = package.box_tensor_;
+                dsp_config.score_tensor_ = package.score_tensor_;
                 dsp_config.confidence_threshold_ = package.confidence_threshold_;
                 dsp_config.iou_threshold_ = package.iou_threshold_;
                 dsp_config.session_ = impl.dsp_session_;
-                owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
-            } else {
+                auto candidate = std::make_unique<dsp_decoder>(std::move(dsp_config));
+                if (candidate->vqec_vision_ai_cntr_mddec_validate(owner.outputs_).code_ == status_code::ok) {
+                    owner.decoder_ = std::move(candidate);
+                    legacy_dsp_selected = true;
+                }
+            }
+            if (!legacy_dsp_selected) {
                 yolov8_decoder_config y8_config;
                 y8_config.source_width_ = model_source->profile_.width_;
                 y8_config.source_height_ = model_source->profile_.height_;

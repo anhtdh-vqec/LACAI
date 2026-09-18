@@ -6,7 +6,10 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
+#include <post_person_yolov8n.h>
+#include <post_face_scrfd.h>
 
 #include <vqec_dsp_types.h>
 #include "vqec_vision_dsp_session.hpp"
@@ -16,20 +19,66 @@ namespace vqec::vision::ai {
 
 namespace {
 
+static constexpr const char* g_scrfd_names[] = {
+    "score_8", "score_16", "score_32", "bbox_8", "bbox_16", "bbox_32",
+    "kps_8", "kps_16", "kps_32"};
+
+status vqec_vision_ai_qcom_dspdc_validate_config(const dsp_decoder_config& _config) {
+    if (_config.source_width_ == 0 || _config.source_height_ == 0 ||
+        _config.source_width_ > VQEC_MAX_FRAME_SIDE ||
+        _config.source_height_ > VQEC_MAX_FRAME_SIDE ||
+        !std::isfinite(_config.confidence_threshold_) ||
+        !std::isfinite(_config.iou_threshold_) || _config.confidence_threshold_ <= 0 ||
+        _config.confidence_threshold_ > 1 || _config.iou_threshold_ <= 0 ||
+        _config.iou_threshold_ > 1 || _config.class_id_.empty()) {
+        return {status_code::invalid_argument, "invalid legacy DSP decoder configuration"};
+    }
+    if (_config.tensor_width_ != SCRFD_INPUT || _config.tensor_height_ != SCRFD_INPUT ||
+        (_config.kind_ != dsp_decoder_kind::yolov8 && _config.kind_ != dsp_decoder_kind::scrfd) ||
+        (_config.kind_ == dsp_decoder_kind::yolov8 && _config.placement_ != image_placement::centre) ||
+        (_config.kind_ == dsp_decoder_kind::scrfd &&
+            (_config.placement_ != image_placement::top_left || _config.landmark_count_ !=
+                VQEC_KPS_FLOATS / 2))) {
+        return {status_code::unsupported, "decoder exceeds legacy DSP kernel envelope"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_qcom_dspdc_validate_tensor(
+    const tensor_spec& _spec, dsp_decoder_kind _kind, std::size_t _role) {
+    if (_spec.dtype_ != tensor_element_type::uint16 || !_spec.quantization_.is_quantized_ ||
+        !std::isfinite(_spec.quantization_.scale_) || _spec.quantization_.scale_ <= 0 ||
+        _spec.dimensions_.size() != 3 || _spec.dimensions_[0] != 1) {
+        return {status_code::unsupported, "legacy DSP tensor dtype/quantization/rank mismatch"};
+    }
+    if (_kind == dsp_decoder_kind::yolov8) {
+        if (_spec.dimensions_[1] != (_role == 0 ? 4U : 1U) ||
+            _spec.dimensions_[2] != YOLOV8N_PERSON_PREDICTIONS) {
+            return {status_code::unsupported, "legacy dense DSP head shape mismatch"};
+        }
+    } else {
+        const std::uint32_t stride = 8U << (_role % 3);
+        const auto cells = (SCRFD_INPUT / stride) * (SCRFD_INPUT / stride) * SCRFD_ANCHORS_PER_CELL;
+        const std::uint32_t channels = _role < 3 ? 1U : (_role < 6 ? 4U : VQEC_KPS_FLOATS);
+        if (_spec.dimensions_[1] != cells || _spec.dimensions_[2] != channels) {
+            return {status_code::unsupported, "legacy anchor-distance DSP head shape mismatch"};
+        }
+    }
+    return {};
+}
+
 const tensor_blob* vqec_vision_ai_qcom_dspdc_find_tensor(
-    const tensor_result& _result, const std::string& _name) noexcept {
+    const tensor_result& _result, std::string_view _name) noexcept {
+    const tensor_blob* matched = nullptr;
     for (const auto& tensor : _result.tensors_) {
         if (tensor.spec_.name_ == _name) {
-            return &tensor;
+            if (matched != nullptr) {
+                return nullptr;
+            }
+            matched = &tensor;
         }
     }
-    // Substring fallback
-    for (const auto& tensor : _result.tensors_) {
-        if (tensor.spec_.name_.find(_name) != std::string::npos) {
-            return &tensor;
-        }
-    }
-    return nullptr;
+    return matched;
 }
 
 void vqec_vision_ai_qcom_dspdc_compute_params(
@@ -38,10 +87,10 @@ void vqec_vision_ai_qcom_dspdc_compute_params(
     std::uint32_t _tensor_width, std::uint32_t _tensor_height,
     float _conf_thr, float _nms_thr,
     float _params[VQEC_POST_PARAM_FLOATS]) noexcept {
-    const float side_w = static_cast<float>(_tensor_width > 0 ? _tensor_width : 640U);
-    const float side_h = static_cast<float>(_tensor_height > 0 ? _tensor_height : 640U);
-    const float src_w = static_cast<float>(_source_width > 0 ? _source_width : 1920U);
-    const float src_h = static_cast<float>(_source_height > 0 ? _source_height : 1080U);
+    const float side_w = static_cast<float>(_tensor_width);
+    const float side_h = static_cast<float>(_tensor_height);
+    const float src_w = static_cast<float>(_source_width);
+    const float src_h = static_cast<float>(_source_height);
     const float scale = std::min(side_w / src_w, side_h / src_h);
 
     int dst_x = 0;
@@ -80,29 +129,70 @@ const dsp_decoder_config& dsp_decoder::vqec_vision_ai_qcom_dspdc_config() const 
 
 status dsp_decoder::vqec_vision_ai_cntr_mddec_validate(
     const model_outputs& _outputs) const {
-    if (config_.source_width_ == 0 || config_.source_height_ == 0) {
-        return {status_code::invalid_argument, "Source dimensions are zero in dsp_decoder"};
+    const auto configured = vqec_vision_ai_qcom_dspdc_validate_config(config_);
+    if (configured.code_ != status_code::ok) {
+        return configured;
     }
-    if (_outputs.outputs_.empty()) {
-        return {status_code::invalid_argument, "Model outputs are empty"};
+    const std::size_t roles = config_.kind_ == dsp_decoder_kind::yolov8 ? 2U : 9U;
+    if (_outputs.outputs_.size() != roles) {
+        return {status_code::unsupported, "legacy DSP output count mismatch"};
     }
-    if (config_.kind_ == dsp_decoder_kind::yolov8) {
-        if (_outputs.outputs_.size() < 2) {
-            return {status_code::invalid_argument, "YOLOv8 requires at least 2 output tensors"};
+    for (std::size_t role = 0; role < roles; ++role) {
+        const std::string name = config_.kind_ == dsp_decoder_kind::yolov8 ?
+            (role == 0 ? config_.box_tensor_ : config_.score_tensor_) : g_scrfd_names[role];
+        const tensor_spec* matched = nullptr;
+        for (const auto& tensor : _outputs.outputs_) {
+            if (tensor.name_ == name) {
+                if (matched != nullptr) {
+                    return {status_code::invalid_argument, "duplicate DSP tensor role"};
+                }
+                matched = &tensor;
+            }
         }
-    } else if (config_.kind_ == dsp_decoder_kind::scrfd) {
-        if (_outputs.outputs_.size() < 9) {
-            return {status_code::invalid_argument, "SCRFD requires at least 9 output tensors"};
+        if (matched == nullptr || matched->layout_ != tensor_layout::flat) {
+            return {status_code::unsupported, "DSP tensor role/declared flat layout mismatch"};
+        }
+        const auto valid = vqec_vision_ai_qcom_dspdc_validate_tensor(*matched, config_.kind_, role);
+        if (valid.code_ != status_code::ok) {
+            return valid;
         }
     }
-    return {status_code::ok, ""};
+    return {};
 }
 
 status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
     const tensor_result& _result, const preview_frame_key& _expected_frame,
     observation_batch& _observations) {
+    // One decoder may be registered for several source sessions. Serialize its
+    // reusable workspace; the shared DSP session serializes the RPC independently.
+    std::lock_guard<std::mutex> decode_lock(decode_mutex_);
     if (owned_session_ == nullptr) {
         return {status_code::protocol_error, "dsp_decoder has null session"};
+    }
+    const auto configured = vqec_vision_ai_qcom_dspdc_validate_config(config_);
+    if (configured.code_ != status_code::ok) {
+        return configured;
+    }
+    const std::size_t roles = config_.kind_ == dsp_decoder_kind::yolov8 ? 2U : 9U;
+    if (_result.tensors_.size() != roles) {
+        return {status_code::unsupported, "legacy DSP result count mismatch"};
+    }
+    for (std::size_t role = 0; role < roles; ++role) {
+        const std::string_view name = config_.kind_ == dsp_decoder_kind::yolov8 ?
+            std::string_view(role == 0 ? config_.box_tensor_ : config_.score_tensor_) : g_scrfd_names[role];
+        const auto* matched = vqec_vision_ai_qcom_dspdc_find_tensor(_result, name);
+        if (matched == nullptr) {
+            return {status_code::unsupported, "legacy DSP result role mismatch"};
+        }
+        const auto valid = vqec_vision_ai_qcom_dspdc_validate_tensor(matched->spec_, config_.kind_, role);
+        if (valid.code_ != status_code::ok) {
+            return valid;
+        }
+        const auto& shape = matched->spec_.dimensions_;
+        const auto bytes = static_cast<std::size_t>(shape[1]) * shape[2] * sizeof(std::uint16_t);
+        if (matched->bytes_.size() != bytes) {
+            return {status_code::invalid_argument, "legacy DSP result byte count mismatch"};
+        }
     }
 
     float params[VQEC_POST_PARAM_FLOATS]{};
@@ -111,15 +201,11 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
         config_.tensor_width_, config_.tensor_height_,
         config_.confidence_threshold_, config_.iou_threshold_, params);
 
-    dsp_post_result post_out;
+    auto& post_out = post_workspace_;
 
     if (config_.kind_ == dsp_decoder_kind::yolov8) {
-        const tensor_blob* box_tensor = vqec_vision_ai_qcom_dspdc_find_tensor(_result, "boxes");
-        const tensor_blob* conf_tensor = vqec_vision_ai_qcom_dspdc_find_tensor(_result, "conf");
-        if (box_tensor == nullptr && _result.tensors_.size() >= 2) {
-            box_tensor = &_result.tensors_[0];
-            conf_tensor = &_result.tensors_[1];
-        }
+        const tensor_blob* box_tensor = vqec_vision_ai_qcom_dspdc_find_tensor(_result, config_.box_tensor_);
+        const tensor_blob* conf_tensor = vqec_vision_ai_qcom_dspdc_find_tensor(_result, config_.score_tensor_);
         if (box_tensor == nullptr || conf_tensor == nullptr) {
             return {status_code::invalid_argument, "Cannot locate boxes and conf tensors for YOLOv8"};
         }
@@ -131,9 +217,9 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
 
         float quant[4]{
             box_tensor->spec_.quantization_.scale_,
-            static_cast<float>(box_tensor->spec_.quantization_.zero_point_),
+            -static_cast<float>(box_tensor->spec_.quantization_.zero_point_),
             conf_tensor->spec_.quantization_.scale_,
-            static_cast<float>(conf_tensor->spec_.quantization_.zero_point_)
+            -static_cast<float>(conf_tensor->spec_.quantization_.zero_point_)
         };
 
         const auto status = owned_session_->vqec_vision_ai_qcom_dspsn_postprocess_person_yolov8n(
@@ -143,20 +229,12 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
         }
     } else {
         // SCRFD 9 tensors
-        static const char* const g_scrfd_names[9] = {
-            "score_8", "score_16", "score_32",
-            "bbox_8", "bbox_16", "bbox_32",
-            "kps_8", "kps_16", "kps_32"
-        };
         const std::uint16_t* tensors[9]{};
         int lens[9]{};
         float quant[18]{};
 
         for (std::size_t i = 0; i < 9; ++i) {
             const tensor_blob* blob = vqec_vision_ai_qcom_dspdc_find_tensor(_result, g_scrfd_names[i]);
-            if (blob == nullptr && i < _result.tensors_.size()) {
-                blob = &_result.tensors_[i];
-            }
             if (blob == nullptr) {
                 return {status_code::invalid_argument,
                     "Cannot locate SCRFD tensor " + std::string(g_scrfd_names[i])};
@@ -164,7 +242,7 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
             tensors[i] = reinterpret_cast<const std::uint16_t*>(blob->bytes_.data());
             lens[i] = static_cast<int>(blob->bytes_.size() / sizeof(std::uint16_t));
             quant[i * 2] = blob->spec_.quantization_.scale_;
-            quant[i * 2 + 1] = static_cast<float>(blob->spec_.quantization_.zero_point_);
+            quant[i * 2 + 1] = -static_cast<float>(blob->spec_.quantization_.zero_point_);
         }
 
         const auto status = owned_session_->vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
@@ -193,7 +271,7 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
 
         if (!std::isfinite(norm_x1) || !std::isfinite(norm_y1) ||
             !std::isfinite(norm_x2) || !std::isfinite(norm_y2) ||
-            !std::isfinite(score)) {
+            !std::isfinite(score) || score < 0.0F || score > 1.0F) {
             continue;
         }
 

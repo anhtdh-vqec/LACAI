@@ -100,7 +100,7 @@ int vqec_vision_ai_unit_dsppt_test_buffer_cache() {
 }
 
 int vqec_vision_ai_unit_dsppt_test_preprocessor() {
-    auto session = std::make_shared<dsp_session>();
+    auto session = std::make_shared<dsp_session>(dsp_execution_mode::reference_cpu);
     auto cache = std::make_shared<dsp_buffer_cache>(dsp_buffer_cache_config{4, false});
 
     dsp_preprocessor_config cfg;
@@ -132,6 +132,7 @@ int vqec_vision_ai_unit_dsppt_test_preprocessor() {
     }
 
     raw_frame frame;
+    frame.owner_ = std::make_shared<int>(fd); // Fixture caller keeps the FD alive through the call.
     frame.native_handle_ = fd;
     frame.descriptor_.width_ = width;
     frame.descriptor_.height_ = height;
@@ -139,12 +140,24 @@ int vqec_vision_ai_unit_dsppt_test_preprocessor() {
     frame.descriptor_.offsets_[1] = width * height;
     frame.descriptor_.strides_[1] = static_cast<std::int32_t>(width);
     frame.descriptor_.allocation_size_bytes_ = frame_bytes;
+    frame.descriptor_.view_size_bytes_ = frame_bytes;
 
     inference_plan plan;
+    plan.source_width_ = width;
+    plan.source_height_ = height;
+    plan.tensor_width_ = 32;
+    plan.tensor_height_ = 32;
+    plan.preprocess_.source_format_ = source_pixel_format::nv12;
+    plan.preprocess_.matrix_ = color_matrix::bt601;
+    plan.preprocess_.range_ = color_range::full;
+    plan.preprocess_.interpolation_ = interpolation_mode::area;
+    plan.preprocess_.pad_value_ = {114, 114, 114};
+    plan.preprocess_.scale_ = {1.0F / 255.0F, 1.0F / 255.0F, 1.0F / 255.0F};
     tensor_spec target;
     target.dtype_ = tensor_element_type::uint16;
     target.layout_ = tensor_layout::nhwc;
     target.dimensions_ = {1, 32, 32, 3};
+    target.quantization_ = {true, 1.0F / 65535.0F, 0};
 
     const auto valid = preprocessor.vqec_vision_ai_ports_imgpr_validate(frame, plan, target);
     if (valid.code_ != status_code::ok) {
@@ -180,6 +193,39 @@ int vqec_vision_ai_unit_dsppt_test_preprocessor() {
     if (out_u16[0] != expected_pad) {
         ::close(fd);
         std::cerr << "expected pad value " << expected_pad << ", got " << out_u16[0] << "\n";
+        return 1;
+    }
+
+    const auto accepted_bytes = outputs[0].bytes_;
+    auto invalid_target = target;
+    invalid_target.quantization_.scale_ *= 2.0F;
+    if (preprocessor.vqec_vision_ai_ports_imgpr_preprocess(frame, plan, invalid_target, outputs).code_ == status_code::ok ||
+        outputs[0].bytes_ != accepted_bytes) {
+        ::close(fd);
+        std::cerr << "incompatible quantization accepted or changed output\n";
+        return 1;
+    }
+    auto invalid_frame = frame;
+    invalid_frame.descriptor_.offsets_[1] = 1;
+    if (preprocessor.vqec_vision_ai_ports_imgpr_validate(invalid_frame, plan, target).code_ == status_code::ok) {
+        ::close(fd);
+        std::cerr << "overlapping planes accepted\n";
+        return 1;
+    }
+    invalid_target = target;
+    invalid_target.layout_ = tensor_layout::unknown;
+    if (preprocessor.vqec_vision_ai_ports_imgpr_validate(frame, plan, invalid_target).code_ == status_code::ok) {
+        ::close(fd);
+        std::cerr << "unknown input layout accepted\n";
+        return 1;
+    }
+    dsp_preprocessor_config required = cfg;
+    required.session_ = std::make_shared<dsp_session>();
+    dsp_preprocessor closed(required);
+    if (closed.vqec_vision_ai_ports_imgpr_preprocess(frame, plan, target, outputs).code_ != status_code::invalid_state ||
+        outputs.size() != 1 || outputs[0].bytes_ != accepted_bytes) {
+        ::close(fd);
+        std::cerr << "closed DSP modified retained output or silently ran CPU\n";
         return 1;
     }
 

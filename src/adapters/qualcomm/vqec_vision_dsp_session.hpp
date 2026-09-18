@@ -10,6 +10,8 @@
 
 namespace vqec::vision::ai {
 
+enum class dsp_execution_mode { accelerator_required, reference_cpu };
+
 struct dsp_session_config {
     std::string skel_dir_{"/opt/lacai/dsp"};
     std::int32_t clock_corner_{7};
@@ -27,7 +29,7 @@ struct dsp_post_result {
 
 class dsp_session final {
 public:
-    dsp_session();
+    explicit dsp_session(dsp_execution_mode _mode = dsp_execution_mode::accelerator_required);
     ~dsp_session();
 
     dsp_session(const dsp_session&) = delete;

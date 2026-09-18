@@ -1,6 +1,8 @@
 #include "vqec_vision_dsp_session.hpp"
 
 #include <cstdlib>
+#include <cmath>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -51,17 +53,42 @@ int vqec_vision_ai_qcom_dspsn_enable_unsigned_pd() noexcept {
 #endif
 }
 
+status vqec_vision_ai_qcom_dspsn_validate_post_parameters(
+    const float* _quant, int _quant_len, const float* _params) {
+    for (int pair = 0; pair < _quant_len / VQEC_QUANT_FLOATS; ++pair) {
+        if (!std::isfinite(_quant[pair * VQEC_QUANT_FLOATS]) ||
+            _quant[pair * VQEC_QUANT_FLOATS] <= 0 ||
+            !std::isfinite(_quant[pair * VQEC_QUANT_FLOATS + 1])) {
+            return {status_code::invalid_argument, "invalid legacy DSP quantization"};
+        }
+    }
+    for (int field = 0; field < VQEC_POST_PARAM_FLOATS; ++field) {
+        if (!std::isfinite(_params[field])) {
+            return {status_code::invalid_argument, "nonfinite legacy DSP parameters"};
+        }
+    }
+    if (_params[VQEC_PP_CONF] <= 0 || _params[VQEC_PP_CONF] > 1 ||
+        _params[VQEC_PP_NMS] <= 0 || _params[VQEC_PP_NMS] > 1 ||
+        _params[VQEC_PP_SCALE] <= 0 || _params[VQEC_PP_SRC_W] <= 0 ||
+        _params[VQEC_PP_SRC_H] <= 0 || _params[VQEC_PP_SRC_W] > VQEC_MAX_FRAME_SIDE ||
+        _params[VQEC_PP_SRC_H] > VQEC_MAX_FRAME_SIDE) {
+        return {status_code::invalid_argument, "legacy DSP threshold/geometry mismatch"};
+    }
+    return {};
+}
+
 }  // namespace
 
 class dsp_session::impl final {
 public:
     dsp_session_config config_;
-    std::uint64_t handle_{0};
-    bool is_open_{false};
+    std::atomic<std::uint64_t> handle_{0};
+    std::atomic<bool> is_open_{false};
     std::mutex rpc_mutex_;
+    dsp_execution_mode mode_{dsp_execution_mode::accelerator_required};
 
-    // Per-session scratch candidate list for host fallback execution
-    CandList host_scratch_{};
+    // Explicit reference-only scratch. Production never initializes this arena.
+    std::unique_ptr<CandList> host_scratch_;
     PreScratch host_pre_scratch_{};
 
     impl() = default;
@@ -118,7 +145,12 @@ std::string dsp_session::vqec_vision_ai_qcom_dspsn_describe(int _rc) {
     return std::string(hex) + " (" + name + ")";
 }
 
-dsp_session::dsp_session() : impl_(std::make_unique<impl>()) {}
+dsp_session::dsp_session(dsp_execution_mode _mode) : impl_(std::make_unique<impl>()) {
+    impl_->mode_ = _mode;
+    if (_mode == dsp_execution_mode::reference_cpu) {
+        impl_->host_scratch_ = std::make_unique<CandList>();
+    }
+}
 
 dsp_session::~dsp_session() = default;
 
@@ -132,6 +164,9 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_open(
         return {status_code::protocol_error, "DSP session implementation is null"};
     }
     std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->mode_ != dsp_execution_mode::accelerator_required) {
+        return {status_code::unsupported, "reference DSP session cannot open hardware"};
+    }
     if (impl_->is_open_) {
         return {status_code::ok, ""};
     }
@@ -149,8 +184,7 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_open(
     remote_handle64 h = 0;
     const int rc = vqec_dsp_open(vqec_dsp_URI "&_dom=cdsp", &h);
     if (rc != g_aee_success) {
-        // Fallback: If opening FastRPC on hardware fails or is run in host/sim, allow session
-        // to record not opened on DSP so callers can gracefully use host fallback or report status.
+        // Fail closed. Hardware opening is not a request to select CPU reference.
         return {status_code::io_error,
             "Cannot open libvqec_dsp_skel.so on cDSP: " + vqec_vision_ai_qcom_dspsn_describe(rc) +
             " (DSP_LIBRARY_PATH=" + library_path + ")"};
@@ -179,7 +213,7 @@ bool dsp_session::vqec_vision_ai_qcom_dspsn_is_open() const noexcept {
 }
 
 std::uint64_t dsp_session::vqec_vision_ai_qcom_dspsn_handle() const noexcept {
-    return impl_ != nullptr ? impl_->handle_ : 0;
+    return impl_ != nullptr ? impl_->handle_.load() : 0;
 }
 
 const dsp_session_config& dsp_session::vqec_vision_ai_qcom_dspsn_config() const noexcept {
@@ -196,8 +230,14 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_person_yolov8n(
     if (_boxes_t == nullptr || _conf_t == nullptr || _quant == nullptr || _params == nullptr) {
         return {status_code::invalid_argument, "Null tensor or parameter pointers"};
     }
-    if (_boxes_len <= 0 || _conf_len <= 0 || _quant_len < 4 || _params_len < VQEC_POST_PARAM_FLOATS) {
+    if (impl_ == nullptr || _boxes_len != YOLOV8N_PERSON_PREDICTIONS * 4 ||
+        _conf_len != YOLOV8N_PERSON_PREDICTIONS || _quant_len != 4 ||
+        _params_len != VQEC_POST_PARAM_FLOATS) {
         return {status_code::invalid_argument, "Invalid tensor lengths or parameters"};
+    }
+    const auto parameters = vqec_vision_ai_qcom_dspsn_validate_post_parameters(_quant, _quant_len, _params);
+    if (parameters.code_ != status_code::ok) {
+        return parameters;
     }
 
     _out.boxes_.assign(static_cast<std::size_t>(VQEC_MAX_BOXES) * VQEC_BOX_FLOATS, 0.0F);
@@ -207,6 +247,9 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_person_yolov8n(
     std::uint32_t time_us = 0;
 
     std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (!impl_->is_open_ && impl_->mode_ != dsp_execution_mode::reference_cpu) {
+        return {status_code::invalid_state, "DSP accelerator session is not open"};
+    }
     if (impl_->is_open_ && impl_->handle_ != 0) {
         const int rc = vqec_dsp_postprocess_person_yolov8n(
             static_cast<remote_handle64>(impl_->handle_),
@@ -221,12 +264,12 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_person_yolov8n(
     } else {
         // Host C reference execution for test environments or emulation
         count = post_person_yolov8n(
-            &impl_->host_scratch_, _boxes_t, _conf_t, _quant, _params,
+            impl_->host_scratch_.get(), _boxes_t, _conf_t, _quant, _params,
             _out.boxes_.data(), VQEC_MAX_BOXES);
         if (count < 0) {
             return {status_code::protocol_error, "Host post_person_yolov8n execution failed"};
         }
-        truncated = impl_->host_scratch_.truncated;
+        truncated = impl_->host_scratch_->truncated;
         time_us = 0;
     }
 
@@ -249,13 +292,23 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
     if (_tensors == nullptr || _lens == nullptr || _quant == nullptr || _params == nullptr) {
         return {status_code::invalid_argument, "Null tensor or parameter pointers"};
     }
+    if (impl_ == nullptr) {
+        return {status_code::invalid_state, "DSP session implementation is absent"};
+    }
     for (std::size_t i = 0; i < 9; ++i) {
-        if (_tensors[i] == nullptr || _lens[i] <= 0) {
+        const int stride = 8 << (i % 3);
+        const int cells = (SCRFD_INPUT / stride) * (SCRFD_INPUT / stride) * SCRFD_ANCHORS_PER_CELL;
+        const int channels = i < 3 ? 1 : (i < 6 ? 4 : VQEC_KPS_FLOATS);
+        if (_tensors[i] == nullptr || _lens[i] != cells * channels) {
             return {status_code::invalid_argument, "Invalid tensor pointer or length at index " + std::to_string(i)};
         }
     }
-    if (_quant_len < 18 || _params_len < VQEC_POST_PARAM_FLOATS) {
+    if (_quant_len != 18 || _params_len != VQEC_POST_PARAM_FLOATS) {
         return {status_code::invalid_argument, "Invalid quant or params length for SCRFD"};
+    }
+    const auto parameters = vqec_vision_ai_qcom_dspsn_validate_post_parameters(_quant, _quant_len, _params);
+    if (parameters.code_ != status_code::ok) {
+        return parameters;
     }
 
     _out.boxes_.assign(static_cast<std::size_t>(VQEC_MAX_BOXES) * VQEC_BOX_FLOATS, 0.0F);
@@ -265,6 +318,9 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
     std::uint32_t time_us = 0;
 
     std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (!impl_->is_open_ && impl_->mode_ != dsp_execution_mode::reference_cpu) {
+        return {status_code::invalid_state, "DSP accelerator session is not open"};
+    }
     if (impl_->is_open_ && impl_->handle_ != 0) {
         const int rc = vqec_dsp_postprocess_face_scrfd(
             static_cast<remote_handle64>(impl_->handle_),
@@ -282,12 +338,12 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
     } else {
         // Host C reference execution for test environments or emulation
         count = post_face_scrfd(
-            &impl_->host_scratch_, _tensors, _quant, _params,
+            impl_->host_scratch_.get(), _tensors, _quant, _params,
             _out.boxes_.data(), _out.kps_.data(), VQEC_MAX_BOXES);
         if (count < 0) {
             return {status_code::protocol_error, "Host post_face_scrfd execution failed"};
         }
-        truncated = impl_->host_scratch_.truncated;
+        truncated = impl_->host_scratch_->truncated;
         time_us = 0;
     }
 
@@ -311,11 +367,14 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_preprocess_person_yolov8n(
     if (_frame == nullptr || _geom == nullptr || _tensor == nullptr) {
         return {status_code::invalid_argument, "Null pointer in preprocess arguments"};
     }
-    if (_geom_len != VQEC_GEOM_INTS) {
+    if (impl_ == nullptr || _frame_len <= 0 || _tensor_len <= 0 || _geom_len != VQEC_GEOM_INTS) {
         return {status_code::invalid_argument, "geom_len must be VQEC_GEOM_INTS"};
     }
     std::uint32_t time_us = 0;
     std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (!impl_->is_open_ && impl_->mode_ != dsp_execution_mode::reference_cpu) {
+        return {status_code::invalid_state, "DSP accelerator session is not open"};
+    }
     if (impl_->is_open_ && impl_->handle_ != 0) {
         const int rc = vqec_dsp_preprocess_person_yolov8n(
             static_cast<remote_handle64>(impl_->handle_),
@@ -347,11 +406,14 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_preprocess_face_scrfd(
     if (_frame == nullptr || _geom == nullptr || _tensor == nullptr) {
         return {status_code::invalid_argument, "Null pointer in preprocess arguments"};
     }
-    if (_geom_len != VQEC_GEOM_INTS) {
+    if (impl_ == nullptr || _frame_len <= 0 || _tensor_len <= 0 || _geom_len != VQEC_GEOM_INTS) {
         return {status_code::invalid_argument, "geom_len must be VQEC_GEOM_INTS"};
     }
     std::uint32_t time_us = 0;
     std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (!impl_->is_open_ && impl_->mode_ != dsp_execution_mode::reference_cpu) {
+        return {status_code::invalid_state, "DSP accelerator session is not open"};
+    }
     if (impl_->is_open_ && impl_->handle_ != 0) {
         const int rc = vqec_dsp_preprocess_face_scrfd(
             static_cast<remote_handle64>(impl_->handle_),
