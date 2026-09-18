@@ -8,10 +8,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <post_person_yolov8n.h>
-#include <post_face_scrfd.h>
+#include <vqec_vision_dsp_legacy_post_person.h>
+#include <vqec_vision_dsp_legacy_post_face.h>
 
-#include <vqec_dsp_types.h>
+#include <vqec_vision_dsp_legacy_types.h>
 #include "vqec_vision_dsp_session.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
 

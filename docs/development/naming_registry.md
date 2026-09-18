@@ -586,6 +586,13 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | Logical owner path | file_id | Prefix |
 |---|---|---|
 | src/adapters/qualcomm/vqec_vision_dsp_session.cpp | dspsn | vqec_vision_ai_qcom_dspsn_ |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy.idl | dslgc | external `vqec_dsp` wire ABI, frozen |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_post_person.c | dlpps | frozen C compatibility function |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_post_face.c | dlpfs | frozen C compatibility function |
+| src/adapters/qualcomm/vqec_vision_dsp_legacy_pre.c | dlpre | frozen C compatibility functions |
 | src/adapters/qualcomm/vqec_vision_rpcmem_pool.cpp | rpcm | vqec_vision_ai_qcom_rpcm_ |
 | src/adapters/qualcomm/vqec_vision_dsp_decoder.cpp | dspdc | vqec_vision_ai_qcom_dspdc_ (port overrides retain vqec_vision_ai_cntr_mddec_) |
 | src/adapters/qualcomm/vqec_vision_dsp_buffer_cache.cpp | dspbc | vqec_vision_ai_qcom_dspbc_ |
@@ -594,6 +601,17 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/vqec_vision_dsp_decoder_test.cpp | dspdt | vqec_vision_ai_unit_dspdt_ |
 | tests/unit/vqec_vision_dsp_preprocessor_test.cpp | dsppt | vqec_vision_ai_unit_dsppt_ |
 | tests/unit/vqec_vision_dsp_buffer_cache_test.cpp | dbctst | vqec_vision_ai_unit_dbctst_ |
+
+The following **finite migration exceptions** preserve existing C symbols while the frozen
+`vqec_dsp` ABI is replaced. Owner: AI APP lead plus BSP+FW. Removal condition: v2 operation
+parity and released-FW migration. No new function may be added under these names.
+
+| Source owner | Existing symbols retained |
+|---|---|
+| `dlpcm` | `vq_quant_threshold`, `vq_sigmoid`, `vq_logit`, `cand_push`, `iou`, `nms_greedy`, `clamp01`, `boxes_write`, `vq_dequant` |
+| `dlpps` | `post_person_yolov8n` |
+| `dlpfs` | `post_face_scrfd` |
+| `dlpre` | `pre_scratch_ensure`, `pre_scratch_free`, `round_avg`, `scalar_ScaleDownMNu8`, `scalar_ScaleDownMNInterleaveu8`, `clamp_round`, `scalar_ColorYCbCr420PseudoPlanarToRGB888u8`, `pre_letterbox_rgb_u16` |
 
 ## See also
 

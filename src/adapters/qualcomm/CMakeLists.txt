@@ -24,15 +24,50 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
 
     find_library(VQEC_VISION_AI_CDSPRPC_LIBRARY cdsprpc)
 
+    set(VQEC_VISION_AI_HEXAGON_SDK_ROOT "" CACHE PATH
+        "Hexagon SDK root used only for QAIC generation of the frozen FastRPC ABI")
+    if(NOT EXISTS "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs/stddef/AEEStdDef.idl" OR
+       NOT EXISTS "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs/remote.idl")
+        message(FATAL_ERROR "Qualcomm FastRPC requires an explicit valid "
+            "VQEC_VISION_AI_HEXAGON_SDK_ROOT with QAIC IDL includes")
+    endif()
+    find_program(VQEC_VISION_AI_QAIC_EXECUTABLE NAMES qaic
+        HINTS "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/ipc/fastrpc/qaic/Ubuntu20"
+        NO_DEFAULT_PATH REQUIRED)
+    execute_process(COMMAND "${VQEC_VISION_AI_QAIC_EXECUTABLE}" -v
+        OUTPUT_VARIABLE vqec_vision_ai_qaic_version
+        RESULT_VARIABLE vqec_vision_ai_qaic_result
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT vqec_vision_ai_qaic_result EQUAL 0 OR
+       NOT vqec_vision_ai_qaic_version MATCHES "version 01\\.00\\.47")
+        message(FATAL_ERROR "FastRPC compatibility stub requires reviewed QAIC 01.00.47")
+    endif()
+
+    set(vqec_vision_ai_qaic_output "${CMAKE_CURRENT_BINARY_DIR}/fastrpc_legacy")
+    set(vqec_vision_ai_legacy_idl
+        "${CMAKE_CURRENT_SOURCE_DIR}/vqec_vision_dsp_legacy.idl")
+    add_custom_command(
+        OUTPUT "${vqec_vision_ai_qaic_output}/vqec_vision_dsp_legacy.h"
+               "${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"
+        BYPRODUCTS "${vqec_vision_ai_qaic_output}/vqec_dsp_skel.c"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${vqec_vision_ai_qaic_output}"
+        COMMAND "${VQEC_VISION_AI_QAIC_EXECUTABLE}" -mdll
+            -o "${vqec_vision_ai_qaic_output}"
+            -I "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs/stddef"
+            -I "${VQEC_VISION_AI_HEXAGON_SDK_ROOT}/incs"
+            "${vqec_vision_ai_legacy_idl}"
+        DEPENDS "${vqec_vision_ai_legacy_idl}"
+        VERBATIM)
+
     add_library(vqec_vision_ai_fastrpc_c STATIC
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_common.c
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_person_yolov8n.c
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_face_scrfd.c
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/pre.c
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/vqec_dsp_stub.c)
+        vqec_vision_dsp_legacy_post_common.c
+        vqec_vision_dsp_legacy_post_person.c
+        vqec_vision_dsp_legacy_post_face.c
+        vqec_vision_dsp_legacy_pre.c
+        "${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c")
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp)
-    set_source_files_properties(${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/vqec_dsp_stub.c
+        "${CMAKE_CURRENT_SOURCE_DIR}" "${vqec_vision_ai_qaic_output}")
+    set_source_files_properties("${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"
         PROPERTIES COMPILE_OPTIONS "-w")
     if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
         target_link_libraries(vqec_vision_ai_fastrpc_c PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
@@ -52,7 +87,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp)
+        "${vqec_vision_ai_qaic_output}")
     target_link_libraries(vqec_vision_ai_qualcomm
         PUBLIC vqec_vision_ai_core vqec_vision_ai_fastrpc_c
         PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)

@@ -75,7 +75,7 @@ upstream facts, not LACAI capability.
 
 `docs/adr/` records decisions in numeric order; ADR 0001 baseline, 0002 plugin backend,
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
-0006 unwired execution infrastructure.
+0006 unwired execution infrastructure, and proposed 0007 versioned FastRPC operations.
 
 ## Operations
 

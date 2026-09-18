@@ -10,14 +10,14 @@
 #include <string>
 #include <vector>
 
-#include <vqec_dsp.h>
-#include <vqec_dsp_codes.h>
-#include <vqec_dsp_types.h>
+#include <vqec_vision_dsp_legacy.h>
+#include <vqec_vision_dsp_legacy_codes.h>
+#include <vqec_vision_dsp_legacy_types.h>
 extern "C" {
-#include <post_common.h>
-#include <post_person_yolov8n.h>
-#include <post_face_scrfd.h>
-#include <pre.h>
+#include <vqec_vision_dsp_legacy_post_common.h>
+#include <vqec_vision_dsp_legacy_post_person.h>
+#include <vqec_vision_dsp_legacy_post_face.h>
+#include <vqec_vision_dsp_legacy_pre.h>
 }
 
 #if defined(__has_include)

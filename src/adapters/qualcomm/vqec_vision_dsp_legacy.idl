@@ -1,0 +1,48 @@
+#ifndef VQEC_VISION_DSP_LEGACY_IDL
+#define VQEC_VISION_DSP_LEGACY_IDL
+
+#include "AEEStdDef.idl"
+#include "remote.idl"
+
+// Frozen compatibility ABI for the deployed libvqec_dsp_skel.so. Do not add methods.
+interface vqec_dsp : remote_handle64 {
+    AEEResult set_clocks(in int32 corner, in int32 latency_us);
+    AEEResult preprocess_person_yolov8n(in sequence<uint8> frame, in sequence<int32> geom,
+                                        rout sequence<uint16> tensor, rout uint32 time_us);
+    AEEResult preprocess_face_scrfd(in sequence<uint8> frame, in sequence<int32> geom,
+                                    rout sequence<uint16> tensor, rout uint32 time_us);
+    AEEResult preprocess_firesmoke_yolov5(in sequence<uint8> frame, in sequence<int32> geom,
+                                          rout sequence<uint16> tensor, rout uint32 time_us);
+    AEEResult postprocess_person_yolov8n(in sequence<uint16> boxes_t,
+                                         in sequence<uint16> conf_t, in sequence<float> quant,
+                                         in sequence<float> params, rout sequence<float> boxes,
+                                         rout int32 count, rout int32 truncated,
+                                         rout uint32 time_us);
+    AEEResult postprocess_face_scrfd(in sequence<uint16> score8, in sequence<uint16> score16,
+                                     in sequence<uint16> score32, in sequence<uint16> bbox8,
+                                     in sequence<uint16> bbox16, in sequence<uint16> bbox32,
+                                     in sequence<uint16> kps8, in sequence<uint16> kps16,
+                                     in sequence<uint16> kps32, in sequence<float> quant,
+                                     in sequence<float> params, rout sequence<float> boxes,
+                                     rout sequence<float> kps, rout int32 count,
+                                     rout int32 truncated, rout uint32 time_us);
+    AEEResult postprocess_firesmoke_yolov5(in sequence<uint16> s4, in sequence<uint16> s8,
+                                           in sequence<uint16> s16, in sequence<float> quant,
+                                           in sequence<float> params, rout sequence<float> boxes,
+                                           rout int32 count, rout int32 truncated,
+                                           rout uint32 time_us);
+    AEEResult compose(in sequence<uint8> frame, in sequence<int32> cgeom,
+                      in sequence<float> draw, in sequence<uint8> labels, in int32 overlay,
+                      rout sequence<uint8> dst, rout uint32 time_us);
+    AEEResult flow_init(in int32 gray_w, in int32 gray_h, in int32 levels, in int32 slots);
+    AEEResult frame_step(in sequence<uint8> frame, in sequence<int32> geom, in uint64 pts,
+                         in sequence<int32> rois, rout sequence<float> points,
+                         rout sequence<int32> status, rout sequence<int32> counts,
+                         rout uint64 prev_pts, rout uint32 time_us);
+    AEEResult flow_track(in uint64 prev_pts, in uint64 next_pts, in sequence<int32> rois,
+                         rout sequence<float> points, rout sequence<int32> status,
+                         rout sequence<int32> counts, rout uint32 time_us);
+    AEEResult flow_invalidate(in uint64 before_pts);
+};
+
+#endif

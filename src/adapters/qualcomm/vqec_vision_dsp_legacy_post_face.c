@@ -1,5 +1,5 @@
-#include "post_face_scrfd.h"
-#include "post_common.h"
+#include "vqec_vision_dsp_legacy_post_face.h"
+#include "vqec_vision_dsp_legacy_post_common.h"
 #include <math.h>
 
 int post_face_scrfd(CandList* scratch, const uint16_t* const t[9], const float* quant, const float* params, float* out_boxes, float* out_kps, int max_boxes) {

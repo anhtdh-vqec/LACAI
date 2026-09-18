@@ -1,5 +1,5 @@
-#include "post_person_yolov8n.h"
-#include "post_common.h"
+#include "vqec_vision_dsp_legacy_post_person.h"
+#include "vqec_vision_dsp_legacy_post_common.h"
 #include <math.h>
 
 int post_person_yolov8n(CandList* scratch, const uint16_t* boxes_t, const uint16_t* conf_t, const float* quant, const float* params, float* out, int max_boxes) {

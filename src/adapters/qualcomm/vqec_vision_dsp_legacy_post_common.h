@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "vqec_dsp_types.h"
+#include "vqec_vision_dsp_legacy_types.h"
 
 typedef struct { float x1, y1, x2, y2, score; int cls; } Cand;   /* pixels in source frame */
 /* `truncated` counts the overflow events of the last decode (reset by every post_* entry point):

@@ -37,6 +37,8 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 | `vqec_vision_fastcv_aligner.cpp` | FastCV affine/color alignment behind `image_alignment_port` |
 | `vqec_vision_qtiv_color.cpp` | QTI color conversion helper |
 | `vqec_vision_dsp_buffer_cache.cpp` | Bounded mapping cache with pinned access leases and deferred retirement |
+| `vqec_vision_dsp_legacy.idl` | Frozen compatibility wire; QAIC generates client stub at build time from the reviewed SDK |
+| `vqec_vision_dsp_legacy_*.{c,h}` | Isolated legacy reference fixtures and wire constants; owner/license review pending |
 | `vqec_vision_dsp_session.cpp` | Legacy FastRPC transport; model-specific wire operations, not a generic DSP ABI |
 | `vqec_vision_dsp_preprocessor.cpp` | Legacy DSP image-processor implementation; semantic qualification remains open |
 | `vqec_vision_dsp_decoder.cpp` | Legacy DSP decoder binding; fixed kernel envelopes |

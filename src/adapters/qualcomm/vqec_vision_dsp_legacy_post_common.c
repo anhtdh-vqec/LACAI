@@ -1,4 +1,4 @@
-#include "post_common.h"
+#include "vqec_vision_dsp_legacy_post_common.h"
 #include <math.h>
 
 uint32_t vq_quant_threshold(float thr, float scale, float offset) {

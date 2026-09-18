@@ -1,6 +1,6 @@
-#include "pre.h"
-#include "vqec_dsp_types.h"
-#include "vqec_dsp_codes.h"
+#include "vqec_vision_dsp_legacy_pre.h"
+#include "vqec_vision_dsp_legacy_types.h"
+#include "vqec_vision_dsp_legacy_codes.h"
 
 #include <stdint.h>
 #include <stddef.h>

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <limits>
 #include <utility>
-#include <vqec_dsp_types.h>
+#include <vqec_vision_dsp_legacy_types.h>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 

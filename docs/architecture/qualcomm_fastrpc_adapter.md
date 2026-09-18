@@ -3,9 +3,9 @@
 This document defines private mapping ownership and the required model-independent DSP
 boundary. It distinguishes the implemented cache from the proposed replacement protocol.
 
-**Status:** source-delivered — mapping leases and bounded cache retirement are implemented;
-the model-independent DSP protocol below is a design requirement, not an implemented ABI.
-**Layer:** adapters. **Source:** `src/adapters/qualcomm/vqec_vision_dsp_buffer_cache.{hpp,cpp}`.
+**Status:** source-delivered — mapping leases, bounded cache retirement and SDK-generated
+frozen legacy stub are implemented; the model-independent DSP protocol below is a proposed,
+not yet implemented ABI. **Layer:** adapters. **Source:** `src/adapters/qualcomm`.
 
 ## Responsibility
 
@@ -53,6 +53,33 @@ hardware completion by themselves. Lead/BSP review and device evidence remain op
 
 ## Legacy execution constraints
 
+The former `third_party/fastrpc_dsp` tree is removed. The frozen compatibility IDL is
+`src/adapters/qualcomm/vqec_vision_dsp_legacy.idl` (SHA-256
+`cb7c819fcbd58add9f6a6d435c5d09ab42d6b00e333c17f2853d532f06a9aae7`).
+The explicit `VQEC_VISION_AI_HEXAGON_SDK_ROOT` CMake input locates Hexagon SDK 5.5.7.0's
+QAIC 01.00.47, Git commit `a2c7debef720395a555b870d19b16ae95adc69de`; the command is
+`qaic -mdll -o <build>/fastrpc_legacy -I <SDK>/incs/stddef -I <SDK>/incs
+vqec_vision_dsp_legacy.idl`. The generated stub has SHA-256
+`a23d87fdd1a3d41ce44ced24f5919c3c4085d856f6e9dcc359eb57160eefe8f0`.
+It differs from the old committed stub **only** in the generated header include filename;
+QAIC generation of the historical FW IDL reproduced the old stub byte-for-byte. This
+is compatibility/provenance evidence for the client, not proof that the deployed cDSP
+skeleton was built from that exact source or that custom C algorithms may be redistributed.
+The legacy reference C files are isolated under the private Qualcomm adapter solely to
+keep the existing tests and board ABI running until v2 parity. They are not a generic
+kernel and require AI APP/BSP per-file license and owner review before release.
+
+| Compatibility files | Previous tracked SHA-256 prefix | Provenance / release status |
+|---|---|---|
+| `vqec_vision_dsp_legacy_types.h`, `vqec_vision_dsp_legacy_codes.h` | `4c82a65b`, `d5b17782` | Byte-identical to historical FW headers before include renaming; owner/license pending |
+| `vqec_vision_dsp_legacy_post_common.{c,h}` | `9cd32bce`, `21304541` | Historical FW reference algorithm; owner/license pending |
+| `vqec_vision_dsp_legacy_post_person.{c,h}` | `3d3969be`, `5f53759a` | Historical FW person reference; owner/license pending |
+| `vqec_vision_dsp_legacy_post_face.{c,h}` | `f357dfd8`, `696f1965` | Historical FW SCRFD reference; owner/license pending |
+| `vqec_vision_dsp_legacy_pre.{c,h}` | `23f7da04`, `587c1cb1` | LACAI scalar fixture diverged from FW cDSP FastCV source; not a numeric oracle |
+
+The prefixes identify the pre-move Git blobs; include-path edits change the current hashes.
+No SDK/vendor algorithm source or private library was copied into LACAI in this migration.
+
 Production requires a successfully opened accelerator session. A failed open or closed
 session cannot run the copied host kernels. Tests explicitly construct `reference_cpu`
 sessions; those kernels are legacy regression fixtures, not the model team's golden oracle.
@@ -66,6 +93,12 @@ the legacy wire uses `(q + offset) * scale`, so the adapter sends `offset = -zer
 Reusing compact-result workspace avoids fresh result-vector allocation after warmup.
 
 ## Model-independent protocol requirements
+
+[ADR 0007](../adr/0007_versioned_fastrpc_operations.md) records the separate ABI and
+review gates. The presence of SDK 5.5.7.0 removes QAIC discovery as a blocker but the
+DSP compiler currently needs `libtinfo.so.5`, which the host does not provide. A temporary
+link to `libtinfo.so.6` starts the compiler for local diagnosis but is not an approved
+toolchain installation or release-build receipt.
 
 Do not change legacy method ordinals or call a new method against an old binary. A separate
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain
