@@ -20,6 +20,7 @@ run explicitly writes an output directory.
 | `vqec_vision_qnn_board_smoke.sh` | Board-side `qnn-net-run` smoke for one model library |
 | `vqec_vision_fastcv_affine_smoke.cpp`, `vqec_vision_qtiv_color_smoke.cpp` | FastCV affine / QTI color board probes |
 | `vqec_vision_fw_camera_sim.py` | Compatibility FW RAW camera simulator over the wire socket |
+| `vqec_vision_fw_camera_sim_test.py` | Device-free simulator pool/ACK ownership regression |
 | `vqec_vision_ring_rtsp.py` | Mock FW RTSP service reading the v5 encoded ring |
 | `vqec_vision_ring_rtsp_test.py` | Synthetic file-backed ring-generation regression |
 | `vqec_vision_fr_runtime_dbus_test.py`, `vqec_vision_usecase_runtime_dbus_test.py` | Session-bus integration peers for FR and usecase control |

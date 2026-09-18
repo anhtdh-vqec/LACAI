@@ -605,13 +605,43 @@ The memfd fixture result proves end-to-end control, remote-kernel and output-rin
 not production registered-input performance evidence. A released-FW DMA-BUF run, numeric golden
 parity, longer CPU/thermal sampling and the eight-hour/100-cycle memory gates remain required.
 
+## 2026-09-18 DMA-heap simulator and registered-input smoke on `.98`
+
+The board's Python omits `fcntl`, so the simulator's DMA-heap ioctl path uses libc through
+`ctypes`. With a 64x64 NV12 test allocation, both `/dev/dma_heap/system` and
+`/dev/dma_heap/qcom,system` allocated, mapped and completed CPU write cache-sync. DMA-BUF
+does not support `pread` on this target; the written bytes were checked through the mapping.
+
+The revised simulator uses an ACK-gated 12-slot pool rather than rotating over in-flight
+memfds. A candidate copy was staged separately; the canonical simulator was not replaced.
+The candidate's pool/ACK regression passed on the board, including duplicate-ACK rejection.
+The same FastRPC candidate binary (SHA-256 prefix `9d78b5cd`) ran without
+`--allow-qaic-copy-input`, using `/dev/dma_heap/qcom,system` for the camera fixture:
+
+- Source 1920x1080@30 and person + face + fire/smoke graphs; output ring increased by 100
+  sequences over four seconds, or 25 FPS.
+- No `failed to map buffer` or FastRPC input-import error appeared in the candidate log.
+  This is an inference from log inspection and ring progress, not a hardware trace of
+  every registration, cache operation or DMA completion.
+- A 15-second `/proc/<pid>/stat` process sample after warmup was 19.47% of one logical
+  core. At that sample RSS/HWM were 390160 KiB, with 163 FDs and 44 threads. This is not
+  a 30-minute performance run or memory-soak result and misses the 12% CPU target.
+- The candidate and DMA-heap simulator were stopped. The canonical memfd simulator and
+  `/opt/lacai/run_full.sh` service were restored; the restored ring advanced 49 sequences
+  in two seconds. Board-local logs are under `/opt/lacai/out/dsp_adapter_review.dma_*` and
+  `/opt/lacai/out/dsp_adapter_review.final_restored_*`.
+
+The fixture still copies QMMF pixels into DMA-BUF. Released-FW allocator/import,
+cache/fence/completion, golden numerical parity, cold-start peak and sustained CPU/memory
+acceptance remain open. A matching ring cadence alone is not model-quality evidence.
+
 ## Limits and next work
 
 - Still not qualified on the board: model accuracy (inputs were zero/random), async/shared
   engine update, live FW camera/DMA completion, hardware encoder/ring, thermal stability and
   percentile latency.
-- The compatibility camera still copies QMMF output into memfd, so none of the recorded runs
-  establishes released-FW DMA-BUF interoperability or zero-copy.
+- The compatibility camera copies QMMF output into memfd or an explicit DMA-heap fixture.
+  Neither establishes released-FW DMA-BUF interoperability or end-to-end zero-copy.
 - `.99` and `.48` remain prohibited targets; only `.98` is allocated.
 
 ## See also

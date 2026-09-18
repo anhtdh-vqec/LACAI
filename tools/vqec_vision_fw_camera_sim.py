@@ -12,11 +12,9 @@ It reproduces the two FW responsibilities LACAI depends on:
    message is the 104-byte native-endian FrameHeader plus one FD via SCM_RIGHTS;
    the consumer returns an 8-byte ReturnHeader ACK before the frame is released.
 
-Pixels come from the real Qualcomm camera through qtiqmmfsrc. For a board test
-this mock copies each NV12 frame into a memfd and sends that FD, so the FD is a
-plain mappable file (not a vendor dma-buf). The wire, socket naming, lease and
-ACK semantics match FW; the memory backing does not. This is a test aid, not a
-product camera service.
+Pixels come from the real Qualcomm camera through qtiqmmfsrc. This fixture copies
+NV12 into an ACK-gated memfd pool by default. --dma-heap selects a Linux DMA-BUF
+heap to exercise registered input; it still copies pixels and is not released FW.
 
 Run on the target (root), then start the LACAI app against:
   raw_source socket  : <socket_dir>/0_third_ai.sock
@@ -25,7 +23,10 @@ Run on the target (root), then start the LACAI app against:
 
 import argparse
 import array
+import ctypes
+import mmap
 import os
+import queue
 import signal
 import socket
 import struct
@@ -50,6 +51,21 @@ DEFAULT_INTERFACE = "com.vnpt.camera.Camera1"
 THREAD_STOP_TIMEOUT_S = 2.0
 CODE_OK = 0
 CODEC_RAW = "RAW"
+DMA_HEAP_ALLOC_LAYOUT = struct.Struct("=QIIQ")
+DMA_BUF_SYNC_LAYOUT = struct.Struct("=Q")
+IOC_WRITE = 1
+IOC_READ = 2
+IOC_NR_BITS = 8
+IOC_TYPE_BITS = 8
+IOC_SIZE_BITS = 14
+DMA_HEAP_IOCTL_ALLOC = ((IOC_READ | IOC_WRITE) << (IOC_NR_BITS + IOC_TYPE_BITS + IOC_SIZE_BITS)
+                        | DMA_HEAP_ALLOC_LAYOUT.size << (IOC_NR_BITS + IOC_TYPE_BITS)
+                        | ord("H") << IOC_NR_BITS)
+DMA_BUF_IOCTL_SYNC = (IOC_WRITE << (IOC_NR_BITS + IOC_TYPE_BITS + IOC_SIZE_BITS)
+                      | DMA_BUF_SYNC_LAYOUT.size << (IOC_NR_BITS + IOC_TYPE_BITS)
+                      | ord("b") << IOC_NR_BITS)
+DMA_BUF_SYNC_WRITE = 2
+DMA_BUF_SYNC_END = 4
 
 INTROSPECTION_XML = """
 <node>
@@ -82,9 +98,89 @@ def parse_args():
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--ack-timeout-s", type=float, default=15.0)
     parser.add_argument("--max-in-flight", type=int, default=3)
+    parser.add_argument("--dma-heap", help="explicit DMA-BUF heap device for board fixture")
     parser.add_argument("--max-frames", type=int, default=0,
                         help="stop after N frames (0 = unlimited)")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_in_flight <= 0 or args.width <= 0 or args.height <= 0 or args.fps <= 0:
+        parser.error("max-in-flight, width, height and fps must be positive")
+    if args.width % 2 or args.height % 2:
+        parser.error("NV12 width and height must be even")
+    return args
+
+
+class FramePool:
+    """One fixed-size pool whose slots return only on the matching wire ACK."""
+
+    def __init__(self, args):
+        self.frame_size = args.width * args.height * 3 // 2
+        self.dma_heap = args.dma_heap
+        self.slots = []
+        self.available = queue.Queue(maxsize=args.max_in_flight)
+        self.ioctl = ctypes.CDLL(None, use_errno=True).ioctl
+        self.ioctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p]
+        self.ioctl.restype = ctypes.c_int
+        heap_fd = -1
+        try:
+            if self.dma_heap:
+                heap_fd = os.open(self.dma_heap, os.O_RDONLY | os.O_CLOEXEC)
+            for index in range(args.max_in_flight):
+                if heap_fd >= 0:
+                    payload = bytearray(DMA_HEAP_ALLOC_LAYOUT.pack(
+                        self.frame_size, 0, os.O_RDWR | os.O_CLOEXEC, 0))
+                    self.vqec_vision_ai_tools_fwsim_ioctl_buffer(
+                        heap_fd, DMA_HEAP_IOCTL_ALLOC, payload)
+                    fd = DMA_HEAP_ALLOC_LAYOUT.unpack(payload)[1]
+                else:
+                    fd = os.memfd_create(f"fwsim_frame_{index}", os.MFD_CLOEXEC)
+                    os.ftruncate(fd, self.frame_size)
+                try:
+                    mapping = mmap.mmap(fd, self.frame_size, flags=mmap.MAP_SHARED,
+                                        prot=mmap.PROT_READ | mmap.PROT_WRITE)
+                except BaseException:
+                    os.close(fd)
+                    raise
+                self.slots.append((fd, mapping))
+                self.available.put_nowait(index)
+        except BaseException:
+            self.vqec_vision_ai_tools_fwsim_close_pool()
+            raise
+        finally:
+            if heap_fd >= 0:
+                os.close(heap_fd)
+
+    def vqec_vision_ai_tools_fwsim_close_pool(self):
+        for fd, mapping in self.slots:
+            mapping.close()
+            os.close(fd)
+        self.slots.clear()
+
+    def vqec_vision_ai_tools_fwsim_acquire_slot(self):
+        return self.available.get_nowait()
+
+    def vqec_vision_ai_tools_fwsim_release_slot(self, index):
+        self.available.put_nowait(index)
+
+    def vqec_vision_ai_tools_fwsim_ioctl_buffer(self, fd, request, payload):
+        pointer = ctypes.addressof(ctypes.c_char.from_buffer(payload))
+        if self.ioctl(fd, request, pointer) != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error))
+
+    def vqec_vision_ai_tools_fwsim_write_frame(self, index, pixels):
+        fd, mapping = self.slots[index]
+        if self.dma_heap:
+            self.vqec_vision_ai_tools_fwsim_ioctl_buffer(
+                fd, DMA_BUF_IOCTL_SYNC,
+                bytearray(DMA_BUF_SYNC_LAYOUT.pack(DMA_BUF_SYNC_WRITE)))
+        try:
+            mapping[:] = pixels
+        finally:
+            if self.dma_heap:
+                self.vqec_vision_ai_tools_fwsim_ioctl_buffer(
+                    fd, DMA_BUF_IOCTL_SYNC,
+                    bytearray(DMA_BUF_SYNC_LAYOUT.pack(DMA_BUF_SYNC_WRITE | DMA_BUF_SYNC_END)))
+        return os.dup(fd)
 
 
 class CameraPipeline:
@@ -92,6 +188,7 @@ class CameraPipeline:
         self.args = args
         self.pipeline = None
         self.appsink = None
+        self.pool = None
 
     def start(self):
         desc = (
@@ -107,18 +204,30 @@ class CameraPipeline:
             raise RuntimeError("camera pipeline failed to start")
 
     def stop(self):
-        if hasattr(self, "_pool"):
-            for pfd in self._pool:
-                try:
-                    os.close(pfd)
-                except OSError:
-                    pass
-            self._pool.clear()
+        if self.pool is not None:
+            self.pool.vqec_vision_ai_tools_fwsim_close_pool()
+            self.pool = None
         if self.pipeline is not None:
             self.pipeline.set_state(Gst.State.NULL)
             self.pipeline = None
 
     def next_fd(self, timeout_ns):
+        if self.pool is None:
+            self.pool = FramePool(self.args)
+        try:
+            slot = self.pool.vqec_vision_ai_tools_fwsim_acquire_slot()
+        except queue.Empty:
+            return None
+        try:
+            result = self.vqec_vision_ai_tools_fwsim_copy_frame(slot, timeout_ns)
+        except BaseException:
+            self.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
+            raise
+        if result is None:
+            self.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
+        return result
+
+    def vqec_vision_ai_tools_fwsim_copy_frame(self, slot, timeout_ns):
         sample = self.appsink.emit("try-pull-sample", timeout_ns)
         if sample is None:
             return None
@@ -133,32 +242,30 @@ class CameraPipeline:
             return None
         packed = bytearray(frame_size)
         destination = 0
-        for plane, rows in ((0, self.args.height), (1, self.args.height // 2)):
-            offset = meta.offset[plane]
-            stride = meta.stride[plane]
-            if stride < self.args.width or offset + rows * stride > len(info.data):
-                buf.unmap(info)
-                return None
-            for row in range(rows):
-                start = offset + row * stride
-                packed[destination:destination + self.args.width] = \
-                    info.data[start:start + self.args.width]
-                destination += self.args.width
-        buf.unmap(info)
-        if not hasattr(self, "_pool"):
-            self._pool_size = 8
-            self._pool = []
-            for i in range(self._pool_size):
-                pfd = os.memfd_create(f"fwsim_frame_{i}", 0)
-                os.ftruncate(pfd, frame_size)
-                self._pool.append(pfd)
-            self._pool_idx = 0
+        is_valid = True
+        try:
+            for plane, rows in ((0, self.args.height), (1, self.args.height // 2)):
+                offset = meta.offset[plane]
+                stride = meta.stride[plane]
+                if stride < self.args.width or offset + rows * stride > len(info.data):
+                    is_valid = False
+                    break
+                for row in range(rows):
+                    start = offset + row * stride
+                    packed[destination:destination + self.args.width] = \
+                        info.data[start:start + self.args.width]
+                    destination += self.args.width
+        finally:
+            buf.unmap(info)
+        if not is_valid:
+            return None
+        frame_fd = self.pool.vqec_vision_ai_tools_fwsim_write_frame(slot, packed)
+        return frame_fd, frame_size, slot
 
-        slot_fd = self._pool[self._pool_idx]
-        self._pool_idx = (self._pool_idx + 1) % self._pool_size
-        os.pwrite(slot_fd, packed, 0)
-        frame_fd = os.dup(slot_fd)
-        return frame_fd, frame_size
+    def vqec_vision_ai_tools_fwsim_reset_pool(self):
+        if self.pool is not None:
+            self.pool.vqec_vision_ai_tools_fwsim_close_pool()
+            self.pool = None
 
 
 class RawFrameProducer:
@@ -222,14 +329,14 @@ class RawFrameProducer:
         # FW does not serialize send/ACK: up to the receiver's live-lease budget may be in
         # flight. A synchronous mock deadlocks because the consumer holds the previous frame
         # until its next submission. ACKs are drained on a separate thread.
-        in_flight = {"count": 0}
+        in_flight = {}
         lock = threading.Lock()
-        stop = {"value": False}
+        stop = threading.Event()
 
         def ack_reader():
             client.settimeout(0.5)
             try:
-                while not stop["value"]:
+                while not stop.is_set():
                     try:
                         ack = client.recv(RETURN_HEADER.size)
                     except socket.timeout:
@@ -238,47 +345,68 @@ class RawFrameProducer:
                         break
                     if len(ack) != RETURN_HEADER.size:
                         break
+                    buf_id = RETURN_HEADER.unpack(ack)[0]
                     with lock:
-                        in_flight["count"] = max(0, in_flight["count"] - 1)
+                        slot = in_flight.pop(buf_id, None)
+                    if slot is None:
+                        print(f"invalid or duplicate ACK buf_id={buf_id}", file=sys.stderr,
+                              flush=True)
+                        break
+                    self.camera.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
             finally:
                 # Wake the producer loop when the consumer disappears. Otherwise a full
                 # in-flight window can keep this connection alive forever and prevent the
                 # listening socket from accepting the next LACAI process.
-                stop["value"] = True
+                stop.set()
 
-        threading.Thread(target=ack_reader, daemon=True).start()
-        while self.running and not stop["value"]:
-            with lock:
-                window_full = in_flight["count"] >= self.args.max_in_flight
-            if window_full:
-                time.sleep(0.001)
-                continue
-            got = self.camera.next_fd(Gst.SECOND)
-            if got is None:
-                continue
-            with lock:
-                in_flight["count"] += 1
-            fd, size = got
-            self.buf_id += 1
-            pts_ns = time.monotonic_ns()
-            header = FRAME_HEADER.pack(
-                self.buf_id, width, height, GST_VIDEO_FORMAT_NV12, 2,
-                0, width * height, 0, 0,               # offsets[0..3]
-                width, width, 0, 0,                    # strides[0..3]
-                size, 0, alloc,                        # size, mem_offset, mem_maxsize
-                pts_ns, 0, 1000000000 // self.args.fps)
-            fd_array = array.array("i", [fd])
+        ack_thread = threading.Thread(target=ack_reader, daemon=True)
+        ack_thread.start()
+        try:
+            while self.running and not stop.is_set():
+                with lock:
+                    window_full = len(in_flight) >= self.args.max_in_flight
+                if window_full:
+                    stop.wait(0.001)
+                    continue
+                got = self.camera.next_fd(Gst.SECOND)
+                if got is None:
+                    stop.wait(0.001)
+                    continue
+                fd, size, slot = got
+                self.buf_id += 1
+                pts_ns = time.monotonic_ns()
+                header = FRAME_HEADER.pack(
+                    self.buf_id, width, height, GST_VIDEO_FORMAT_NV12, 2,
+                    0, width * height, 0, 0,               # offsets[0..3]
+                    width, width, 0, 0,                    # strides[0..3]
+                    size, 0, alloc,                        # size, mem_offset, mem_maxsize
+                    pts_ns, 0, 1000000000 // self.args.fps)
+                with lock:
+                    in_flight[self.buf_id] = slot
+                try:
+                    fd_array = array.array("i", [fd])
+                    client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
+                except BaseException:
+                    with lock:
+                        in_flight.pop(self.buf_id, None)
+                    self.camera.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
+                    raise
+                finally:
+                    os.close(fd)
+                self.frames_sent += 1
+                if self.args.max_frames and self.frames_sent >= self.args.max_frames:
+                    self.running = False
+                    break
+        finally:
+            stop.set()
             try:
-                client.sendmsg([header], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fd_array)])
-            finally:
-                # SCM_RIGHTS gives the receiver an independent descriptor reference.
-                # Close this frame's producer descriptor immediately; never overwrite a
-                # file that an in-flight consumer still owns.
-                os.close(fd)
-            self.frames_sent += 1
-            if self.args.max_frames and self.frames_sent >= self.args.max_frames:
-                self.running = False
-                break
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            ack_thread.join()
+            # A disconnected consumer may retain a duplicated FD. Do not recycle its
+            # allocation into a new connection even if its ACK never arrived.
+            self.camera.vqec_vision_ai_tools_fwsim_reset_pool()
 
 
 class CameraControlService:

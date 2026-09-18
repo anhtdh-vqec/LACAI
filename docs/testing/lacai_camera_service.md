@@ -47,10 +47,22 @@ real Qualcomm camera through `qtiqmmfsrc`:
 The header layout and socket naming match
 [`raw_source_port`](../architecture/raw_source_port.md),
 [`camera_legacy_adapter`](../architecture/camera_legacy_adapter.md) and the FW
-`shared/raw_frame_transport` wire. The FD is a distinct per-frame memfd holding a
-stride-aware packed copy of each NV12 frame, not a vendor dma-buf. The sender closes its
-descriptor after `SCM_RIGHTS` transfer, so a later capture cannot overwrite an in-flight
-frame. The wire, socket naming, lease and ACK semantics match FW; memory backing does not.
+`shared/raw_frame_transport` wire. The simulator packs NV12 into an ACK-gated, bounded
+buffer pool. The default backing is memfd. An explicit `--dma-heap <device>` selects a
+Linux DMA-BUF heap for a registered-FastRPC fixture; the path must be a reviewed device
+node on the target. The sender closes its duplicated descriptor after `SCM_RIGHTS`, but
+does **not** reuse the pool allocation until the exact `buf_id` is ACKed. Unknown or
+duplicate ACKs fault the connection. On disconnect, the old pool is discarded, not reused
+by the next connection. DMA-BUF writes are bracketed by `DMA_BUF_IOCTL_SYNC` CPU write
+start/end; this is cache maintenance, not a device-completion fence. The copy from QMMF
+into the pool remains, even in DMA-BUF mode. Neither mode establishes released-FW
+allocator/fence compatibility, end-to-end zero-copy or product performance acceptance.
+
+The board fixture selects DMA-BUF backing only when explicitly requested, for example
+`--dma-heap /dev/dma_heap/qcom,system`. The device node is board-specific and must be
+confirmed with BSP; it is not a product default. `--max-in-flight` sizes the bounded pool,
+and every slot remains unavailable until its matching ACK. The device-free regression is
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/vqec_vision_fw_camera_sim_test.py`.
 
 ## 2. Mock FW RTSP (`tools/vqec_vision_ring_rtsp.py read`)
 
@@ -103,8 +115,11 @@ The development host lacks that GI namespace; this Python regression is native-t
 
 ## Limits and next work
 
-- The compatibility camera copies QMMF output into memfd; this does not establish
+- The compatibility camera copies QMMF output into memfd or optional DMA-BUF; neither establishes
   released-FW DMA-BUF interoperability, zero-copy or performance acceptance.
+- The optional DMA-heap fixture tests AI-side FD registration/import and remote processing
+  only. BSP/FW still must provide the released allocator, synchronization, exact frame
+  ownership and independent conformance evidence.
 - Hardware overlay/encode through the mocks remains a wiring aid, not product evidence.
 
 ## See also

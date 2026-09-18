@@ -123,6 +123,19 @@ PSS tăng trong phần warmup ngắn trước khi RSS phẳng trong cửa sổ 3
 chứng leak và cũng không chứng minh leak-free. D05–D07 vẫn cần đúng thời lượng và nguồn DMA-BUF
 released-FW. Service chuẩn được khôi phục sau test; mẫu 8 giây sau warmup là 18.38% một core.
 
+### 2.1.1 Registered-input fixture DMA-BUF
+
+Ngày 2026-09-18, camera simulator được sửa pool theo ACK `buf_id` và thêm tùy chọn
+`--dma-heap`; không còn quay vòng ghi đè slot khi frame còn in-flight. Trên `.98`, cả
+`system` và `qcom,system` heap cấp phát/map/cache-sync được. Với `qcom,system`, candidate
+FastRPC chạy policy mặc định (không bật QAIC copy input), ring tăng 100 sequence/4 giây
+tức 25 FPS; không thấy lỗi map FD trong log. CPU process sau warmup đo 15 giây là
+19.47% một core; RSS/HWM 390160 KiB và 163 FD tại một thời điểm. Đây chỉ là smoke
+registered-input bằng fixture vẫn copy pixel từ QMMF, không phải released-FW DMA-BUF,
+zero-copy, 30 phút CPU hay 8 giờ leak gate. Service/camera chuẩn đã được khôi phục và
+ring chuẩn tăng 49 sequence/2 giây sau test. Chi tiết ở
+[board evidence](../../testing/qsc6490_board.md).
+
 ### 2.2 Những gì source hiện đã sửa
 
 | Hạng mục | Trạng thái |
