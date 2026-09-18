@@ -14,6 +14,14 @@ struct dsp_buffer_cache_config {
     bool enable_fastrpc_{true};
 };
 
+// Pins mappings, not camera acquisition/cache readiness. Keep owner_ through
+// the last synchronous access and retain the RAW owner separately.
+struct dsp_buffer_mapping {
+    const std::uint8_t* data_{nullptr};
+    std::size_t size_{0};
+    std::shared_ptr<const void> owner_;
+};
+
 // Manages persistent CPU virtual memory and FastRPC cDSP SMMU mappings for
 // camera DMA-BUF frames. Caches mappings across acquisition cycles so that
 // repeated fastrpc_mmap system calls are avoided on the frame hot path.
@@ -28,10 +36,10 @@ public:
     dsp_buffer_cache& operator=(dsp_buffer_cache&&) noexcept;
 
     // Resolves or establishes CPU and FastRPC mappings for the given DMA-BUF FD and size.
-    [[nodiscard]] const std::uint8_t* vqec_vision_ai_qcom_dspbc_map(
+    [[nodiscard]] dsp_buffer_mapping vqec_vision_ai_qcom_dspbc_map(
         int _fd, std::size_t _size, status& _status);
 
-    // Clears all cached mappings, calling fastrpc_munmap and munmap for each entry.
+    // Retires mappings. Active leases remain valid and count against capacity.
     void vqec_vision_ai_qcom_dspbc_clear() noexcept;
 
     [[nodiscard]] std::size_t vqec_vision_ai_qcom_dspbc_entry_count() const noexcept;

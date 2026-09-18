@@ -395,9 +395,9 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
     const int frame_fd = static_cast<int>(_frame.native_handle_);
     const std::size_t alloc_size = static_cast<std::size_t>(descriptor.allocation_size_bytes_);
     status map_status;
-    const std::uint8_t* mapped = buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+    const auto mapped = buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
         frame_fd, alloc_size, map_status);
-    if (mapped == nullptr || map_status.code_ != status_code::ok) {
+    if (mapped.data_ == nullptr || map_status.code_ != status_code::ok) {
         return nullptr;
     }
     GstBuffer* buffer = nullptr;
@@ -408,7 +408,7 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
     GstMapInfo map{};
     const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
     if (copied) {
-        const auto* base = mapped + descriptor.memory_offset_bytes_;
+        const auto* base = mapped.data_ + descriptor.memory_offset_bytes_;
         const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
         if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
             gst_buffer_unmap(buffer, &map);

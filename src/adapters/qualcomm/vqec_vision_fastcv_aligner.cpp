@@ -192,16 +192,17 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
     void* mapping = nullptr;
     std::uint64_t map_length = 0;
     std::uint64_t in_page_offset = 0;
+    dsp_buffer_mapping cached_mapping;
 
     if (config_.buffer_cache_ != nullptr) {
         status map_status;
-        const auto* cached = config_.buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+        cached_mapping = config_.buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
             static_cast<int>(_source.native_handle_),
             static_cast<std::size_t>(descriptor.allocation_size_bytes_), map_status);
-        if (cached == nullptr || map_status.code_ != status_code::ok) {
+        if (cached_mapping.data_ == nullptr || map_status.code_ != status_code::ok) {
             return map_status;
         }
-        base = cached + descriptor.memory_offset_bytes_;
+        base = cached_mapping.data_ + descriptor.memory_offset_bytes_;
     } else {
         // Map the borrowed FD read-only, page-aligned. This is a CPU read, not zero-copy.
         const long page_size = ::sysconf(_SC_PAGESIZE);

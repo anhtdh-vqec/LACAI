@@ -592,6 +592,7 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/vqec_vision_rpcmem_pool_test.cpp | rpmpt | vqec_vision_ai_unit_rpmpt_ |
 | tests/unit/vqec_vision_dsp_decoder_test.cpp | dspdt | vqec_vision_ai_unit_dspdt_ |
 | tests/unit/vqec_vision_dsp_preprocessor_test.cpp | dsppt | vqec_vision_ai_unit_dsppt_ |
+| tests/unit/vqec_vision_dsp_buffer_cache_test.cpp | dbctst | vqec_vision_ai_unit_dbctst_ |
 
 ## See also
 

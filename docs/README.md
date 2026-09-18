@@ -35,6 +35,8 @@ Read [system architecture](architecture/system_architecture.md) first, then the 
 owns the boundary you are changing.
 For production resource input, see the
 [hardware admission profile](architecture/hardware_admission_profile.md).
+For DSP ownership and the generic protocol requirements, see the
+[Qualcomm FastRPC adapter](architecture/qualcomm_fastrpc_adapter.md).
 
 ## Contracts
 

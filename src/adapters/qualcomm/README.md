@@ -36,6 +36,10 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 | `vqec_vision_fastcv_processor.cpp` | `qtivtransform`+`qtimlvconverter(engine=fcv)` NV12-to-tensor preprocessing |
 | `vqec_vision_fastcv_aligner.cpp` | FastCV affine/color alignment behind `image_alignment_port` |
 | `vqec_vision_qtiv_color.cpp` | QTI color conversion helper |
+| `vqec_vision_dsp_buffer_cache.cpp` | Bounded mapping cache with pinned access leases and deferred retirement |
+| `vqec_vision_dsp_session.cpp` | Legacy FastRPC transport; model-specific wire operations, not a generic DSP ABI |
+| `vqec_vision_dsp_preprocessor.cpp` | Legacy DSP image-processor implementation; semantic qualification remains open |
+| `vqec_vision_dsp_decoder.cpp` | Legacy DSP decoder binding; fixed kernel envelopes |
 | `vqec_vision_face_enrollment_image_source.cpp` | GStreamer JPEG-to-NV12 DMA-BUF image source for enrollment |
 
 ## Limits and next work
@@ -53,6 +57,7 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 
 ## See also
 
+- [FastRPC leases and generic protocol requirements](../../../docs/architecture/qualcomm_fastrpc_adapter.md)
 - [Qualcomm adapter](../../../docs/architecture/qualcomm_adapter.md), [plugin adapter reference](../../../docs/architecture/qualcomm_plugin_adapter_reference.md)
 - [Submission lifecycle](../../../docs/architecture/qualcomm_submission_lifecycle.md), [dmabuf memory bridge](../../../docs/architecture/dmabuf_memory_bridge.md)
 - [Owned QNN engine ADR](../../../docs/adr/0003_owned_qnn_engine.md), [execution policy](../../../docs/architecture/qualcomm_execution_policy.md)

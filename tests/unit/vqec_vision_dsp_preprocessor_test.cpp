@@ -51,7 +51,7 @@ int vqec_vision_ai_unit_dsppt_test_geom() {
 }
 
 int vqec_vision_ai_unit_dsppt_test_buffer_cache() {
-    dsp_buffer_cache cache(dsp_buffer_cache_config{4});
+    dsp_buffer_cache cache(dsp_buffer_cache_config{4, false});
     const int fd = ::memfd_create("test_dma_cache", 0);
     if (fd < 0) {
         std::cerr << "memfd_create failed\n";
@@ -65,8 +65,8 @@ int vqec_vision_ai_unit_dsppt_test_buffer_cache() {
     }
 
     status s1;
-    const std::uint8_t* p1 = cache.vqec_vision_ai_qcom_dspbc_map(fd, test_size, s1);
-    if (p1 == nullptr || s1.code_ != status_code::ok) {
+    auto p1 = cache.vqec_vision_ai_qcom_dspbc_map(fd, test_size, s1);
+    if (p1.data_ == nullptr || s1.code_ != status_code::ok) {
         ::close(fd);
         std::cerr << "first map failed: " << s1.message_ << "\n";
         return 1;
@@ -79,13 +79,15 @@ int vqec_vision_ai_unit_dsppt_test_buffer_cache() {
     }
 
     status s2;
-    const std::uint8_t* p2 = cache.vqec_vision_ai_qcom_dspbc_map(fd, test_size, s2);
-    if (p2 != p1 || s2.code_ != status_code::ok) {
+    auto p2 = cache.vqec_vision_ai_qcom_dspbc_map(fd, test_size, s2);
+    if (p2.data_ != p1.data_ || s2.code_ != status_code::ok) {
         ::close(fd);
         std::cerr << "cache hit returned different pointer or failed\n";
         return 1;
     }
 
+    p1 = {};
+    p2 = {};
     cache.vqec_vision_ai_qcom_dspbc_clear();
     if (cache.vqec_vision_ai_qcom_dspbc_entry_count() != 0) {
         ::close(fd);
@@ -99,7 +101,7 @@ int vqec_vision_ai_unit_dsppt_test_buffer_cache() {
 
 int vqec_vision_ai_unit_dsppt_test_preprocessor() {
     auto session = std::make_shared<dsp_session>();
-    auto cache = std::make_shared<dsp_buffer_cache>();
+    auto cache = std::make_shared<dsp_buffer_cache>(dsp_buffer_cache_config{4, false});
 
     dsp_preprocessor_config cfg;
     cfg.kind_ = dsp_preprocessor_kind::yolov8;

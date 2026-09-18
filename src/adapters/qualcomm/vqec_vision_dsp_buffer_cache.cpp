@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <limits>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -27,137 +28,179 @@ struct dsp_buffer_cache_entry {
     std::size_t size_{0};
     std::uint64_t last_used_{0};
     bool fastrpc_mapped_{false};
+    bool initializing_{true};
+    bool retired_{false};
+
+    ~dsp_buffer_cache_entry() noexcept {
+#if defined(VQEC_VISION_AI_HAVE_CDSP)
+        if (fastrpc_mapped_) {
+            (void)::fastrpc_munmap(CDSP_DOMAIN_ID, dup_fd_, addr_, size_);
+        }
+#endif
+        if (addr_ != nullptr && addr_ != MAP_FAILED) {
+            (void)::munmap(addr_, size_);
+        }
+        if (dup_fd_ >= 0) {
+            (void)::close(dup_fd_);
+        }
+    }
 };
 
 struct dsp_buffer_cache::implementation {
     dsp_buffer_cache_config config_;
     std::mutex mutex_;
-    std::vector<dsp_buffer_cache_entry> entries_;
+    std::vector<std::shared_ptr<dsp_buffer_cache_entry>> entries_;
     std::uint64_t clock_{0};
-
-    static void vqec_vision_ai_qcom_dspbc_release_entry(
-        dsp_buffer_cache_entry& _entry) noexcept {
-#if defined(VQEC_VISION_AI_HAVE_CDSP)
-        if (_entry.fastrpc_mapped_ && _entry.dup_fd_ >= 0 &&
-            _entry.addr_ != nullptr && _entry.addr_ != MAP_FAILED) {
-            (void)::fastrpc_munmap(CDSP_DOMAIN_ID, _entry.dup_fd_, _entry.addr_, _entry.size_);
-        }
-#endif
-        if (_entry.addr_ != nullptr && _entry.addr_ != MAP_FAILED) {
-            ::munmap(_entry.addr_, _entry.size_);
-            _entry.addr_ = nullptr;
-        }
-        if (_entry.dup_fd_ >= 0) {
-            ::close(_entry.dup_fd_);
-            _entry.dup_fd_ = -1;
-        }
-        _entry.fastrpc_mapped_ = false;
-    }
 };
 
 dsp_buffer_cache::dsp_buffer_cache(dsp_buffer_cache_config _config)
     : implementation_(std::make_unique<implementation>()) {
     implementation_->config_ = std::move(_config);
-    if (implementation_->config_.max_entries_ < 2) {
-        implementation_->config_.max_entries_ = 2;
-    }
+    implementation_->entries_.reserve(implementation_->config_.max_entries_);
 }
 
-dsp_buffer_cache::~dsp_buffer_cache() noexcept {
-    vqec_vision_ai_qcom_dspbc_clear();
-}
-
+dsp_buffer_cache::~dsp_buffer_cache() noexcept = default;
 dsp_buffer_cache::dsp_buffer_cache(dsp_buffer_cache&&) noexcept = default;
 dsp_buffer_cache& dsp_buffer_cache::operator=(dsp_buffer_cache&&) noexcept = default;
 
-const std::uint8_t* dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_map(
+dsp_buffer_mapping dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_map(
     int _fd, std::size_t _size, status& _status) {
-    if (_fd < 0 || _size == 0) {
-        _status = {status_code::invalid_argument,
-            "dsp_buffer_cache requires a valid file descriptor and nonzero size"};
-        return nullptr;
+    if (implementation_ == nullptr || implementation_->config_.max_entries_ == 0 ||
+        _fd < 0 || _size == 0 ||
+        _size > static_cast<std::size_t>(std::numeric_limits<off_t>::max())) {
+        _status = {status_code::invalid_argument, "invalid mapping/cache descriptor"};
+        return {};
     }
-    struct stat st{};
-    if (::fstat(_fd, &st) != 0) {
-        _status = {status_code::io_error,
-            "dsp_buffer_cache fstat on dma-buf fd failed"};
-        return nullptr;
+    struct stat descriptor{};
+    if (::fstat(_fd, &descriptor) != 0) {
+        _status = {status_code::io_error, "cannot resolve mapping allocation identity"};
+        return {};
     }
-
-    std::lock_guard<std::mutex> lock(implementation_->mutex_);
-    for (auto& entry : implementation_->entries_) {
-        if (entry.dev_ == st.st_dev && entry.ino_ == st.st_ino) {
-            if (entry.size_ < _size) {
-                _status = {status_code::protocol_error,
-                    "dsp_buffer_cache buffer re-seen with larger size"};
-                return nullptr;
+    if (descriptor.st_size > 0 &&
+        _size > static_cast<std::uint64_t>(descriptor.st_size)) {
+        _status = {status_code::invalid_argument, "mapping exceeds allocation size"};
+        return {};
+    }
+    std::shared_ptr<dsp_buffer_cache_entry> created;
+    std::shared_ptr<dsp_buffer_cache_entry> victim;
+    {
+        std::lock_guard<std::mutex> lock(implementation_->mutex_);
+        auto& entries = implementation_->entries_;
+        auto selected = entries.end();
+        for (const auto& entry : entries) {
+            if (entry->dev_ != descriptor.st_dev || entry->ino_ != descriptor.st_ino) {
+                continue;
             }
-            entry.last_used_ = ++implementation_->clock_;
+            if (entry->size_ < _size) {
+                _status = {status_code::protocol_error, "allocation mapping size changed"};
+                return {};
+            }
+            if (entry->initializing_ || entry->retired_) {
+                if (entry.use_count() > 1 || entry->initializing_) {
+                    _status = {status_code::pending, "allocation mapping is initializing/retired"};
+                    return {};
+                }
+                selected = std::find(entries.begin(), entries.end(), entry);
+                break;
+            }
+            entry->last_used_ = ++implementation_->clock_;
             _status = {};
-            return static_cast<const std::uint8_t*>(entry.addr_);
+            return {static_cast<const std::uint8_t*>(entry->addr_), entry->size_, entry};
         }
-    }
-
-    while (implementation_->entries_.size() >= implementation_->config_.max_entries_) {
-        auto victim = implementation_->entries_.begin();
-        for (auto it = implementation_->entries_.begin();
-             it != implementation_->entries_.end(); ++it) {
-            if (it->last_used_ < victim->last_used_) {
-                victim = it;
+        for (auto it = entries.begin(); it != entries.end(); ++it) {
+            if (selected != entries.end() && (*selected)->retired_) {
+                break;
+            }
+            if (it->use_count() != 1) {
+                continue;
+            }
+            if ((*it)->retired_) {
+                selected = it;
+                break;
+            }
+            if (entries.size() >= implementation_->config_.max_entries_ &&
+                (selected == entries.end() || (*it)->last_used_ < (*selected)->last_used_)) {
+                selected = it;
             }
         }
-        implementation::vqec_vision_ai_qcom_dspbc_release_entry(*victim);
-        implementation_->entries_.erase(victim);
+        if (selected != entries.end()) {
+            victim = std::move(*selected);
+            entries.erase(selected);
+        }
+        if (entries.size() >= implementation_->config_.max_entries_) {
+            _status = {status_code::resource_exhausted, "all mapping cache slots are leased"};
+            return {};
+        }
+        created = std::make_shared<dsp_buffer_cache_entry>();
+        created->dev_ = descriptor.st_dev;
+        created->ino_ = descriptor.st_ino;
+        created->size_ = _size;
+        created->last_used_ = ++implementation_->clock_;
+        entries.push_back(created); // Reserve capacity before any mapping SDK call.
     }
-
-    const int dup_fd = ::fcntl(_fd, F_DUPFD_CLOEXEC, 0);
-    if (dup_fd < 0) {
-        _status = {status_code::io_error,
-            "dsp_buffer_cache duplicate dma-buf fd failed"};
-        return nullptr;
-    }
-
-    void* addr = ::mmap(nullptr, _size, PROT_READ, MAP_SHARED, dup_fd, 0);
-    if (addr == MAP_FAILED) {
-        ::close(dup_fd);
-        _status = {status_code::resource_exhausted,
-            "dsp_buffer_cache mmap on dma-buf fd failed"};
-        return nullptr;
-    }
-
-    bool fastrpc_mapped = false;
+    victim.reset(); // No unmapping SDK call under the bookkeeping lock.
+    created->dup_fd_ = ::fcntl(_fd, F_DUPFD_CLOEXEC, 0);
+    struct stat retained{};
+    status mapped;
+    if (created->dup_fd_ < 0 || ::fstat(created->dup_fd_, &retained) != 0 ||
+        retained.st_dev != descriptor.st_dev || retained.st_ino != descriptor.st_ino) {
+        mapped = {status_code::io_error, "cannot retain original allocation identity"};
+    } else {
+        created->addr_ = ::mmap(nullptr, _size, PROT_READ, MAP_SHARED, created->dup_fd_, 0);
+        if (created->addr_ == MAP_FAILED) {
+            mapped = {status_code::resource_exhausted, "cannot map retained allocation"};
+        } else if (implementation_->config_.enable_fastrpc_) {
 #if defined(VQEC_VISION_AI_HAVE_CDSP)
-    if (implementation_->config_.enable_fastrpc_) {
-        const int rc = ::fastrpc_mmap(CDSP_DOMAIN_ID, dup_fd, addr, 0, _size, FASTRPC_MAP_FD);
-        if (rc == 0) {
-            fastrpc_mapped = true;
+            const int result = ::fastrpc_mmap(CDSP_DOMAIN_ID, created->dup_fd_,
+                created->addr_, 0, _size, FASTRPC_MAP_FD);
+            created->fastrpc_mapped_ = result == 0;
+            if (result != 0) {
+                mapped = {status_code::io_error, "FastRPC allocation registration failed"};
+            }
+#else
+            mapped = {status_code::unsupported, "FastRPC mapping API is unavailable"};
+#endif
         }
     }
-#endif
-
-    dsp_buffer_cache_entry created;
-    created.dev_ = st.st_dev;
-    created.ino_ = st.st_ino;
-    created.dup_fd_ = dup_fd;
-    created.addr_ = addr;
-    created.size_ = _size;
-    created.last_used_ = ++implementation_->clock_;
-    created.fastrpc_mapped_ = fastrpc_mapped;
-
-    implementation_->entries_.push_back(created);
-    _status = {};
-    return static_cast<const std::uint8_t*>(addr);
+    {
+        std::lock_guard<std::mutex> lock(implementation_->mutex_);
+        created->initializing_ = false;
+        if (created->retired_ && mapped.code_ == status_code::ok) {
+            mapped = {status_code::invalid_state, "mapping retired during initialization"};
+        }
+        if (mapped.code_ != status_code::ok) {
+            auto& entries = implementation_->entries_;
+            entries.erase(std::remove(entries.begin(), entries.end(), created), entries.end());
+        }
+    }
+    _status = mapped;
+    if (mapped.code_ != status_code::ok) {
+        return {};
+    }
+    return {static_cast<const std::uint8_t*>(created->addr_), created->size_, created};
 }
 
 void dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_clear() noexcept {
     if (implementation_ == nullptr) {
         return;
     }
-    std::lock_guard<std::mutex> lock(implementation_->mutex_);
-    for (auto& entry : implementation_->entries_) {
-        implementation::vqec_vision_ai_qcom_dspbc_release_entry(entry);
+    for (;;) {
+        std::shared_ptr<dsp_buffer_cache_entry> removed;
+        {
+            std::lock_guard<std::mutex> lock(implementation_->mutex_);
+            auto& entries = implementation_->entries_;
+            for (const auto& entry : entries) {
+                entry->retired_ = true;
+            }
+            const auto selected = std::find_if(entries.begin(), entries.end(),
+                [](const auto& _entry) { return _entry.use_count() == 1; });
+            if (selected == entries.end()) {
+                return;
+            }
+            removed = std::move(*selected);
+            entries.erase(selected);
+        }
     }
-    implementation_->entries_.clear();
 }
 
 std::size_t dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_entry_count() const noexcept {

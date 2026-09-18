@@ -144,14 +144,15 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
     }
 
     status map_status;
-    const std::uint8_t* frame_base = implementation_->buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+    const auto mapping = implementation_->buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
         static_cast<int>(_frame.native_handle_),
         static_cast<std::size_t>(_frame.descriptor_.allocation_size_bytes_),
         map_status);
-    if (frame_base == nullptr || map_status.code_ != status_code::ok) {
+    if (mapping.data_ == nullptr || map_status.code_ != status_code::ok) {
         return map_status.code_ != status_code::ok ? map_status :
             status{status_code::io_error, "dsp_buffer_cache map returned null"};
     }
+    const auto* frame_base = mapping.data_;
 
     const std::uint32_t tensor_side = _target.dimensions_[1];
     const auto geom = vqec_vision_ai_qcom_dsppr_compute_geom(

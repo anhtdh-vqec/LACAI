@@ -930,6 +930,10 @@ set_target_properties(vqec_vision_ai_cascade_frame_store_test PROPERTIES CXX_EXT
 add_test(NAME cascade_frame_retention COMMAND vqec_vision_ai_cascade_frame_store_test)
 
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
+    add_executable(vqec_vision_ai_dsp_buffer_cache_test unit/vqec_vision_dsp_buffer_cache_test.cpp)
+    target_link_libraries(vqec_vision_ai_dsp_buffer_cache_test PRIVATE vqec_vision_ai_qualcomm Threads::Threads)
+    set_target_properties(vqec_vision_ai_dsp_buffer_cache_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dsp_buffer_cache_unit COMMAND vqec_vision_ai_dsp_buffer_cache_test)
     add_executable(vqec_vision_ai_rpcmem_pool_test unit/vqec_vision_rpcmem_pool_test.cpp)
     target_link_libraries(vqec_vision_ai_rpcmem_pool_test PRIVATE vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_rpcmem_pool_test PROPERTIES CXX_EXTENSIONS OFF)
