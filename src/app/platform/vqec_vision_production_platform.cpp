@@ -17,10 +17,10 @@
 #include "vqec_vision_raw_source_resolver.hpp"
 #include "vqec_vision_iou_tracker.hpp"
 #include "vqec_vision_source_lifecycle.hpp"
-#include "vqec_vision_yolov8_decoder.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
 #include "vqec_vision_dsp_session.hpp"
 #include "vqec_vision_dsp_decoder.hpp"
+#include "vqec_vision_dsp_v1_dense_decoder.hpp"
 #include "vqec_vision_dsp_buffer_cache.hpp"
 #include "vqec_vision_dsp_preprocessor.hpp"
 #include "vqec_vision_decoder_package.hpp"
@@ -57,6 +57,7 @@ struct model_slot_owner {
     alignment_template alignment_;
     preprocess_spec preprocess_;
     std::uint64_t max_frame_allocation_bytes_{0};
+    bool uses_legacy_dsp_preprocessor_{false};
 };
 
 json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
@@ -181,8 +182,57 @@ struct production_platform::implementation {
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
     std::shared_ptr<dsp_session> dsp_session_;
+    std::shared_ptr<dsp_v1_client> dsp_v1_client_;
     std::shared_ptr<dsp_buffer_cache> dsp_buffer_cache_;
 };
+
+status vqec_vision_ai_appl_pdplt_open_legacy_dsp(
+    const std::string& _skel_dir, std::int32_t _clock_corner, std::int32_t _latency_us,
+    bool _enable_unsigned_pd, std::shared_ptr<dsp_session>& _session) {
+    if (_session != nullptr) {
+        return {};
+    }
+    if (_skel_dir.empty() || _skel_dir.front() != '/' ||
+        _skel_dir.find("..") != std::string::npos) {
+        return {status_code::unsupported,
+            "activated operation requires an absolute legacy DSP skeleton directory"};
+    }
+    auto candidate = std::make_shared<dsp_session>();
+    dsp_session_config config;
+    config.skel_dir_ = _skel_dir;
+    config.clock_corner_ = _clock_corner;
+    config.latency_us_ = _latency_us;
+    config.enable_unsigned_pd_ = _enable_unsigned_pd;
+    const auto opened = candidate->vqec_vision_ai_qcom_dspsn_open(config);
+    if (opened.code_ != status_code::ok) {
+        return opened;
+    }
+    _session = std::move(candidate);
+    return {};
+}
+
+status vqec_vision_ai_appl_pdplt_open_dsp_v1(
+    const std::string& _skel_dir, bool _enable_unsigned_pd,
+    std::shared_ptr<dsp_v1_client>& _client) {
+    if (_client != nullptr) {
+        return {};
+    }
+    if (_skel_dir.empty() || _skel_dir.front() != '/' ||
+        _skel_dir.find("..") != std::string::npos) {
+        return {status_code::unsupported,
+            "activated operation requires an absolute DSP v1 skeleton directory"};
+    }
+    auto candidate = std::make_shared<dsp_v1_client>();
+    dsp_v1_client_config config;
+    config.skel_dir_ = _skel_dir;
+    config.enable_unsigned_pd_ = _enable_unsigned_pd;
+    const auto opened = candidate->vqec_vision_ai_qcom_d1cli_open(config);
+    if (opened.code_ != status_code::ok) {
+        return opened;
+    }
+    _client = std::move(candidate);
+    return {};
+}
 
 struct production_offline_model::implementation {
     std::unique_ptr<qnn_backend_bundle> backend_;
@@ -282,17 +332,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         return registry_status;
     }
 
-    if (impl.dsp_session_ == nullptr) {
-        impl.dsp_session_ = std::make_shared<dsp_session>();
-        dsp_session_config dsp_cfg;
-        const std::string::size_type slash = impl.config_.model_root_.rfind('/');
-        dsp_cfg.skel_dir_ = (slash != std::string::npos) ?
-            impl.config_.model_root_.substr(0, slash) + "/dsp" : "/opt/lacai/dsp";
-        const auto dsp_opened = impl.dsp_session_->vqec_vision_ai_qcom_dspsn_open(dsp_cfg);
-        if (dsp_opened.code_ != status_code::ok) {
-            impl.dsp_session_.reset();
-            return dsp_opened;
-        }
+    if (impl.dsp_buffer_cache_ == nullptr) {
         dsp_buffer_cache_config cache_config;
         cache_config.enable_fastrpc_ = !impl.config_.allow_qaic_copy_input_;
         impl.dsp_buffer_cache_ = std::make_shared<dsp_buffer_cache>(cache_config);
@@ -473,6 +513,13 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return {status_code::invalid_argument,
                     "anchor-distance package must be a primary model"};
             }
+            const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_legacy_dsp(
+                impl.config_.dsp_legacy_skel_dir_, impl.config_.dsp_legacy_clock_corner_,
+                impl.config_.dsp_legacy_latency_us_, impl.config_.dsp_enable_unsigned_pd_,
+                impl.dsp_session_);
+            if (dsp_opened.code_ != status_code::ok) {
+                return dsp_opened;
+            }
             dsp_decoder_config dsp_config;
             dsp_config.kind_ = dsp_decoder_kind::scrfd;
             dsp_config.source_width_ = model_source->profile_.width_;
@@ -488,6 +535,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             dsp_config.iou_threshold_ = package.iou_threshold_;
             dsp_config.session_ = impl.dsp_session_;
             owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
+            owner.uses_legacy_dsp_preprocessor_ = true;
         } else {
             if (model.role_ != model_role::primary) {
                 return {status_code::invalid_argument,
@@ -495,46 +543,49 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             }
             const auto labels = vqec_vision_ai_appl_pdplt_load_labels(
                 package, binding->package_dir_);
-            bool legacy_dsp_selected = false;
-            if (package.class_count_ == 1 && labels.size() == 1) {
-                dsp_decoder_config dsp_config;
-                dsp_config.kind_ = dsp_decoder_kind::yolov8;
-                dsp_config.source_width_ = model_source->profile_.width_;
-                dsp_config.source_height_ = model_source->profile_.height_;
-                dsp_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
-                    declared_input.dimensions_[2] : 0;
-                dsp_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
-                    declared_input.dimensions_[1] : 0;
-                dsp_config.placement_ = model.placement_;
-                dsp_config.class_id_ = labels[0];
-                dsp_config.box_tensor_ = package.box_tensor_;
-                dsp_config.score_tensor_ = package.score_tensor_;
-                dsp_config.confidence_threshold_ = package.confidence_threshold_;
-                dsp_config.iou_threshold_ = package.iou_threshold_;
-                dsp_config.session_ = impl.dsp_session_;
-                auto candidate = std::make_unique<dsp_decoder>(std::move(dsp_config));
-                if (candidate->vqec_vision_ai_cntr_mddec_validate(owner.outputs_).code_ == status_code::ok) {
-                    owner.decoder_ = std::move(candidate);
-                    legacy_dsp_selected = true;
+            const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+                impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
+                impl.dsp_v1_client_);
+            if (dsp_opened.code_ != status_code::ok) {
+                return dsp_opened;
+            }
+            const tensor_spec* boxes = nullptr;
+            for (const auto& output : owner.outputs_.outputs_) {
+                if (output.name_ == package.box_tensor_) {
+                    if (boxes != nullptr) {
+                        return {status_code::invalid_argument,
+                            "dense decoder package has duplicate box tensor role"};
+                    }
+                    boxes = &output;
                 }
             }
-            if (!legacy_dsp_selected) {
-                yolov8_decoder_config y8_config;
-                y8_config.source_width_ = model_source->profile_.width_;
-                y8_config.source_height_ = model_source->profile_.height_;
-                y8_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
-                    declared_input.dimensions_[2] : 0;
-                y8_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
-                    declared_input.dimensions_[1] : 0;
-                y8_config.placement_ = model.placement_;
-                y8_config.box_tensor_ = package.box_tensor_.empty() ? "boxes_out" : package.box_tensor_;
-                y8_config.score_tensor_ = package.score_tensor_.empty() ? "conf_out" : package.score_tensor_;
-                y8_config.class_count_ = package.class_count_ > 0 ? package.class_count_ : labels.size();
-                y8_config.class_names_ = labels;
-                y8_config.confidence_threshold_ = package.confidence_threshold_;
-                y8_config.iou_threshold_ = package.iou_threshold_;
-                owner.decoder_ = std::make_unique<yolov8_decoder>(std::move(y8_config));
+            if (boxes == nullptr || boxes->dimensions_.size() != 3U ||
+                boxes->dimensions_[0] != 1U || boxes->dimensions_[1] != 4U) {
+                return {status_code::unsupported,
+                    "dense decoder package box tensor shape is unsupported"};
             }
+            dsp_v1_dense_decoder_config dense_config;
+            dense_config.source_width_ = model_source->profile_.width_;
+            dense_config.source_height_ = model_source->profile_.height_;
+            dense_config.tensor_width_ = declared_input.dimensions_.size() == 4U ?
+                declared_input.dimensions_[2] : 0U;
+            dense_config.tensor_height_ = declared_input.dimensions_.size() == 4U ?
+                declared_input.dimensions_[1] : 0U;
+            dense_config.placement_ = model.placement_;
+            dense_config.box_tensor_ = package.box_tensor_;
+            dense_config.score_tensor_ = package.score_tensor_;
+            dense_config.prediction_count_ = boxes->dimensions_[2];
+            dense_config.class_count_ = static_cast<std::uint32_t>(package.class_count_);
+            dense_config.class_names_ = labels;
+            dense_config.confidence_threshold_ = package.confidence_threshold_;
+            dense_config.iou_threshold_ = package.iou_threshold_;
+            dense_config.candidate_capacity_ =
+                VQEC_VISION_AI_DSP_V1_DENSE_MAX_CANDIDATES;
+            dense_config.output_capacity_ = static_cast<std::uint32_t>(
+                observation_limits::g_max_observations);
+            dense_config.client_ = impl.dsp_v1_client_;
+            owner.decoder_ =
+                std::make_unique<dsp_v1_dense_decoder>(std::move(dense_config));
         }
         if (owner.decoder_ != nullptr) {
             const auto decoder_status =
@@ -552,10 +603,9 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return created;
             }
             if (owner.decoder_ != nullptr) {
-                if (impl.dsp_session_ != nullptr) {
+                if (owner.uses_legacy_dsp_preprocessor_) {
                     dsp_preprocessor_config prep_cfg;
-                    prep_cfg.kind_ = (package.stages_.empty()) ?
-                        dsp_preprocessor_kind::yolov8 : dsp_preprocessor_kind::scrfd;
+                    prep_cfg.kind_ = dsp_preprocessor_kind::scrfd;
                     prep_cfg.session_ = impl.dsp_session_;
                     prep_cfg.buffer_cache_ = impl.dsp_buffer_cache_;
                     instance.processor_ = std::make_unique<dsp_preprocessor>(std::move(prep_cfg));

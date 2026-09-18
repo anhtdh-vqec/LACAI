@@ -612,7 +612,9 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_service_test.cpp | d1svt | vqec_vision_ai_unit_d1svt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |
 | src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp | d1cli | vqec_vision_ai_qcom_d1cli_ |
+| src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_dense_decoder.cpp | d1ddc | vqec_vision_ai_qcom_d1ddc_ (port overrides retain vqec_vision_ai_cntr_mddec_) |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_client_test.cpp | d1clt | vqec_vision_ai_unit_d1clt_ |
+| tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_dense_decoder_test.cpp | d1ddt | vqec_vision_ai_unit_d1ddt_ |
 | tools/board/vqec_vision_dsp_v1_smoke.cpp | d1smk | vqec_vision_ai_tools_d1smk_ |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |

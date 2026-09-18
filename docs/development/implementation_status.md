@@ -228,7 +228,7 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: clean eSDK/QEMU expanded configuration 135/135; board `.98` native 128/128
+Current evidence: clean eSDK/QEMU expanded configuration 136/136; board `.98` native 128/128
 with fixtures via `tools/board/vqec_vision_board_native_tests.sh`. The canonical deployment
 published H.264 1920x1080 at an effective 25.125 FPS, passed a four-frame visual overlay
 review and stopped with `first_error=0`. The exact source candidate is not service-accepted:
@@ -300,7 +300,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
 | `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.98`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
-| `src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp` | Private host client opens only the generated v1 QAIC ABI, negotiates capability/limits/domain generation, rejects unsupported or stale requests before RPC and distinguishes completed from uncertain transport return; fake-service conformance and isolated live unsigned dense v1 smoke pass on `.98` | BSP-signed release skeleton, registered/scatter-gather tensor transport, reset-under-in-flight-work/cache/fence evidence and production composition selection |
+| `src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp`, `vqec_vision_dsp_v1_dense_decoder.cpp` | Private host client opens only the generated v1 QAIC ABI, negotiates capability/limits/domain generation, rejects unsupported or stale requests before RPC and distinguishes completed from uncertain transport return; the descriptor-driven dense adapter serves person and fire/smoke without model-id dispatch; fake-service conformance and isolated live unsigned dense v1 smoke pass on `.98` | Exact production-candidate board run, BSP-signed release skeleton, registered/scatter-gather tensor transport and reset-under-in-flight-work/cache/fence evidence |
 | `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute, explicit HTP balanced/low-latency policy and an `inference_graph_port` binding; the factory fails closed on unsupported policy | Async/shared-memory/LoRA execution, shared multi-graph domain and sustained thermal qualification |
 | `src/app/pipeline/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
@@ -377,7 +377,7 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The current clean expanded eSDK configuration passes 135/135 CTest tests under SDK QEMU
+- The current clean expanded eSDK configuration passes 136/136 CTest tests under SDK QEMU
   (2026-09-18). The cross-built native suite passes 128/128 on `.98` via
   `tools/board/vqec_vision_board_native_tests.sh`.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.

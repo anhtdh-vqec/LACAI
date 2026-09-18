@@ -48,6 +48,7 @@ int main(int _argc, char** _argv) {
     dsp_v1_client client;
     dsp_v1_client_config client_config{};
     client_config.skel_dir_ = _argv[2];
+    client_config.enable_unsigned_pd_ = true;
     const auto opened = client.vqec_vision_ai_qcom_d1cli_open(client_config);
     if (opened.code_ != status_code::ok) {
         std::cerr << opened.message_ << '\n';

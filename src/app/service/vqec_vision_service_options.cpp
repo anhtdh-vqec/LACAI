@@ -108,6 +108,18 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.allow_qaic_copy_input = true;
         } else if (option == "--model-root" && has_value) {
             _args.model_root = _argv[++index];
+        } else if (option == "--dsp-v1-skel-dir" && has_value) {
+            _args.dsp_v1_skel_dir = _argv[++index];
+        } else if (option == "--dsp-legacy-skel-dir" && has_value) {
+            _args.dsp_legacy_skel_dir = _argv[++index];
+        } else if (option == "--dsp-legacy-clock-corner" && has_value) {
+            _args.dsp_legacy_clock_corner = static_cast<std::int32_t>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--dsp-legacy-latency-us" && has_value) {
+            _args.dsp_legacy_latency_us = static_cast<std::int32_t>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--dsp-enable-unsigned-pd") {
+            _args.dsp_enable_unsigned_pd = true;
         } else if (option == "--hardware-profile" && has_value) {
             _args.hardware_profile_path = _argv[++index];
         } else if (option == "--max-artifact-bytes" && has_value) {

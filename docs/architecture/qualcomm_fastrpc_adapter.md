@@ -137,12 +137,29 @@ The client reports completion as `not_submitted`, `completed` or `uncertain`. A 
 synchronous transport return plus a valid response is `completed`. Any transport execution
 error faults the session and returns `uncertain`; closing that handle is not proof that borrowed
 input/output storage is reusable. The caller must retain or quarantine the owners until a BSP
-completion/recovery contract resolves them. The source exists for conformance and integration;
-production composition does not select it yet. The 2026-09-18 `.98` candidate opened the
+completion/recovery contract resolves them. Production composition selects this negotiated
+client for every validated YOLO-style `dense_decode` package. Person and fire/smoke differ
+only through immutable descriptor data; there is no model-id dispatch. Their preprocessing
+remains behind `image_processor_port` and uses the existing FastCV adapter.
+
+`anchor_distance`, image transform and ROI align remain explicitly unsupported by v1 until
+their descriptors and kernels pass their own gates; SCRFD therefore keeps a separately
+configured legacy compatibility session. Neither skeleton path is derived from the model
+root, and the legacy session is not opened for dense-only deployments. Legacy clock corner,
+latency vote and unsigned-PD permission are also explicit startup policy. Unsigned PD defaults
+off and is only enabled by the dedicated candidate/development option; release signing remains
+a BSP-owned gate.
+
+The 2026-09-18 `.98` candidate opened the
 Hexagon-built skeleton, negotiated `dense_decode`, executed a model-independent one-prediction
 descriptor and returned the expected 24-byte record. A second process received a different
 nonzero domain generation. This is live protocol/kernel smoke, not registered-buffer,
 reset-under-in-flight-work or release acceptance.
+
+The first production v1 dense adapter uses one pre-sized ARM packing buffer because the current
+IDL accepts one packed input sequence. The copy is bounded and a known transport limitation;
+it is not zero-copy. Registered multi-buffer transport remains the required hot-path replacement
+before performance acceptance.
 
 The transport exposes operation families, not model IDs:
 

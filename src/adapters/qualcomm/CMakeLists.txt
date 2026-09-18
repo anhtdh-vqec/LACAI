@@ -144,6 +144,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         dsp/host/vqec_vision_dsp_session.cpp
         dsp/host/vqec_vision_rpcmem_pool.cpp
         dsp/host/vqec_vision_dsp_decoder.cpp
+        dsp/host/vqec_vision_dsp_v1_dense_decoder.cpp
         dsp/host/vqec_vision_dsp_buffer_cache.cpp
         dsp/host/vqec_vision_dsp_preprocessor.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
@@ -155,6 +156,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         "${vqec_vision_ai_qaic_output}")
     target_link_libraries(vqec_vision_ai_qualcomm
         PUBLIC vqec_vision_ai_core vqec_vision_ai_fastrpc_c
+        vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_dense
         PRIVATE PkgConfig::gstreamer vqec_vision_ai_gst_frame_bridge)
     if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
         target_link_libraries(vqec_vision_ai_qualcomm PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})

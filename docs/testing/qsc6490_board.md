@@ -90,7 +90,7 @@ is transient test evidence and must not be committed because it may contain pers
 
 The latest retained evidence on 2026-09-18 is:
 
-- approved eSDK/QEMU CTest: **135/135**;
+- approved eSDK/QEMU CTest: **136/136**;
 - isolated native candidate on `.98`: **128/128**;
 - the canonical deployed person + face + fire/smoke service stopped cleanly with
   `first_error=0`, 66 cascade tasks/embeddings and no cascade failure;
@@ -110,8 +110,8 @@ The latest retained evidence on 2026-09-18 is:
 The exact clean-build service candidate was staged separately and did not replace the
 canonical service. It correctly rejected the board's stale model catalog marked schema 2;
 an isolated schema-1 copy passed loading, after which production preparation failed closed
-because `libvqec_dsp_skel.so` could not be opened on cDSP (`AEE_EUNABLETOLOAD`). Production
-composition still opens this legacy, model-named ABI before selecting operations and does
+because `libvqec_dsp_skel.so` could not be opened on cDSP (`AEE_EUNABLETOLOAD`). That candidate's
+production composition opened the legacy, model-named ABI before selecting operations and did
 not select the negotiated generic v1 client. Therefore the canonical preview result is not
 exact-candidate service acceptance. The failure is retained as a production-composition
 defect; copying a legacy skeleton is not an accepted workaround.
@@ -140,8 +140,8 @@ record and the exact candidate digest. Remove temporary uploads after results ar
 
 ## Limits and next work
 
-- Make production composition select the negotiated generic DSP v1 operation path and
-  remove unconditional startup dependence on the legacy model-named skeleton.
+- Production source now selects negotiated generic DSP v1 for dense packages and opens legacy
+  only for operation families not yet implemented in v1; validate this exact candidate on `.98`.
 - Re-run service, preview capture and visual overlay review from that exact candidate;
   canonical-deployment evidence cannot be transferred to it.
 - Complete cold-start CPU profiling, the declared sustained workload, memory soak and

@@ -4,8 +4,8 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** board-smoke — board `.98` native 121/121 and live H.264 1920x1080 30/1
-corrective smoke ran from this layout on 2026-09-17. **Layer:** docs. **Source:** n/a (references
+**Status:** board-smoke — board `.98` native 128/128 and canonical live H.264
+1920x1080 at 25.125 FPS ran from this layout on 2026-09-18. **Layer:** docs. **Source:** n/a (references
 `tools/board/vqec_vision_board_native_tests.sh` and the board workspace).
 
 ## Standard root and layout
@@ -18,6 +18,8 @@ name. The layout is:
 | `bin/` | Canonical service binary `vqec_ai_vision_applications` only |
 | `config/` | Deployment, model catalog, model registry, usecase snapshot, reviewed hardware admission profile, FR fixture |
 | `models/` | Licensed model artifacts and their package dirs |
+| `dsp/v1/` | Exact negotiated v1 skeleton and its build/signing receipt |
+| `dsp/legacy/` | Separately reviewed compatibility skeleton; never populated by copying an unknown board binary |
 | `manifests/` | Staged repository `manifests/models` tree (decoder/IO/preprocess fixtures) |
 | `lib/` | Zvec shared libraries for `LD_LIBRARY_PATH` |
 | `tests/` | Cross-built native test binaries staged for the board runner |
@@ -56,6 +58,9 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
 2. Stage the artifacts to the board (the user handles pushes; this is `scp`/`ssh` only):
 
    - service binary `$lacai_build_dir/src/app/vqec_ai_vision_applications` -> `/opt/lacai/bin/vqec_ai_vision_applications`;
+   - Hexagon-built `libvqec_vision_dsp_v1_skel.so` plus receipt -> `/opt/lacai/dsp/v1/`;
+   - an owner-approved legacy compatibility skeleton, when an activated package still needs
+     it, -> `/opt/lacai/dsp/legacy/`;
    - native test binaries `vqec_vision_ai_*test*` -> `/opt/lacai/tests/`;
    - repository `manifests/models` -> `/opt/lacai/manifests/models`;
    - `tools/board/vqec_vision_board_native_tests.sh` -> `/opt/lacai/tools/board/`;
@@ -86,8 +91,8 @@ LD_LIBRARY_PATH=/opt/lacai/lib sh tools/board/vqec_vision_board_native_tests.sh 
 The historical 2026-09-17 runner result was `PASS=117 FAIL=0`; do not use 117 as an
 acceptance target for the current binary set.
 
-The subsequent Plan 0 corrective run on 2026-09-17 staged the current native binary set
-and example-profile fixture: `PASS=121 FAIL=0`. See the
+The latest clean-layout run on 2026-09-18 staged the current native binary set and fixtures:
+`PASS=128 FAIL=0`. See the
 [exact-candidate review](../development/production_composition_foundation_review.md).
 Candidate smoke may temporarily stage `bin/vqec_ai_vision_applications.plan0` without
 replacing the canonical service; hash it, record its profile and clean it up after testing.
@@ -124,6 +129,10 @@ dbus-run-session -- sh -c '
     --qnn-backend-library /usr/lib/libQnnHtp.so \
     --qnn-system-library /usr/lib/libQnnSystem.so \
     --model-root /opt/lacai/models/ \
+    --dsp-v1-skel-dir /opt/lacai/dsp/v1 \
+    --dsp-legacy-skel-dir /opt/lacai/dsp/legacy \
+    --dsp-legacy-clock-corner 7 --dsp-legacy-latency-us 100 \
+    --dsp-enable-unsigned-pd \
     --hardware-profile /opt/lacai/config/hardware_admission_profile.json \
     --tracker-contract portable.iou.tracker.v1 \
     --event-schema-id reference.zone --event-schema-version 1 \

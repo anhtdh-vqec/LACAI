@@ -3,7 +3,7 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the current tree passed eSDK 135/135 and QCS6490 `.98` 128/128
+**Status:** board-smoke — the current tree passed eSDK 136/136 and QCS6490 `.98` 128/128
 native executables on 2026-09-18. The canonical deployment passed preview smoke; the exact
 service candidate remains blocked at the legacy DSP loading boundary. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.

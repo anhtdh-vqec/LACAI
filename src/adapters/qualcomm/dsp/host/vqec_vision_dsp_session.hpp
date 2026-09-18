@@ -13,10 +13,10 @@ namespace vqec::vision::ai {
 enum class dsp_execution_mode { accelerator_required, reference_cpu };
 
 struct dsp_session_config {
-    std::string skel_dir_{"/opt/lacai/dsp"};
-    std::int32_t clock_corner_{7};
-    std::int32_t latency_us_{100};
-    bool enable_unsigned_pd_{true};
+    std::string skel_dir_;
+    std::int32_t clock_corner_{0};
+    std::int32_t latency_us_{0};
+    bool enable_unsigned_pd_{false};
 };
 
 struct dsp_post_result {

@@ -97,11 +97,21 @@ int main() {
         check(vqec_vision_ai_unit_sotst_parse(
                   {"app", "--deployment", "d", "--model-catalog", "c",
                       "--model-root", "/opt/lacai/models",
+                      "--dsp-v1-skel-dir", "/opt/lacai/dsp/v1",
+                      "--dsp-legacy-skel-dir", "/opt/lacai/dsp/legacy",
+                      "--dsp-legacy-clock-corner", "7",
+                      "--dsp-legacy-latency-us", "100", "--dsp-enable-unsigned-pd",
                       "--hardware-profile", "/opt/lacai/config/hardware_profile.json",
                       "--max-artifact-bytes", "134217728"},
                   args),
             "model root and max artifact bytes parse");
         check(args.model_root == "/opt/lacai/models", "model_root captured");
+        check(args.dsp_v1_skel_dir == "/opt/lacai/dsp/v1", "DSP v1 path captured");
+        check(args.dsp_legacy_skel_dir == "/opt/lacai/dsp/legacy",
+            "legacy DSP path captured");
+        check(args.dsp_legacy_clock_corner == 7 && args.dsp_legacy_latency_us == 100,
+            "legacy DSP clock policy captured");
+        check(args.dsp_enable_unsigned_pd, "unsigned DSP policy captured");
         check(args.hardware_profile_path == "/opt/lacai/config/hardware_profile.json",
             "hardware profile path captured");
         check(args.max_artifact_bytes == 134217728ULL, "max_artifact_bytes captured");

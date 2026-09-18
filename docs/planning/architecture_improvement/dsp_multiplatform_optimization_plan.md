@@ -153,14 +153,15 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
 ### 2.3 Defect và khoảng trống còn mở
 
-1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke. V1 đã có codec,
-   service, skeleton và host client gọi QAIC stub với handshake/generation/completion rõ ràng;
-   unsigned candidate dense/reopen đã chạy trên `.98`, nhưng production composition và BSP
-   signed release skeleton vẫn chưa chọn v1.
-2. Kernel dense v1 allocation-free đã nhận shape/class/quantization/transform/capacity bằng
-   descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Tuy nhiên
-   transport hiện vẫn là packed input, chưa có skeleton được BSP ký và fire/smoke production
-   vẫn dùng portable CPU decoder.
+1. ABI FastRPC legacy có method theo tên person/SCRFD/fire-smoke. V1 đã có codec, service,
+   skeleton và host client gọi QAIC stub với handshake/generation/completion rõ ràng;
+   unsigned candidate dense/reopen đã chạy trên `.98`. Production source chọn v1 cho package
+   dense theo descriptor, không theo model ID; exact-candidate board và BSP signed release
+   skeleton vẫn chưa nghiệm thu.
+2. Kernel dense v1 allocation-free nhận shape/class/quantization/transform/capacity bằng
+   descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Production
+   adapter dùng buffer pack pre-sized và một implementation chung cho cả hai. Transport vẫn là
+   packed input có ARM copy, chưa có skeleton được BSP ký hoặc registered multi-buffer path.
 3. SCRFD legacy cố định 640, ba level, hai anchor/cell và năm landmark.
 4. DSP preprocess ABI không mang matrix/range/interpolation/normalization descriptor. Kernel
    dùng `ScaleDownMN` và một FastCV color operation cố định, trong khi manifest hiện khai báo
@@ -311,9 +312,9 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
-| D12 | AI APP+Model | Person dense vertical | Pre/post golden parity; exact 640/8400/1 descriptor là data, không code branch |
+| D12 | AI APP+Model | Person dense production adapter đã source-delivered; board/golden còn mở | Pre/post golden parity; exact 640/8400/1 descriptor là data, không code branch |
 | D13 | AI APP+Model | SCRFD anchor vertical | Score/box/kps parity, edge clamp, top-left inverse transform và dense-face stress |
-| D14 | AI APP+Model | Fire/smoke multi-class vertical | 320/2100/2 chạy cDSP v1; class-aware NMS parity; no CPU dense scan |
+| D14 | AI APP+Model | Fire/smoke dùng chung dense production adapter; board/golden còn mở | 320/2100/2 chạy cDSP v1; class-aware NMS parity; no CPU dense scan |
 | D15 | AI APP+Model | Face align/embedding vertical | Bounded ROI batch, golden affine/normalize, embedding quality và privacy gates |
 
 ### P4 — Copy, startup và memory

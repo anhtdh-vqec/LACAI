@@ -119,6 +119,7 @@ bool vqec_vision_ai_unit_d1clt_open_and_execute() {
     dsp_v1_client client(vqec_vision_ai_unit_d1clt_fake_api());
     dsp_v1_client_config client_config{};
     client_config.skel_dir_ = g_fixture_skeleton_dir;
+    client_config.enable_unsigned_pd_ = true;
     const auto opened = client.vqec_vision_ai_qcom_d1cli_open(client_config);
     bool ok = vqec_vision_ai_unit_d1clt_check(opened.code_ == status_code::ok,
                                               "client open failed") &&
@@ -235,6 +236,7 @@ bool vqec_vision_ai_unit_d1clt_reject_malformed_capability() {
     dsp_v1_client client(vqec_vision_ai_unit_d1clt_fake_api());
     dsp_v1_client_config config{};
     config.skel_dir_ = g_fixture_skeleton_dir;
+    config.enable_unsigned_pd_ = true;
     const auto opened = client.vqec_vision_ai_qcom_d1cli_open(config);
     return vqec_vision_ai_unit_d1clt_check(
         opened.code_ == status_code::protocol_error &&
@@ -249,6 +251,7 @@ bool vqec_vision_ai_unit_d1clt_reject_domain_prepare_failure() {
     dsp_v1_client client(vqec_vision_ai_unit_d1clt_fake_api());
     dsp_v1_client_config config{};
     config.skel_dir_ = g_fixture_skeleton_dir;
+    config.enable_unsigned_pd_ = true;
     const auto opened = client.vqec_vision_ai_qcom_d1cli_open(config);
     return vqec_vision_ai_unit_d1clt_check(
         opened.code_ == status_code::io_error && g_fake_rpc_state.prepare_calls_ == 1 &&

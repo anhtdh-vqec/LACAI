@@ -167,6 +167,10 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_open(
     if (impl_->mode_ != dsp_execution_mode::accelerator_required) {
         return {status_code::unsupported, "reference DSP session cannot open hardware"};
     }
+    if (_config.skel_dir_.empty() || _config.clock_corner_ <= 0 ||
+        _config.latency_us_ <= 0) {
+        return {status_code::invalid_argument, "legacy DSP deployment policy is incomplete"};
+    }
     if (impl_->is_open_) {
         return {status_code::ok, ""};
     }

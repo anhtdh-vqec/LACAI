@@ -15,8 +15,8 @@ extern "C" {
 namespace vqec::vision::ai {
 
 struct dsp_v1_client_config {
-    std::string skel_dir_{"/opt/lacai/dsp"};
-    bool enable_unsigned_pd_{true};
+    std::string skel_dir_;
+    bool enable_unsigned_pd_{false};
 };
 
 using dsp_v1_open_function = int (*)(const char*, std::uint64_t*);

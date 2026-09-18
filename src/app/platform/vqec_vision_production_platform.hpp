@@ -52,6 +52,13 @@ struct production_platform_config {
     // registration and is the only mode eligible for production performance evidence.
     bool allow_qaic_copy_input_{false};
     std::string model_root_;
+    // Explicit accelerator deployment paths. Empty means that operation family is not
+    // installed; prepare() fails closed only when an activated package requires it.
+    std::string dsp_v1_skel_dir_;
+    std::string dsp_legacy_skel_dir_;
+    std::int32_t dsp_legacy_clock_corner_{0};
+    std::int32_t dsp_legacy_latency_us_{0};
+    bool dsp_enable_unsigned_pd_{false};
     std::uint64_t max_artifact_bytes_{0};
     inference_execution_policy execution_policy_;
     // Released FW camera route inputs.

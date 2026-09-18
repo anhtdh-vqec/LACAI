@@ -52,6 +52,11 @@ struct parsed_arguments {
     // Explicit device-free fixture mode. Production defaults to registered DMA-BUF input.
     bool allow_qaic_copy_input{false};
     std::string model_root;
+    std::string dsp_v1_skel_dir;
+    std::string dsp_legacy_skel_dir;
+    std::int32_t dsp_legacy_clock_corner{0};
+    std::int32_t dsp_legacy_latency_us{0};
+    bool dsp_enable_unsigned_pd{false};
     std::string hardware_profile_path;
     std::uint64_t max_artifact_bytes{0};
     std::string camera_socket_dir;
