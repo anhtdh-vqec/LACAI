@@ -4,7 +4,7 @@ Portable output path: overlay metadata preparation, encoded-AU routing and featu
 delivery. AI owns preview overlay/encode/ring production through private adapters; FW owns
 RTSP/UI, recording and persistent evidence/search.
 
-- **Status:** helpers plus Qualcomm production renderer are source-delivered and board-smoked
+- **Status:** board-smoke — eSDK tests and the 2026-09-18 `.98` native candidate run pass
 - **Layer:** outputs
 - **Naming registry:** `outpt` (`encdp`, `ftdsp`, `ovrpr`)
 - **Depends on:** `src/core/` output policy and neutral `encoded_sink`/event-sink contracts
@@ -21,10 +21,9 @@ RTSP/UI, recording and persistent evidence/search.
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_encoded_dispatch.cpp` | Synchronous one-AU dispatch through `output_gate` with freshness/correlation and ring generation/demand checks |
-| `vqec_vision_overlay_preparation.cpp` | Authorizes scope, validates observations, publishes overlay metadata transactionally |
-| `vqec_vision_feature_event_dispatch.cpp` | Validates one event and dispatches it synchronously; retry keeps the original event/revision |
-| `vqec_vision_event_delivery_seam.cpp` | Neutral bounded event handoff seam and outbox boundary distinguishing accepted/pending from delivered |
+| `events/` | Feature-event authorization, synchronous dispatch and bounded delivery seam |
+| `media/` | Encoded-AU authorization/dispatch and transactional overlay preparation |
+| `CMakeLists.txt` | Declares the portable output target from both ownership subtrees |
 
 ## Limits and next work
 
@@ -40,3 +39,4 @@ RTSP/UI, recording and persistent evidence/search.
 - [Feature event dispatch](../../docs/architecture/feature_event_dispatch.md)
 - [Event delivery seam](../../docs/architecture/event_delivery_seam.md)
 - [FW release compatibility](../../docs/contracts/fw_release_compatibility.md)
+- [Repository source layout](../../docs/development/source_layout.md)

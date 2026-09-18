@@ -6,8 +6,8 @@ the result-to-feature delivery and the failure isolation.
 
 **Status:** logic-tested — portable source and contract test built with the eSDK; it runs
 under eSDK/QEMU and natively on QCS6490 `.98`. **Layer:** app. **Source:**
-`src/app/vqec_vision_multi_model_feature_pipeline.cpp`,
-`tests/contract/vqec_vision_multi_model_feature_pipeline_test.cpp`.
+`src/app/pipeline/vqec_vision_multi_model_feature_pipeline.cpp`,
+`tests/contract/application/vqec_vision_multi_model_feature_pipeline_test.cpp`.
 
 ## Responsibility
 

@@ -7,9 +7,9 @@ states what the extraction helper does not prove.
 **Status:** source-delivered — the tensor contract and Qualcomm sample-copy helper exist in
 the tree; synthetic system-memory tests verify caps/layout/copy logic only.
 **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_tensor_output.cpp`,
-`src/core/vqec_vision_tensor_contract.cpp`,
-`tests/contract/vqec_vision_tensor_output_test.cpp`.
+`src/adapters/qualcomm/gstreamer/vqec_vision_tensor_output.cpp`,
+`src/core/inference/vqec_vision_tensor_contract.cpp`,
+`tests/contract/adapters/qualcomm/vqec_vision_tensor_output_test.cpp`.
 
 ## Responsibility
 

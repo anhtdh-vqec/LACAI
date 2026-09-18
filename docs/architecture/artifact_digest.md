@@ -7,7 +7,7 @@ position contract and the trust boundary that hashing does and does not close.
 **Status:** logic-tested — source candidate, security/lead review pending. The helper is
 compiled and unit-tested; board hash evidence remains pending. **Layer:** runtime.
 **Source:** `src/runtime/model_registry/vqec_vision_artifact_digest.cpp`,
-`tests/unit/vqec_vision_artifact_digest_test.cpp`.
+`tests/unit/runtime/vqec_vision_artifact_digest_test.cpp`.
 
 ## Responsibility
 

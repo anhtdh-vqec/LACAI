@@ -7,9 +7,9 @@ authentication boundary.
 
 **Status:** source-delivered — the bounded registry contract, loader and validator exist in
 the tree. **Layer:** runtime. **Source:**
-`src/core/vqec_vision_model_package_registry.cpp`,
+`src/core/inference/vqec_vision_model_package_registry.cpp`,
 `src/runtime/model_registry/vqec_vision_model_package_registry.cpp`,
-`tests/unit/vqec_vision_model_package_registry_test.cpp`.
+`tests/unit/runtime/vqec_vision_model_package_registry_test.cpp`.
 
 ## Responsibility
 

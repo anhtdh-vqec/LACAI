@@ -9,7 +9,7 @@ entitled, desired, supported, compatible and resource-admitted gates to every
 **Status:** source-delivered — resolver, strict startup loader, serialized desired-plan
 manager and D-Bus v1 transport are source-delivered; signed provisioning and runtime health
 observation remain open. **Layer:** runtime.
-**Source:** `src/core/vqec_vision_usecase_activation.cpp`,
+**Source:** `src/core/features/vqec_vision_usecase_activation.cpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_config.{hpp,cpp}`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.{hpp,cpp}`,
 `src/adapters/fw_control/vqec_vision_usecase_control_dbus.{hpp,cpp}`.

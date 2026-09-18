@@ -98,14 +98,14 @@ or acceptance date.
 
 - A01–A03: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
   `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
-  `src/app/vqec_vision_cascade_coordinator.cpp`, `vqec_vision_cascade_graph_session.cpp`,
+  `src/app/cascade/vqec_vision_cascade_coordinator.cpp`, `vqec_vision_cascade_graph_session.cpp`,
   `vqec_vision_runtime_executor.cpp` and `vqec_vision_multi_model_session.cpp`.
 - A04/A16: `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` (fresh collection,
   in-memory revision, fault gate, query allocation and mutex).
-- A05/A09–A12: `src/app/vqec_vision_production_platform.cpp/.hpp` (decoder selection,
+- A05/A09–A12: `src/app/platform/vqec_vision_production_platform.cpp/.hpp` (decoder selection,
   catalog/source geometry, constructors, reference factories and output composition).
 - A14: `src/perception/detection/vqec_vision_anchor_distance_decoder.cpp` (output batch).
-- A15/A20: `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp` and
+- A15/A20: `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp` and
   [preprocessing report](../architecture/qualcomm_preprocessing.md).
 - A19: `src/runtime/model_registry/` and production package loading require end-to-end review;
   existence of a secure resolver helper alone does not prove every load path uses it.

@@ -55,7 +55,7 @@ hardware completion by themselves. Lead/BSP review and device evidence remain op
 ## Legacy execution constraints
 
 The former `third_party/fastrpc_dsp` tree is removed. The frozen compatibility IDL is
-`src/adapters/qualcomm/vqec_vision_dsp_legacy.idl` (SHA-256
+`src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy.idl` (SHA-256
 `cb7c819fcbd58add9f6a6d435c5d09ab42d6b00e333c17f2853d532f06a9aae7`).
 The explicit `VQEC_VISION_AI_HEXAGON_SDK_ROOT` CMake input locates Hexagon SDK 5.5.7.0's
 QAIC 01.00.47, Git commit `a2c7debef720395a555b870d19b16ae95adc69de`; the command is
@@ -98,9 +98,10 @@ Reusing compact-result workspace avoids fresh result-vector allocation after war
 [ADR 0007](../adr/0007_versioned_fastrpc_operations.md) records the separate ABI and
 review gates. The presence of SDK 5.5.7.0 removes QAIC discovery as a blocker but the
 DSP compiler needs `libtinfo.so.5`, which the host base image does not provide. The source build
-can use an explicitly supplied compatibility-library directory; local evidence used the
-unmodified Ubuntu `libtinfo5` package extracted outside the SDK and repository. This is
-reproducible compiler evidence, not BSP approval of the build host or a signing receipt.
+uses either an explicitly supplied compatibility-library directory or the persistent
+user-local `$HOME/.local/lib/hexagon-sdk-compat` fallback. Local evidence used the unmodified
+Ubuntu `libtinfo5` package extracted outside the SDK and repository. This is reproducible
+compiler evidence, not a system package, BSP approval of the build host or a signing receipt.
 
 Do not change legacy method ordinals or call a new method against an old binary. A separate
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain

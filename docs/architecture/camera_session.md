@@ -7,7 +7,7 @@ behind the generic `source_session_port`.
 **Status:** logic-tested — synthetic target test passes for initial guards, stop-before-start,
 stable stop deadlines, uncertain acquisition recovery and camera release without loading QTI;
 live FW/ownership validation remains pending. **Layer:** app. **Source:**
-`src/app/vqec_vision_camera_session.{hpp,cpp}`.
+`src/app/session/vqec_vision_camera_session.{hpp,cpp}`.
 
 ## Responsibility
 

@@ -6,8 +6,8 @@ import, hardware rendering/encoding or ring integration.
 
 **Status:** source-delivered — source-only; no FD import, hardware rendering/encoding or
 ring integration. **Layer:** core. **Source:**
-`src/core/vqec_vision_preview_pool.cpp`,
-`tests/unit/vqec_vision_preview_pool_test.cpp`.
+`src/core/media/vqec_vision_preview_pool.cpp`,
+`tests/unit/core/vqec_vision_preview_pool_test.cpp`.
 
 ## Responsibility
 

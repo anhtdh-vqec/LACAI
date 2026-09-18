@@ -49,13 +49,13 @@ nếu chưa tái hiện. B07 authentication/production owner integration vẫn c
 
 | ID | Ưu tiên | Bằng chứng / vấn đề | Tác động và phạm vi |
 |---|---|---|---|
-| O01 | P0 | `src/adapters/qualcomm/vqec_vision_qnn_engine.cpp`: probe dựa trên function pointer để công bố async/shared memory/update và giới hạn | SDK API có mặt chưa chứng minh adapter triển khai. Admission có thể nhận policy vượt đường execute thực tế |
+| O01 | P0 | `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp`: probe dựa trên function pointer để công bố async/shared memory/update và giới hạn | SDK API có mặt chưa chứng minh adapter triển khai. Admission có thể nhận policy vượt đường execute thực tế |
 | O02 | P1 | Cùng file: `graphExecute` đồng bộ; `qnn_inference_graph.cpp` gọi trong submit; pump gọi submit trực tiếp | Source/model chậm có thể chặn serialized executor. Cần đo fairness/latency, không suy ra async từ tên port |
 | O03 | P1 | `src/adapters/reference/vqec_vision_reference_processor.cpp`: mmap và vòng lặp pixel/channel | CPU baseline chưa tận dụng Qualcomm preprocessing; phải tách rõ mode production/reference |
 | O04 | P1 | QNN execute dùng `QNN_TENSORMEMTYPE_RAW`/clientBuf | Chưa nối registered-buffer contract vào execution này; staging/copy nội bộ SDK chưa đo |
 | O05 | P1 | QNN execute tạo vector output và resize bytes mỗi call | Allocation/initialization trên hot path; metadata cũng dựng lại. Output được QNN ghi trực tiếp, không gọi đó là copy output bổ sung |
-| O06 | P1 | `src/adapters/qualcomm/vqec_vision_tensor_output.cpp`: resize + memcpy mỗi tensor | Copy rõ từ mapped sample vào owned bytes. Đây cũng là boundary ownership an toàn; chỉ bỏ khi có lease/completion tương đương |
-| O07 | P1 | `src/app/vqec_vision_multi_model_pump.cpp`: preprocess từng slot, vector blobs local, input specs lấy lần đầu nhận frame | Conversion trùng giữa model tương thích; allocation/metadata work chưa hoàn toàn chuyển sang activation |
+| O06 | P1 | `src/adapters/qualcomm/gstreamer/vqec_vision_tensor_output.cpp`: resize + memcpy mỗi tensor | Copy rõ từ mapped sample vào owned bytes. Đây cũng là boundary ownership an toàn; chỉ bỏ khi có lease/completion tương đương |
+| O07 | P1 | `src/app/pipeline/vqec_vision_multi_model_pump.cpp`: preprocess từng slot, vector blobs local, input specs lấy lần đầu nhận frame | Conversion trùng giữa model tương thích; allocation/metadata work chưa hoàn toàn chuyển sang activation |
 | O08 | P1 | Stage scratch/swap nhưng perception result stage/router tạo candidate local; executor move output arrays | Capacity chưa được tuần hoàn end-to-end; nested vector/string có thể cấp phát lại. Cần allocation instrumentation |
 | O09 | P1 | Tensor preprocess branch của pump yêu cầu đúng một input | Neutral contract rộng hơn orchestration hiện tại; multi-input/dynamic/stateful models cần explicit support hoặc reject |
 | O10 | P1 | Direct QNN input validation hiện kiểm dtype và byte count | Cùng bytes không chứng minh cùng shape/layout/name/quantization. Cần đối chiếu toàn bộ contract trước execute |

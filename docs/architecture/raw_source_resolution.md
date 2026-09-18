@@ -8,7 +8,7 @@ trust/lifecycle rules around resolution.
 **Status:** source-delivered — adapter contract/source delivered; released FW registry RPC
 and Linux/board verification are pending. **Layer:** adapters. **Source:**
 `src/adapters/camera/vqec_vision_raw_source_resolver.cpp`,
-`tests/unit/vqec_vision_raw_source_resolver_test.cpp`.
+`tests/unit/adapters/camera/vqec_vision_raw_source_resolver_test.cpp`.
 
 ## Responsibility
 

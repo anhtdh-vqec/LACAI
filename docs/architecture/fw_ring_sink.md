@@ -8,7 +8,7 @@ canonical v5 layout, the production writer, the dated board evidence, and the ob
 `.98` against the compatibility camera simulator and the FW v5 ring reader; released-FW reader
 integration, DMA completion and thermal qualification remain open. **Layer:** adapters.
 **Source:** `include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp`,
-`src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp` (`fw_ring_writer`),
+`src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp` (`fw_ring_writer`),
 `src/adapters/fw_output/vqec_vision_ring_sink.{hpp,cpp}` (obsolete).
 
 ## Responsibility

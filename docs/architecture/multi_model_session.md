@@ -8,7 +8,7 @@ and multi-model sessions without depending on Camera Service or vendor types.
 **Status:** source-delivered — portable lifecycle source delivered; fake-port tests pass
 and the combined person+FD/FR path has live compatibility-source evidence on QCS6490.
 Released-FW recovery and acceptance remain pending. **Layer:** app.
-**Source:** `src/app/vqec_vision_multi_model_session.{hpp,cpp}`.
+**Source:** `src/app/session/vqec_vision_multi_model_session.{hpp,cpp}`.
 
 ## Responsibility
 

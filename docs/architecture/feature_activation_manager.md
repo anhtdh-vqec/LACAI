@@ -6,7 +6,7 @@ reconciliation order, its explicit state model and its bounded storage.
 
 **Status:** source-delivered — the manager exists with contract tests. **Layer:** runtime.
 **Source:** `src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp`,
-`tests/contract/vqec_vision_feature_activation_manager_test.cpp`.
+`tests/contract/runtime/vqec_vision_feature_activation_manager_test.cpp`.
 
 ## Responsibility
 

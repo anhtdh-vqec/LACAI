@@ -3,7 +3,8 @@
 Private Qualcomm adapter for QCS6490 / Qualcomm Linux 1.8. Contains the released plugin
 graph backend, the optional LACAI-owned QNN engine and the private preview renderer.
 
-- **Status:** board-verified (sync) — plugin lifecycle fixtures pass on QCS6490; owned QNN engine composes/finalizes/executes SCRFD+YOLOv8n on HTP with byte-identical parity to `qnn-net-run`; async/shared/update still unqualified
+- **Status:** board-smoke — synchronous plugin/QNN evidence exists on QCS6490 and the
+  2026-09-18 layout candidate passes natively; async/shared/update remain unqualified
 - **Layer:** adapters
 - **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`, `qtvr`)
 - **Depends on:** neutral `inference_graph_port`, core plan/contract validation
@@ -23,30 +24,13 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_plugin_graph.cpp` | Factory/property/enum probing, READY bind, PLAYING, bounded submission and result polling |
-| `vqec_vision_inference_graph.cpp` | Neutral `inference_graph_port` adapter; owns the retention reference |
-| `vqec_vision_frame_submission.cpp` | Reserve/wrap/commit/push primitive; one outstanding job per graph |
-| `vqec_vision_dmabuf_bridge.cpp` | Read-only FD memory, original plane layout, root-memory owner retention |
-| `vqec_vision_tensor_output.cpp` | Bounded ordered tensor extraction (typed) and shape checks |
-| `vqec_vision_sdk_loader.cpp` | Optional QNN runtime `dlopen` loader with pinned QAIRT |
-| `vqec_vision_qnn_engine.cpp` | Owned QNN backend/device/context/model-lib compose + sync execute + probe |
-| `vqec_vision_qnn_inference_graph.cpp` | `inference_graph_port` binding with tensor submission |
-| `vqec_vision_backend_factory.cpp` | Builds the owned engine+graph bundle from resolved paths; fails closed |
-| `vqec_vision_qtiv_renderer.cpp` | QTI DMA pool, NV12 plane copy, ROI overlay, H.264 encoder and FW ring writer |
-| `vqec_vision_fastcv_processor.cpp` | `qtivtransform`+`qtimlvconverter(engine=fcv)` NV12-to-tensor preprocessing |
-| `vqec_vision_fastcv_aligner.cpp` | FastCV affine/color alignment behind `image_alignment_port` |
-| `vqec_vision_qtiv_color.cpp` | QTI color conversion helper |
-| `vqec_vision_dsp_buffer_cache.cpp` | Bounded mapping cache with pinned access leases and deferred retirement |
-| `vqec_vision_dsp_legacy.idl` | Frozen compatibility wire; QAIC generates client stub at build time from the reviewed SDK |
-| `vqec_vision_dsp_v1.idl`, `vqec_vision_dsp_v1_wire.{c,h}` | Proposed model-independent transport and tested envelope codec; no production runtime selection |
-| `vqec_vision_dsp_v1_dense.{c,h}` | Allocation-free descriptor-driven uint16 dense decode/NMS shared by ARM conformance and Hexagon builds; production host runtime wiring remains open |
-| `vqec_vision_dsp_v1_service.{c,h}` | Bounded v1 capability/dispatch core with fixed per-session scratch and explicit operation response |
-| `vqec_vision_dsp_v1_skeleton.c` | QAIC ABI binding with four fixed sessions, per-session serialization and generation-protected handles; BSP signing/deploy remains open |
-| `vqec_vision_dsp_legacy_*.{c,h}` | Isolated legacy reference fixtures and wire constants; owner/license review pending |
-| `vqec_vision_dsp_session.cpp` | Legacy FastRPC transport; model-specific wire operations, not a generic DSP ABI |
-| `vqec_vision_dsp_preprocessor.cpp` | Legacy DSP image-processor implementation; semantic qualification remains open |
-| `vqec_vision_dsp_decoder.cpp` | Legacy DSP decoder binding; fixed kernel envelopes |
-| `vqec_vision_face_enrollment_image_source.cpp` | GStreamer JPEG-to-NV12 DMA-BUF image source for enrollment |
+| `dsp/host/` | ARM-side FastRPC sessions, rpcmem, mapping cache and neutral port adapters |
+| `dsp/v1/` | LACAI v1 IDL, wire codec, generic dense operation, bounded service and QAIC skeleton |
+| `dsp/legacy/` | Frozen model-specific compatibility ABI and reviewed reference kernels |
+| `gstreamer/` | Plugin graph, DMA-BUF wrapping, submission, tensor extraction and FastCV preprocess |
+| `media/` | Enrollment image source, affine/color conversion and preview/encode renderer |
+| `qnn/` | Owned QNN loader, engine, graph adapter and backend factory |
+| `CMakeLists.txt` | Keeps vendor include/link requirements private to the adapter target |
 
 ## Limits and next work
 
@@ -68,3 +52,4 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 - [Submission lifecycle](../../../docs/architecture/qualcomm_submission_lifecycle.md), [dmabuf memory bridge](../../../docs/architecture/dmabuf_memory_bridge.md)
 - [Owned QNN engine ADR](../../../docs/adr/0003_owned_qnn_engine.md), [execution policy](../../../docs/architecture/qualcomm_execution_policy.md)
 - [QNN board validation](../../../docs/testing/qnn_board_validation.md)
+- [Repository source layout](../../../docs/development/source_layout.md)

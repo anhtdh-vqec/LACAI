@@ -128,7 +128,7 @@ threshold/accuracy calibration và pin QAIRT runtime. Không coi metadata là ng
 
 ## 6. M1 — Primary FD chạy đúng thật
 
-Vị trí chính: `src/app/vqec_vision_production_platform.cpp`,
+Vị trí chính: `src/app/platform/vqec_vision_production_platform.cpp`,
 `src/perception/detection/vqec_vision_anchor_distance_decoder.*`, package/schema.
 
 - [ ] Kiểm tra parser và validator thống nhất: required/unknown fields, signed→unsigned,

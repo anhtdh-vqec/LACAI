@@ -6,7 +6,7 @@ lifetime rule and the validation limits it enforces.
 
 **Status:** source-delivered — the reader source exists in the tree. **Layer:** perception.
 **Source:** `src/perception/attributes/vqec_vision_attribute_reader.cpp`,
-`tests/contract/vqec_vision_attribute_reader_test.cpp`.
+`tests/contract/perception/vqec_vision_attribute_reader_test.cpp`.
 
 ## Responsibility
 

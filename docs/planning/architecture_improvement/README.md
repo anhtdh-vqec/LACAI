@@ -181,11 +181,11 @@ Phát hiện hành vi bất thường (ẩu đả, xung đột)in.cpp:509–532`
 | A16 | P2 | Một số trang mô tả thiếu renderer trong khi source đã có; status helper và production dễ bị gộp | Mỗi capability ghi rõ source, wired, logic-tested, board-smoke, accepted; một đầu mối status và link bằng chứng |
 
 Các file source chính để sửa sau review:
-[service main](../../../src/app/vqec_vision_service_main.cpp),
-[production platform](../../../src/app/vqec_vision_production_platform.cpp),
-[composition factory](../../../src/app/vqec_vision_runtime_composition_factory.cpp),
-[renderer](../../../src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp),
-[cascade coordinator](../../../src/app/vqec_vision_cascade_coordinator.cpp),
+[service main](../../../src/app/service/vqec_vision_service_main.cpp),
+[production platform](../../../src/app/platform/vqec_vision_production_platform.cpp),
+[composition factory](../../../src/app/composition/vqec_vision_runtime_composition_factory.cpp),
+[renderer](../../../src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp),
+[cascade coordinator](../../../src/app/cascade/vqec_vision_cascade_coordinator.cpp),
 [CI](../../../.github/workflows/ci.yml).
 
 Lưu ý A01: preload usecase filtering đã tồn tại, không phải toàn bộ entitlement vắng mặt.
@@ -939,12 +939,12 @@ offload giảm ARM nhưng không đồng nghĩa mỗi stage nhanh hơn.
 
 ### 9.3. Những phần LACAI còn đưa việc về ARM
 
-- [FastCV processor](../../../src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp):
+- [FastCV processor](../../../src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.cpp):
   còn RGB intermediate và bước widen/copy phía CPU. Tên FastCV không chứng minh mọi bước
   nằm trên DSP hay tensor đã đi thẳng vào QNN memory handle.
-- [FastCV aligner](../../../src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp):
+- [FastCV aligner](../../../src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp):
   map frame, chuẩn bị RGB/planes, warp/interleave/copy theo ROI. Cần đo riêng khi số face tăng.
-- [QNN engine](../../../src/adapters/qualcomm/vqec_vision_qnn_engine.cpp)
+- [QNN engine](../../../src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp)
   đã có output rpcmem registration, nhưng đường execute vẫn nhận input byte vector dạng
   RAW client buffer, rồi `memcpy` output workspace/registered buffer sang `tensor_blob`.
   **Không đúng nếu kết luận LACAI chưa dùng memRegister ở đâu cả.**

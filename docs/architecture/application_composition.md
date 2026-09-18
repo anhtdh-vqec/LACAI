@@ -9,8 +9,8 @@ semantics.
 pending result correlation, delivery backpressure, early/repeated stop, drain completion
 and invalid-time preservation. Target execution and lead plus runtime-owner review remain
 required before live integration acceptance. **Layer:** app. **Source:**
-`src/app/vqec_vision_application_composition.cpp`,
-`tests/contract/vqec_vision_application_composition_test.cpp`.
+`src/app/composition/vqec_vision_application_composition.cpp`,
+`tests/contract/application/vqec_vision_application_composition_test.cpp`.
 
 ## Responsibility
 

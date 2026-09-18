@@ -3,7 +3,7 @@
 Application composition: binds admitted sessions, modules and owner factories to the neutral
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
-- **Status:** source-delivered — reference/fake paths run under QEMU; Qualcomm person flow is board-smoked through compatibility FW services
+- **Status:** board-smoke — eSDK tests and the 2026-09-18 `.98` native candidate/service run pass
 - **Layer:** app
 - **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
@@ -22,28 +22,14 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_camera_graph_pump.cpp` | Connects a started `raw_source_port` to a running `inference_graph_port`, one bounded step per call |
-| `vqec_vision_camera_session.cpp` | One-model validate/start/drain/release lifecycle with RPC reconciliation |
-| `vqec_vision_multi_model_pump.cpp` | Receive once, update the bounded preview mailbox, cadence-select, share owner and submit per binding |
-| `vqec_vision_multi_model_session.cpp` | Preflight all graphs, one FW acquisition, partial-start rollback, all-graph drain |
-| `vqec_vision_cascade_graph_session.cpp` | Starts, drains and unloads one secondary tensor graph outside full-frame cadence |
-| `vqec_vision_multi_source_supervisor.cpp` | Bind 1..16 borrowed sessions, round-robin progress, per-source fault isolation, latched stop |
-| `vqec_vision_perception_result_stage.cpp` | Correlate tensor PTS with retained source identity, decode + track transactionally |
-| `vqec_vision_multi_model_result_router.cpp` | Select a stage by immutable model slot, keep independent per-slot progress |
-| `vqec_vision_perception_stage_factory.cpp`, `vqec_vision_source_perception_factory.cpp` | Construct owned decoder/tracker/result bundles per source/model binding |
-| `vqec_vision_feature_fanout.cpp`, `vqec_vision_multi_model_feature_pipeline.cpp` | Stable-slot feature fan-out with per-feature isolation; route results to direct consumers |
-| `vqec_vision_application_composition.cpp` | Bind admitted sessions and drive the supervisor with a one-result slot |
-| `vqec_vision_runtime_composition_factory.cpp` | Build the admission snapshot and compose catalog-bound sessions/perception groups |
-| `vqec_vision_runtime_executor.cpp` | Round-robin driver that rebuilds pump reports and routes results through decode/track/feature |
-| `vqec_vision_service_main.cpp` | Required `vqec_ai_vision_applications` executable; runs harness and reference/fake/Qualcomm production selections |
-| `vqec_vision_service_options.cpp` | Cold-path `parsed_arguments` and CLI parsing for the executable |
-| `vqec_vision_cascade_coordinator.cpp` | Bounded per-frame cascade task admission over the frame-lease + alignment ports |
-| `vqec_vision_source_session_worker.cpp` | One bounded worker per source session for `--source-execution threaded` |
-| `vqec_vision_single_image_inference.cpp` | Synchronous single owned-image inference runner |
-| `vqec_vision_fake_platform.cpp`, `vqec_vision_reference_platform.cpp`, `vqec_vision_fixture_detector.cpp` | Device-free platform owners and fixture decoder |
-| `vqec_vision_production_platform.cpp` | Resolves dependency-activated catalog identities and composes FW RAW source, owned QNN graphs, primary perception, secondary cascade binding and optional Qualcomm encoded output |
-| `vqec_vision_face_enrollment_image_pipeline.cpp` | Advances one authorized JPEG enrollment through dedicated detector/embedding graphs and commits one template |
-| `vqec_vision_encoder_preparation.cpp` | Portable encoder admission + CPU pool handoff and combined backend/ledger drain |
+| `cascade/` | Secondary graph task admission, execution and single-image enrollment workflows |
+| `composition/` | Top-level owner factories and dependency assembly; no service CLI parsing |
+| `pipeline/` | Bounded frame/result/feature/media progress steps; no platform construction |
+| `platform/` | Fake, reference and production platform owner bundles |
+| `service/` | Executable entry point and cold-path CLI/configuration parsing |
+| `session/` | One-source and multi-model acquisition/graph lifecycle ownership |
+| `supervision/` | Multi-source fairness, worker ownership and runtime execution loop |
+| `CMakeLists.txt` | Declares the application targets and explicit private include boundaries |
 
 ## Limits and next work
 
@@ -89,6 +75,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - [Camera graph pump](../../docs/architecture/camera_graph_pump.md), [multi-model pump](../../docs/architecture/multi_model_pump.md)
 - [Multi-model session](../../docs/architecture/multi_model_session.md), [multi-source supervisor](../../docs/architecture/multi_source_supervisor.md)
 - [Runtime executor](../../docs/architecture/runtime_executor.md), [application composition](../../docs/architecture/application_composition.md)
+- [Repository source layout](../../docs/development/source_layout.md)
 
 Primary detector composition accepts explicit anchor_distance packages (see
 docs/architecture/cascade_inference.md) and legacy YOLO packages. A shared decoder requires

@@ -6,8 +6,8 @@ storage is provided separately by the preview pool.
 
 **Status:** source-delivered — source-only baseline; not a DMA allocator, renderer,
 encoder, reusable pool or board optimization. **Layer:** core. **Source:**
-`src/core/vqec_vision_preview_surface.cpp`,
-`tests/unit/vqec_vision_preview_surface_test.cpp`.
+`src/core/media/vqec_vision_preview_surface.cpp`,
+`tests/unit/core/vqec_vision_preview_surface_test.cpp`.
 
 ## Responsibility
 

@@ -6,7 +6,7 @@ current single-model `camera_session` or a multi-model fan-out session.
 
 **Status:** source-delivered — source implementation delivered; eSDK compilation, service
 composition and threaded execution are delivered, board qualification remains pending.
-**Layer:** app. **Source:** `src/app/vqec_vision_multi_source_supervisor.{hpp,cpp}`.
+**Layer:** app. **Source:** `src/app/supervision/vqec_vision_multi_source_supervisor.{hpp,cpp}`.
 
 ## Responsibility
 

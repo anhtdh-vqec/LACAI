@@ -7,7 +7,7 @@ HTP performance votes.
 
 **Status:** source-delivered — the synchronous owned-QNN path and the explicit HTP low-latency
 policy are in the tree; async/shared-memory execution and release qualification remain pending.
-**Layer:** adapters. **Source:** `src/adapters/qualcomm/vqec_vision_qnn_engine.{hpp,cpp}`,
+**Layer:** adapters. **Source:** `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.{hpp,cpp}`,
 `vqec_vision_qnn_inference_graph.{hpp,cpp}`, `vqec_vision_backend_factory.{hpp,cpp}`.
 
 ## Responsibility

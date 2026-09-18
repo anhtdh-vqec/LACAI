@@ -6,9 +6,9 @@ ownership transfer, the sink demand/write contract and its generation rules.
 
 **Status:** source-delivered — source-only; no FW ring SDK writer or GStreamer callback is
 connected. **Layer:** contracts. **Source:**
-`src/core/vqec_vision_encoded_output.cpp`,
+`src/core/media/vqec_vision_encoded_output.cpp`,
 `include/vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp`,
-`tests/unit/vqec_vision_encoded_output_test.cpp`.
+`tests/unit/core/vqec_vision_encoded_output_test.cpp`.
 
 ## Responsibility
 

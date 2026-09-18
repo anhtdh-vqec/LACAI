@@ -8,8 +8,8 @@ without introducing a new per-frame message or changing the Camera Service wire.
 review/sign-off pending. Tests cover policy rejection, bounds, equivalent FPS and the
 empty-graph binding guard, but do not prove DMA interoperability, color accuracy or board
 compatibility. **Layer:** core. **Source:**
-`src/core/vqec_vision_source_binding.cpp`,
-`tests/unit/vqec_vision_source_binding_test.cpp`.
+`src/core/inference/vqec_vision_source_binding.cpp`,
+`tests/unit/core/vqec_vision_source_binding_test.cpp`.
 
 ## Responsibility
 

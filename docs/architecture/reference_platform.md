@@ -6,8 +6,8 @@ owners exist, and neither is model, accuracy or hardware evidence.
 
 **Status:** source-delivered — `fake_platform` and `reference_platform` source and the
 `service_production_reference_smoke` wiring test exist. **Layer:** reference.
-**Source:** `src/app/vqec_vision_reference_platform.{hpp,cpp}`,
-`src/app/vqec_vision_fake_platform.{hpp,cpp}`.
+**Source:** `src/app/platform/vqec_vision_reference_platform.{hpp,cpp}`,
+`src/app/platform/vqec_vision_fake_platform.{hpp,cpp}`.
 
 ## Responsibility
 

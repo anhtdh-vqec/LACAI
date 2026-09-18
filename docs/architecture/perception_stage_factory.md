@@ -7,8 +7,8 @@ perception group without exposing vendor types.
 
 **Status:** source-delivered — activation-time perception chain and source group
 constructors exist. **Layer:** app.
-**Source:** `src/app/vqec_vision_perception_stage_factory.{hpp,cpp}`,
-`src/app/vqec_vision_source_perception_factory.{hpp,cpp}`,
+**Source:** `src/app/composition/vqec_vision_perception_stage_factory.{hpp,cpp}`,
+`src/app/composition/vqec_vision_source_perception_factory.{hpp,cpp}`,
 `src/perception/detection/vqec_vision_model_decoder_registry.{hpp,cpp}`.
 
 ## Responsibility

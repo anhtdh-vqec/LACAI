@@ -5,8 +5,8 @@ event. This document defines how it validates an event against its activation
 configuration, checks output policy and hands the event to a sink.
 
 **Status:** source-delivered — the dispatcher exists with contract tests. **Layer:**
-outputs. **Source:** `src/outputs/vqec_vision_feature_event_dispatch.cpp`,
-`tests/contract/vqec_vision_feature_event_dispatch_test.cpp`.
+outputs. **Source:** `src/outputs/events/vqec_vision_feature_event_dispatch.cpp`,
+`tests/contract/outputs/vqec_vision_feature_event_dispatch_test.cpp`.
 
 ## Responsibility
 

@@ -8,8 +8,8 @@ It closes that gap.
 **Status:** source-delivered — source-delivered orchestration and device-free development
 backends. This is a development harness, not a model, board or performance qualification.
 **Layer:** app.
-**Source:** `src/app/vqec_vision_runtime_executor.{hpp,cpp}`,
-`src/app/vqec_vision_service_main.cpp`, `src/app/vqec_vision_service_options.{hpp,cpp}`,
+**Source:** `src/app/supervision/vqec_vision_runtime_executor.{hpp,cpp}`,
+`src/app/service/vqec_vision_service_main.cpp`, `src/app/service/vqec_vision_service_options.{hpp,cpp}`,
 `src/adapters/reference/vqec_vision_reference_source.{hpp,cpp}`,
 `src/adapters/reference/vqec_vision_reference_graph.{hpp,cpp}`.
 
@@ -74,7 +74,7 @@ lifecycle only: no accuracy, zero-copy, DMA completion or performance claim foll
 
 ## Service harness
 
-`vqec_ai_vision_applications` (source `src/app/vqec_vision_service_main.cpp`) is the
+`vqec_ai_vision_applications` (source `src/app/service/vqec_vision_service_main.cpp`) is the
 composition root for the required external executable. It loads a validated deployment
 and model catalog (and optional feature catalog), builds platform owners for every
 deployment source/model slot, registers the platform's decoder/tracker/feature package

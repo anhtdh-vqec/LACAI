@@ -7,7 +7,7 @@ from the effective FW profile and then advances receive/submit/result one step a
 **Status:** source-delivered — composition wiring in `src/app` with synthetic target tests; no
 live FW execution yet. It is not a vendor dependency in neutral runtime/core and not an
 executable service. **Layer:** app. **Source:**
-`src/app/vqec_vision_camera_graph_pump.{hpp,cpp}`.
+`src/app/pipeline/vqec_vision_camera_graph_pump.{hpp,cpp}`.
 
 ## Responsibility
 

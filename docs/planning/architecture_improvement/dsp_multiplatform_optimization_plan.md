@@ -168,8 +168,10 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
    license/owner của C compatibility và nguồn binary skeleton đang deploy chưa được ký.
 6. Hexagon SDK 5.5.7.0 hiện có tại đường dẫn user cấp. Tool build v1 đã sinh QAIC, compile
    skeleton v68, kiểm tra export và tạo digest receipt; hai clean build cho artifact giống
-   byte. Host base vẫn thiếu `libtinfo.so.5`; evidence dùng package Ubuntu giải nén riêng.
-   BSP chưa ký build-host/signing/deploy receipt, và eSDK vẫn bắt buộc cho ARM C++/CMake/tests.
+   byte. `libtinfo.so.5` từ gói Ubuntu chính thức đã được cài bền vững trong user-local
+   host-compat prefix; tool tự phát hiện prefix này hoặc nhận override rõ ràng. Đây không phải
+   system package/BSP approval. BSP chưa ký build-host/signing/deploy receipt, và eSDK vẫn bắt
+   buộc cho ARM C++/CMake/tests.
 7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
    owned mỗi frame; loại copy này cần owner/view + completion contract, không được xóa bằng cast.
 8. Preview/source vẫn có memcpy đáng kể. Phải tách số CPU media path khỏi inference path trước
@@ -181,9 +183,9 @@ capacity và domain generation. Dense payload 120 byte có canonical encoder, fu
 validation, deterministic bounded NMS và cùng source đã build bằng eSDK/QEMU lẫn
 `hexagon-clang -mv68`; person/fire-smoke shape là data, không có branch model. Đây vẫn chỉ là
 D08/D10/D11 source evidence: chưa có registered-buffer transport, skeleton được ký hoặc
-runtime activation. Compiler Hexagon 8.7.06 chạy trong probe với gói Ubuntu `libtinfo5`
-giải nén riêng ở `/tmp`, không cài vào host; probe đó không phải build/signing receipt được
-BSP phê duyệt.
+runtime activation. Compiler Hexagon 8.7.06 và hai clean build chạy với `libtinfo5` trong
+user-local host-compat prefix bền vững. Kết quả này là source/reproducibility evidence, chưa
+phải build/signing receipt được BSP phê duyệt.
 
 ## 3. Kiến trúc đích
 
@@ -230,8 +232,8 @@ wire structs có length/version rõ ràng.
 
 ### 3.2 Source layout và provenance
 
-- Project-owned IDL, wire structs, host adapter và custom kernels nằm dưới project-owned
-  `src/adapters/qualcomm` hoặc một module DSP có naming/provenance rõ; không giả là vendor code.
+- Project-owned IDL, wire structs, host adapter và custom kernels nằm dưới
+  `src/adapters/qualcomm/dsp/{host,v1,legacy}` theo đúng ownership; không giả là vendor code.
 - Chỉ QAIC-generated artifacts có thể ở generated/vendor area. Mỗi file ghi input IDL hash,
   QAIC/Hexagon SDK version, command, owner, license và regeneration check.
 - Link QNN/FastCV/FastRPC runtime theo BSP package; không copy vendor library/private SDK.
@@ -270,7 +272,7 @@ golden, decode golden và quality report. AI APP có thể hoàn thiện adapter
 |---|---|---|---|
 | D00 | AI APP | Giữ các fix lease, fail-closed, exact tensor validation, quant sign và workspace | Full eSDK suite pass; negative tests shape/name/bytes/nonfinite/closed-DSP/FD reuse |
 | D01 | AI APP+BSP | IDL legacy đã chuyển vào `src/adapters/qualcomm` và QAIC sinh stub khi build; kiểm toán C compatibility và binary skeleton còn mở | Có IDL, generator/version/hash/license cho từng file; file chưa rõ provenance không vào release |
-| D02 | BSP+FW | SDK 5.5.7 và clean reproducible source build đã có; còn approve build host, signing/deploy procedure | Digest reproducible đã đạt ở source gate; cần BSP receipt và deploy `.98` không dùng binary copy tay |
+| D02 | BSP+FW | SDK 5.5.7, persistent user-local host compatibility và clean reproducible source build đã có; còn approve build host, signing/deploy procedure | Digest reproducible đã đạt ở source gate; cần BSP receipt và deploy `.98` không dùng binary copy tay |
 | D03 | AI Model | Bàn giao golden M0–M4 cho bốn model | Fixtures hợp lệ/lỗi; tolerances và quality owner ký |
 
 Theo xác nhận của AI APP lead, đường đang chạy là baseline hồi quy ban đầu. AI APP có thể
@@ -381,10 +383,10 @@ chứng minh, startup/soak chưa có acceptance evidence.
   memfd không thay board acceptance của registered input.
 - Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
   trước khi so số.
-- SDK 5.5.7.0 đã được cấp và QAIC sinh được legacy/v1 draft. P2/P3 cDSP binary vẫn phụ
-  thuộc runtime `libtinfo.so.5` được BSP phê duyệt cho host compiler, ABI/ownership review,
-  kernel source/build/signing và oracle semantics/quality của AI Model. Đây là dependency
-  có owner, không phải lý do để copy thêm code legacy.
+- SDK 5.5.7.0 đã được cấp, QAIC sinh được legacy/v1 draft và host compiler có user-local
+  `libtinfo.so.5` bền vững. P2/P3 cDSP binary vẫn phụ thuộc BSP phê duyệt build host,
+  ABI/ownership review, kernel source/build/signing và oracle semantics/quality của AI Model.
+  Đây là dependency có owner, không phải lý do để copy thêm code legacy.
 
 ## See also
 

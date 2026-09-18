@@ -5,8 +5,8 @@ graph. This document defines how that graph is started, drained and unloaded wit
 joining the full-frame cadence or RAW fan-out owned by `multi_model_session`.
 
 **Status:** logic-tested — compile/QEMU tests prove state-machine behavior only. **Layer:**
-app. **Source:** `src/app/vqec_vision_cascade_graph_session.cpp`,
-`tests/unit/vqec_vision_cascade_graph_session_test.cpp`.
+app. **Source:** `src/app/session/vqec_vision_cascade_graph_session.cpp`,
+`tests/unit/application/vqec_vision_cascade_graph_session_test.cpp`.
 
 ## Responsibility
 

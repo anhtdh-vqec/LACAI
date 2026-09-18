@@ -2,9 +2,8 @@
 
 Single-module unit tests for contracts, validation, bookkeeping and scheduler arithmetic.
 
-- **Status:** source-delivered. The exact registration is authoritative in `tests/CMakeLists.txt`;
-  the expanded eSDK configuration currently registers 123 CTest tests, and the cross-built
-  target binaries pass natively on QCS6490 via [the board runner](../../tools/vqec_vision_board_native_tests.sh).
+- **Status:** board-smoke — the complete eSDK configuration passes 134/134 CTest entries and
+  129/129 cross-built executables pass on QCS6490 `.98` on 2026-09-18.
 - **Runner:** eSDK AArch64 compiler and SDK QEMU (`ctest`); native target execution uses the
   board runner, which supplies the manifest and Zvec fixtures two device-free tests need.
 
@@ -15,6 +14,16 @@ Single-module unit tests for contracts, validation, bookkeeping and scheduler ar
   and queue budgets).
 - Cover contracts, submission window, cadence, supervisor fairness and reference helpers.
 
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `core/` | Pure value, validation, contract and bounded bookkeeping tests |
+| `application/` | Application pipeline, session, composition and supervisor tests |
+| `runtime/` | Loader, registry, activation, lifecycle and scheduling tests |
+| `perception/` | Decoder, tracker, recognition and embedding-policy tests |
+| `adapters/` | Adapter tests grouped again by camera/FW/Qualcomm/reference/storage owner |
+
 ## Limits and next work
 
 - Tests do not prove plugin negotiation, SDK compatibility, golden parity or DMA safety.
@@ -23,3 +32,4 @@ Single-module unit tests for contracts, validation, bookkeeping and scheduler ar
 ## See also
 
 - [eSDK emulation](../../docs/testing/esdk_emulation.md)
+- [Repository source layout](../../docs/development/source_layout.md)

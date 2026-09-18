@@ -7,8 +7,14 @@ set -u
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_roots=(src include tests tools)
 source_extensions='\.(c|cc|cpp|cxx|h|hh|hpp|hxx|ps1|py|sh)$'
-include_root_list=(include src src/app src/outputs src/core
-    src/adapters/camera src/adapters/qualcomm src/adapters/fw_output
+include_root_list=(include src
+    src/app/cascade src/app/composition src/app/pipeline src/app/platform
+    src/app/service src/app/session src/app/supervision
+    src/outputs/events src/outputs/media src/core/memory
+    src/adapters/camera src/adapters/qualcomm/dsp/host
+    src/adapters/qualcomm/dsp/legacy src/adapters/qualcomm/dsp/v1
+    src/adapters/qualcomm/gstreamer src/adapters/qualcomm/media
+    src/adapters/qualcomm/qnn src/adapters/fw_output
     src/adapters/reference src/adapters/fw_control src/adapters/storage
     src/runtime/model_registry src/runtime/feature_manager
     src/runtime/scheduler src/runtime/admission src/runtime/lifecycle

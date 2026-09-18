@@ -7,7 +7,7 @@ never stalls the control/source scheduler.
 **Status:** logic-tested — device-free source delivered and tested; the supervisor async
 mode drives sessions through it, and the service exposes it through
 `--source-execution threaded`. **Layer:** app.
-**Source:** `src/app/vqec_vision_source_session_worker.{hpp,cpp}`.
+**Source:** `src/app/session/vqec_vision_source_session_worker.{hpp,cpp}`.
 
 ## Responsibility
 
@@ -37,7 +37,7 @@ A session exception becomes an `io_error` completion; the worker never dies.
 
 ## Tests
 
-`tests/unit/vqec_vision_source_session_worker_test.cpp`: control thread returns while the
+`tests/unit/application/vqec_vision_source_session_worker_test.cpp`: control thread returns while the
 session is blocked (measured), rejects a second step in flight, `pending` before a
 completion, stop/drain ordering, and exception-to-completion. Neutral and expanded eSDK
 QEMU.
@@ -46,7 +46,7 @@ QEMU.
 
 - The supervisor async path (`mssup_activate` with `use_session_workers_`) drives sessions
   through these workers and is covered by
-  `tests/unit/vqec_vision_multi_source_supervisor_async_test.cpp`.
+  `tests/unit/application/vqec_vision_multi_source_supervisor_async_test.cpp`.
 - `application_composition` is used when the service runs `--source-execution threaded`;
   the default serialized mode calls session steps directly on the control thread.
 - Automatic restart/backoff and epoch replacement remain open.

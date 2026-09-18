@@ -7,7 +7,7 @@ original camera ACK alive until real readers release it.
 **Status:** source-delivered — the wrapper, completion observer and contract fixtures exist; a
 temporary file FD is not DMA-BUF/hardware-importable proof and hardware completion remains open.
 **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_dmabuf_bridge.{hpp,cpp}`.
+`src/adapters/qualcomm/gstreamer/vqec_vision_dmabuf_bridge.{hpp,cpp}`.
 
 ## Responsibility
 

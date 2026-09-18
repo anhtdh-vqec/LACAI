@@ -54,9 +54,9 @@ C++17 is the baseline. This document replaces the PascalCase convention discusse
   to distinguish them.
 
 Expected registry examples:
-`src/adapters/qualcomm/vqec_vision_qnn_engine.cpp` →
+`src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp` →
 `vqec_vision_ai_qcom_qneng_load_model`.
-`src/adapters/qualcomm/vqec_vision_fastcv_processor.cpp` →
+`src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.cpp` →
 `vqec_vision_ai_qcom_fcprc_resize_image`.
 `src/runtime/scheduler/vqec_vision_job_scheduler.cpp` →
 `vqec_vision_ai_sched_jobsc_submit_job`.

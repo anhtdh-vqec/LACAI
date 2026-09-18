@@ -54,6 +54,10 @@ for required in "$qaic" "$compiler" "$readelf_tool" "$objcopy_tool" \
         exit 1
     fi
 done
+if [[ -z "$host_compat_lib_dir" && -n "${HOME:-}" &&
+      -d "$HOME/.local/lib/hexagon-sdk-compat" ]]; then
+    host_compat_lib_dir="$HOME/.local/lib/hexagon-sdk-compat"
+fi
 if [[ -n "$host_compat_lib_dir" ]]; then
     if [[ ! -d "$host_compat_lib_dir" ]]; then
         echo "host compatibility library directory is missing: $host_compat_lib_dir" >&2
@@ -69,7 +73,8 @@ fi
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source_root=$(cd "$script_dir/.." && pwd)
 adapter_dir="$source_root/src/adapters/qualcomm"
-idl="$adapter_dir/vqec_vision_dsp_v1.idl"
+v1_dir="$adapter_dir/dsp/v1"
+idl="$v1_dir/vqec_vision_dsp_v1.idl"
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vqec-vision-dsp-v1.XXXXXX")
 trap 'rm -rf -- "$work_dir"' EXIT
 generated_dir="$work_dir/generated"
@@ -88,13 +93,13 @@ compile_flags=("-m$dsp_arch" -O2 -std=c11 -Wall -Wextra -Werror -fPIC
     -frandom-seed=vqec_vision_dsp_v1
     "-ffile-prefix-map=$work_dir=/vqec_dsp_build"
     "-fdebug-prefix-map=$work_dir=/vqec_dsp_build"
-    -I "$source_root/include" -I "$adapter_dir" -I "$generated_dir"
+    -I "$source_root/include" -I "$v1_dir" -I "$generated_dir"
     -I "$sdk_root/incs" -I "$sdk_root/incs/stddef" -I "$qurt_include")
 sources=("$generated_dir/vqec_vision_dsp_v1_skel.c"
-    "$adapter_dir/vqec_vision_dsp_v1_skeleton.c"
-    "$adapter_dir/vqec_vision_dsp_v1_service.c"
-    "$adapter_dir/vqec_vision_dsp_v1_dense.c"
-    "$adapter_dir/vqec_vision_dsp_v1_wire.c")
+    "$v1_dir/vqec_vision_dsp_v1_skeleton.c"
+    "$v1_dir/vqec_vision_dsp_v1_service.c"
+    "$v1_dir/vqec_vision_dsp_v1_dense.c"
+    "$v1_dir/vqec_vision_dsp_v1_wire.c")
 objects=("$work_dir/01_skel.o" "$work_dir/02_service_binding.o"
     "$work_dir/03_service.o" "$work_dir/04_dense.o" "$work_dir/05_wire.o")
 for index in "${!sources[@]}"; do
@@ -129,13 +134,13 @@ receipt="$work_dir/vqec_vision_dsp_v1_build_receipt.txt"
     echo "canonicalization=remove .note.llvm.cgmdinfo and .comment"
     for source in "$script_dir/vqec_vision_build_dsp_v1.sh" \
         "$source_root/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h" \
-        "$idl" "$adapter_dir/vqec_vision_dsp_v1_skeleton.c" \
-        "$adapter_dir/vqec_vision_dsp_v1_service.c" \
-        "$adapter_dir/vqec_vision_dsp_v1_service.h" \
-        "$adapter_dir/vqec_vision_dsp_v1_dense.c" \
-        "$adapter_dir/vqec_vision_dsp_v1_dense.h" \
-        "$adapter_dir/vqec_vision_dsp_v1_wire.c" \
-        "$adapter_dir/vqec_vision_dsp_v1_wire.h"; do
+        "$idl" "$v1_dir/vqec_vision_dsp_v1_skeleton.c" \
+        "$v1_dir/vqec_vision_dsp_v1_service.c" \
+        "$v1_dir/vqec_vision_dsp_v1_service.h" \
+        "$v1_dir/vqec_vision_dsp_v1_dense.c" \
+        "$v1_dir/vqec_vision_dsp_v1_dense.h" \
+        "$v1_dir/vqec_vision_dsp_v1_wire.c" \
+        "$v1_dir/vqec_vision_dsp_v1_wire.h"; do
         digest=$(sha256sum "$source" | cut -d' ' -f1)
         echo "sha256.project.$(basename "$source")=$digest"
     done

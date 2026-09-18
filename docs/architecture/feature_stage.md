@@ -6,7 +6,7 @@ epoch-quarantine rules.
 
 **Status:** source-delivered — the stage exists with contract tests. **Layer:** runtime.
 **Source:** `src/runtime/feature_manager/vqec_vision_feature_stage.cpp`,
-`tests/contract/vqec_vision_feature_stage_test.cpp`.
+`tests/contract/runtime/vqec_vision_feature_stage_test.cpp`.
 
 ## Responsibility
 

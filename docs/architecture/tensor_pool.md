@@ -6,8 +6,8 @@ release contract, its counters and its test coverage.
 
 **Status:** logic-tested — device-free source delivered and tested in the neutral and
 expanded eSDK QEMU configurations; not yet wired into the production inference path.
-**Layer:** core. **Source:** `src/core/vqec_vision_tensor_pool.{hpp,cpp}`,
-`tests/unit/vqec_vision_tensor_pool_test.cpp`.
+**Layer:** core. **Source:** `src/core/memory/vqec_vision_tensor_pool.{hpp,cpp}`,
+`tests/unit/core/vqec_vision_tensor_pool_test.cpp`.
 
 ## Responsibility
 
@@ -36,7 +36,7 @@ rejected at configure.
 
 ## Tests
 
-`tests/unit/vqec_vision_tensor_pool_test.cpp` covers configuration validation,
+`tests/unit/core/vqec_vision_tensor_pool_test.cpp` covers configuration validation,
 preallocation, exhaustion, double-release detection, read access, poison-on-release, a
 1000-cycle steady-state reuse loop and concurrent acquire/release with four threads. Runs in
 the neutral and expanded eSDK QEMU configurations.

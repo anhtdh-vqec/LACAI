@@ -8,7 +8,7 @@ the portable `feature_processor_port` algorithm boundary.
 **Layer:** contracts. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_feature_event.hpp`,
 `include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp`,
-`src/core/vqec_vision_feature_event.cpp`, `tests/unit/vqec_vision_feature_event_test.cpp`.
+`src/core/features/vqec_vision_feature_event.cpp`, `tests/unit/core/vqec_vision_feature_event_test.cpp`.
 
 ## Responsibility
 

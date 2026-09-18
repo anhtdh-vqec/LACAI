@@ -8,8 +8,8 @@ backend submission and drain helpers.
 **Status:** logic-tested — source-only portable app helper; not hardware submission, a
 renderer or a ring writer. The fake-backend and contract binaries pass on QCS6490, while
 concrete encoder conformance remains pending. **Layer:** app. **Source:**
-`src/app/vqec_vision_encoder_preparation.cpp`,
-`tests/contract/vqec_vision_encoder_preparation_test.cpp`.
+`src/app/pipeline/vqec_vision_encoder_preparation.cpp`,
+`tests/contract/application/vqec_vision_encoder_preparation_test.cpp`.
 
 ## Responsibility
 

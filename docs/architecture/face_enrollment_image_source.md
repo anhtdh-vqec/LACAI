@@ -8,8 +8,8 @@ live-camera behavior.
 **Status:** source-delivered — the Qualcomm adapter and contract test exist; on QCS6490
 `.98` the production `qtivtransform engine=fcv` selection produced a validated DMA-BUF.
 **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_face_enrollment_image_source.cpp`,
-`tests/contract/vqec_vision_face_enrollment_image_source_test.cpp`.
+`src/adapters/qualcomm/media/vqec_vision_face_enrollment_image_source.cpp`,
+`tests/contract/adapters/qualcomm/vqec_vision_face_enrollment_image_source_test.cpp`.
 
 ## Responsibility
 

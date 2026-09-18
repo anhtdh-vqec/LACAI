@@ -8,8 +8,8 @@ event handling helper.
 **Status:** logic-tested — source-only composition; an optional FW SDK sink adapter exists
 but is not runtime-wired. Synthetic contract cases are included in the executed QCS6490
 unit/contract smoke suite; they do not exercise a live FW ring. **Layer:** outputs.
-**Source:** `src/outputs/vqec_vision_encoded_dispatch.cpp`,
-`tests/contract/vqec_vision_encoded_dispatch_test.cpp`.
+**Source:** `src/outputs/media/vqec_vision_encoded_dispatch.cpp`,
+`tests/contract/outputs/vqec_vision_encoded_dispatch_test.cpp`.
 
 ## Responsibility
 

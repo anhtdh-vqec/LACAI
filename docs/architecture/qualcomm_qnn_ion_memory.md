@@ -6,7 +6,7 @@ prevent overclaiming zero-copy.
 
 **Status:** source-delivered — the rpcmem/ION registration, preallocated workspace and teardown
 order are implemented in the QNN engine; end-to-end zero-copy does not exist. **Layer:** adapters.
-**Source:** `src/adapters/qualcomm/vqec_vision_qnn_engine.{hpp,cpp}`.
+**Source:** `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.{hpp,cpp}`.
 
 ## Responsibility
 

@@ -47,7 +47,7 @@ Ngày 2026-09-16, toolchain eSDK `armv8-2a-qcom-linux`, cấu hình mở rộng
 
 ### CB-01: Chuẩn hoá một FW ring ABI (writer + reader contract)
 
-Hiện trạng: hai implementation không đồng bộ. `src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp:99-201`
+Hiện trạng: hai implementation không đồng bộ. `src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp:99-201`
 tự viết ring **v5/16/1 MiB/4096/1232** (khớp reader FW thật); `src/adapters/fw_output/vqec_vision_ring_sink.cpp:13`
 assert `camera_ai::kRingVersion == 4` và `preview_limits::g_max_encoded_payload_bytes = 2 MiB`
 (stale theo FW commit cũ 139d335). `fw_ring_sink.md:63` quy định "AI must not duplicate the
@@ -78,7 +78,7 @@ Hướng tối ưu đã chốt (áp cho FW):
 7. Version 5 là canonical; sửa `fw_ring_sink.md`, `preview_limits` và `ring_sink` cho khớp
    hoặc deprecate/loại bỏ `ring_sink`.
 
-Nguồn: `src/adapters/qualcomm/vqec_vision_qtiv_renderer.cpp`, `src/adapters/fw_output/`,
+Nguồn: `src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp`, `src/adapters/fw_output/`,
 `docs/architecture/fw_ring_sink.md`, `docs/architecture/preview_contract.md`,
 reader FW `/opt/lacai/tools/vqec_vision_ring_rtsp.py`.
 Gate: live `.98` 30 FPS, reader replacement/restart không clobber, payload không vượt 1 MiB,

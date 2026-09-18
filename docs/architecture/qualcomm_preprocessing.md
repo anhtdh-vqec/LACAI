@@ -6,7 +6,7 @@ measured board bottleneck progression.
 
 **Status:** board-smoke — source-delivered and measured on the QCS6490 `.48` integration target on
 2026-09-15. **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_fastcv_processor.{hpp,cpp}`,
+`src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.{hpp,cpp}`,
 `vqec_vision_qtiv_color.{hpp,cpp}`.
 
 This path is private to `src/adapters/qualcomm`; application composition continues to depend only

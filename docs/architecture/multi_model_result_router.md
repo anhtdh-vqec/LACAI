@@ -6,8 +6,8 @@ progress tracking and transactional publication.
 
 **Status:** logic-tested — portable source and contract test built with the eSDK; it runs
 under eSDK/QEMU and natively on QCS6490 `.98`. **Layer:** app. **Source:**
-`src/app/vqec_vision_multi_model_result_router.cpp`,
-`tests/contract/vqec_vision_multi_model_result_router_test.cpp`.
+`src/app/pipeline/vqec_vision_multi_model_result_router.cpp`,
+`tests/contract/application/vqec_vision_multi_model_result_router_test.cpp`.
 
 ## Responsibility
 

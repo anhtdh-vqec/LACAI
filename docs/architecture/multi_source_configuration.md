@@ -11,7 +11,7 @@ resolver delivered; composition-root construction is delivered; authenticated FW
 RPC and board qualification remain pending. **Layer:** runtime.
 **Source:** `src/runtime/lifecycle/vqec_vision_deployment_config.{hpp,cpp}`,
 `src/runtime/admission/vqec_vision_activation_snapshot.{hpp,cpp}`,
-`src/app/vqec_vision_multi_source_supervisor.{hpp,cpp}`,
+`src/app/supervision/vqec_vision_multi_source_supervisor.{hpp,cpp}`,
 `config/schemas/deployment.schema.json`.
 
 ## Responsibility

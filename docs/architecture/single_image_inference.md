@@ -6,8 +6,8 @@ sources. This document defines its graph-lifecycle preconditions and its synchro
 result handling.
 
 **Status:** source-delivered — the runner source exists in the tree. **Layer:** app.
-**Source:** `src/app/vqec_vision_single_image_inference.cpp`,
-`tests/unit/vqec_vision_single_image_inference_test.cpp`.
+**Source:** `src/app/cascade/vqec_vision_single_image_inference.cpp`,
+`tests/unit/application/vqec_vision_single_image_inference_test.cpp`.
 
 ## Responsibility
 

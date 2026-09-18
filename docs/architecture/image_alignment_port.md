@@ -11,9 +11,9 @@ required by ADR 0005 for secondary (cascade) face crops; golden crop/embedding p
 remains open. **Layer:** core. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`,
 `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
-`src/core/vqec_vision_image_alignment.cpp`,
-`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`,
-`tests/unit/vqec_vision_image_alignment_test.cpp`.
+`src/core/media/vqec_vision_image_alignment.cpp`,
+`src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp`,
+`tests/unit/core/vqec_vision_image_alignment_test.cpp`.
 
 ## Responsibility
 
@@ -103,7 +103,7 @@ board smoke evidence; golden crop/input parity, edge policy and DSP offload rema
 
 ## Owned FastCV adapter (delivered)
 
-`fastcv_aligner` (`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`) implements the port:
+`fastcv_aligner` (`src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp`) implements the port:
 it validates the request/template, computes the neutral similarity, maps it to FastCV, maps
 the borrowed source NV12 FD read-only (page-aligned `mmap`), converts the sampled even-aligned
 ROI using the explicit model color contract, warps each channel with FastCV, and returns an
@@ -198,7 +198,7 @@ residual rotation stays on FastCV until a board pipeline proves an affine-capabl
 
 ### `qtiv_color_converter` (offload adapter, board-verified for fcv)
 
-`src/adapters/qualcomm/vqec_vision_qtiv_color.cpp` runs a persistent `appsrc ->
+`src/adapters/qualcomm/media/vqec_vision_qtiv_color.cpp` runs a persistent `appsrc ->
 qtivtransform -> appsink` pipeline (fixed NV12/RGB caps) and converts one tightly packed
 NV12 image to RGB on the plugin backend. On `.48`, `engine=fcv` returned `bytes=12288` for a
 64x64 frame (rc 0). Two findings constrain integration and need an owner decision:

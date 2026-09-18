@@ -11,13 +11,13 @@ binding, secondary graph lifecycle and runtime invocation are source-delivered. 
 execution probes and live compatibility FD-to-embedding runs on the currently assigned
 `.98` target pass; golden parity, post-fix multi-face, released-FW and attendance validation
 remain open. **Layer:** app. **Source:**
-`src/app/vqec_vision_cascade_coordinator.cpp`,
-`src/app/vqec_vision_cascade_execution_worker.cpp`,
-`src/app/vqec_vision_cascade_graph_session.cpp`,
+`src/app/cascade/vqec_vision_cascade_coordinator.cpp`,
+`src/app/cascade/vqec_vision_cascade_execution_worker.cpp`,
+`src/app/session/vqec_vision_cascade_graph_session.cpp`,
 `src/perception/detection/vqec_vision_anchor_distance_decoder.cpp`,
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp`,
-`src/core/vqec_vision_image_alignment.cpp`,
-`src/adapters/qualcomm/vqec_vision_fastcv_aligner.cpp`.
+`src/core/media/vqec_vision_image_alignment.cpp`,
+`src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp`.
 
 ## Responsibility
 

@@ -6,7 +6,7 @@ armed retention are covered by their own documents.
 
 **Status:** board-smoke — synthetic lifecycle logic and the standard-GStreamer fixture pass in the
 117/117 QCS6490 target native result (2026-09-16); real model loading remains unqualified.
-**Layer:** adapters. **Source:** `src/adapters/qualcomm/vqec_vision_plugin_graph.{hpp,cpp}`,
+**Layer:** adapters. **Source:** `src/adapters/qualcomm/gstreamer/vqec_vision_plugin_graph.{hpp,cpp}`,
 `vqec_vision_inference_graph.{hpp,cpp}`.
 
 ## Responsibility

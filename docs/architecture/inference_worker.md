@@ -49,7 +49,7 @@ worker death.
 
 ## Tests
 
-`tests/unit/vqec_vision_inference_worker_test.cpp` covers configuration/identity rejection,
+`tests/unit/runtime/vqec_vision_inference_worker_test.cpp` covers configuration/identity rejection,
 success, queue-full rejection, latest_wins supersession, stale-epoch flagging, executor
 failure, slow-backend non-blocking submit plus two-source progress, and stop-cancel/drain.
 Runs in the neutral and expanded eSDK QEMU configurations.

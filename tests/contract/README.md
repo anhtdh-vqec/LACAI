@@ -3,8 +3,26 @@
 Cross-module contract-test source for the camera receiver/session/pump, the GStreamer
 bridge/graph/submission/tensor path, encoders, perception, feature and output boundaries.
 
-- **Status:** source-delivered — built and executed under the eSDK QEMU configurations
+- **Status:** board-smoke — the complete eSDK configuration passes 134/134 CTest entries and
+  129/129 cross-built executables pass on QCS6490 `.98` on 2026-09-18
 - **Depends on:** neutral ports and the reference backend
+
+## Responsibility
+
+- Exercise boundaries spanning two or more implementation owners.
+- Mirror the source owner hierarchy so a failing contract has one obvious review route.
+- Keep real BSP/FW acceptance separate from synthetic adapter fixtures.
+
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `core/` | Neutral processor, decoder and tracker port conformance |
+| `application/` | Session, pipeline, factory and runtime-executor composition contracts |
+| `runtime/` | Artifact and feature activation/stage boundary contracts |
+| `perception/` | Decoder/reader/tracker registry and stage integration contracts |
+| `outputs/` | Event/media authorization and delivery boundary contracts |
+| `adapters/` | Camera, FW output, Qualcomm and reference adapter contracts |
 
 ## Limits and next work
 
@@ -16,3 +34,4 @@ bridge/graph/submission/tensor path, encoders, perception, feature and output bo
 ## See also
 
 - [Review checklist](../../docs/development/review_checklist.md)
+- [Repository source layout](../../docs/development/source_layout.md)

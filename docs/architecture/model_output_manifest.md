@@ -8,7 +8,7 @@ handoff checker.
 **Status:** source-delivered — source candidate; not a verified model registry or complete
 Model Integration Package. **Layer:** runtime. **Source:**
 `src/runtime/model_registry/vqec_vision_output_manifest.cpp`,
-`tests/unit/vqec_vision_output_manifest_test.cpp`,
+`tests/unit/runtime/vqec_vision_output_manifest_test.cpp`,
 `tools/vqec_vision_manifest_check.cpp`.
 
 ## Responsibility

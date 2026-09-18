@@ -8,13 +8,13 @@ Parquet, Kafka, UDS evidence hoàn chỉnh hay DSP vertical trong plan này.
 - **Status:** board-smoke — eSDK 127/127, native .98 121/121 và clean-stop/preview smoke;
   đóng technical foundation, không thay thế owner review hoặc product acceptance.
 - **Layer:** docs
-- **Source:** `src/app/vqec_vision_service_main.cpp`,
-  `src/app/vqec_vision_production_platform.cpp`,
-  `src/app/vqec_vision_runtime_composition_factory.cpp`,
-  `src/outputs/vqec_vision_overlay_preparation.cpp`,
+- **Source:** `src/app/service/vqec_vision_service_main.cpp`,
+  `src/app/platform/vqec_vision_production_platform.cpp`,
+  `src/app/composition/vqec_vision_runtime_composition_factory.cpp`,
+  `src/outputs/media/vqec_vision_overlay_preparation.cpp`,
   `src/runtime/model_registry/vqec_vision_artifact_resolver.cpp`,
-  `src/app/vqec_vision_cascade_coordinator.cpp`,
-  `src/outputs/vqec_vision_event_delivery_seam.cpp`,
+  `src/app/cascade/vqec_vision_cascade_coordinator.cpp`,
+  `src/outputs/events/vqec_vision_event_delivery_seam.cpp`,
   `src/runtime/admission/vqec_vision_activation_snapshot.cpp`.
 
 ## Trách nhiệm

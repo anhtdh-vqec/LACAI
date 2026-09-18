@@ -12,9 +12,9 @@ catalog/activation contract binaries pass on QCS6490; no concrete usecase is exe
 those fixtures. Feature IDs are stable independently of model ID/package. Dependencies are
 shared only when compatible. **Layer:** runtime. **Source:**
 `src/runtime/feature_manager/vqec_vision_feature_catalog.cpp`,
-`src/core/vqec_vision_feature_catalog.cpp`,
-`tests/unit/vqec_vision_feature_catalog_test.cpp`,
-`tests/unit/vqec_vision_feature_catalog_loader_test.cpp`.
+`src/core/features/vqec_vision_feature_catalog.cpp`,
+`tests/unit/core/vqec_vision_feature_catalog_test.cpp`,
+`tests/unit/runtime/vqec_vision_feature_catalog_loader_test.cpp`.
 
 ## Responsibility
 

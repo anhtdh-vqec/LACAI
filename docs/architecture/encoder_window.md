@@ -6,8 +6,8 @@ validated and applied, and how input/result completion stays independent.
 
 **Status:** logic-tested — source-only, not connected to an encoder or ring. The
 duplicate/fault-retention unit binary passes on QCS6490. **Layer:** core. **Source:**
-`src/core/vqec_vision_encoder_window.cpp`,
-`tests/unit/vqec_vision_encoder_window_test.cpp`.
+`src/core/media/vqec_vision_encoder_window.cpp`,
+`tests/unit/core/vqec_vision_encoder_window_test.cpp`.
 
 ## Responsibility
 

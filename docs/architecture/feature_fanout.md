@@ -5,8 +5,8 @@ to a bounded set of already-activated feature stages. This document defines its 
 identity, fault isolation and report semantics.
 
 **Status:** source-delivered — the fan-out exists with contract tests. **Layer:** features.
-**Source:** `src/app/vqec_vision_feature_fanout.cpp`,
-`tests/contract/vqec_vision_feature_fanout_test.cpp`.
+**Source:** `src/app/pipeline/vqec_vision_feature_fanout.cpp`,
+`tests/contract/application/vqec_vision_feature_fanout_test.cpp`.
 
 ## Responsibility
 

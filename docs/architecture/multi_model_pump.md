@@ -6,8 +6,8 @@ rule, its bounded scheduling and its composition boundary.
 
 **Status:** source-delivered — portable source delivered; its fake-port binary passes
 natively on QCS6490. **Layer:** app. **Source:**
-`src/app/vqec_vision_multi_model_pump.cpp`,
-`tests/unit/vqec_vision_multi_model_pump_test.cpp`.
+`src/app/pipeline/vqec_vision_multi_model_pump.cpp`,
+`tests/unit/application/vqec_vision_multi_model_pump_test.cpp`.
 
 ## Responsibility
 

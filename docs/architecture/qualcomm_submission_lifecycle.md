@@ -7,7 +7,7 @@ supersedes earlier no-submit statements in incremental architecture notes.
 **Status:** board-smoke — synthetic lifecycle fixtures pass in the expanded eSDK build and the
 117/117 QCS6490 target native run (2026-09-16); lead/BSP review and hardware validation remain
 pending. **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_plugin_graph.{hpp,cpp}`.
+`src/adapters/qualcomm/gstreamer/vqec_vision_plugin_graph.{hpp,cpp}`.
 
 ## Responsibility
 

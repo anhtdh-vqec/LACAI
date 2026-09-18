@@ -6,7 +6,7 @@ switching on commercial feature names.
 
 **Status:** source-delivered — the registry exists with contract tests. **Layer:** runtime.
 **Source:** `src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp`,
-`tests/contract/vqec_vision_feature_processor_registry_test.cpp`.
+`tests/contract/runtime/vqec_vision_feature_processor_registry_test.cpp`.
 
 ## Responsibility
 

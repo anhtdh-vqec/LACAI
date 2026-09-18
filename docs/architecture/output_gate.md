@@ -7,8 +7,8 @@ compare-and-swap policy update and its time and revision anti-replay requirement
 **Status:** logic-tested — implementation candidate; security/lead and FW review pending.
 Tests cover CAS/revoke/expiry/rollback and human/traffic attribute isolation; the gate is
 built and tested; signed grants remain pending. **Layer:** core. **Source:**
-`src/core/vqec_vision_output_gate.cpp`,
-`tests/unit/vqec_vision_output_gate_test.cpp`.
+`src/core/output/vqec_vision_output_gate.cpp`,
+`tests/unit/core/vqec_vision_output_gate_test.cpp`.
 
 ## Responsibility
 

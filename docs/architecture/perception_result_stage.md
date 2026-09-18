@@ -6,7 +6,7 @@ one model decode stage and one tracker stage; no Qualcomm or FW transport type c
 this boundary.
 
 **Status:** source-delivered — portable composition stage source exists.
-**Layer:** app. **Source:** `src/app/vqec_vision_perception_result_stage.{hpp,cpp}`.
+**Layer:** app. **Source:** `src/app/pipeline/vqec_vision_perception_result_stage.{hpp,cpp}`.
 
 ## Responsibility
 

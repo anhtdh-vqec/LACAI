@@ -8,7 +8,7 @@ then binds each stage to the model slot named by its catalog dependency.
 
 **Status:** source-delivered — runtime composition binds feature stages to model slots and
 owns the fan-out/pipeline objects. **Layer:** app.
-**Source:** `src/app/vqec_vision_runtime_composition_factory.hpp`,
+**Source:** `src/app/composition/vqec_vision_runtime_composition_factory.hpp`,
 `src/runtime/feature_manager/vqec_vision_feature_activation_manager.{hpp,cpp}`,
 `src/runtime/feature_manager/vqec_vision_feature_stage.{hpp,cpp}`.
 

@@ -8,10 +8,11 @@ if(VQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE OR VQEC_VISION_AI_ENABLE_QUALCOMM)
     pkg_check_modules(frame_gstreamer REQUIRED IMPORTED_TARGET
         gstreamer-1.0 gstreamer-video-1.0 gstreamer-allocators-1.0 gstreamer-app-1.0)
     add_library(vqec_vision_ai_gst_frame_bridge STATIC
-        vqec_vision_dmabuf_bridge.cpp vqec_vision_tensor_output.cpp
-        vqec_vision_frame_submission.cpp)
+        gstreamer/vqec_vision_dmabuf_bridge.cpp
+        gstreamer/vqec_vision_tensor_output.cpp
+        gstreamer/vqec_vision_frame_submission.cpp)
     target_include_directories(vqec_vision_ai_gst_frame_bridge PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/gstreamer>)
     target_link_libraries(vqec_vision_ai_gst_frame_bridge
         PUBLIC vqec_vision_ai_core PkgConfig::frame_gstreamer)
     set_target_properties(vqec_vision_ai_gst_frame_bridge PROPERTIES CXX_EXTENSIONS OFF)
@@ -45,7 +46,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
 
     set(vqec_vision_ai_qaic_output "${CMAKE_CURRENT_BINARY_DIR}/fastrpc_legacy")
     set(vqec_vision_ai_legacy_idl
-        "${CMAKE_CURRENT_SOURCE_DIR}/vqec_vision_dsp_legacy.idl")
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/legacy/vqec_vision_dsp_legacy.idl")
     add_custom_command(
         OUTPUT "${vqec_vision_ai_qaic_output}/vqec_vision_dsp_legacy.h"
                "${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"
@@ -58,7 +59,8 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
             "${vqec_vision_ai_legacy_idl}"
         DEPENDS "${vqec_vision_ai_legacy_idl}"
         VERBATIM)
-    set(vqec_vision_ai_v1_idl "${CMAKE_CURRENT_SOURCE_DIR}/vqec_vision_dsp_v1.idl")
+    set(vqec_vision_ai_v1_idl
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1/vqec_vision_dsp_v1.idl")
     set(vqec_vision_ai_v1_qaic_output "${CMAKE_CURRENT_BINARY_DIR}/fastrpc_v1")
     add_custom_command(
         OUTPUT "${vqec_vision_ai_v1_qaic_output}/vqec_vision_dsp_v1.h"
@@ -78,29 +80,29 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
                 "${vqec_vision_ai_v1_qaic_output}/vqec_vision_dsp_v1_skel.c")
 
     add_library(vqec_vision_ai_fastrpc_c STATIC
-        vqec_vision_dsp_legacy_post_common.c
-        vqec_vision_dsp_legacy_post_person.c
-        vqec_vision_dsp_legacy_post_face.c
-        vqec_vision_dsp_legacy_pre.c
+        dsp/legacy/vqec_vision_dsp_legacy_post_common.c
+        dsp/legacy/vqec_vision_dsp_legacy_post_person.c
+        dsp/legacy/vqec_vision_dsp_legacy_post_face.c
+        dsp/legacy/vqec_vision_dsp_legacy_pre.c
         "${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c")
     add_library(vqec_vision_ai_dsp_v1_wire STATIC
-        vqec_vision_dsp_v1_wire.c)
+        dsp/v1/vqec_vision_dsp_v1_wire.c)
     target_include_directories(vqec_vision_ai_dsp_v1_wire PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/include")
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     add_library(vqec_vision_ai_dsp_v1_dense STATIC
-        vqec_vision_dsp_v1_dense.c)
+        dsp/v1/vqec_vision_dsp_v1_dense.c)
     target_include_directories(vqec_vision_ai_dsp_v1_dense PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/include")
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     target_link_libraries(vqec_vision_ai_dsp_v1_dense
         PUBLIC vqec_vision_ai_dsp_v1_wire PRIVATE m)
     add_library(vqec_vision_ai_dsp_v1_service STATIC
-        vqec_vision_dsp_v1_service.c)
+        dsp/v1/vqec_vision_dsp_v1_service.c)
     target_include_directories(vqec_vision_ai_dsp_v1_service PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/include")
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     target_link_libraries(vqec_vision_ai_dsp_v1_service
         PUBLIC vqec_vision_ai_dsp_v1_dense)
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}" "${vqec_vision_ai_qaic_output}")
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/legacy" "${vqec_vision_ai_qaic_output}")
     set_source_files_properties("${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"
         PROPERTIES COMPILE_OPTIONS "-w")
     if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
@@ -108,19 +110,22 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     endif()
 
     add_library(vqec_vision_ai_qualcomm STATIC
-        vqec_vision_fastcv_processor.cpp
-        vqec_vision_qtiv_color.cpp
-        vqec_vision_plugin_graph.cpp
-        vqec_vision_inference_graph.cpp
-        vqec_vision_face_enrollment_image_source.cpp
-        vqec_vision_dsp_session.cpp
-        vqec_vision_rpcmem_pool.cpp
-        vqec_vision_dsp_decoder.cpp
-        vqec_vision_dsp_buffer_cache.cpp
-        vqec_vision_dsp_preprocessor.cpp)
+        gstreamer/vqec_vision_fastcv_processor.cpp
+        media/vqec_vision_qtiv_color.cpp
+        gstreamer/vqec_vision_plugin_graph.cpp
+        gstreamer/vqec_vision_inference_graph.cpp
+        media/vqec_vision_face_enrollment_image_source.cpp
+        dsp/host/vqec_vision_dsp_session.cpp
+        dsp/host/vqec_vision_rpcmem_pool.cpp
+        dsp/host/vqec_vision_dsp_decoder.cpp
+        dsp/host/vqec_vision_dsp_buffer_cache.cpp
+        dsp/host/vqec_vision_dsp_preprocessor.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/gstreamer>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/media>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/host>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/legacy>
         "${vqec_vision_ai_qaic_output}")
     target_link_libraries(vqec_vision_ai_qualcomm
         PUBLIC vqec_vision_ai_core vqec_vision_ai_fastrpc_c
@@ -151,12 +156,12 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
             "${VQEC_VISION_AI_QAIRT_ROOT}")
     endif()
     add_library(vqec_vision_ai_qnn_engine STATIC
-        vqec_vision_sdk_loader.cpp
-        vqec_vision_qnn_engine.cpp
-        vqec_vision_qnn_inference_graph.cpp
-        vqec_vision_backend_factory.cpp)
+        qnn/vqec_vision_sdk_loader.cpp
+        qnn/vqec_vision_qnn_engine.cpp
+        qnn/vqec_vision_qnn_inference_graph.cpp
+        qnn/vqec_vision_backend_factory.cpp)
     target_include_directories(vqec_vision_ai_qnn_engine PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/qnn>)
     target_include_directories(vqec_vision_ai_qnn_engine PRIVATE
         "${VQEC_VISION_AI_QAIRT_ROOT}/include/QNN")
     target_link_libraries(vqec_vision_ai_qnn_engine
@@ -201,9 +206,9 @@ if(VQEC_VISION_AI_ENABLE_FASTCV)
         "${VQEC_VISION_AI_FASTCV_LIBRARY}")
 
     add_library(vqec_vision_ai_fastcv_aligner STATIC
-        vqec_vision_fastcv_aligner.cpp)
+        media/vqec_vision_fastcv_aligner.cpp)
     target_include_directories(vqec_vision_ai_fastcv_aligner PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/media>)
     target_include_directories(vqec_vision_ai_fastcv_aligner PRIVATE
         "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
     target_link_libraries(vqec_vision_ai_fastcv_aligner
@@ -221,9 +226,12 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     pkg_check_modules(qtiv_renderer_gst REQUIRED IMPORTED_TARGET
         gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0
         gstreamer-qcom-oss-allocators-1.0 gstreamer-qcom-oss-video-1.0)
-    add_library(vqec_vision_ai_qtiv_renderer STATIC vqec_vision_qtiv_renderer.cpp)
+    add_library(vqec_vision_ai_qtiv_renderer STATIC
+        media/vqec_vision_qtiv_renderer.cpp)
     target_include_directories(vqec_vision_ai_qtiv_renderer PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/media>)
+    target_include_directories(vqec_vision_ai_qtiv_renderer PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/host>)
     target_link_libraries(vqec_vision_ai_qtiv_renderer
         PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::qtiv_renderer_gst)
     set_target_properties(vqec_vision_ai_qtiv_renderer PROPERTIES CXX_EXTENSIONS OFF)

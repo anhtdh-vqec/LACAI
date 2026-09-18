@@ -4,7 +4,9 @@ This is the dated board-evidence log for the QCS6490 target, covering the alloca
 build configuration and every recorded native/board run. Sections are historical records;
 newer source does not retroactively change an earlier run's numbers.
 
-**Status:** board-smoke — cross-built native suite **130/130** on `.98`, FastRPC cDSP preprocessing and postprocessing offload verified. **Layer:** reference.
+**Status:** board-smoke — latest layout candidate passes **129/129** native executables and
+the two-source service smoke on `.98`; earlier FastRPC cDSP evidence is retained below.
+**Layer:** reference.
 **Source:** `n/a`.
 
 The currently allocated development target is `192.168.138.98`. Boards `.99` and `.48` are
@@ -636,6 +638,32 @@ The same FastRPC candidate binary (SHA-256 prefix `9d78b5cd`) ran without
 The fixture still copies QMMF pixels into DMA-BUF. Released-FW allocator/import,
 cache/fence/completion, golden numerical parity, cold-start peak and sustained CPU/memory
 acceptance remain open. A matching ring cadence alone is not model-quality evidence.
+
+## 2026-09-18 repository-layout candidate on `.98`
+
+The ownership-layout refactor changed implementation and test source paths while preserving
+target names, executable names, symbols, contracts and wire versions. The candidate was built
+only with the approved eSDK. Host CTest passed 134/134 before staging.
+
+The isolated board candidate used `/opt/lacai/tests_layout_candidate` and
+`/opt/lacai/bin/vqec_ai_vision_applications.layout_candidate`; it did not replace the canonical
+service or test directory. The service binary SHA-256 was
+`53c8594e2a04fcf12381554cb4cb32ed79592680c739ba5853da38a9f48e7439`.
+
+- The standard native runner completed `PASS=129 FAIL=0` using the deployed model manifests,
+  a mode-0700 tmpfs Zvec root and a non-tmpfs negative-policy scratch path.
+- The harness service ran the standard smoke deployment/catalog/feature fixtures for 160
+  requested steps and exited zero. It routed both required sources with 42 accepted results,
+  zero denied/failed results and `first_error=0`.
+- The service reported 170 loop steps and routed latency of 20,660–22,967 microseconds
+  (21,521 microseconds average) for this synthetic harness. These values are functional smoke
+  evidence, not production performance targets.
+- The uploaded archive and extraction staging directory were removed after validation. The
+  isolated candidate binaries/configuration were retained for traceability.
+
+This run proves that the physical source/test reorganization did not change the cross-built
+logic/service behavior exercised by the suite. It does not qualify released-FW integration,
+DSP signing/deployment, model quality, CPU, memory, thermal or soak behavior.
 
 ## Limits and next work
 

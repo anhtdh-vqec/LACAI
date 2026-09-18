@@ -11,9 +11,9 @@ retained identity. Unit and contract tests cover retention, completion and depen
 Target hardware completion and live model parity remain separate acceptance gates.
 **Layer:** app.
 **Source:** `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
-`src/app/vqec_vision_cascade_coordinator.{hpp,cpp}`,
-`src/app/vqec_vision_multi_model_pump.{hpp,cpp}`,
-`src/app/vqec_vision_multi_model_session.{hpp,cpp}`.
+`src/app/cascade/vqec_vision_cascade_coordinator.{hpp,cpp}`,
+`src/app/pipeline/vqec_vision_multi_model_pump.{hpp,cpp}`,
+`src/app/session/vqec_vision_multi_model_session.{hpp,cpp}`.
 
 ## Responsibility
 
@@ -65,7 +65,7 @@ composition factory contract test.
 
 ## Delivered (slice 3b and runtime binding)
 
-`cascade_coordinator` (`src/app/vqec_vision_cascade_coordinator.cpp`)
+`cascade_coordinator` (`src/app/cascade/vqec_vision_cascade_coordinator.cpp`)
 plus the neutral `cascade_frame_lease_port`. For one decoded primary observation batch it
 admits at most `max_tasks_per_frame_` faces, acquires the exact retained frame per task,
 aligns each through `image_alignment_port`, completes every acquired ticket (including on

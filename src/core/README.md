@@ -3,7 +3,7 @@
 Pure, header-visible validation and bookkeeping shared by every adapter and application
 module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenCV types.
 
-- **Status:** source-delivered — unit/contract tests run under the eSDK QEMU configuration
+- **Status:** board-smoke — eSDK tests and the 2026-09-18 `.98` native candidate run pass
 - **Layer:** core
 - **Naming registry:** `core` (`dpval`, `infpl`, `subwn`, `srcbd`, `tnctr`, `inexe`, `otgat`, `ftevt`, `ftcat`, `otgen`, `encot`, `pvpol`, `encwn`, `pvsrf`, `pvctr`)
 - **Depends on:** `include/vqec/vision/ai/contracts/`
@@ -20,26 +20,14 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_deployment_config.cpp` | Checked global/per-source memory admission and transactional plan bind |
-| `vqec_vision_inference_plan.cpp` | Pure typed plan validation and checked packed NV12 byte count |
-| `vqec_vision_source_binding.cpp` | Explicit source geometry/color/memory-policy validation |
-| `vqec_vision_tensor_contract.cpp` | Ordered packed output name/shape/byte validation |
-| `vqec_vision_submission_window.cpp` | Fixed-capacity admission, PTS mapping, input/result completion, drain |
-| `vqec_vision_output_gate.cpp` | Revision-aware source/feature/attribute authorization and invalidation |
-| `vqec_vision_feature_event.cpp`, `vqec_vision_feature_catalog.cpp` | Neutral feature event and catalog validation |
-| `vqec_vision_output_generation.cpp` | Nonzero monotonic output binding identities across sink rebuilds |
-| `vqec_vision_encoded_output.cpp` | Immutable owned H264 output behind the neutral `encoded_sink` port |
-| `vqec_vision_preview_pool.cpp`, `vqec_vision_preview_surface.cpp` | Bounded CPU surfaces with per-acquisition lease ownership |
-| `vqec_vision_encoder_window.cpp`, `vqec_vision_encoder_contract.cpp` | Preview input admission and correlated encoder completion bookkeeping |
-| `vqec_vision_preview_contract.cpp` | Overlay metadata and borrowed H264 AU envelope validation |
-| `vqec_vision_inference_execution.cpp` | Inference capability/policy/domain/shared-buffer/model-update validation |
-| `vqec_vision_model_catalog.cpp` | Model catalog v1 validation (role/dependency, cadence, geometry, memory envelopes) |
-| `vqec_vision_model_package.cpp`, `vqec_vision_model_package_registry.cpp`, `vqec_vision_model_io_manifest.cpp` | Package resolution, registry binding and IO-manifest cross-checks |
-| `vqec_vision_usecase_activation.cpp` | Transactional effective-deployment composition from usecase desired plans |
-| `vqec_vision_preprocess_spec.cpp` | Preprocess contract validation |
-| `vqec_vision_image_alignment.cpp`, `vqec_vision_color.cpp` | Alignment contract and NV12/RGB color conversion validation |
-| `vqec_vision_observation.cpp`, `vqec_vision_embedding.cpp`, `vqec_vision_face_gallery.cpp` | Typed observation, embedding and gallery contract validation |
-| `vqec_vision_tensor_pool.cpp` | Bounded tensor slot pool ownership |
+| `configuration/` | Deployment and model-catalog validation; no runtime loading or I/O |
+| `features/` | Feature catalog, neutral event and effective-usecase validation |
+| `inference/` | Model/package/IO, preprocess, binding, execution and submission contracts |
+| `media/` | Color, image alignment, preview and encoder value/ownership contracts |
+| `memory/` | Bounded reusable memory-pool bookkeeping |
+| `output/` | Output authorization and monotonic generation identities |
+| `perception/` | Observation, embedding and face-gallery value validation |
+| `CMakeLists.txt` | Declares the core target from the ownership subtrees above |
 
 ## Limits and next work
 
@@ -47,9 +35,12 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 - `output_generation` and `output_gate` are unit-tested; wiring the generation allocator into a running ring supervisor remains pending.
 - Trusted grant verification and serialized output dispatch integration stay outside the pure evaluator.
 - No model-kit parser, signature verification or decoder is implied.
+- Public headers remain under `include/vqec/vision/ai/contracts/`; this source split does not
+  change the installed include ABI.
 
 ## See also
 
 - [Multi-source configuration](../../docs/architecture/multi_source_configuration.md)
 - [Submission window](../../docs/architecture/submission_window.md), [output generation](../../docs/architecture/output_generation.md)
 - [Preview pool](../../docs/architecture/preview_pool.md), [encoder window](../../docs/architecture/encoder_window.md)
+- [Repository source layout](../../docs/development/source_layout.md)

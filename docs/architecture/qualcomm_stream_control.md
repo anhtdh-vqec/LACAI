@@ -7,7 +7,7 @@ normative ownership contract lives in the submission lifecycle document.
 **Status:** board-smoke — synthetic standard-GStreamer lifecycle/ownership fixtures and graph guard
 tests pass in the 117/117 QCS6490 target native run (2026-09-16); the real plugin model path remains
 unverified. **Layer:** adapters. **Source:**
-`src/adapters/qualcomm/vqec_vision_plugin_graph.{hpp,cpp}`.
+`src/adapters/qualcomm/gstreamer/vqec_vision_plugin_graph.{hpp,cpp}`.
 
 ## Responsibility
 

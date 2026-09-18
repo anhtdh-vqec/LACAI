@@ -7,8 +7,8 @@ completion implementation.
 
 **Status:** logic-tested — the existing unit/contract binary passes in the QCS6490 board
 smoke suite; this is ledger logic evidence only. Encoder hardware wiring is still pending.
-**Layer:** core. **Source:** `src/core/vqec_vision_submission_window.cpp`,
-`tests/unit/vqec_vision_submission_window_test.cpp`.
+**Layer:** core. **Source:** `src/core/inference/vqec_vision_submission_window.cpp`,
+`tests/unit/core/vqec_vision_submission_window_test.cpp`.
 
 ## Responsibility
 

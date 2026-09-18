@@ -9,7 +9,7 @@ perception groups and multi-model sessions, then binds those sessions into one v
 **Status:** source-delivered — composition-root construction delivered, including
 source/model activation, perception groups and multi-model sessions.
 **Layer:** app.
-**Source:** `src/app/vqec_vision_runtime_composition_factory.{hpp,cpp}`.
+**Source:** `src/app/composition/vqec_vision_runtime_composition_factory.{hpp,cpp}`.
 
 ## Responsibility
 

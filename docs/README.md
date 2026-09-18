@@ -15,6 +15,7 @@ and [capability matrix](development/capability_matrix.md); this map only routes.
 | [Code convention](development/code_convention.md) | C++17 naming, layout, literal, ownership rules |
 | [Documentation style](development/documentation_style.md) | File naming, language, template, status vocabulary |
 | [Naming registry](development/naming_registry.md) | dir_id/file_id owners and function prefixes |
+| [Repository source layout](development/source_layout.md) | Physical ownership map and dependency direction |
 | [Review checklist](development/review_checklist.md) | Per-PR and per-boundary checks |
 
 ## Current status and priorities

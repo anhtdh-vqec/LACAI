@@ -7,9 +7,9 @@ the optional watermark constructor and the integration order for replacement sin
 **Status:** logic-tested — unit source covers monotonic issuance, burned IDs, type
 restrictions and exhaustion with an unchanged destination; it is compiled and unit-tested.
 Lead/lifecycle owner review and reconnect integration tests remain required.
-**Layer:** core. **Source:** `src/core/vqec_vision_output_generation.cpp`,
-`tests/unit/vqec_vision_output_generation_test.cpp`,
-`tests/contract/vqec_vision_encoded_dispatch_test.cpp`.
+**Layer:** core. **Source:** `src/core/output/vqec_vision_output_generation.cpp`,
+`tests/unit/core/vqec_vision_output_generation_test.cpp`,
+`tests/contract/outputs/vqec_vision_encoded_dispatch_test.cpp`.
 
 ## Responsibility
 

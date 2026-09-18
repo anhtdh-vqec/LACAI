@@ -12,8 +12,8 @@ source-delivered (A1/A3); the owned QNN engine is board-qualified for SCRFD/YOLO
 **Layer:** contracts. **Source:**
 `include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp`,
 `include/vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp`,
-`src/adapters/qualcomm/vqec_vision_inference_graph.cpp`,
-`src/adapters/qualcomm/vqec_vision_qnn_inference_graph.cpp`.
+`src/adapters/qualcomm/gstreamer/vqec_vision_inference_graph.cpp`,
+`src/adapters/qualcomm/qnn/vqec_vision_qnn_inference_graph.cpp`.
 
 ## Responsibility
 

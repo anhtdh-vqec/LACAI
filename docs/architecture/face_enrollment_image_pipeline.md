@@ -6,9 +6,9 @@ stages, the production graph composition and the path-authorization boundary.
 
 **Status:** source-delivered — the wrapper, authorizer and production graph composition
 exist with contract tests. **Layer:** app. **Source:**
-`src/app/vqec_vision_face_enrollment_image_pipeline.cpp`,
-`tests/unit/vqec_vision_face_enrollment_image_pipeline_test.cpp`,
-`tests/unit/vqec_vision_image_path_authorizer_test.cpp`.
+`src/app/cascade/vqec_vision_face_enrollment_image_pipeline.cpp`,
+`tests/unit/application/vqec_vision_face_enrollment_image_pipeline_test.cpp`,
+`tests/unit/adapters/fw_control/vqec_vision_image_path_authorizer_test.cpp`.
 
 ## Responsibility
 

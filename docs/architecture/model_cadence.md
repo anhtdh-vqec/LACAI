@@ -8,7 +8,7 @@ the rational phase arithmetic, the slot identity and the dispatch QoS policy.
 the portable multi-model pump and multi_model_session; target logic tests pass and live
 integration remains pending. **Layer:** runtime. **Source:**
 `src/runtime/scheduler/vqec_vision_model_cadence.cpp`,
-`tests/unit/vqec_vision_model_cadence_test.cpp`.
+`tests/unit/runtime/vqec_vision_model_cadence_test.cpp`.
 
 ## Responsibility
 

@@ -6,7 +6,7 @@ reconciled without an unbounded queue.
 
 **Status:** logic-tested — synthetic target ownership test passes; lead/platform review and live
 device-completion tests remain pending, and board qualification is pending. **Layer:** adapters.
-**Source:** `src/adapters/qualcomm/vqec_vision_frame_submission.{hpp,cpp}`.
+**Source:** `src/adapters/qualcomm/gstreamer/vqec_vision_frame_submission.{hpp,cpp}`.
 
 ## Responsibility
 
