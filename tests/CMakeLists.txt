@@ -1,6 +1,17 @@
 # Test targets. Moved out of the root CMake file; target names and test names are
 # unchanged. Evaluated only when BUILD_TESTING is enabled by the root file.
 
+# The test executables use the standard assert contract. Release configuration normally
+# defines NDEBUG globally, which would both remove the checks and make assert-only values
+# appear unused under -Werror. Keep assertions active for every test configuration while
+# leaving production targets unchanged.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR
+   CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:C>:-UNDEBUG>
+        $<$<COMPILE_LANGUAGE:CXX>:-UNDEBUG>)
+endif()
+
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_processor_registry_test
