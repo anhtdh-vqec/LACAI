@@ -24,6 +24,14 @@
       "artifact_ref": "edgeface_s_gamma_05_w8a16_ada_w8a16.so",
       "package_dir": "/opt/vqec/models/edgeface_s_gamma_05/package",
       "model_library": "/opt/vqec/models/edgeface_s_gamma_05/libedgeface_s_gamma_05_w8a16_ada_w8a16.so"
+    },
+    {
+      "model_id": "yolo11n_fire_smoke",
+      "model_version": "1.0",
+      "target_id": "qcs6490",
+      "artifact_ref": "libyolo11n_replaymix_w8a16.so",
+      "package_dir": "/opt/vqec/models/yolo11n_fire_smoke/package",
+      "model_library": "/opt/vqec/models/yolo11n_fire_smoke/libyolo11n_replaymix_w8a16.so"
     }
   ]
 }

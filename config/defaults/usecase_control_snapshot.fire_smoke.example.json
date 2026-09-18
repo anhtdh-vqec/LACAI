@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "control_revision": 1,
+  "entitlement_revision": 1,
+  "deployment_revision": 2,
+  "catalog": {
+    "schema_version": 1,
+    "revision": 1,
+    "catalog_id": "commercial_usecases_qcs6490_v1",
+    "model_catalog_ref": "models_person_face_qcs6490_v1",
+    "usecases": [
+      {
+        "usecase_id": "fire_smoke_detection",
+        "usecase_version": "1.0",
+        "root_model_ids": ["yolo11n_fire_smoke"],
+        "feature_ids": []
+      }
+    ]
+  },
+  "associations": [
+    {
+      "source_id": "camera_front",
+      "usecase_id": "fire_smoke_detection",
+      "desired": true,
+      "installed": true,
+      "entitled": true,
+      "supported": true,
+      "compatible": true,
+      "admitted": true
+    }
+  ]
+}

@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
-#include "vqec_vision_rpcmem_pool.hpp"
 
 namespace vqec::vision::ai {
 
@@ -21,8 +20,6 @@ constexpr std::uint32_t g_rgb_channels = 3;
 struct dsp_preprocessor::implementation {
     dsp_preprocessor_config config_;
     std::shared_ptr<dsp_buffer_cache> buffer_cache_;
-    rpcmem_pool rpcmem_pool_;
-    bool rpcmem_ready_{false};
 
     explicit implementation(dsp_preprocessor_config _config)
         : config_(std::move(_config)),
@@ -184,24 +181,7 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
             "cannot allocate dsp_preprocessor output tensor"};
     }
 
-    if (!implementation_->rpcmem_ready_ ||
-        implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_count() == 0U ||
-        implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_slot(0U).size_ < expected_bytes) {
-        implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_release();
-        const auto alloc_status = implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_allocate(
-            expected_bytes, 1U);
-        implementation_->rpcmem_ready_ = (alloc_status.code_ == status_code::ok);
-    }
-
-    std::uint16_t* tensor_ptr = nullptr;
-    if (implementation_->rpcmem_ready_ &&
-        implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_count() > 0U) {
-        tensor_ptr = reinterpret_cast<std::uint16_t*>(
-            implementation_->rpcmem_pool_.vqec_vision_ai_qcom_rpcm_slot(0U).data_);
-    } else {
-        tensor_ptr = reinterpret_cast<std::uint16_t*>(candidate.bytes_.data());
-    }
-
+    auto* tensor_ptr = reinterpret_cast<std::uint16_t*>(candidate.bytes_.data());
     const int tensor_len = static_cast<int>(tensor_elements);
     const int frame_len = static_cast<int>(_frame.descriptor_.allocation_size_bytes_);
 
@@ -218,10 +198,6 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
 
     if (prep_status.code_ != status_code::ok) {
         return prep_status;
-    }
-
-    if (tensor_ptr != reinterpret_cast<std::uint16_t*>(candidate.bytes_.data())) {
-        std::memcpy(candidate.bytes_.data(), tensor_ptr, expected_bytes);
     }
 
     if (can_reuse) {

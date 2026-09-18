@@ -141,6 +141,25 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
     const float* box_f32 = is_float32 ?
         reinterpret_cast<const float*>(box->bytes_.data()) : nullptr;
 
+    const bool is_uint16 = score->spec_.dtype_ == tensor_element_type::uint16 &&
+        box->spec_.dtype_ == tensor_element_type::uint16 &&
+        score->spec_.quantization_.is_quantized_ &&
+        box->spec_.quantization_.is_quantized_;
+    const auto* score_u16 = is_uint16 ?
+        reinterpret_cast<const std::uint16_t*>(score->bytes_.data()) : nullptr;
+    const auto* box_u16 = is_uint16 ?
+        reinterpret_cast<const std::uint16_t*>(box->bytes_.data()) : nullptr;
+    const float score_scale = is_uint16 ? score->spec_.quantization_.scale_ : 1.0F;
+    const float score_zero = is_uint16 ?
+        static_cast<float>(score->spec_.quantization_.zero_point_) : 0.0F;
+    const float box_scale = is_uint16 ? box->spec_.quantization_.scale_ : 1.0F;
+    const float box_zero = is_uint16 ?
+        static_cast<float>(box->spec_.quantization_.zero_point_) : 0.0F;
+    const std::uint32_t score_q_thr = is_uint16 && score_scale > 0.0F ?
+        static_cast<std::uint32_t>(std::clamp(
+            std::lround(config_.confidence_threshold_ / score_scale + score_zero),
+            0L, 65535L)) : 0U;
+
     auto& candidates = candidates_;
     candidates.clear();
     for (std::size_t anchor = 0; anchor < anchors; ++anchor) {
@@ -148,6 +167,12 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
             float confidence = 0.0F;
             if (is_float32) {
                 confidence = score_f32[class_index * anchors + anchor];
+            } else if (is_uint16) {
+                const auto qval = score_u16[class_index * anchors + anchor];
+                if (qval < score_q_thr) {
+                    continue;
+                }
+                confidence = (static_cast<float>(qval) - score_zero) * score_scale;
             } else {
                 if (vqec_vision_ai_detec_tnrd_read_scalar(
                         *score, class_index * anchors + anchor, confidence).code_ !=
@@ -167,6 +192,11 @@ status yolov8_decoder::vqec_vision_ai_cntr_mddec_decode(
                 centre_y = box_f32[1U * anchors + anchor];
                 width = box_f32[2U * anchors + anchor];
                 height = box_f32[3U * anchors + anchor];
+            } else if (is_uint16) {
+                centre_x = (static_cast<float>(box_u16[0U * anchors + anchor]) - box_zero) * box_scale;
+                centre_y = (static_cast<float>(box_u16[1U * anchors + anchor]) - box_zero) * box_scale;
+                width = (static_cast<float>(box_u16[2U * anchors + anchor]) - box_zero) * box_scale;
+                height = (static_cast<float>(box_u16[3U * anchors + anchor]) - box_zero) * box_scale;
             } else {
                 if (vqec_vision_ai_detec_tnrd_read_scalar(*box, 0U * anchors + anchor, centre_x).code_ !=
                         status_code::ok ||

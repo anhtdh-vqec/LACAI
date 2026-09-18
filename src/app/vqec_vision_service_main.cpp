@@ -2133,16 +2133,24 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     !preview_frame.owner_) {
                     continue;
                 }
-                static std::uint64_t s_last_preview_render_ns[deployment_limits::g_max_sources] = {0};
-                if (args.output_fps > 0 && source_slot < deployment_limits::g_max_sources) {
-                    const std::uint64_t min_render_interval_ns =
-                        g_nanoseconds_per_second / args.output_fps;
-                    if (s_last_preview_render_ns[source_slot] != 0 &&
-                        now_ns > s_last_preview_render_ns[source_slot] &&
-                        now_ns - s_last_preview_render_ns[source_slot] < min_render_interval_ns) {
+                static std::uint32_t s_preview_phase[deployment_limits::g_max_sources] = {0};
+                static bool s_preview_phase_init[deployment_limits::g_max_sources] = {false};
+                const std::uint32_t source_fps =
+                    (source_slot < deployment.sources_.size() &&
+                     deployment.sources_[source_slot].profile_.fps_numerator_ > 0) ?
+                        deployment.sources_[source_slot].profile_.fps_numerator_ : 30U;
+                if (args.output_fps > 0 && args.output_fps < source_fps &&
+                    source_slot < deployment_limits::g_max_sources) {
+                    if (!s_preview_phase_init[source_slot]) {
+                        s_preview_phase[source_slot] = source_fps;
+                        s_preview_phase_init[source_slot] = true;
+                    }
+                    s_preview_phase[source_slot] += static_cast<std::uint32_t>(args.output_fps);
+                    if (s_preview_phase[source_slot] >= source_fps) {
+                        s_preview_phase[source_slot] -= source_fps;
+                    } else {
                         continue;
                     }
-                    s_last_preview_render_ns[source_slot] = now_ns;
                 }
                 auto& overlay = latest_overlay_observations[source_slot];
                 if (overlay.frame_.source_epoch_ != 0 &&
@@ -2218,6 +2226,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             }
         }
         ++steps;
+        // Asynchronous cascade completions drain immediately without consuming a frame period.
+        if (report.has_cascade_) {
+            continue;
+        }
         // Pace the supervisor loop to wall time so camera frames, model cadence and the
         // AI-owned output stage progress at the source rate instead of spinning.
         const auto step_end_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();

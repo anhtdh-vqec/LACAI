@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "model_id": "yolo11n_fire_smoke",
+  "source_format": "nv12",
+  "color_matrix": "bt709",
+  "color_range": "limited",
+  "resize": "letterbox",
+  "interpolation": "bilinear",
+  "placement": "centre",
+  "pad_value": [
+    114.0,
+    114.0,
+    114.0
+  ],
+  "channel_order": "rgb",
+  "normalization": {
+    "formula": "offset_scale",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "scale": [
+      0.00392156862745098,
+      0.00392156862745098,
+      0.00392156862745098
+    ]
+  },
+  "coordinates": "tensor_pixels_xywh",
+  "notes": {
+    "color_matrix": "BT.709 limited for HD camera NV12 source",
+    "pad_value": "Ultralytics default gray 114",
+    "interpolation": "Bilinear letterbox",
+    "coordinates": "boxes_out is xywh in 320x320 letterbox tensor space"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "model_id": "yolo11n_fire_smoke",
+  "inputs": [
+    {
+      "name": "images",
+      "rank": 4,
+      "dims": [1, 320, 320, 3],
+      "layout": "nhwc",
+      "dtype": "uint16",
+      "quantization": { "scale": 1.5259021893143654e-05, "zero_point": 0 },
+      "source_document": "ONNX NCHW [1,3,320,320]; QNN reports physical NHWC"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "boxes_out",
+      "rank": 3,
+      "dims": [1, 4, 2100],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 0.013475208543241024, "zero_point": -2783 }
+    },
+    {
+      "name": "conf_out",
+      "rank": 3,
+      "dims": [1, 2, 2100],
+      "layout": "flat",
+      "dtype": "uint16",
+      "quantization": { "scale": 1.52587890625e-05, "zero_point": 0 }
+    }
+  ],
+  "notes": {
+    "anchors": 2100,
+    "derivation": "40*40 + 20*20 + 10*10",
+    "strides": [8, 16, 32],
+    "class_count": 2,
+    "dfl": "present in graph; boxes_out is already DFL-decoded",
+    "nms": "absent in graph; the decoder must threshold and NMS"
+  }
+}

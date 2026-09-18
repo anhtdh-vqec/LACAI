@@ -476,20 +476,38 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             }
             const auto labels = vqec_vision_ai_appl_pdplt_load_labels(
                 package, binding->package_dir_);
-            dsp_decoder_config dsp_config;
-            dsp_config.kind_ = dsp_decoder_kind::yolov8;
-            dsp_config.source_width_ = model_source->profile_.width_;
-            dsp_config.source_height_ = model_source->profile_.height_;
-            dsp_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
-                declared_input.dimensions_[2] : 0;
-            dsp_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
-                declared_input.dimensions_[1] : 0;
-            dsp_config.placement_ = model.placement_;
-            dsp_config.class_id_ = labels.empty() ? "person" : labels[0];
-            dsp_config.confidence_threshold_ = package.confidence_threshold_;
-            dsp_config.iou_threshold_ = package.iou_threshold_;
-            dsp_config.session_ = impl.dsp_session_;
-            owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
+            if (package.class_count_ == 1 && model.model_id_ == "yolov8n_person") {
+                dsp_decoder_config dsp_config;
+                dsp_config.kind_ = dsp_decoder_kind::yolov8;
+                dsp_config.source_width_ = model_source->profile_.width_;
+                dsp_config.source_height_ = model_source->profile_.height_;
+                dsp_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
+                    declared_input.dimensions_[2] : 0;
+                dsp_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
+                    declared_input.dimensions_[1] : 0;
+                dsp_config.placement_ = model.placement_;
+                dsp_config.class_id_ = labels.empty() ? "person" : labels[0];
+                dsp_config.confidence_threshold_ = package.confidence_threshold_;
+                dsp_config.iou_threshold_ = package.iou_threshold_;
+                dsp_config.session_ = impl.dsp_session_;
+                owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
+            } else {
+                yolov8_decoder_config y8_config;
+                y8_config.source_width_ = model_source->profile_.width_;
+                y8_config.source_height_ = model_source->profile_.height_;
+                y8_config.tensor_width_ = declared_input.dimensions_.size() == 4 ?
+                    declared_input.dimensions_[2] : 0;
+                y8_config.tensor_height_ = declared_input.dimensions_.size() == 4 ?
+                    declared_input.dimensions_[1] : 0;
+                y8_config.placement_ = model.placement_;
+                y8_config.box_tensor_ = package.box_tensor_.empty() ? "boxes_out" : package.box_tensor_;
+                y8_config.score_tensor_ = package.score_tensor_.empty() ? "conf_out" : package.score_tensor_;
+                y8_config.class_count_ = package.class_count_ > 0 ? package.class_count_ : labels.size();
+                y8_config.class_names_ = labels;
+                y8_config.confidence_threshold_ = package.confidence_threshold_;
+                y8_config.iou_threshold_ = package.iou_threshold_;
+                owner.decoder_ = std::make_unique<yolov8_decoder>(std::move(y8_config));
+            }
         }
         if (owner.decoder_ != nullptr) {
             const auto decoder_status =

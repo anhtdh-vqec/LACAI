@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "model_id": "yolo11n_fire_smoke",
+  "model_version": "1.0",
+  "target_id": "qcs6490",
+  "graph_name": "yolo11n_replaymix_w8a16",
+  "artifact_ref": "libyolo11n_replaymix_w8a16.so",
+  "artifact_sha256": "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+  "artifact_bytes": 3442520,
+  "io_manifest_ref": "io_manifest.json",
+  "role": "primary",
+  "preprocess_ref": "preprocess.json",
+  "decoder_contract": "yolo.v8.fire_smoke",
+  "preprocess_contract": "nv12_rgb_letterbox_fire_smoke_v1",
+  "decoder_ref": "decoder.json",
+  "labels_ref": "labels.txt",
+  "source": {
+    "model_name": "yolo11n_replaymix_w8a16",
+    "quantization": "W8A16",
+    "generator": "qairt-2.43",
+    "notes": "YOLO11n trained on ReplayMix dataset for smoke and fire detection."
+  }
+}

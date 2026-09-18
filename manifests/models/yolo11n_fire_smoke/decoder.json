@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "model_id": "yolo11n_fire_smoke",
+  "decoder_contract": "yolo.v8.fire_smoke",
+  "class_count": 2,
+  "labels_ref": "labels.txt",
+  "confidence_threshold": 0.25,
+  "iou_threshold": 0.45,
+  "strides": [8, 16, 32],
+  "grids": [
+    { "stride": 8, "width": 40, "height": 40 },
+    { "stride": 16, "width": 20, "height": 20 },
+    { "stride": 32, "width": 10, "height": 10 }
+  ],
+  "anchors": 2100,
+  "box_tensor": "boxes_out",
+  "score_tensor": "conf_out",
+  "box_layout": "channel_first",
+  "box_format": "xywh",
+  "box_space": "tensor_pixels",
+  "box_input_size": [320, 320],
+  "box_order": "centre_x,centre_y,width,height",
+  "score_semantics": "sigmoid_probability",
+  "nms": "external",
+  "notes": "boxes_out [1,4,2100] is channel-first. Values are xywh in 320x320 letterbox tensor space. Conf_out [1,2,2100] holds probabilities for smoke and fire."
+}

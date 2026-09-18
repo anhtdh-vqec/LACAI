@@ -237,6 +237,82 @@
           "target_id": "qcs6490"
         }
       ]
+    },
+    {
+      "model_id": "yolo11n_fire_smoke",
+      "model_version": "1.0",
+      "target_id": "qcs6490",
+      "artifact_ref": "libyolo11n_replaymix_w8a16.so",
+      "artifact_sha256": "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+      "output_manifest_ref": "yolo11n_fire_smoke_outputs_v1",
+      "decoder_contract": "yolo.v8.fire_smoke",
+      "preprocess_contract": "nv12_rgb_letterbox_fire_smoke_v1",
+      "graph_name": "yolo11n_replaymix_w8a16",
+      "preprocess": {
+        "source_format": "nv12",
+        "color_matrix": "bt709",
+        "color_range": "limited",
+        "resize": "letterbox",
+        "interpolation": "bilinear",
+        "placement": "centre",
+        "pad_value": [
+          114.0,
+          114.0,
+          114.0
+        ],
+        "channel_order": "rgb",
+        "normalization": {
+          "formula": "offset_scale",
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.00392156862745098,
+            0.00392156862745098,
+            0.00392156862745098
+          ]
+        },
+        "coordinates": "tensor_pixels_xywh"
+      },
+      "input": {
+        "width": 320,
+        "height": 320,
+        "dtype": "uint16",
+        "channel_order": "rgb",
+        "placement": "centre",
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "sigma": [
+          1,
+          1,
+          1
+        ]
+      },
+      "inference_cadence": {
+        "numerator": 10,
+        "denominator": 1
+      },
+      "source_constraints": {
+        "min_width": 320,
+        "min_height": 320,
+        "max_width": 4096,
+        "max_height": 2160,
+        "min_fps_numerator": 10,
+        "min_fps_denominator": 1
+      },
+      "resources": {
+        "resident_bytes": 16777216,
+        "max_tensor_bytes_per_source": 4194304,
+        "output_queue_buffers": 2,
+        "max_concurrent_sources": 16,
+        "can_share_context_across_sources": true
+      },
+      "role": "primary"
     }
   ]
 }
