@@ -127,9 +127,11 @@ const std::uint8_t* dsp_buffer_cache::vqec_vision_ai_qcom_dspbc_map(
 
     bool fastrpc_mapped = false;
 #if defined(VQEC_VISION_AI_HAVE_CDSP)
-    const int rc = ::fastrpc_mmap(CDSP_DOMAIN_ID, dup_fd, addr, 0, _size, FASTRPC_MAP_FD);
-    if (rc == 0) {
-        fastrpc_mapped = true;
+    if (implementation_->config_.enable_fastrpc_) {
+        const int rc = ::fastrpc_mmap(CDSP_DOMAIN_ID, dup_fd, addr, 0, _size, FASTRPC_MAP_FD);
+        if (rc == 0) {
+            fastrpc_mapped = true;
+        }
     }
 #endif
 

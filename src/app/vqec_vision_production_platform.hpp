@@ -64,6 +64,7 @@ struct production_platform_config {
     // single-source preview; a multi-source deployment is rejected until FW provides a
     // versioned per-source output registry.
     std::string output_ring_id_;
+    std::uint32_t output_fps_{0};
     std::uint32_t output_bitrate_bps_{0};
     std::uint32_t output_keyframe_interval_frames_{0};
     std::uint32_t output_box_color_rgba_{0};

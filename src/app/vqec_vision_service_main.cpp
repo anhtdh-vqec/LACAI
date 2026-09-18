@@ -106,6 +106,9 @@ constexpr std::uint64_t g_step_interval_ns =
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
 constexpr int g_reconcile_generation_exit_code = 4;
 constexpr int g_recovery_required_exit_code = 5;
+constexpr std::size_t g_max_active_track_labels = 256;
+constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
+constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
     g_stop_requested = 1;
@@ -1066,7 +1069,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             "[--steps <n>] [--require-sources <n>] "
             "[--mode harness|production] [--platform fake|reference|qualcomm] "
             "[--model-package-registry <json>] "
-            "[--output-ring-id <id> --output-bitrate <bps> "
+            "[--output-ring-id <id> [--output-fps <fps>] --output-bitrate <bps> "
             "--output-keyframe-interval <frames> "
             "--output-box-color-rgba <0xRRGGBBAA> "
             "--output-surface-count <count> "
@@ -1144,6 +1147,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         production_config.event_schema_version_ = args.event_schema_version;
         production_config.consumer_id_prefix_ = args.consumer_id_prefix;
         production_config.output_ring_id_ = args.output_ring_id;
+        production_config.output_fps_ = args.output_fps;
         production_config.output_bitrate_bps_ = args.output_bitrate_bps;
         production_config.output_keyframe_interval_frames_ =
             args.output_keyframe_interval_frames;
@@ -1618,6 +1622,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 deployment.sources_[source_slot].cascade_.tasks_per_frame_;
             coordinator_config.control_budget_ns_ =
                 cascade_coordinator_limits::g_default_control_budget_ns;
+            coordinator_config.track_refresh_interval_ns_ =
+                cascade_coordinator_limits::g_default_track_refresh_interval_ns;
             owner.worker_ = std::make_unique<cascade_execution_worker>();
             const auto worker_configured =
                 owner.worker_->vqec_vision_ai_appl_cxwrk_configure(coordinator_config);
@@ -1897,6 +1903,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     std::array<observation_batch, deployment_limits::g_max_sources>
         latest_overlay_observations;
     std::array<bool, deployment_limits::g_max_sources> cascade_error_reported{};
+    std::array<std::unordered_map<std::uint64_t, std::string>, deployment_limits::g_max_sources>
+        active_track_labels;
     bool reconcile_requested = false;
     bool generation_published = _control_manager == nullptr;
     while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
@@ -2026,6 +2034,14 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                                 if (labelled.code_ != status_code::ok) {
                                     std::fprintf(stderr, "FR label correlation failed (%d): %s\n",
                                         static_cast<int>(labelled.code_), labelled.message_.c_str());
+                                } else {
+                                    for (const auto& match : recognition_results) {
+                                        if (match.decision_ == recognition_decision::known &&
+                                            !match.subject_ref_.empty()) {
+                                            active_track_labels[taken.source_index_][match.track_id_] =
+                                                match.subject_ref_;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2035,6 +2051,20 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 if (use_production_platform &&
                     taken.source_index_ < deployment_limits::g_max_sources &&
                     taken.model_slot_ < deployment_limits::g_max_models_per_source) {
+                    const auto& cascade_owner = cascade_owners[taken.source_index_];
+                    if (taken.model_slot_ == cascade_owner.root_model_slot_) {
+                        for (auto& obs : tracked[taken.model_slot_].observations_) {
+                            if (obs.box_.label_.empty()) {
+                                const auto it = active_track_labels[taken.source_index_].find(obs.track_id_);
+                                if (it != active_track_labels[taken.source_index_].end()) {
+                                    obs.box_.label_ = it->second;
+                                }
+                            }
+                        }
+                        if (active_track_labels[taken.source_index_].size() > g_max_active_track_labels) {
+                            active_track_labels[taken.source_index_].clear();
+                        }
+                    }
                     latest_model_observations[taken.source_index_][taken.model_slot_] =
                         std::move(tracked[taken.model_slot_]);
                     vqec_vision_ai_appl_svcmn_merge_observations(
@@ -2044,15 +2074,19 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                         now_ns, service_harness::g_overlay_max_age_ns,
                         latest_overlay_observations[taken.source_index_]);
                 }
-                std::printf("routed source=%u model=%u tracked=%zu accepted=%u "
-                    "cascade_accepted=%u embedded=%u cascade_failed=%u\n",
-                    static_cast<unsigned>(taken.source_index_),
-                    static_cast<unsigned>(taken.model_slot_),
-                    tracked_count,
-                    static_cast<unsigned>(dispatch_report.accepted_),
-                    static_cast<unsigned>(taken.cascade_.accepted_),
-                    static_cast<unsigned>(taken.cascade_.embedded_),
-                    static_cast<unsigned>(taken.cascade_.failed_));
+                static std::uint64_t s_last_routed_log_ns = 0;
+                if (now_ns - s_last_routed_log_ns >= g_routed_log_interval_ns) {
+                    std::printf("routed source=%u model=%u tracked=%zu accepted=%u "
+                        "cascade_accepted=%u embedded=%u cascade_failed=%u\n",
+                        static_cast<unsigned>(taken.source_index_),
+                        static_cast<unsigned>(taken.model_slot_),
+                        tracked_count,
+                        static_cast<unsigned>(dispatch_report.accepted_),
+                        static_cast<unsigned>(taken.cascade_.accepted_),
+                        static_cast<unsigned>(taken.cascade_.embedded_),
+                        static_cast<unsigned>(taken.cascade_.failed_));
+                    s_last_routed_log_ns = now_ns;
+                }
                 if (taken.cascade_.failed_ != 0 &&
                     taken.source_index_ < cascade_owners.size() &&
                     !cascade_error_reported[taken.source_index_] &&
@@ -2098,6 +2132,17 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                             .code_ != status_code::ok ||
                     !preview_frame.owner_) {
                     continue;
+                }
+                static std::uint64_t s_last_preview_render_ns[deployment_limits::g_max_sources] = {0};
+                if (args.output_fps > 0 && source_slot < deployment_limits::g_max_sources) {
+                    const std::uint64_t min_render_interval_ns =
+                        g_nanoseconds_per_second / args.output_fps;
+                    if (s_last_preview_render_ns[source_slot] != 0 &&
+                        now_ns > s_last_preview_render_ns[source_slot] &&
+                        now_ns - s_last_preview_render_ns[source_slot] < min_render_interval_ns) {
+                        continue;
+                    }
+                    s_last_preview_render_ns[source_slot] = now_ns;
                 }
                 auto& overlay = latest_overlay_observations[source_slot];
                 if (overlay.frame_.source_epoch_ != 0 &&

@@ -11,6 +11,8 @@
 
 namespace vqec::vision::ai {
 
+class dsp_buffer_cache;
+
 struct fastcv_aligner_config {
     // When true the destination is packed RGB/BGR 8-bit; otherwise a single-channel luma
     // patch. RGB requires an explicit matrix, range and channel order.
@@ -18,6 +20,7 @@ struct fastcv_aligner_config {
     color_matrix matrix_{color_matrix::unspecified};
     color_range range_{color_range::unspecified};
     channel_order order_{channel_order::rgb};
+    std::shared_ptr<dsp_buffer_cache> buffer_cache_{nullptr};
 };
 
 // Owned FastCV landmark-alignment adapter behind image_alignment_port. It computes the

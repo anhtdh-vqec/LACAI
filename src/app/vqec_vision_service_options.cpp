@@ -129,6 +129,9 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
                 std::strtoul(_argv[++index], nullptr, 10));
         } else if (option == "--output-ring-id" && has_value) {
             _args.output_ring_id = _argv[++index];
+        } else if (option == "--output-fps" && has_value) {
+            _args.output_fps = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
         } else if (option == "--output-bitrate" && has_value) {
             _args.output_bitrate_bps = static_cast<std::uint32_t>(
                 std::strtoul(_argv[++index], nullptr, 10));

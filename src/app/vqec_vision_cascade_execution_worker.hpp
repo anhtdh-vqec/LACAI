@@ -7,6 +7,7 @@
 #include <deque>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "vqec_vision_cascade_coordinator.hpp"
@@ -89,6 +90,7 @@ private:
     tensor_spec embedding_input_spec_{};
     bool has_embedding_input_spec_{false};
     std::uint64_t armed_source_epoch_{0};
+    std::unordered_map<std::uint64_t, std::uint64_t> last_embedded_track_ns_;
 
     std::uint64_t stop_ns_{0};
     bool is_configured_{false};

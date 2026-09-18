@@ -19,6 +19,8 @@ namespace vqec::vision::ai {
 // v4l2h264enc and writes each access unit into the released FW shared-memory ring that the
 // FW RTSP service reads. It is a private adapter: no GStreamer or vendor type crosses this
 // boundary. Pixel repacking currently uses the CPU, while box drawing remains on qtivoverlay.
+class dsp_buffer_cache;
+
 struct qtiv_renderer_config {
     std::string ring_id_;
     std::uint32_t width_{0};
@@ -33,6 +35,7 @@ struct qtiv_renderer_config {
     // guesses camera colorimetry or scan mode.
     std::string colorimetry_;
     std::string interlace_mode_;
+    std::shared_ptr<dsp_buffer_cache> buffer_cache_;
 };
 
 class qtiv_renderer final {

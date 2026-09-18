@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "vqec/vision/ai/contracts/vqec_vision_embedding.hpp"
@@ -37,10 +38,16 @@ struct cascade_coordinator_config {
     // Optional steady-nanosecond budget per frame batch to preserve control response.
     // When nonzero, remaining unstarted tasks in the batch are skipped once elapsed >= budget.
     std::uint64_t control_budget_ns_{0};
+    // Optional minimum interval between embeddings of the same track_id.
+    // When nonzero, a tracked face already embedded within this interval is skipped.
+    std::uint64_t track_refresh_interval_ns_{0};
 };
 
 namespace cascade_coordinator_limits {
 inline constexpr std::uint64_t g_default_control_budget_ns = 25000000ULL;  // 25 ms
+inline constexpr std::uint64_t g_default_track_refresh_interval_ns = 3000000000ULL;  // 3 s
+inline constexpr std::size_t g_max_tracked_faces = 256;
+inline constexpr std::uint64_t g_tracked_face_retention_ns = 10000000000ULL;  // 10 s
 }  // namespace cascade_coordinator_limits
 
 struct cascade_coordinator_report {
@@ -116,6 +123,8 @@ private:
     std::uint64_t armed_source_epoch_{0};
     std::size_t max_tasks_per_frame_{0};
     std::uint64_t control_budget_ns_{0};
+    std::uint64_t track_refresh_interval_ns_{0};
+    std::unordered_map<std::uint64_t, std::uint64_t> last_embedded_track_ns_;
     std::uint64_t stop_ns_{0};
     bool is_stopping_{false};
     cascade_coordinator_metrics metrics_{};

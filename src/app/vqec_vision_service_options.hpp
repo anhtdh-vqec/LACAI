@@ -60,6 +60,7 @@ struct parsed_arguments {
     std::string event_schema_version;
     std::string consumer_id_prefix;
     std::string output_ring_id;
+    std::uint32_t output_fps{0};
     std::uint32_t output_bitrate_bps{0};
     std::uint32_t output_keyframe_interval_frames{0};
     std::uint32_t output_box_color_rgba{0};

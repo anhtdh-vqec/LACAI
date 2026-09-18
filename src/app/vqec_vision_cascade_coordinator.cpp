@@ -168,6 +168,8 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_configure(
     job_timeout_ns_ = _config.job_timeout_ns_;
     max_tasks_per_frame_ = _config.max_tasks_per_frame_;
     control_budget_ns_ = _config.control_budget_ns_;
+    track_refresh_interval_ns_ = _config.track_refresh_interval_ns_;
+    last_embedded_track_ns_.clear();
     is_stopping_ = false;
     stop_ns_ = 0;
     metrics_ = {};
@@ -317,10 +319,18 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                 std::chrono::steady_clock::now() - batch_start_tp).count());
         const bool budget_exhausted = (control_budget_ns_ != 0) &&
             (accepted > 0) && (elapsed_ns >= control_budget_ns_);
+        const bool recently_embedded = (observation.track_id_ != 0 &&
+            track_refresh_interval_ns_ != 0) && [this, &observation, _steady_now_ns]() {
+                const auto it = last_embedded_track_ns_.find(observation.track_id_);
+                return it != last_embedded_track_ns_.end() &&
+                    _steady_now_ns >= it->second &&
+                    (_steady_now_ns - it->second) < track_refresh_interval_ns_;
+            }();
         if (accepted >= max_tasks_per_frame_ ||
             observation.landmarks_.points_.empty() ||
             observation.landmarks_.schema_id_.empty() ||
-            budget_exhausted) {
+            budget_exhausted ||
+            recently_embedded) {
             ++_report.skipped_;
             ++metrics_.tasks_skipped_;
             continue;
@@ -423,6 +433,21 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_with_lease(
                         embedding_decoder_->vqec_vision_ai_ports_embdec_decode(
                             tensor, key, observation.track_id_, embedding) : polled;
                     if (decoded.code_ == status_code::ok) {
+                        if (observation.track_id_ != 0 && track_refresh_interval_ns_ != 0) {
+                            last_embedded_track_ns_[observation.track_id_] = _steady_now_ns;
+                            if (last_embedded_track_ns_.size() >
+                                cascade_coordinator_limits::g_max_tracked_faces) {
+                                for (auto map_it = last_embedded_track_ns_.begin();
+                                     map_it != last_embedded_track_ns_.end();) {
+                                    if (_steady_now_ns > map_it->second +
+                                        cascade_coordinator_limits::g_tracked_face_retention_ns) {
+                                        map_it = last_embedded_track_ns_.erase(map_it);
+                                    } else {
+                                        ++map_it;
+                                    }
+                                }
+                            }
+                        }
                         _embeddings.push_back(std::move(embedding));
                         ++_report.embedded_;
                         ++metrics_.tasks_embedded_;

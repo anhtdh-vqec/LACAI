@@ -107,9 +107,17 @@ class CameraPipeline:
             raise RuntimeError("camera pipeline failed to start")
 
     def stop(self):
+        if hasattr(self, "_pool"):
+            for pfd in self._pool:
+                try:
+                    os.close(pfd)
+                except OSError:
+                    pass
+            self._pool.clear()
         if self.pipeline is not None:
             self.pipeline.set_state(Gst.State.NULL)
             self.pipeline = None
+
     def next_fd(self, timeout_ns):
         sample = self.appsink.emit("try-pull-sample", timeout_ns)
         if sample is None:
@@ -137,9 +145,19 @@ class CameraPipeline:
                     info.data[start:start + self.args.width]
                 destination += self.args.width
         buf.unmap(info)
-        frame_fd = os.memfd_create("fwsim_frame", 0)
-        os.ftruncate(frame_fd, frame_size)
-        os.pwrite(frame_fd, packed, 0)
+        if not hasattr(self, "_pool"):
+            self._pool_size = 8
+            self._pool = []
+            for i in range(self._pool_size):
+                pfd = os.memfd_create(f"fwsim_frame_{i}", 0)
+                os.ftruncate(pfd, frame_size)
+                self._pool.append(pfd)
+            self._pool_idx = 0
+
+        slot_fd = self._pool[self._pool_idx]
+        self._pool_idx = (self._pool_idx + 1) % self._pool_size
+        os.pwrite(slot_fd, packed, 0)
+        frame_fd = os.dup(slot_fd)
         return frame_fd, frame_size
 
 

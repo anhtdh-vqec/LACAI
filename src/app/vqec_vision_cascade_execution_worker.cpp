@@ -288,10 +288,18 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                 std::chrono::steady_clock::now() - batch_start_tp).count());
         const bool budget_exhausted = (config_.control_budget_ns_ != 0) &&
             (accepted > 0) && (elapsed_ns >= config_.control_budget_ns_);
+        const bool recently_embedded = (observation.track_id_ != 0 &&
+            config_.track_refresh_interval_ns_ != 0) && [this, &observation, &_task]() {
+                const auto it = last_embedded_track_ns_.find(observation.track_id_);
+                return it != last_embedded_track_ns_.end() &&
+                    _task.steady_now_ns_ >= it->second &&
+                    (_task.steady_now_ns_ - it->second) < config_.track_refresh_interval_ns_;
+            }();
         if (accepted >= config_.max_tasks_per_frame_ ||
             observation.landmarks_.points_.empty() ||
             observation.landmarks_.schema_id_.empty() ||
-            budget_exhausted) {
+            budget_exhausted ||
+            recently_embedded) {
             ++_completion.report_.skipped_;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -412,6 +420,21 @@ void cascade_execution_worker::vqec_vision_ai_appl_cxwrk_process_task(
                         config_.embedding_decoder_->vqec_vision_ai_ports_embdec_decode(
                             tensor, key, observation.track_id_, embedding) : polled;
                     if (decoded.code_ == status_code::ok) {
+                        if (observation.track_id_ != 0 && config_.track_refresh_interval_ns_ != 0) {
+                            last_embedded_track_ns_[observation.track_id_] = _task.steady_now_ns_;
+                            if (last_embedded_track_ns_.size() >
+                                cascade_coordinator_limits::g_max_tracked_faces) {
+                                for (auto map_it = last_embedded_track_ns_.begin();
+                                     map_it != last_embedded_track_ns_.end();) {
+                                    if (_task.steady_now_ns_ > map_it->second +
+                                        cascade_coordinator_limits::g_tracked_face_retention_ns) {
+                                        map_it = last_embedded_track_ns_.erase(map_it);
+                                    } else {
+                                        ++map_it;
+                                    }
+                                }
+                            }
+                        }
                         _completion.embeddings_.push_back(std::move(embedding));
                         ++_completion.report_.embedded_;
                         {

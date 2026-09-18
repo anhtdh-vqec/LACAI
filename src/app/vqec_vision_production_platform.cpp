@@ -443,6 +443,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             aligner_config.matrix_ = package.color_matrix_;
             aligner_config.range_ = package.color_range_;
             aligner_config.order_ = package.channel_order_;
+            aligner_config.buffer_cache_ = impl.dsp_buffer_cache_;
             owner.aligner_ = std::make_unique<fastcv_aligner>(aligner_config);
 #else
             return {status_code::unsupported,
@@ -566,9 +567,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         renderer_config.ring_id_ = impl.config_.output_ring_id_;
         renderer_config.width_ = _deployment.sources_.front().profile_.width_;
         renderer_config.height_ = _deployment.sources_.front().profile_.height_;
-        renderer_config.fps_ = _deployment.sources_.front().profile_.fps_numerator_ /
+        const std::uint32_t camera_fps = _deployment.sources_.front().profile_.fps_numerator_ /
             (_deployment.sources_.front().profile_.fps_denominator_ != 0 ?
                 _deployment.sources_.front().profile_.fps_denominator_ : 1U);
+        renderer_config.fps_ = impl.config_.output_fps_ > 0 ? impl.config_.output_fps_ : camera_fps;
         renderer_config.bitrate_bps_ = impl.config_.output_bitrate_bps_;
         renderer_config.keyframe_interval_frames_ =
             impl.config_.output_keyframe_interval_frames_;
@@ -576,6 +578,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         renderer_config.output_surface_count_ = impl.config_.output_surface_count_;
         renderer_config.colorimetry_ = impl.config_.output_colorimetry_;
         renderer_config.interlace_mode_ = impl.config_.output_interlace_mode_;
+        renderer_config.buffer_cache_ = impl.dsp_buffer_cache_;
         const auto rendered = impl.renderer_->vqec_vision_ai_qcom_qtvr_init(renderer_config);
         if (rendered.code_ != status_code::ok) {
             return rendered;
@@ -813,6 +816,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_create_offline_model(
             aligner_config.matrix_ = model.preprocess_.matrix_;
             aligner_config.range_ = model.preprocess_.range_;
             aligner_config.order_ = model.preprocess_.channels_;
+            aligner_config.buffer_cache_ = implementation_->dsp_buffer_cache_;
             offline.aligner_ = std::make_unique<fastcv_aligner>(aligner_config);
 #else
             return {status_code::unsupported,

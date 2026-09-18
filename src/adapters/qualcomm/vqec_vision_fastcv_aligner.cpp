@@ -1,4 +1,5 @@
 #include "vqec_vision_fastcv_aligner.hpp"
+#include "vqec_vision_dsp_buffer_cache.hpp"
 
 #include <fastcv/fastcv.h>
 
@@ -23,7 +24,7 @@ constexpr std::uint64_t g_align_ticket = 1;
 
 constexpr char g_aligned_tensor_name[] = "aligned_luma";
 constexpr double g_roi_interpolation_margin_pixels = 2.0;
-constexpr std::uint32_t g_nv12_coordinate_alignment_pixels = 2U;
+constexpr std::uint32_t g_nv12_coordinate_alignment_pixels = 8U;
 
 // True when a plane with the given offset/stride/width/height lies entirely inside the
 // valid view, using overflow-safe arithmetic.
@@ -187,27 +188,43 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
     alignas(16) float affine[4] = {static_cast<float>(inv00), static_cast<float>(inv01),
         static_cast<float>(inv10), static_cast<float>(inv11)};
 
-    // Map the borrowed FD read-only, page-aligned. This is a CPU read, not zero-copy.
-    const long page_size = ::sysconf(_SC_PAGESIZE);
-    if (page_size <= 0) {
-        return {status_code::io_error, "cannot determine page size"};
+    const std::uint8_t* base = nullptr;
+    void* mapping = nullptr;
+    std::uint64_t map_length = 0;
+    std::uint64_t in_page_offset = 0;
+
+    if (config_.buffer_cache_ != nullptr) {
+        status map_status;
+        const auto* cached = config_.buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+            static_cast<int>(_source.native_handle_),
+            static_cast<std::size_t>(descriptor.allocation_size_bytes_), map_status);
+        if (cached == nullptr || map_status.code_ != status_code::ok) {
+            return map_status;
+        }
+        base = cached + descriptor.memory_offset_bytes_;
+    } else {
+        // Map the borrowed FD read-only, page-aligned. This is a CPU read, not zero-copy.
+        const long page_size = ::sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) {
+            return {status_code::io_error, "cannot determine page size"};
+        }
+        const std::uint64_t aligned_offset =
+            (descriptor.memory_offset_bytes_ / static_cast<std::uint64_t>(page_size)) *
+            static_cast<std::uint64_t>(page_size);
+        in_page_offset = descriptor.memory_offset_bytes_ - aligned_offset;
+        if (descriptor.view_size_bytes_ >
+            std::numeric_limits<std::uint64_t>::max() - in_page_offset) {
+            return {status_code::invalid_argument, "alignment source view length overflows"};
+        }
+        map_length = descriptor.view_size_bytes_ + in_page_offset;
+        mapping = ::mmap(nullptr, static_cast<std::size_t>(map_length), PROT_READ,
+            MAP_PRIVATE, static_cast<int>(_source.native_handle_),
+            static_cast<off_t>(aligned_offset));
+        if (mapping == MAP_FAILED) {
+            return {status_code::io_error, "cannot map the alignment source frame"};
+        }
+        base = static_cast<const std::uint8_t*>(mapping);
     }
-    const std::uint64_t aligned_offset =
-        (descriptor.memory_offset_bytes_ / static_cast<std::uint64_t>(page_size)) *
-        static_cast<std::uint64_t>(page_size);
-    const std::uint64_t in_page_offset = descriptor.memory_offset_bytes_ - aligned_offset;
-    if (descriptor.view_size_bytes_ >
-        std::numeric_limits<std::uint64_t>::max() - in_page_offset) {
-        return {status_code::invalid_argument, "alignment source view length overflows"};
-    }
-    const std::uint64_t map_length = descriptor.view_size_bytes_ + in_page_offset;
-    void* mapping = ::mmap(nullptr, static_cast<std::size_t>(map_length), PROT_READ,
-        MAP_PRIVATE, static_cast<int>(_source.native_handle_),
-        static_cast<off_t>(aligned_offset));
-    if (mapping == MAP_FAILED) {
-        return {status_code::io_error, "cannot map the alignment source frame"};
-    }
-    const auto* base = static_cast<const std::uint8_t*>(mapping);
     const std::size_t luma_offset =
         static_cast<std::size_t>(in_page_offset + descriptor.offsets_[0]);
     const std::size_t patch_pixels = static_cast<std::size_t>(
@@ -243,7 +260,9 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
     vqec_vision_ai_qcom_fcaln_make_roi_bounds(min_y, max_y,
         _template.destination_height_, descriptor.height_, roi_y0, roi_y1);
     if (roi_x1 <= roi_x0 || roi_y1 <= roi_y0) {
-        ::munmap(mapping, static_cast<std::size_t>(map_length));
+        if (mapping != nullptr) {
+            ::munmap(mapping, static_cast<std::size_t>(map_length));
+        }
         return {status_code::invalid_argument, "alignment source region is empty"};
     }
     const std::uint32_t roi_width = roi_x1 - roi_x0;
@@ -259,7 +278,9 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             !vqec_vision_ai_qcom_fcaln_plane_fits(descriptor.offsets_[1],
                 descriptor.strides_[1], descriptor.width_, descriptor.height_ / 2U,
                 descriptor.view_size_bytes_)) {
-            ::munmap(mapping, static_cast<std::size_t>(map_length));
+            if (mapping != nullptr) {
+                ::munmap(mapping, static_cast<std::size_t>(map_length));
+            }
             return {status_code::unsupported, "RGB alignment requires a valid NV12 color policy"};
         }
         const std::uint32_t fastcv_stride = (roi_width * 3U + 7U) & ~7U;
@@ -274,23 +295,11 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
         const std::uint8_t* uv_roi = base + chroma_offset +
             static_cast<std::size_t>(roi_y0 / 2U) * descriptor.strides_[1] + roi_x0;
 
-        if (config_.matrix_ == color_matrix::bt601 && config_.range_ == color_range::limited) {
-            fcvColorYCbCr420PseudoPlanarToRGB888u8(
-                y_roi, uv_roi, roi_width, roi_height,
-                static_cast<std::uint32_t>(descriptor.strides_[0]),
-                static_cast<std::uint32_t>(descriptor.strides_[1]),
-                rgb_scratch_.data(), fastcv_stride);
-        } else {
-            const auto converted = vqec_vision_ai_core_color_convert_nv12_to_rgb(
-                y_roi, static_cast<std::uint32_t>(descriptor.strides_[0]),
-                uv_roi, static_cast<std::uint32_t>(descriptor.strides_[1]),
-                roi_width, roi_height, config_.matrix_, config_.range_,
-                channel_order::rgb, rgb_scratch_.data(), fastcv_stride);
-            if (converted.code_ != status_code::ok) {
-                ::munmap(mapping, static_cast<std::size_t>(map_length));
-                return converted;
-            }
-        }
+        fcvColorYCbCr420PseudoPlanarToRGB888u8(
+            y_roi, uv_roi, roi_width, roi_height,
+            static_cast<std::uint32_t>(descriptor.strides_[0]),
+            static_cast<std::uint32_t>(descriptor.strides_[1]),
+            rgb_scratch_.data(), fastcv_stride);
         // Deinterleave into three planar channels, warp each with the verified patch warp,
         // then interleave to the requested order.
         const std::size_t plane_size = static_cast<std::size_t>(roi_width) * roi_height;
@@ -361,7 +370,9 @@ status fastcv_aligner::vqec_vision_ai_ports_imaln_align(
             _template.destination_width_, 1U};
         candidate.tensor_.bytes_ = std::move(patch);
     }
-    ::munmap(mapping, static_cast<std::size_t>(map_length));
+    if (mapping != nullptr) {
+        ::munmap(mapping, static_cast<std::size_t>(map_length));
+    }
     candidate.tensor_.spec_.name_ = g_aligned_tensor_name;
     candidate.tensor_.spec_.dtype_ = tensor_element_type::uint8;
     candidate.transform_ = transform;

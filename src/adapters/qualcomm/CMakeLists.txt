@@ -59,6 +59,19 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
         target_link_libraries(vqec_vision_ai_qualcomm PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
     endif()
+
+    foreach(candidate
+        "/home/a/Workspace/eSDK/tmp/sysroots-components/armv8-2a/dspservices-headers/usr/include"
+        "$ENV{OECORE_TARGET_SYSROOT}/../sysroots-components/armv8-2a/dspservices-headers/usr/include"
+        "$ENV{OECORE_TARGET_SYSROOT}/usr/include"
+        "${CMAKE_SYSROOT}/usr/include")
+        if(EXISTS "${candidate}/remote.h")
+            target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC "${candidate}")
+            target_include_directories(vqec_vision_ai_qualcomm PUBLIC "${candidate}")
+            target_compile_definitions(vqec_vision_ai_qualcomm PUBLIC VQEC_VISION_AI_HAVE_CDSP=1)
+            break()
+        endif()
+    endforeach()
     set_target_properties(vqec_vision_ai_qualcomm PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
@@ -125,7 +138,8 @@ if(VQEC_VISION_AI_ENABLE_FASTCV)
     target_include_directories(vqec_vision_ai_fastcv_aligner PRIVATE
         "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
     target_link_libraries(vqec_vision_ai_fastcv_aligner
-        PUBLIC vqec_vision_ai_core PRIVATE "${VQEC_VISION_AI_FASTCV_LIBRARY}")
+        PUBLIC vqec_vision_ai_core vqec_vision_ai_qualcomm
+        PRIVATE "${VQEC_VISION_AI_FASTCV_LIBRARY}")
     set_target_properties(vqec_vision_ai_fastcv_aligner PROPERTIES CXX_EXTENSIONS OFF)
     target_link_libraries(vqec_vision_ai_fastcv_affine_smoke
         PRIVATE vqec_vision_ai_fastcv_aligner)

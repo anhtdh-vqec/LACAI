@@ -26,7 +26,7 @@
       ],
       "cascade": {
         "frames": 2,
-        "tasks_per_frame": 8,
+        "tasks_per_frame": 1,
         "max_bytes": 16777216
       }
     }

@@ -59,7 +59,7 @@
         ]
       },
       "inference_cadence": {
-        "numerator": 30,
+        "numerator": 10,
         "denominator": 1
       },
       "source_constraints": {
@@ -135,7 +135,7 @@
         ]
       },
       "inference_cadence": {
-        "numerator": 30,
+        "numerator": 10,
         "denominator": 1
       },
       "source_constraints": {
@@ -211,7 +211,7 @@
         ]
       },
       "inference_cadence": {
-        "numerator": 30,
+        "numerator": 10,
         "denominator": 1
       },
       "source_constraints": {

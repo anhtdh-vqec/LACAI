@@ -22,6 +22,7 @@
 
 #include "vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec_vision_dsp_buffer_cache.hpp"
 
 namespace vqec::vision::ai {
 namespace {
@@ -260,24 +261,6 @@ private:
 
 }  // namespace
 
-class vqec_vision_ai_qcom_qtvr_mmap_guard {
-public:
-    vqec_vision_ai_qcom_qtvr_mmap_guard(void* _address, std::size_t _size) noexcept
-        : address_(_address), size_(_size) {}
-    ~vqec_vision_ai_qcom_qtvr_mmap_guard() noexcept {
-        if (address_ != nullptr && address_ != MAP_FAILED && size_ != 0) {
-            ::munmap(address_, size_);
-        }
-    }
-    vqec_vision_ai_qcom_qtvr_mmap_guard(const vqec_vision_ai_qcom_qtvr_mmap_guard&) = delete;
-    vqec_vision_ai_qcom_qtvr_mmap_guard& operator=(
-        const vqec_vision_ai_qcom_qtvr_mmap_guard&) = delete;
-
-private:
-    void* address_{nullptr};
-    std::size_t size_{0};
-};
-
 struct qtiv_renderer::implementation {
     GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(const raw_frame& _frame);
 
@@ -294,6 +277,8 @@ struct qtiv_renderer::implementation {
     bool demand_gating_enabled_{false};
     bool has_demand_{true};
     std::uint64_t max_observation_age_ns_{500000000ULL};
+    std::shared_ptr<dsp_buffer_cache> buffer_cache_{
+        std::make_shared<dsp_buffer_cache>(dsp_buffer_cache_config{32, false})};
     bool is_open_{false};
 };
 
@@ -318,6 +303,9 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         return {status_code::invalid_argument, "invalid qtiv renderer configuration"};
     }
     impl.config_ = _config;
+    if (_config.buffer_cache_ != nullptr) {
+        impl.buffer_cache_ = _config.buffer_cache_;
+    }
     if (!impl.ring_.open(_config.ring_id_)) {
         return {status_code::io_error, "cannot open the FW encoded ring"};
     }
@@ -406,11 +394,12 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
     }
     const int frame_fd = static_cast<int>(_frame.native_handle_);
     const std::size_t alloc_size = static_cast<std::size_t>(descriptor.allocation_size_bytes_);
-    void* mapped = ::mmap(nullptr, alloc_size, PROT_READ, MAP_SHARED, frame_fd, 0);
-    if (mapped == MAP_FAILED) {
+    status map_status;
+    const std::uint8_t* mapped = buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+        frame_fd, alloc_size, map_status);
+    if (mapped == nullptr || map_status.code_ != status_code::ok) {
         return nullptr;
     }
-    vqec_vision_ai_qcom_qtvr_mmap_guard guard(mapped, alloc_size);
     GstBuffer* buffer = nullptr;
     if (output_pool_ == nullptr ||
         gst_buffer_pool_acquire_buffer(output_pool_, &buffer, nullptr) != GST_FLOW_OK) {
@@ -419,8 +408,7 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
     GstMapInfo map{};
     const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
     if (copied) {
-        const auto* base = static_cast<const std::uint8_t*>(mapped) +
-            descriptor.memory_offset_bytes_;
+        const auto* base = mapped + descriptor.memory_offset_bytes_;
         const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
         if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
             gst_buffer_unmap(buffer, &map);

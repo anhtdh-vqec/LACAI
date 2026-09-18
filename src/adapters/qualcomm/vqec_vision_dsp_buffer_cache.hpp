@@ -10,7 +10,8 @@
 namespace vqec::vision::ai {
 
 struct dsp_buffer_cache_config {
-    std::size_t max_entries_{8};
+    std::size_t max_entries_{32};
+    bool enable_fastrpc_{true};
 };
 
 // Manages persistent CPU virtual memory and FastRPC cDSP SMMU mappings for
