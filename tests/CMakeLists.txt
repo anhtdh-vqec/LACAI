@@ -949,6 +949,11 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_dsp_v1_wire_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dsp_v1_wire_envelope COMMAND vqec_vision_ai_dsp_v1_wire_test)
 
+    add_executable(vqec_vision_ai_dsp_v1_dense_test unit/vqec_vision_dsp_v1_dense_test.cpp)
+    target_link_libraries(vqec_vision_ai_dsp_v1_dense_test PRIVATE vqec_vision_ai_dsp_v1_dense)
+    set_target_properties(vqec_vision_ai_dsp_v1_dense_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dsp_v1_dense_decode COMMAND vqec_vision_ai_dsp_v1_dense_test)
+
     add_executable(vqec_vision_ai_dsp_preprocessor_test unit/vqec_vision_dsp_preprocessor_test.cpp)
     target_link_libraries(vqec_vision_ai_dsp_preprocessor_test PRIVATE vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_dsp_preprocessor_test PROPERTIES CXX_EXTENSIONS OFF)

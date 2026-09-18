@@ -60,6 +60,29 @@ Draft envelope offsets (bytes, all integers unsigned little-endian):
 The fixed envelope codec is shared C that can compile for ARM and Hexagon. It performs
 only transport validation; no operation payload, result schema or release capacity is
 approved by this ADR draft.
+
+The first delivered operation payload is `dense_decode` and extends the 32-byte request
+envelope to 120 bytes. Its fixed fields are unsigned little-endian integers or IEEE-754
+binary32 bits; the device never casts descriptor bytes to a C struct. It declares:
+
+- baseline payload version and exact payload length;
+- `uint16`, channel-major `[1,4,A]` XYWH boxes and `[1,C,A]` probability scores;
+- class-aware-NMS flag, prediction/class counts and exact packed-input byte offsets;
+- source geometry, configured candidate/output bounds, per-tensor scale/zero point;
+- finite confidence/IoU thresholds and the exact tensor-to-source transform
+  (`scale_x`, `scale_y`, `pad_x`, `pad_y`).
+
+The validator checks every enum, finite scalar, multiplication/addition, range, overlap,
+input byte count and output capacity before reading a tensor. Person `640/8400/1` and
+fire/smoke `320/2100/2` are descriptor values, not dispatch branches. Output records are
+24 bytes each: five binary32 values (`x1,y1,x2,y2,score`) followed by a `uint32` class,
+with source-pixel coordinates. Candidate and output capacity are bounded by both the
+descriptor and compiled safety ceilings. This v1 slice intentionally rejects other
+dtypes/layouts/score encodings; capability growth requires reviewed fields, not guessing.
+Greedy NMS orders candidates by descending score, then ascending class index, then ascending
+prediction index. When the candidate bound is full, a later equal-score candidate never
+replaces an earlier candidate. This makes tie and truncation behavior deterministic across
+the reference and cDSP builds.
 - QAIC artifacts are generated at build time from project-owned IDL with a pinned
   SDK path/version/command and never hand-edited. Only authored project code and the
   reviewed IDL are committed. DSP builds use the Hexagon toolchain; ARM C++ builds and

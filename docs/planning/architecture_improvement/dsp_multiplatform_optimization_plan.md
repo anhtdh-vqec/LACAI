@@ -153,10 +153,12 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
 ### 2.3 Defect và khoảng trống còn mở
 
-1. ABI FastRPC hiện có method theo tên person/SCRFD/fire-smoke; đây là dispatch model-specific,
-   không phải operation protocol generic.
-2. Dense legacy postprocess chỉ nhận 640x640, 8400 predictions và một class. Fire/smoke là
-   320x320, 2100 predictions, hai class nên đang dùng portable CPU decoder.
+1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke; draft v1 và codec
+   operation envelope đã có nhưng chưa được nối vào skeleton/runtime production.
+2. Kernel dense v1 allocation-free đã nhận shape/class/quantization/transform/capacity bằng
+   descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Tuy nhiên
+   transport hiện vẫn là packed input, chưa có skeleton được BSP ký và fire/smoke production
+   vẫn dùng portable CPU decoder.
 3. SCRFD legacy cố định 640, ba level, hai anchor/cell và năm landmark.
 4. DSP preprocess ABI không mang matrix/range/interpolation/normalization descriptor. Kernel
    dùng `ScaleDownMN` và một FastCV color operation cố định, trong khi manifest hiện khai báo
@@ -174,10 +176,13 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
 
 Envelope v1 32 byte đã có codec C và negative tests cho version, length, operation,
-capacity và domain generation; đây chỉ là D08/D09 ở mức transport, chưa có payload schema,
-kernel, registered-buffer transport hoặc runtime activation. Compiler Hexagon 8.7.06 chạy
-được trong probe với gói Ubuntu `libtinfo5` giải nén riêng ở `/tmp`, không cài vào host;
-probe đó không phải build/signing receipt được BSP phê duyệt.
+capacity và domain generation. Dense payload 120 byte có canonical encoder, full bounds
+validation, deterministic bounded NMS và cùng source đã build bằng eSDK/QEMU lẫn
+`hexagon-clang -mv68`; person/fire-smoke shape là data, không có branch model. Đây vẫn chỉ là
+D08/D10/D11 source evidence: chưa có registered-buffer transport, skeleton được ký hoặc
+runtime activation. Compiler Hexagon 8.7.06 chạy trong probe với gói Ubuntu `libtinfo5`
+giải nén riêng ở `/tmp`, không cài vào host; probe đó không phải build/signing receipt được
+BSP phê duyệt.
 
 ## 3. Kiến trúc đích
 

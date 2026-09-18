@@ -590,6 +590,8 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | src/adapters/qualcomm/vqec_vision_dsp_legacy.idl | dslgc | external `vqec_dsp` wire ABI, frozen |
 | src/adapters/qualcomm/vqec_vision_dsp_v1_wire.c | dvwir | vqec_vision_ai_qcom_dvwir_ (proposed transport envelope only) |
 | tests/unit/vqec_vision_dsp_v1_wire_test.cpp | dvwrt | vqec_vision_ai_unit_dvwrt_ |
+| src/adapters/qualcomm/vqec_vision_dsp_v1_dense.c | d1dns | vqec_vision_ai_qcom_d1dns_ |
+| tests/unit/vqec_vision_dsp_v1_dense_test.cpp | d1dst | vqec_vision_ai_unit_d1dst_ |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |
