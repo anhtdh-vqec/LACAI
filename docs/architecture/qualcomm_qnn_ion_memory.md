@@ -63,7 +63,8 @@ engine startup.
 
 During `prepare()` after graph finalization:
 
-1. For each output tensor, an aligned ION buffer is allocated via `rpcmem_alloc`.
+1. For each output tensor, an aligned ION buffer is allocated via `rpcmem_alloc`. The
+   byte count is checked before conversion to the driver's signed `int` ABI.
 2. A `Qnn_MemDescriptor_t` is populated with `QNN_MEM_TYPE_ION`, `ionInfo.fd`, and tensor dimension
    metadata (`numDim`, `dimSize`).
 3. `QnnMem_register` is invoked with the model context to obtain a `Qnn_MemHandle_t`.
@@ -79,12 +80,17 @@ During `prepare()` after graph finalization:
    the neutral output blob (one bounded `memcpy` per tensor), so this is DMA-write +
    neutral-owned copy, not caller-visible zero-copy.
 
+Registered pages are not zero-filled by AI APP before the first execution: a successful graph
+execution must define every declared output byte. The heap workspace is allocated only if the
+complete registered set cannot be established, so startup does not allocate and touch two full
+output sets.
+
 ### 3. Pre-allocated output workspace
 
 To eliminate per-frame dynamic heap allocations when `execute()` produces results:
 
 - `output_workspace_` is allocated once during `prepare()` with exact tensor dimensions and
-  quantization metadata.
+  quantization metadata only when registered output is unavailable.
 - When results are copied or transferred to caller-provided `_outputs`, capacity is preserved
   across frames, avoiding `vector::resize` and `malloc`/`free` calls on the hot execution path.
 

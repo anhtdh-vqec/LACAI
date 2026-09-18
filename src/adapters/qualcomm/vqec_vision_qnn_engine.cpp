@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <new>
 #include <utility>
 
 #include <dlfcn.h>
@@ -506,18 +508,10 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         }
         impl.output_specs_.push_back(spec);
     }
-    // Pre-allocate output workspace once to avoid per-frame heap allocations.
+    // Select exactly one QNN output backing store. Registered output must be
+    // attempted before heap fallback so startup does not allocate and touch two
+    // complete copies of every model output.
     impl.output_workspace_.clear();
-    impl.output_workspace_.reserve(impl.output_specs_.size());
-    for (const auto& spec : impl.output_specs_) {
-        tensor_blob blob;
-        blob.spec_ = spec;
-        const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
-        blob.bytes_.resize(static_cast<std::size_t>(bytes));
-        impl.output_workspace_.push_back(std::move(blob));
-    }
-
-    // Try registering zero-copy ION/rpcmem buffers for model outputs if supported.
     impl.registered_outputs_.clear();
     impl.has_memhandle_output_ = false;
     if (impl.supports_shared_memory_ && impl.context_ != nullptr) {
@@ -526,6 +520,11 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
         registered.reserve(graph->numOutputTensors);
         for (std::uint32_t index = 0; index < graph->numOutputTensors; ++index) {
             const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(impl.output_specs_[index]);
+            if (bytes > static_cast<std::uint64_t>(std::numeric_limits<int>::max()) -
+                    (g_rpcmem_page_alignment - 1U)) {
+                all_registered = false;
+                break;
+            }
             const std::size_t aligned_size = vqec_vision_ai_qcom_qneng_round_up(
                 static_cast<std::size_t>(bytes), g_rpcmem_page_alignment);
             void* ptr = impl.rpcmem_.alloc_(
@@ -538,7 +537,6 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
                 all_registered = false;
                 break;
             }
-            std::memset(ptr, 0, aligned_size);
 
             Qnn_MemDescriptor_t desc{};
             desc.memShape.numDim = graph->outputTensors[index].v2.rank;
@@ -575,6 +573,22 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_prepare(const std::string& _model_l
                 }
             }
             registered.clear();
+        }
+    }
+    if (!impl.has_memhandle_output_) {
+        try {
+            impl.output_workspace_.reserve(impl.output_specs_.size());
+            for (const auto& spec : impl.output_specs_) {
+                tensor_blob blob;
+                blob.spec_ = spec;
+                const auto bytes = vqec_vision_ai_core_tnctr_shape_bytes(spec);
+                blob.bytes_.resize(static_cast<std::size_t>(bytes));
+                impl.output_workspace_.push_back(std::move(blob));
+            }
+        } catch (const std::bad_alloc&) {
+            vqec_vision_ai_qcom_qneng_close();
+            return {status_code::resource_exhausted,
+                "cannot allocate QNN output fallback workspace"};
         }
     }
     impl.is_prepared_ = true;
@@ -650,13 +664,18 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_execute(
     }
     for (std::size_t index = 0; index < impl.output_specs_.size(); ++index) {
         _outputs[index].spec_ = impl.output_specs_[index];
-        const auto bytes = impl.output_workspace_[index].bytes_.size();
+        const auto bytes = static_cast<std::size_t>(
+            vqec_vision_ai_core_tnctr_shape_bytes(impl.output_specs_[index]));
         if (_outputs[index].bytes_.size() != bytes) {
             _outputs[index].bytes_.resize(bytes);
         }
         const void* source = impl.has_memhandle_output_
             ? impl.registered_outputs_[index].data_
             : impl.output_workspace_[index].bytes_.data();
+        if (source == nullptr ||
+            (impl.has_memhandle_output_ && impl.registered_outputs_[index].size_ < bytes)) {
+            return {status_code::invalid_state, "QNN output backing store is invalid"};
+        }
         std::memcpy(_outputs[index].bytes_.data(), source, bytes);
     }
     return {};
