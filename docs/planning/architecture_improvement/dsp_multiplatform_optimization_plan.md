@@ -153,8 +153,10 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
 ### 2.3 Defect và khoảng trống còn mở
 
-1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke; draft v1, codec,
-   service và skeleton source đã có nhưng chưa được nối vào host runtime production.
+1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke. V1 đã có codec,
+   service, skeleton và host client gọi QAIC stub với handshake/generation/completion rõ ràng;
+   unsigned candidate dense/reopen đã chạy trên `.98`, nhưng production composition và BSP
+   signed release skeleton vẫn chưa chọn v1.
 2. Kernel dense v1 allocation-free đã nhận shape/class/quantization/transform/capacity bằng
    descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Tuy nhiên
    transport hiện vẫn là packed input, chưa có skeleton được BSP ký và fire/smoke production
@@ -296,7 +298,7 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
 | D08 | AI APP | ADR + neutral descriptor/capability/completion contracts | Không vendor type; bounded fields; version/error fixtures; lead+BSP+Model review |
-| D09 | AI APP+BSP | IDL v1, handshake, domain generation và error mapping | Old/new ABI không gọi nhầm ordinal; fuzz/negative length tests; reset generation test |
+| D09 | AI APP+BSP | IDL v1, host handshake, domain generation và error/completion mapping đã source-delivered; unsigned open/execute/reopen `.98` đạt, còn BSP signing và in-flight reset | Old/new ABI không gọi nhầm ordinal; fuzz/negative length tests; reset generation test |
 | D10 | AI APP | Reference operation backend | Chạy toàn bộ golden, deterministic tie/candidate caps; backend-independent result semantics |
 | D11 | AI APP+BSP | cDSP kernels descriptor-driven | Approved DSP build; unknown enum/shape rejected; per-session bounded scratch |
 

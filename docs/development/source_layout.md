@@ -3,8 +3,8 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the physical refactor passed eSDK 134/134, QCS6490 `.98`
-129/129 native executables and the two-source service smoke on 2026-09-18. **Layer:** docs.
+**Status:** board-smoke — the current tree passed eSDK 135/135, QCS6490 `.98` 130/130
+native executables and the two-source service smoke on 2026-09-18. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.
 
 ## Responsibility

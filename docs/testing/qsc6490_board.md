@@ -4,8 +4,8 @@ This is the dated board-evidence log for the QCS6490 target, covering the alloca
 build configuration and every recorded native/board run. Sections are historical records;
 newer source does not retroactively change an earlier run's numbers.
 
-**Status:** board-smoke — latest layout candidate passes **129/129** native executables and
-the two-source service smoke on `.98`; earlier FastRPC cDSP evidence is retained below.
+**Status:** board-smoke — latest candidate passes **130/130** native executables and the
+two-source service smoke on `.98`; earlier FastRPC cDSP evidence is retained below.
 **Layer:** reference.
 **Source:** `n/a`.
 
@@ -664,6 +664,31 @@ service or test directory. The service binary SHA-256 was
 This run proves that the physical source/test reorganization did not change the cross-built
 logic/service behavior exercised by the suite. It does not qualify released-FW integration,
 DSP signing/deployment, model quality, CPU, memory, thermal or soak behavior.
+
+## 2026-09-18 FastRPC v1 host-client fixture on `.98`
+
+The approved eSDK build added the host-side v1 QAIC client and one fake-service conformance
+executable. Host CTest passed 135/135. The staged executable SHA-256 was
+`31b9112390965c5b3f61f553d21a713b3f3e45d0d84c3ad1ec694f19607b18c0`; it exited zero
+individually, then the isolated candidate runner completed `PASS=130 FAIL=0`.
+
+The fixture covers capability decode, operation limits, domain generation, host rejection of
+stale/unsupported requests, response validation and uncertain completion after an injected
+transport failure. It links the QAIC-generated v1 client stub but deliberately uses the local
+fake service.
+
+The separately built v68 skeleton was then staged under an isolated candidate directory. Its
+SHA-256 was `a5e7d1c030bb110c6b493be5c9c8349ec68b905443ff93d2c0af96ee67625f5a`;
+the system-client smoke SHA-256 was
+`5faa7f57c6e34126164628d038123b9c9bbc1430bd6ead6e389a97fa73fc2af4`.
+The first live call reported domain generation `933359035`, operation mask `2`, 24 valid output
+bytes, zero truncation and box `15,15,25,25`; it exited zero. A second process also exited zero
+and reported a different nonzero generation, `1079917678`.
+
+This proves isolated unsigned QAIC open/query/execute/close and reopen generation on cDSP for
+the generic dense operation. It does not prove BSP signing/provenance approval, registered
+multi-tensor transport, cache/fence correctness, reset during in-flight work, production
+activation or model golden parity.
 
 ## Limits and next work
 

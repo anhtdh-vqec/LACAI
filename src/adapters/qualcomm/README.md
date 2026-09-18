@@ -6,7 +6,8 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 - **Status:** board-smoke — synchronous plugin/QNN evidence exists on QCS6490 and the
   2026-09-18 layout candidate passes natively; async/shared/update remain unqualified
 - **Layer:** adapters
-- **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`, `bfact`, `sdkld`, `qtvr`)
+- **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`,
+  `bfact`, `sdkld`, `qtvr`, `d1cli`)
 - **Depends on:** neutral `inference_graph_port`, core plan/contract validation
 - **Used by:** application composition through `inference_graph_port` only
 
@@ -24,7 +25,7 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 
 | Path | Purpose |
 |---|---|
-| `dsp/host/` | ARM-side FastRPC sessions, rpcmem, mapping cache and neutral port adapters |
+| `dsp/host/` | ARM-side legacy/v1 FastRPC sessions, negotiated generic client, rpcmem, mapping cache and neutral port adapters |
 | `dsp/v1/` | LACAI v1 IDL, wire codec, generic dense operation, bounded service and QAIC skeleton |
 | `dsp/legacy/` | Frozen model-specific compatibility ABI and reviewed reference kernels |
 | `gstreamer/` | Plugin graph, DMA-BUF wrapping, submission, tensor extraction and FastCV preprocess |

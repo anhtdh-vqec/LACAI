@@ -3,8 +3,8 @@
 Cross-module contract-test source for the camera receiver/session/pump, the GStreamer
 bridge/graph/submission/tensor path, encoders, perception, feature and output boundaries.
 
-- **Status:** board-smoke — the complete eSDK configuration passes 134/134 CTest entries and
-  129/129 cross-built executables pass on QCS6490 `.98` on 2026-09-18
+- **Status:** board-smoke — the complete eSDK configuration passes 135/135 CTest entries and
+  130/130 cross-built executables pass on QCS6490 `.98` on 2026-09-18
 - **Depends on:** neutral ports and the reference backend
 
 ## Responsibility

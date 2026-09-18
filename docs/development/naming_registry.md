@@ -613,6 +613,9 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_service.c | d1svc | vqec_vision_ai_qcom_d1svc_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_service_test.cpp | d1svt | vqec_vision_ai_unit_d1svt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |
+| src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp | d1cli | vqec_vision_ai_qcom_d1cli_ |
+| tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_client_test.cpp | d1clt | vqec_vision_ai_unit_d1clt_ |
+| tools/vqec_vision_dsp_v1_smoke.cpp | d1smk | vqec_vision_ai_tools_d1smk_ |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |

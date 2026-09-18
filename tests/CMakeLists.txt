@@ -962,6 +962,13 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_dsp_v1_service_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dsp_v1_service_dispatch COMMAND vqec_vision_ai_dsp_v1_service_test)
 
+    add_executable(vqec_vision_ai_dsp_v1_client_test
+        unit/adapters/qualcomm/vqec_vision_dsp_v1_client_test.cpp)
+    target_link_libraries(vqec_vision_ai_dsp_v1_client_test
+        PRIVATE vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_service)
+    set_target_properties(vqec_vision_ai_dsp_v1_client_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dsp_v1_client_negotiation COMMAND vqec_vision_ai_dsp_v1_client_test)
+
     add_executable(vqec_vision_ai_dsp_preprocessor_test unit/adapters/qualcomm/vqec_vision_dsp_preprocessor_test.cpp)
     target_link_libraries(vqec_vision_ai_dsp_preprocessor_test PRIVATE vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_dsp_preprocessor_test PROPERTIES CXX_EXTENSIONS OFF)

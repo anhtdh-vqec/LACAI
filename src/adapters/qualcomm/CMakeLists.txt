@@ -101,6 +101,32 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     target_link_libraries(vqec_vision_ai_dsp_v1_service
         PUBLIC vqec_vision_ai_dsp_v1_dense)
+    add_library(vqec_vision_ai_dsp_v1_client STATIC
+        dsp/host/vqec_vision_dsp_v1_client.cpp
+        "${vqec_vision_ai_v1_qaic_output}/vqec_vision_dsp_v1_stub.c")
+    add_dependencies(vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_idl_check)
+    target_compile_features(vqec_vision_ai_dsp_v1_client PUBLIC cxx_std_17)
+    target_include_directories(vqec_vision_ai_dsp_v1_client PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/host>)
+    target_include_directories(vqec_vision_ai_dsp_v1_client PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1"
+        "${vqec_vision_ai_v1_qaic_output}")
+    target_link_libraries(vqec_vision_ai_dsp_v1_client
+        PUBLIC vqec_vision_ai_core vqec_vision_ai_dsp_v1_wire)
+    set_source_files_properties(
+        "${vqec_vision_ai_v1_qaic_output}/vqec_vision_dsp_v1_stub.c"
+        PROPERTIES COMPILE_OPTIONS "-w")
+    if(VQEC_VISION_AI_CDSPRPC_LIBRARY)
+        target_link_libraries(vqec_vision_ai_dsp_v1_client
+            PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
+    endif()
+    add_executable(vqec_vision_ai_dsp_v1_smoke
+        "${CMAKE_SOURCE_DIR}/tools/vqec_vision_dsp_v1_smoke.cpp")
+    target_include_directories(vqec_vision_ai_dsp_v1_smoke PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1")
+    target_link_libraries(vqec_vision_ai_dsp_v1_smoke PRIVATE
+        vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_dense)
+    set_target_properties(vqec_vision_ai_dsp_v1_smoke PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/legacy" "${vqec_vision_ai_qaic_output}")
     set_source_files_properties("${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"
@@ -135,13 +161,15 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     endif()
 
     foreach(candidate
-        "/home/a/Workspace/eSDK/tmp/sysroots-components/armv8-2a/dspservices-headers/usr/include"
         "$ENV{OECORE_TARGET_SYSROOT}/../sysroots-components/armv8-2a/dspservices-headers/usr/include"
         "$ENV{OECORE_TARGET_SYSROOT}/usr/include"
         "${CMAKE_SYSROOT}/usr/include")
         if(EXISTS "${candidate}/remote.h")
             target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC "${candidate}")
+            target_include_directories(vqec_vision_ai_dsp_v1_client PRIVATE "${candidate}")
             target_include_directories(vqec_vision_ai_qualcomm PUBLIC "${candidate}")
+            target_compile_definitions(vqec_vision_ai_dsp_v1_client
+                PRIVATE VQEC_VISION_AI_HAVE_CDSP=1)
             target_compile_definitions(vqec_vision_ai_qualcomm PUBLIC VQEC_VISION_AI_HAVE_CDSP=1)
             break()
         endif()

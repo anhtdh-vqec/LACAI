@@ -27,6 +27,7 @@ fixtures. The flat command namespace is intentional; roles are grouped below.
 | `vqec_vision_qnn_engine_smoke.cpp` | Board smoke: compose/execute (and `--reload-cycles`) for one model library |
 | `vqec_vision_qnn_board_smoke.sh` | Board-side `qnn-net-run` smoke for one model library |
 | `vqec_vision_build_dsp_v1.sh` | Generate QAIC v1 skeleton, build the v68 DSP shared object and emit a digest/provenance receipt into an explicit empty directory; uses `--host-compat-lib-dir` or the persistent `$HOME/.local/lib/hexagon-sdk-compat` fallback |
+| `vqec_vision_dsp_v1_smoke.cpp` | Explicit board probe for v1 capability negotiation and one descriptor-driven dense operation; requires an absolute candidate skeleton directory |
 | `vqec_vision_fastcv_affine_smoke.cpp`, `vqec_vision_qtiv_color_smoke.cpp` | FastCV affine / QTI color board probes |
 
 ### FW and control fixtures

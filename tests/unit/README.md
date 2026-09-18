@@ -2,8 +2,8 @@
 
 Single-module unit tests for contracts, validation, bookkeeping and scheduler arithmetic.
 
-- **Status:** board-smoke — the complete eSDK configuration passes 134/134 CTest entries and
-  129/129 cross-built executables pass on QCS6490 `.98` on 2026-09-18.
+- **Status:** board-smoke — the complete eSDK configuration passes 135/135 CTest entries and
+  130/130 cross-built executables pass on QCS6490 `.98` on 2026-09-18.
 - **Runner:** eSDK AArch64 compiler and SDK QEMU (`ctest`); native target execution uses the
   board runner, which supplies the manifest and Zvec fixtures two device-free tests need.
 

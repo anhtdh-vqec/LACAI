@@ -2,7 +2,7 @@
 
 Verification sources and fixtures grouped first by evidence type, then by implementation owner.
 
-- **Status:** board-smoke — eSDK 134/134 and QCS6490 `.98` 129/129 candidate tests pass
+- **Status:** board-smoke — eSDK 135/135 and QCS6490 `.98` 130/130 candidate tests pass
 - **Naming registry:** `unit`, `ctest`, `gold`, `replay`, `integ`, `board`
 - **Depends on:** production targets, neutral fakes and explicit fixtures
 - **Used by:** CI, QEMU and board validation workflows

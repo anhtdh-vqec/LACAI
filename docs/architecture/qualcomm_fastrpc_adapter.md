@@ -3,9 +3,9 @@
 This document defines private mapping ownership and the required model-independent DSP
 boundary. It distinguishes the implemented cache from the proposed replacement protocol.
 
-**Status:** source-delivered — mapping leases, bounded cache retirement, SDK-generated frozen
-legacy stub, v1 envelope/dense payload, bounded service core and reproducible v68 skeleton build
-are implemented; production host activation and BSP deployment acceptance remain open.
+**Status:** board-smoke — mapping leases, SDK-generated legacy/v1 stubs, v1 envelope/dense
+payload, bounded service/skeleton and host negotiation client are implemented; an isolated
+unsigned v1 dense smoke passes on `.98`, while BSP signing and production selection remain open.
 **Layer:** adapters. **Source:** `src/adapters/qualcomm`.
 
 ## Responsibility
@@ -126,6 +126,23 @@ The IDL still carries one packed input sequence. It is not accepted for the mult
 until registered-buffer or scatter/gather transport proves that it does not add an ARM copy.
 Image-transform, anchor-distance and ROI-align payloads remain unsupported and fail closed. No
 production runtime chooses v1 merely because generated or built files are present.
+
+`dsp/host/vqec_vision_dsp_v1_client.cpp` is the first host activation seam. It opens only the
+separate v1 URI, queries and decodes capabilities before any operation, validates every request
+against the negotiated operation mask/limits/domain generation, then validates the fixed
+operation response. It calls the QAIC-generated stub directly; no model name or usecase ID is
+present in its API. Unsupported and stale requests fail before transport invocation.
+
+The client reports completion as `not_submitted`, `completed` or `uncertain`. A successful
+synchronous transport return plus a valid response is `completed`. Any transport execution
+error faults the session and returns `uncertain`; closing that handle is not proof that borrowed
+input/output storage is reusable. The caller must retain or quarantine the owners until a BSP
+completion/recovery contract resolves them. The source exists for conformance and integration;
+production composition does not select it yet. The 2026-09-18 `.98` candidate opened the
+Hexagon-built skeleton, negotiated `dense_decode`, executed a model-independent one-prediction
+descriptor and returned the expected 24-byte record. A second process received a different
+nonzero domain generation. This is live protocol/kernel smoke, not registered-buffer,
+reset-under-in-flight-work or release acceptance.
 
 The transport exposes operation families, not model IDs:
 
