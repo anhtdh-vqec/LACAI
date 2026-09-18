@@ -7,6 +7,7 @@
 #include <string>
 
 #include "vqec/vision/ai/ports/vqec_vision_feature_processor.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 
@@ -31,7 +32,7 @@ struct reference_feature_params {
     // Empty selects every class.
     std::string class_filter_;
     std::string event_schema_id_{"reference.zone"};
-    std::string event_schema_version_{"1"};
+    std::string event_schema_version_{VQEC_VISION_AI_BASELINE_VERSION_TEXT};
     float confidence_{0.5F};
 };
 

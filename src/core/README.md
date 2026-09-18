@@ -33,7 +33,7 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 | `vqec_vision_encoder_window.cpp`, `vqec_vision_encoder_contract.cpp` | Preview input admission and correlated encoder completion bookkeeping |
 | `vqec_vision_preview_contract.cpp` | Overlay metadata and borrowed H264 AU envelope validation |
 | `vqec_vision_inference_execution.cpp` | Inference capability/policy/domain/shared-buffer/model-update validation |
-| `vqec_vision_model_catalog.cpp` | Model catalog v2 validation (role/dependency, cadence, geometry, memory envelopes) |
+| `vqec_vision_model_catalog.cpp` | Model catalog v1 validation (role/dependency, cadence, geometry, memory envelopes) |
 | `vqec_vision_model_package.cpp`, `vqec_vision_model_package_registry.cpp`, `vqec_vision_model_io_manifest.cpp` | Package resolution, registry binding and IO-manifest cross-checks |
 | `vqec_vision_usecase_activation.cpp` | Transactional effective-deployment composition from usecase desired plans |
 | `vqec_vision_preprocess_spec.cpp` | Preprocess contract validation |

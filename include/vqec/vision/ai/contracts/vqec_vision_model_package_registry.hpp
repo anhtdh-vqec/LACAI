@@ -6,13 +6,15 @@
 #include <string>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 
 namespace model_package_registry_limits {
-inline constexpr std::uint32_t g_schema_version = 1;
+inline constexpr std::uint32_t g_schema_version = VQEC_VISION_AI_BASELINE_SCHEMA_VERSION;
 inline constexpr std::size_t g_max_bindings = 64;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
 inline constexpr std::size_t g_max_path_bytes = 4096;

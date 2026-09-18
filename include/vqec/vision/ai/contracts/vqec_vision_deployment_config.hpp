@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
@@ -13,7 +15,7 @@ namespace vqec::vision::ai {
 struct inference_plan;
 
 namespace deployment_limits {
-inline constexpr std::uint32_t g_schema_version = 1;
+inline constexpr std::uint32_t g_schema_version = VQEC_VISION_AI_BASELINE_SCHEMA_VERSION;
 inline constexpr std::size_t g_max_sources = 16;
 inline constexpr std::size_t g_max_models_per_source = 16;
 inline constexpr std::size_t g_max_identifier_bytes = 128;

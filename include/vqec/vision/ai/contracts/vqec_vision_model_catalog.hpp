@@ -13,14 +13,13 @@
 #include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 
 namespace model_catalog_limits {
-// Current schema. Version 1 (no role/depends_on) is migrated on load; version 2 requires
-// an explicit role and dependency declaration.
-inline constexpr std::uint32_t g_schema_version = 2;
-inline constexpr std::uint32_t g_legacy_schema_version = 1;
+// The baseline schema requires an explicit role and dependency declaration.
+inline constexpr std::uint32_t g_schema_version = VQEC_VISION_AI_BASELINE_SCHEMA_VERSION;
 inline constexpr std::size_t g_max_models = 64;
 inline constexpr std::size_t g_max_dependencies = 16;
 inline constexpr std::size_t g_max_identifier_bytes = 128;
@@ -68,7 +67,7 @@ struct model_catalog_entry {
     std::string preprocess_contract_;
     std::string graph_name_;
     // Role is primary by default for legacy/in-memory entries; the strict loader requires an
-    // explicit role in schema version 2. A secondary entry must declare depends_on; a
+    // explicit role in schema version 1. A secondary entry must declare depends_on; a
     // primary entry must not.
     model_role role_{model_role::primary};
     std::vector<model_dependency> depends_on_;

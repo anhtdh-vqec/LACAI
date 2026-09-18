@@ -265,7 +265,7 @@ int main() {
         inference_model_update update;
         update.base_model_id_ = "edgeface_xxs";
         update.base_model_version_ = "1.0";
-        update.update_artifact_ref_ = "edgeface_xxs_lora_v2";
+        update.update_artifact_ref_ = "edgeface_xxs_lora_v1";
         update.update_artifact_sha256_ = std::string(64, 'a');
         update.update_revision_ = 2;
         check(vqec_vision_ai_core_inexe_validate_model_update(update).code_ ==
@@ -341,7 +341,7 @@ int main() {
         inference_model_update update;
         update.base_model_id_ = "edgeface_xxs";
         update.base_model_version_ = "1.0";
-        update.update_artifact_ref_ = "edgeface_xxs_lora_v2";
+        update.update_artifact_ref_ = "edgeface_xxs_lora_v1";
         update.update_artifact_sha256_ = std::string(64, 'a');
         update.update_revision_ = 2;
         check(vqec_vision_ai_core_inexe_model_update_supported(

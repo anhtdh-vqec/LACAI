@@ -1,4 +1,4 @@
-# Code convention — normative v2
+# Code convention — normative v1
 
 **Status:** normative — current C++17 convention.
 
@@ -109,6 +109,13 @@ Exceptions are recorded in the registry with file/symbol/reason/owner; no repo-w
 - Do not name a model variable person if it holds the metadata set of multiple models.
 
 ## 3. Layout and format
+
+The first LACAI baseline uses version 1 for every project-owned schema and wire/ABI.
+`vqec_vision_version_registry.h` is the numeric authority; per-contract aliases and
+JSON schema/fixture literals must match it. A pre-release compatibility adapter does
+not consume a product version number. An increment needs an approved migration ADR.
+Vendor and released-FW ABI identifiers are read from their owners' contracts, not
+renumbered by LACAI.
 
 ### Literal policy — MUST: no magic number, magic string, hardcode
 

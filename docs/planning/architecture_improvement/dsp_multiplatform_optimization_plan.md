@@ -165,7 +165,7 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
    stub chỉ khác bản cũ ở tên header include. `third_party/fastrpc_dsp` đã bỏ, nhưng
    license/owner của C compatibility và nguồn binary skeleton đang deploy chưa được ký.
 6. Hexagon SDK 5.5.7.0 hiện có tại đường dẫn user cấp. `hexagon-clang` thiếu
-   `libtinfo.so.5` trên host, nên build skeleton từ source và protocol v2 vẫn chưa có
+   `libtinfo.so.5` trên host, nên build skeleton từ source và protocol v1 vẫn chưa có
    release receipt; eSDK vẫn là toolchain bắt buộc cho ARM C++/CMake/tests.
 7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
    owned mỗi frame; loại copy này cần owner/view + completion contract, không được xóa bằng cast.
@@ -173,7 +173,7 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
    khi quy lỗi cho decoder hoặc cDSP.
 9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
 
-Envelope v2 32 byte đã có codec C và negative tests cho version, length, operation,
+Envelope v1 32 byte đã có codec C và negative tests cho version, length, operation,
 capacity và domain generation; đây chỉ là D08/D09 ở mức transport, chưa có payload schema,
 kernel, registered-buffer transport hoặc runtime activation. Compiler Hexagon 8.7.06 chạy
 được trong probe với gói Ubuntu `libtinfo5` giải nén riêng ở `/tmp`, không cài vào host;
@@ -191,7 +191,7 @@ RAW lease + source ticket                        v
           |                         shared dependency DAG / cadence
           v                                      |
 image_transform_port ----------------------------+
-  Qualcomm: descriptor -> FastRPC v2 -> cDSP     |
+  Qualcomm: descriptor -> FastRPC v1 -> cDSP     |
   Reference: exact golden implementation         |
           |                                      v
 registered tensor lease -> QNN HTP -> result tensor lease
@@ -205,9 +205,9 @@ registered tensor lease -> QNN HTP -> result tensor lease
                        tracker / relation / feature fan-out
 ```
 
-### 3.1 FastRPC v2 model-independent
+### 3.1 FastRPC v1 model-independent
 
-Không sửa ordinal legacy. Tạo protocol v2 có `query_capabilities` và ABI revision trước mọi
+Không sửa ordinal legacy. Tạo protocol v1 có `query_capabilities` và ABI revision trước mọi
 submit. Wire dùng operation family và descriptor, không dùng model ID:
 
 | Operation | Descriptor tối thiểu |
@@ -247,10 +247,10 @@ wire structs có length/version rõ ràng.
 
 | Model | Hiện trạng | Việc phải làm trước production acceptance |
 |---|---|---|
-| `yolov8n_person` | QNN HTP; legacy DSP preprocess + one-class postprocess | Golden NV12→tensor cho color/range/resize/quant; v2 dense descriptor; parity boxes/scores/NMS; current workload benchmark |
+| `yolov8n_person` | QNN HTP; legacy DSP preprocess + one-class postprocess | Golden NV12→tensor cho color/range/resize/quant; v1 dense descriptor; parity boxes/scores/NMS; current workload benchmark |
 | `scrfd_500m_bnkps` | QNN HTP; legacy DSP preprocess + fixed anchor postprocess | Golden ba level/kps; inverse top-left transform; quant zero-point parity; ROI density benchmark |
 | `edgeface_s_gamma_05` | QNN HTP; FastCV alignment/cascade | Golden align/template/normalize; ROI batch cap; embedding quality/privacy; no full-frame DSP substitution |
-| `yolo11n_fire_smoke` | QNN HTP; DSP legacy preprocess; portable multi-class decoder | v2 dense multi-class DSP decoder cho 320/2100/2; class-aware NMS; smoke/fire golden/hard negatives |
+| `yolo11n_fire_smoke` | QNN HTP; DSP legacy preprocess; portable multi-class decoder | v1 dense multi-class DSP decoder cho 320/2100/2; class-aware NMS; smoke/fire golden/hard negatives |
 
 Mỗi model chỉ “hoàn thiện” khi có model kit M0–M4: provenance/load, exact IO, preprocess
 golden, decode golden và quality report. AI APP có thể hoàn thiện adapter source nhưng không tự
@@ -283,12 +283,12 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 | D06 | AI APP+BSP | Sustained/per-stage baseline | 30 phút current + 60 phút full; usr/sys, CPU ms, copies, FPS/drop/latency/DDR/thermal |
 | D07 | AI APP | Memory baseline | 100 lifecycle cycles + 8 giờ; PSS slope, FD/maps/handles, sanitizer/reference tests |
 
-### P2 — Contract và FastRPC v2 generic
+### P2 — Contract và FastRPC v1 generic
 
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
 | D08 | AI APP | ADR + neutral descriptor/capability/completion contracts | Không vendor type; bounded fields; version/error fixtures; lead+BSP+Model review |
-| D09 | AI APP+BSP | IDL v2, handshake, domain generation và error mapping | Old/new ABI không gọi nhầm ordinal; fuzz/negative length tests; reset generation test |
+| D09 | AI APP+BSP | IDL v1, handshake, domain generation và error mapping | Old/new ABI không gọi nhầm ordinal; fuzz/negative length tests; reset generation test |
 | D10 | AI APP | Reference operation backend | Chạy toàn bộ golden, deterministic tie/candidate caps; backend-independent result semantics |
 | D11 | AI APP+BSP | cDSP kernels descriptor-driven | Approved DSP build; unknown enum/shape rejected; per-session bounded scratch |
 
@@ -298,7 +298,7 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 |---|---|---|---|
 | D12 | AI APP+Model | Person dense vertical | Pre/post golden parity; exact 640/8400/1 descriptor là data, không code branch |
 | D13 | AI APP+Model | SCRFD anchor vertical | Score/box/kps parity, edge clamp, top-left inverse transform và dense-face stress |
-| D14 | AI APP+Model | Fire/smoke multi-class vertical | 320/2100/2 chạy cDSP v2; class-aware NMS parity; no CPU dense scan |
+| D14 | AI APP+Model | Fire/smoke multi-class vertical | 320/2100/2 chạy cDSP v1; class-aware NMS parity; no CPU dense scan |
 | D15 | AI APP+Model | Face align/embedding vertical | Bounded ROI batch, golden affine/normalize, embedding quality và privacy gates |
 
 ### P4 — Copy, startup và memory
@@ -353,7 +353,7 @@ Board report phải có:
 ## 7. Gate đóng plan
 
 - [ ] P0 provenance/toolchain/golden không còn blocker.
-- [ ] FastRPC v2 dispatch theo operation descriptor, không theo model ID hoặc method model-name.
+- [ ] FastRPC v1 dispatch theo operation descriptor, không theo model ID hoặc method model-name.
 - [ ] Current four-model verticals có golden parity và explicit unsupported semantics.
 - [ ] Unknown shape/layout/quantization/version fail trước kernel; accelerator failure không
   chạy CPU reference ngoài policy.
@@ -375,7 +375,7 @@ chứng minh, startup/soak chưa có acceptance evidence.
   memfd không thay board acceptance của registered input.
 - Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
   trước khi so số.
-- SDK 5.5.7.0 đã được cấp và QAIC sinh được legacy/v2 draft. P2/P3 cDSP binary vẫn phụ
+- SDK 5.5.7.0 đã được cấp và QAIC sinh được legacy/v1 draft. P2/P3 cDSP binary vẫn phụ
   thuộc runtime `libtinfo.so.5` được BSP phê duyệt cho host compiler, ABI/ownership review,
   kernel source/build/signing và oracle semantics/quality của AI Model. Đây là dependency
   có owner, không phải lý do để copy thêm code legacy.

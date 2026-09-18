@@ -1,4 +1,4 @@
-# Documentation style — normative v3
+# Documentation style — normative v1
 
 This is the single source of truth for repository documentation. It defines file naming,
 language, the required document template and the status vocabulary. A document that does not

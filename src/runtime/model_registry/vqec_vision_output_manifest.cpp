@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 namespace {
@@ -130,7 +131,8 @@ status vqec_vision_ai_mreg_otman_load_manifest(std::istream& _stream, model_outp
         vqec_vision_ai_mreg_otman_require_keys(root,
             {"schema_version", "model_id", "model_version", "artifact_sha256",
              "decoder_contract", "max_output_bytes", "outputs"});
-        if (vqec_vision_ai_mreg_otman_read_uint(root.at("schema_version")) != 1) {
+        if (vqec_vision_ai_mreg_otman_read_uint(root.at("schema_version")) !=
+            VQEC_VISION_AI_BASELINE_SCHEMA_VERSION) {
             return {status_code::unsupported, "unsupported output manifest version"};
         }
         model_outputs candidate;

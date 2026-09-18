@@ -53,7 +53,7 @@ required for this converted artifact.
   an end-to-end camera run on the target remain required before enabling recognition output.
 - Embeddings are sensitive biometric data. Keep them out of logs, Git and CI artifacts.
 
-## Catalog entry (schema v2)
+## Catalog entry (schema v1)
 
 This model is a **secondary** catalog entry that depends on the SCRFD primary identity. It
 never joins the full-frame submit mask:

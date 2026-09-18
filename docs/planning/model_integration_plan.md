@@ -191,7 +191,7 @@ bbox outside frame.
 ## 5. Commit order to follow
 
 ```text
-MI-00  preprocess/input contract v2 (preprocess_spec + model_io_manifest + catalog v2)
+MI-00  preprocess/input contract v1 (preprocess_spec + model_io_manifest + catalog v1)
 MI-01  model_package_resolver + resolved_model_package (trusted paths, digest, IO)
 MI-02  approved YOLOv8n-person model kit metadata + golden references (binary stays out of Git)
 MI-03  preprocess golden tests (M2)

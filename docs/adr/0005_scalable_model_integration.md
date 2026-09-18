@@ -42,11 +42,12 @@ model evidence. This ADR defines the accepted architecture and its remaining gat
 
 ## 1. Catalog role and dependency (required change)
 
-Delivered in schema version 2: `role` is a required validated field; `depends_on` is required
+Delivered in schema version 1: `role` is a required validated field; `depends_on` is required
 for `secondary` and forbidden for `primary`, references an immutable
 `(model_id, model_version, target_id)` primary identity, and rejects self/duplicate/
 secondary targets. `validate_deployment_models` rejects a secondary model as a full-frame
-assignment. Version 1 documents are migrated to version 2 with primary roles. Contract,
+assignment. Pre-release documents without roles must be rewritten with explicit primary
+or secondary metadata. Contract,
 loader, validator, schema, examples and tests (`model_catalog_validation`,
 `model_catalog_loading`) are committed; see `docs/architecture/model_catalog.md`.
 

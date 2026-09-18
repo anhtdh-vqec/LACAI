@@ -223,8 +223,7 @@ bool vqec_vision_ai_core_mdcat_source_activates_model(
 
 status vqec_vision_ai_core_mdcat_validate_catalog(
     const model_catalog& _catalog, std::uint64_t& _declared_resident_bytes) {
-    if (_catalog.schema_version_ != model_catalog_limits::g_schema_version &&
-        _catalog.schema_version_ != model_catalog_limits::g_legacy_schema_version) {
+    if (_catalog.schema_version_ != model_catalog_limits::g_schema_version) {
         return {status_code::unsupported, "unsupported model catalog schema"};
     }
     if (_catalog.revision_ == 0 ||

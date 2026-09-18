@@ -40,7 +40,8 @@
         "output_queue_buffers": 2,
         "max_concurrent_sources": 16,
         "can_share_context_across_sources": true
-      }
+      },
+      "role": "primary"
     }
   ]
 }

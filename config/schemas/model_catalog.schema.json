@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:vqec:vision:ai:model-catalog:2",
+  "$id": "urn:vqec:vision:ai:model-catalog:1",
   "title": "VQEC Vision AI model-team catalog",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "revision", "catalog_id", "models"],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 1 },
     "revision": { "type": "integer", "minimum": 1 },
     "catalog_id": { "$ref": "#/$defs/identifier" },
     "models": {

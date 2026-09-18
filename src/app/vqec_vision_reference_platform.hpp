@@ -6,6 +6,7 @@
 #include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
@@ -19,7 +20,8 @@ namespace vqec::vision::ai {
 namespace reference_platform_limits {
 inline constexpr char g_default_tracker_contract[] = "reference.tracker.v1";
 inline constexpr char g_default_event_schema_id[] = "reference.zone";
-inline constexpr char g_default_event_schema_version[] = "1";
+inline constexpr char g_default_event_schema_version[] =
+    VQEC_VISION_AI_BASELINE_VERSION_TEXT;
 }  // namespace reference_platform_limits
 
 // Device-free production platform owner. It wires the real reference tracker and the

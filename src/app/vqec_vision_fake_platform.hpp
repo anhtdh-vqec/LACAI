@@ -6,6 +6,7 @@
 #include <string>
 
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
@@ -23,9 +24,9 @@ struct fake_platform_config {
     std::uint32_t source_height_{0};
     std::string tracker_contract_{"fake.tracker.v1"};
     std::string event_schema_id_{"fake.event"};
-    std::string event_schema_version_{"1"};
+    std::string event_schema_version_{VQEC_VISION_AI_BASELINE_VERSION_TEXT};
     std::string attribute_schema_id_{"fake.attribute"};
-    std::string attribute_schema_version_{"1"};
+    std::string attribute_schema_version_{VQEC_VISION_AI_BASELINE_VERSION_TEXT};
 };
 
 class fake_platform final {

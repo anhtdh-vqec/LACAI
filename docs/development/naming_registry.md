@@ -1,4 +1,4 @@
-# Naming registry v2
+# Naming registry v1
 
 Physical source/tool filenames use `vqec_vision_`; logical owners and registered
 function prefixes do not change. Reserved filenames below follow the same rule.
@@ -94,6 +94,7 @@ Only directories with functions need an ID; documentation/manifest directories d
 | src/runtime/scheduler/vqec_vision_job_scheduler.cpp | jobsc | vqec_vision_ai_sched_jobsc_ |
 | src/runtime/feature_manager/vqec_vision_feature_manager.cpp | ftmgr | vqec_vision_ai_ftmgr_ftmgr_ |
 | include/vqec/vision/ai/contracts/vqec_vision_frame_source.hpp | frsrc | vqec_vision_ai_cntr_frsrc_ |
+| include/vqec/vision/ai/contracts/vqec_vision_version_registry.h | vreg | constants only; canonical LACAI baseline version |
 | include/vqec/vision/ai/contracts/vqec_vision_image_processor.hpp | imgpr | vqec_vision_ai_cntr_imgpr_ |
 | include/vqec/vision/ai/contracts/vqec_vision_inference_engine.hpp | infer | vqec_vision_ai_cntr_infer_ |
 | include/vqec/vision/ai/contracts/vqec_vision_buffer_manager.hpp | bufmg | vqec_vision_ai_cntr_bufmg_ |
@@ -587,8 +588,8 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 |---|---|---|
 | src/adapters/qualcomm/vqec_vision_dsp_session.cpp | dspsn | vqec_vision_ai_qcom_dspsn_ |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy.idl | dslgc | external `vqec_dsp` wire ABI, frozen |
-| src/adapters/qualcomm/vqec_vision_dsp_v2_wire.c | dvwir | vqec_vision_ai_qcom_dvwir_ (proposed transport envelope only) |
-| tests/unit/vqec_vision_dsp_v2_wire_test.cpp | dvwrt | vqec_vision_ai_unit_dvwrt_ |
+| src/adapters/qualcomm/vqec_vision_dsp_v1_wire.c | dvwir | vqec_vision_ai_qcom_dvwir_ (proposed transport envelope only) |
+| tests/unit/vqec_vision_dsp_v1_wire_test.cpp | dvwrt | vqec_vision_ai_unit_dvwrt_ |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |
@@ -605,7 +606,7 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/vqec_vision_dsp_buffer_cache_test.cpp | dbctst | vqec_vision_ai_unit_dbctst_ |
 
 The following **finite migration exceptions** preserve existing C symbols while the frozen
-`vqec_dsp` ABI is replaced. Owner: AI APP lead plus BSP+FW. Removal condition: v2 operation
+`vqec_dsp` ABI is replaced. Owner: AI APP lead plus BSP+FW. Removal condition: v1 operation
 parity and released-FW migration. No new function may be added under these names.
 
 | Source owner | Existing symbols retained |

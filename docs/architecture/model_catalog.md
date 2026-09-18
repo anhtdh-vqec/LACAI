@@ -1,4 +1,4 @@
-# Model catalog configuration v2
+# Model catalog configuration v1
 
 The model catalog is the AI Model-team document that declares each executable model graph,
 its dependencies, its measured envelope and its artifact reference. This document defines
@@ -21,9 +21,9 @@ pending. **Layer:** core. **Source:**
 - Must be cross-checked by the runtime against the deployment and output-manifest
   references rather than copying values from another untrusted document.
 
-## Role and dependency (schema version 2)
+## Role and dependency (schema version 1)
 
-Schema version 2 adds two validated fields:
+The baseline schema version 1 requires two validated fields:
 
 - `role` is required and is `primary` or `secondary`. A primary model runs in the full-frame
   cadence; a secondary model consumes a primary's result (for example an aligned crop) and
@@ -37,11 +37,9 @@ A secondary model assigned as a full-frame deployment source model is rejected b
 `validate_deployment_models`, so a cascade-dependent model cannot silently run in the
 full-frame fan-out.
 
-Migration: schema version 1 documents (no `role`/`depends_on`) are accepted and normalized
-to version 2 on load, with every entry becoming `primary` and no dependency. The loader
-requires an explicit `role` for version 2 documents; there is no silent default at load
-time. The schema and the C++ validator are the authority; in-memory entries default to
-`primary` for legacy callers.
+Pre-release documents without `role` must be rewritten before loading; the loader does
+not silently assign `primary` or migrate a second schema version. The schema and the C++
+validator are the authority; in-memory entries default to `primary` for legacy callers.
 
 ## Ownership and separation
 
@@ -83,11 +81,11 @@ and never takes tensor/preprocess values from deployment configuration.
 
 ## JSON boundary
 
-Schema: `config/schemas/model_catalog.schema.json` (version 2).
+Schema: `config/schemas/model_catalog.schema.json` (version 1).
 Synthetic handoff: `manifests/models/model_catalog.example.json`.
 
-The strict startup loader accepts schema version 1 (migrated to version 2 as described
-above) and version 2, is limited to 512 KiB and depth 16, rejects unknown/duplicate keys and
+The strict startup loader accepts only schema version 1, is limited to 512 KiB and depth 16,
+rejects unknown/duplicate keys and
 preserves outputs on failure. JSON Schema is review assistance; C++ validation
 remains authoritative for rational-rate comparisons, uniqueness and checked memory sums.
 Parsing does not verify a signature or digest, pin an open file, load executable code or

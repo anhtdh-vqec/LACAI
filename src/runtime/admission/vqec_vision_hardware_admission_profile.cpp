@@ -10,6 +10,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+
 namespace vqec::vision::ai {
 namespace {
 
@@ -118,7 +120,8 @@ status vqec_vision_ai_admis_hwprf_load(
              "max_encoder_pool_bytes", "max_cascade_roi_bytes",
              "max_ddr_bandwidth_mbps", "max_fw_concurrency_slots",
              "max_worker_concurrency", "min_thermal_headroom_pct"});
-        if (vqec_vision_ai_admis_hwprf_read_u32(root.at("schema_version")) != 1U) {
+        if (vqec_vision_ai_admis_hwprf_read_u32(root.at("schema_version")) !=
+            VQEC_VISION_AI_BASELINE_SCHEMA_VERSION) {
             return {status_code::unsupported,
                 "unsupported hardware admission profile schema"};
         }

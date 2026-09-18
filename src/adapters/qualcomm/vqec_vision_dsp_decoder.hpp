@@ -10,6 +10,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
 #include "vqec_vision_dsp_session.hpp"
 
 namespace vqec::vision::ai {
@@ -32,7 +33,7 @@ struct dsp_decoder_config {
     std::string box_tensor_{"boxes_out"};
     std::string score_tensor_{"conf_out"};
     std::string landmark_schema_id_{"scrfd.5point"};
-    std::string landmark_schema_version_{"1"};
+    std::string landmark_schema_version_{VQEC_VISION_AI_BASELINE_VERSION_TEXT};
     std::size_t landmark_count_{5};
     std::shared_ptr<dsp_session> session_;
 };

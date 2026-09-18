@@ -66,7 +66,7 @@ QAIC generation of the historical FW IDL reproduced the old stub byte-for-byte. 
 is compatibility/provenance evidence for the client, not proof that the deployed cDSP
 skeleton was built from that exact source or that custom C algorithms may be redistributed.
 The legacy reference C files are isolated under the private Qualcomm adapter solely to
-keep the existing tests and board ABI running until v2 parity. They are not a generic
+keep the existing tests and board ABI running until v1 parity. They are not a generic
 kernel and require AI APP/BSP per-file license and owner review before release.
 
 | Compatibility files | Previous tracked SHA-256 prefix | Provenance / release status |
@@ -104,13 +104,13 @@ Do not change legacy method ordinals or call a new method against an old binary.
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain
 generation and completion mode before model activation.
 
-`vqec_vision_dsp_v2.idl` is a proposed transport draft. The eSDK CMake build runs QAIC
-against it and checks that a v2 header/stub/skeleton can be generated, but does not compile,
+`vqec_vision_dsp_v1.idl` is a proposed transport draft. The eSDK CMake build runs QAIC
+against it and checks that a v1 header/stub/skeleton can be generated, but does not compile,
 deploy or open that skeleton. Its single packed input sequence is not yet accepted for the
 multi-tensor hot path: it could require another ARM copy. Capability wire format, bounded
 lengths, registered-buffer/scatter-gather design and kernel implementation remain under
-AI APP/BSP review. No runtime chooses v2 based on the presence of these generated files.
-The shared v2 wire helper validates only the fixed 32-byte transport envelope and
+AI APP/BSP review. No runtime chooses v1 based on the presence of these generated files.
+The shared v1 wire helper validates only the fixed 32-byte transport envelope and
 capability bounds. A successful envelope check is not permission to execute an operation:
 image, dense, anchor and ROI payload schemas and device-side validation are still absent.
 

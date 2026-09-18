@@ -28,10 +28,10 @@ constexpr char g_valid_catalog[] = R"({
 "max_height":2160,"min_fps_numerator":10,"min_fps_denominator":1},
 "resources":{"resident_bytes":33554432,"max_tensor_bytes_per_source":8388608,
 "output_queue_buffers":2,"max_concurrent_sources":16,
-"can_share_context_across_sources":true}}]})";
+"can_share_context_across_sources":true},"role":"primary"}]})";
 
-constexpr char g_valid_catalog_v2[] = R"({
-"schema_version":2,"revision":3,"catalog_id":"models_qcs6490_v2","models":[
+constexpr char g_valid_catalog_explicit[] = R"({
+"schema_version":1,"revision":3,"catalog_id":"models_qcs6490_v1","models":[
 {"model_id":"person_detector","model_version":"1.0.0","target_id":"qcs6490_qlinux_1_8",
 "artifact_ref":"person_detector_qnn_v1",
 "artifact_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -48,8 +48,8 @@ constexpr char g_valid_catalog_v2[] = R"({
 "can_share_context_across_sources":true},
 "role":"primary"}]})";
 
-constexpr char g_valid_catalog_v2_secondary[] = R"({
-"schema_version":2,"revision":3,"catalog_id":"models_face_v2","models":[
+constexpr char g_valid_catalog_secondary[] = R"({
+"schema_version":1,"revision":3,"catalog_id":"models_face_v1","models":[
 {"model_id":"person_detector","model_version":"1.0.0","target_id":"qcs6490_qlinux_1_8",
 "artifact_ref":"person_detector_qnn_v1",
 "artifact_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -92,18 +92,18 @@ std::string vqec_vision_ai_unit_mltst_replace(
     return document;
 }
 
-std::string vqec_vision_ai_unit_mltst_replace_v2(
+std::string vqec_vision_ai_unit_mltst_replace_baseline(
     const std::string& _from, const std::string& _to) {
-    std::string document = g_valid_catalog_v2_secondary;
+    std::string document = g_valid_catalog_secondary;
     const auto position = document.find(_from);
     if (position == std::string::npos) {
-        throw std::runtime_error("catalog loader v2 fixture token missing");
+        throw std::runtime_error("catalog loader baseline fixture token missing");
     }
     document.replace(position, _from.size(), _to);
     return document;
 }
 
-void vqec_vision_ai_unit_mltst_require_v2_load(
+void vqec_vision_ai_unit_mltst_require_baseline_load(
     const std::string& _document, status_code _expected) {
     std::istringstream stream(_document);
     model_catalog catalog;
@@ -111,7 +111,7 @@ void vqec_vision_ai_unit_mltst_require_v2_load(
     const auto result =
         vqec_vision_ai_mreg_mdcat_load_catalog(stream, catalog, resident_bytes);
     if (result.code_ != _expected) {
-        std::cerr << "v2 loader expected " << static_cast<int>(_expected) << " got "
+        std::cerr << "baseline loader expected " << static_cast<int>(_expected) << " got "
                   << static_cast<int>(result.code_) << ": " << result.message_ << '\n';
         throw std::runtime_error(result.message_);
     }
@@ -147,7 +147,7 @@ void vqec_vision_ai_unit_mltst_check_loader() {
         vqec_vision_ai_unit_mltst_replace(
             "\"revision\":3", "\"revision\":3,\"revision\":4"),
         status_code::invalid_argument);
-    // A version 1 document is migrated: normalized to version 2 with primary roles.
+    // The baseline document keeps its explicit primary role.
     {
         std::istringstream stream(g_valid_catalog);
         model_catalog catalog;
@@ -158,15 +158,16 @@ void vqec_vision_ai_unit_mltst_check_loader() {
             catalog.models_.size() != 1 ||
             catalog.models_[0].role_ != model_role::primary ||
             !catalog.models_[0].depends_on_.empty()) {
-            throw std::runtime_error("version 1 catalog was not migrated to primary");
+            throw std::runtime_error("baseline catalog did not preserve primary role");
         }
     }
-    // Version 2 requires an explicit role.
+    // Baseline version 1 requires an explicit role.
     vqec_vision_ai_unit_mltst_require_load(
         vqec_vision_ai_unit_mltst_replace(
-            "\"schema_version\":1", "\"schema_version\":2"),
+            ",\"role\":\"primary\"", ""),
         status_code::invalid_argument);
-    vqec_vision_ai_unit_mltst_require_v2_load(g_valid_catalog_v2, status_code::ok);
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        g_valid_catalog_explicit, status_code::ok);
     {
         std::istringstream stream(g_valid_catalog);
         model_catalog catalog;
@@ -180,29 +181,29 @@ void vqec_vision_ai_unit_mltst_check_loader() {
             throw std::runtime_error("authoritative preprocess was not loaded exactly");
         }
     }
-    vqec_vision_ai_unit_mltst_require_v2_load(
-        g_valid_catalog_v2_secondary, status_code::ok);
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        g_valid_catalog_secondary, status_code::ok);
     // A primary model must not declare dependencies.
-    vqec_vision_ai_unit_mltst_require_v2_load(
-        vqec_vision_ai_unit_mltst_replace_v2(
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        vqec_vision_ai_unit_mltst_replace_baseline(
             "\"role\":\"primary\"},",
             "\"role\":\"primary\",\"depends_on\":[{\"model_id\":\"x\","
             "\"model_version\":\"1.0.0\",\"target_id\":\"qcs6490_qlinux_1_8\"}]},"),
         status_code::invalid_argument);
     // A secondary model requires dependencies.
-    vqec_vision_ai_unit_mltst_require_v2_load(
-        vqec_vision_ai_unit_mltst_replace_v2(
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        vqec_vision_ai_unit_mltst_replace_baseline(
             ",\"depends_on\":[{\"model_id\":\"person_detector\",\"model_version\":\"1.0.0\","
             "\"target_id\":\"qcs6490_qlinux_1_8\"}]",
             ""),
         status_code::invalid_argument);
     // An unknown role and an unknown dependency key are rejected.
-    vqec_vision_ai_unit_mltst_require_v2_load(
-        vqec_vision_ai_unit_mltst_replace_v2(
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        vqec_vision_ai_unit_mltst_replace_baseline(
             "\"role\":\"secondary\"", "\"role\":\"tertiary\""),
         status_code::invalid_argument);
-    vqec_vision_ai_unit_mltst_require_v2_load(
-        vqec_vision_ai_unit_mltst_replace_v2(
+    vqec_vision_ai_unit_mltst_require_baseline_load(
+        vqec_vision_ai_unit_mltst_replace_baseline(
             "\"target_id\":\"qcs6490_qlinux_1_8\"}]",
             "\"target_id\":\"qcs6490_qlinux_1_8\",\"extra\":1}]"),
         status_code::invalid_argument);

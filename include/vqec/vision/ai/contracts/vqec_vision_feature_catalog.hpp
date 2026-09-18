@@ -6,13 +6,15 @@
 #include <string>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+
 #include "vqec/vision/ai/contracts/vqec_vision_feature_event.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
 
 namespace vqec::vision::ai {
 
 namespace feature_catalog_limits {
-inline constexpr std::uint32_t g_schema_version = 1;
+inline constexpr std::uint32_t g_schema_version = VQEC_VISION_AI_BASELINE_SCHEMA_VERSION;
 inline constexpr std::size_t g_max_features = 64;
 inline constexpr std::size_t g_max_model_dependencies =
     deployment_limits::g_max_models_per_source;
