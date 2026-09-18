@@ -39,7 +39,9 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 | `vqec_vision_dsp_buffer_cache.cpp` | Bounded mapping cache with pinned access leases and deferred retirement |
 | `vqec_vision_dsp_legacy.idl` | Frozen compatibility wire; QAIC generates client stub at build time from the reviewed SDK |
 | `vqec_vision_dsp_v1.idl`, `vqec_vision_dsp_v1_wire.{c,h}` | Proposed model-independent transport and tested envelope codec; no production runtime selection |
-| `vqec_vision_dsp_v1_dense.{c,h}` | Allocation-free descriptor-driven uint16 dense decode/NMS shared by ARM conformance and Hexagon builds; skeleton/runtime wiring remains open |
+| `vqec_vision_dsp_v1_dense.{c,h}` | Allocation-free descriptor-driven uint16 dense decode/NMS shared by ARM conformance and Hexagon builds; production host runtime wiring remains open |
+| `vqec_vision_dsp_v1_service.{c,h}` | Bounded v1 capability/dispatch core with fixed per-session scratch and explicit operation response |
+| `vqec_vision_dsp_v1_skeleton.c` | QAIC ABI binding with four fixed sessions, per-session serialization and generation-protected handles; BSP signing/deploy remains open |
 | `vqec_vision_dsp_legacy_*.{c,h}` | Isolated legacy reference fixtures and wire constants; owner/license review pending |
 | `vqec_vision_dsp_session.cpp` | Legacy FastRPC transport; model-specific wire operations, not a generic DSP ABI |
 | `vqec_vision_dsp_preprocessor.cpp` | Legacy DSP image-processor implementation; semantic qualification remains open |

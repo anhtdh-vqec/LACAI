@@ -12,6 +12,7 @@ extern "C" {
 
 /* Draft ABI 1.0. Fixed wire constants are macros for C/C++ compile-time use. */
 #define VQEC_VISION_AI_DSP_V1_ENVELOPE_BYTES 32U
+#define VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES 24U
 #define VQEC_VISION_AI_DSP_V1_MAGIC_BYTES 4U
 #define VQEC_VISION_AI_DSP_V1_MAGIC_0 'V'
 #define VQEC_VISION_AI_DSP_V1_MAGIC_1 'Q'
@@ -62,6 +63,13 @@ typedef struct vqec_vision_ai_dsp_v1_request {
     uint32_t domain_generation;
 } vqec_vision_ai_dsp_v1_request;
 
+typedef struct vqec_vision_ai_dsp_v1_operation_response {
+    uint16_t operation;
+    vqec_vision_ai_dsp_v1_wire_status status;
+    uint32_t output_bytes;
+    uint32_t detail;
+} vqec_vision_ai_dsp_v1_operation_response;
+
 vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_encode_capabilities(
     const vqec_vision_ai_dsp_v1_capabilities* _capabilities, uint8_t* _wire, size_t _wire_bytes);
 
@@ -79,6 +87,12 @@ vqec_vision_ai_qcom_dvwir_validate_request(const vqec_vision_ai_dsp_v1_capabilit
                                            const uint8_t* _descriptor, size_t _descriptor_bytes,
                                            size_t _input_bytes, size_t _output_capacity_bytes,
                                            vqec_vision_ai_dsp_v1_request* _request);
+
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_encode_operation_response(
+    const vqec_vision_ai_dsp_v1_operation_response* _response, uint8_t* _wire, size_t _wire_bytes);
+
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_decode_operation_response(
+    const uint8_t* _wire, size_t _wire_bytes, vqec_vision_ai_dsp_v1_operation_response* _response);
 
 #ifdef __cplusplus
 }

@@ -475,6 +475,9 @@ Portable Linux/CI counterpart `tools/vqec_vision_check_source_layout.sh` shares 
 logical owner and performs the same read-only checks. No AST naming enforcement is
 implied by the structural filename checker.
 
+Hexagon build owner: `tools/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
+top-level control flow only and writes exclusively to an explicit empty output directory.
+
 Board-side helper `tools/vqec_vision_qnn_board_smoke.sh` runs `qnn-net-run` for one model
 library against a pinned QAIRT runtime; it writes only the output directory and does not
 modify the repository.
@@ -592,6 +595,9 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/vqec_vision_dsp_v1_wire_test.cpp | dvwrt | vqec_vision_ai_unit_dvwrt_ |
 | src/adapters/qualcomm/vqec_vision_dsp_v1_dense.c | d1dns | vqec_vision_ai_qcom_d1dns_ |
 | tests/unit/vqec_vision_dsp_v1_dense_test.cpp | d1dst | vqec_vision_ai_unit_d1dst_ |
+| src/adapters/qualcomm/vqec_vision_dsp_v1_service.c | d1svc | vqec_vision_ai_qcom_d1svc_ |
+| tests/unit/vqec_vision_dsp_v1_service_test.cpp | d1svt | vqec_vision_ai_unit_d1svt_ |
+| src/adapters/qualcomm/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
 | src/adapters/qualcomm/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |

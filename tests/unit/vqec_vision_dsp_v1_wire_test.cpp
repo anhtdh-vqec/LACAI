@@ -151,11 +151,46 @@ int vqec_vision_ai_unit_dvwrt_test_request_bounds() {
     return 0;
 }
 
+int vqec_vision_ai_unit_dvwrt_test_operation_response() {
+    using response_wire = std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES>;
+    response_wire bytes{};
+    const vqec_vision_ai_dsp_v1_operation_response response{VQEC_VISION_AI_DSP_V1_DENSE_DECODE,
+                                                            vqec_vision_ai_dsp_v1_wire_ok, 48U, 3U};
+    vqec_vision_ai_dsp_v1_operation_response decoded{};
+    if (vqec_vision_ai_qcom_dvwir_encode_operation_response(
+            &response, bytes.data(), bytes.size()) != vqec_vision_ai_dsp_v1_wire_ok ||
+        vqec_vision_ai_qcom_dvwir_decode_operation_response(bytes.data(), bytes.size(), &decoded) !=
+            vqec_vision_ai_dsp_v1_wire_ok ||
+        decoded.operation != response.operation || decoded.status != response.status ||
+        decoded.output_bytes != response.output_bytes || decoded.detail != response.detail) {
+        return 1;
+    }
+    const auto original = bytes;
+    bytes[VQEC_VISION_AI_DSP_V1_FIELD_12_OFFSET] = 0xffU;
+    if (vqec_vision_ai_qcom_dvwir_decode_operation_response(bytes.data(), bytes.size(), &decoded) !=
+        vqec_vision_ai_dsp_v1_wire_malformed) {
+        return 1;
+    }
+    bytes = original;
+    bytes[VQEC_VISION_AI_DSP_V1_MAJOR_OFFSET] = VQEC_VISION_AI_DSP_V1_MAJOR + 1U;
+    if (vqec_vision_ai_qcom_dvwir_decode_operation_response(bytes.data(), bytes.size(), &decoded) !=
+        vqec_vision_ai_dsp_v1_wire_incompatible) {
+        return 1;
+    }
+    const vqec_vision_ai_dsp_v1_operation_response invalid{
+        VQEC_VISION_AI_DSP_V1_DENSE_DECODE, vqec_vision_ai_dsp_v1_wire_out_of_range, 1U, 0U};
+    return vqec_vision_ai_qcom_dvwir_encode_operation_response(
+               &invalid, bytes.data(), bytes.size()) == vqec_vision_ai_dsp_v1_wire_malformed
+               ? 0
+               : 1;
+}
+
 } // namespace
 
 int main() {
     if (vqec_vision_ai_unit_dvwrt_test_capability_round_trip() != 0 ||
-        vqec_vision_ai_unit_dvwrt_test_request_bounds() != 0) {
+        vqec_vision_ai_unit_dvwrt_test_request_bounds() != 0 ||
+        vqec_vision_ai_unit_dvwrt_test_operation_response() != 0) {
         std::cerr << "FastRPC v1 wire envelope regression failed\n";
         return 1;
     }

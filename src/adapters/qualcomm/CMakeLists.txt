@@ -93,6 +93,12 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/include")
     target_link_libraries(vqec_vision_ai_dsp_v1_dense
         PUBLIC vqec_vision_ai_dsp_v1_wire PRIVATE m)
+    add_library(vqec_vision_ai_dsp_v1_service STATIC
+        vqec_vision_dsp_v1_service.c)
+    target_include_directories(vqec_vision_ai_dsp_v1_service PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/include")
+    target_link_libraries(vqec_vision_ai_dsp_v1_service
+        PUBLIC vqec_vision_ai_dsp_v1_dense)
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}" "${vqec_vision_ai_qaic_output}")
     set_source_files_properties("${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"

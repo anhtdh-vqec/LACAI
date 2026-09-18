@@ -18,6 +18,7 @@ run explicitly writes an output directory.
 | `vqec_vision_model_runner.cpp` | Explicit preprocess -> QNN -> decoder model runner diagnostic |
 | `vqec_vision_qnn_engine_smoke.cpp` | Board smoke: compose/execute (and `--reload-cycles`) for one model library |
 | `vqec_vision_qnn_board_smoke.sh` | Board-side `qnn-net-run` smoke for one model library |
+| `vqec_vision_build_dsp_v1.sh` | Generate QAIC v1 skeleton, build the v68 DSP shared object and emit a digest/provenance receipt into an explicit empty directory |
 | `vqec_vision_fastcv_affine_smoke.cpp`, `vqec_vision_qtiv_color_smoke.cpp` | FastCV affine / QTI color board probes |
 | `vqec_vision_fw_camera_sim.py` | Compatibility FW RAW camera simulator over the wire socket |
 | `vqec_vision_fw_camera_sim_test.py` | Device-free simulator pool/ACK ownership regression |

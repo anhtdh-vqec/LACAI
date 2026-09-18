@@ -153,8 +153,8 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
 ### 2.3 Defect và khoảng trống còn mở
 
-1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke; draft v1 và codec
-   operation envelope đã có nhưng chưa được nối vào skeleton/runtime production.
+1. ABI FastRPC production hiện có method theo tên person/SCRFD/fire-smoke; draft v1, codec,
+   service và skeleton source đã có nhưng chưa được nối vào host runtime production.
 2. Kernel dense v1 allocation-free đã nhận shape/class/quantization/transform/capacity bằng
    descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Tuy nhiên
    transport hiện vẫn là packed input, chưa có skeleton được BSP ký và fire/smoke production
@@ -166,9 +166,10 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 5. QAIC 01.00.47 từ Hexagon SDK 5.5.7.0 đã sinh lại stub legacy từ IDL do LACAI sở hữu;
    stub chỉ khác bản cũ ở tên header include. `third_party/fastrpc_dsp` đã bỏ, nhưng
    license/owner của C compatibility và nguồn binary skeleton đang deploy chưa được ký.
-6. Hexagon SDK 5.5.7.0 hiện có tại đường dẫn user cấp. `hexagon-clang` thiếu
-   `libtinfo.so.5` trên host, nên build skeleton từ source và protocol v1 vẫn chưa có
-   release receipt; eSDK vẫn là toolchain bắt buộc cho ARM C++/CMake/tests.
+6. Hexagon SDK 5.5.7.0 hiện có tại đường dẫn user cấp. Tool build v1 đã sinh QAIC, compile
+   skeleton v68, kiểm tra export và tạo digest receipt; hai clean build cho artifact giống
+   byte. Host base vẫn thiếu `libtinfo.so.5`; evidence dùng package Ubuntu giải nén riêng.
+   BSP chưa ký build-host/signing/deploy receipt, và eSDK vẫn bắt buộc cho ARM C++/CMake/tests.
 7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
    owned mỗi frame; loại copy này cần owner/view + completion contract, không được xóa bằng cast.
 8. Preview/source vẫn có memcpy đáng kể. Phải tách số CPU media path khỏi inference path trước
@@ -269,7 +270,7 @@ golden, decode golden và quality report. AI APP có thể hoàn thiện adapter
 |---|---|---|---|
 | D00 | AI APP | Giữ các fix lease, fail-closed, exact tensor validation, quant sign và workspace | Full eSDK suite pass; negative tests shape/name/bytes/nonfinite/closed-DSP/FD reuse |
 | D01 | AI APP+BSP | IDL legacy đã chuyển vào `src/adapters/qualcomm` và QAIC sinh stub khi build; kiểm toán C compatibility và binary skeleton còn mở | Có IDL, generator/version/hash/license cho từng file; file chưa rõ provenance không vào release |
-| D02 | BSP+FW | Cấp approved Hexagon SDK 5.5.7, build container và signing/deploy procedure | Clean build skeleton từ IDL/source; digest reproducible; deploy `.98` không dùng binary copy tay |
+| D02 | BSP+FW | SDK 5.5.7 và clean reproducible source build đã có; còn approve build host, signing/deploy procedure | Digest reproducible đã đạt ở source gate; cần BSP receipt và deploy `.98` không dùng binary copy tay |
 | D03 | AI Model | Bàn giao golden M0–M4 cho bốn model | Fixtures hợp lệ/lỗi; tolerances và quality owner ký |
 
 Theo xác nhận của AI APP lead, đường đang chạy là baseline hồi quy ban đầu. AI APP có thể

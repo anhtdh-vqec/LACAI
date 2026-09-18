@@ -4,8 +4,8 @@
 #include <string.h>
 
 static const uint8_t g_vqec_vision_ai_dsp_v1_magic[VQEC_VISION_AI_DSP_V1_MAGIC_BYTES] = {
-    VQEC_VISION_AI_DSP_V1_MAGIC_0, VQEC_VISION_AI_DSP_V1_MAGIC_1,
-    VQEC_VISION_AI_DSP_V1_MAGIC_2, VQEC_VISION_AI_DSP_V1_MAGIC_3};
+    VQEC_VISION_AI_DSP_V1_MAGIC_0, VQEC_VISION_AI_DSP_V1_MAGIC_1, VQEC_VISION_AI_DSP_V1_MAGIC_2,
+    VQEC_VISION_AI_DSP_V1_MAGIC_3};
 
 static uint16_t vqec_vision_ai_qcom_dvwir_read_u16(const uint8_t* _bytes) {
     return (uint16_t)((uint16_t)_bytes[0] | ((uint16_t)_bytes[1] << 8));
@@ -41,6 +41,17 @@ static int vqec_vision_ai_qcom_dvwir_capabilities_valid(
 static int vqec_vision_ai_qcom_dvwir_operation_valid(uint16_t _operation) {
     return _operation >= VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM &&
            _operation <= VQEC_VISION_AI_DSP_V1_ROI_ALIGN;
+}
+
+static int vqec_vision_ai_qcom_dvwir_status_valid(uint32_t _status) {
+    return _status <= (uint32_t)vqec_vision_ai_dsp_v1_wire_stale_generation;
+}
+
+static int
+vqec_vision_ai_qcom_dvwir_response_operation_valid(uint16_t _operation,
+                                                   vqec_vision_ai_dsp_v1_wire_status _status) {
+    return vqec_vision_ai_qcom_dvwir_operation_valid(_operation) ||
+           (_operation == 0U && _status != vqec_vision_ai_dsp_v1_wire_ok);
 }
 
 vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_encode_capabilities(
@@ -195,5 +206,70 @@ vqec_vision_ai_qcom_dvwir_validate_request(const vqec_vision_ai_dsp_v1_capabilit
         return vqec_vision_ai_dsp_v1_wire_out_of_range;
     }
     *_request = decoded;
+    return vqec_vision_ai_dsp_v1_wire_ok;
+}
+
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_encode_operation_response(
+    const vqec_vision_ai_dsp_v1_operation_response* _response, uint8_t* _wire, size_t _wire_bytes) {
+    if (_response == NULL || _wire == NULL || _wire_bytes != VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES ||
+        !vqec_vision_ai_qcom_dvwir_status_valid((uint32_t)_response->status) ||
+        !vqec_vision_ai_qcom_dvwir_response_operation_valid(_response->operation,
+                                                            _response->status) ||
+        (_response->status != vqec_vision_ai_dsp_v1_wire_ok && _response->output_bytes != 0U)) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    memset(_wire, 0, _wire_bytes);
+    memcpy(_wire, g_vqec_vision_ai_dsp_v1_magic, sizeof(g_vqec_vision_ai_dsp_v1_magic));
+    vqec_vision_ai_qcom_dvwir_write_u16(_wire + VQEC_VISION_AI_DSP_V1_MAJOR_OFFSET,
+                                        VQEC_VISION_AI_DSP_V1_MAJOR);
+    vqec_vision_ai_qcom_dvwir_write_u16(_wire + VQEC_VISION_AI_DSP_V1_MINOR_OFFSET,
+                                        VQEC_VISION_AI_DSP_V1_MINOR);
+    vqec_vision_ai_qcom_dvwir_write_u16(_wire + VQEC_VISION_AI_DSP_V1_HEADER_BYTES_OFFSET,
+                                        VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES);
+    vqec_vision_ai_qcom_dvwir_write_u16(_wire + VQEC_VISION_AI_DSP_V1_KIND_OFFSET,
+                                        _response->operation);
+    vqec_vision_ai_qcom_dvwir_write_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_12_OFFSET,
+                                        (uint32_t)_response->status);
+    vqec_vision_ai_qcom_dvwir_write_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_16_OFFSET,
+                                        _response->output_bytes);
+    vqec_vision_ai_qcom_dvwir_write_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_20_OFFSET,
+                                        _response->detail);
+    return vqec_vision_ai_dsp_v1_wire_ok;
+}
+
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_dvwir_decode_operation_response(
+    const uint8_t* _wire, size_t _wire_bytes, vqec_vision_ai_dsp_v1_operation_response* _response) {
+    if (_wire == NULL || _response == NULL || _wire_bytes != VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    if (memcmp(_wire, g_vqec_vision_ai_dsp_v1_magic, sizeof(g_vqec_vision_ai_dsp_v1_magic)) != 0 ||
+        vqec_vision_ai_qcom_dvwir_read_u16(_wire + VQEC_VISION_AI_DSP_V1_HEADER_BYTES_OFFSET) !=
+            VQEC_VISION_AI_DSP_V1_RESPONSE_BYTES) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    if (vqec_vision_ai_qcom_dvwir_read_u16(_wire + VQEC_VISION_AI_DSP_V1_MAJOR_OFFSET) !=
+            VQEC_VISION_AI_DSP_V1_MAJOR ||
+        vqec_vision_ai_qcom_dvwir_read_u16(_wire + VQEC_VISION_AI_DSP_V1_MINOR_OFFSET) !=
+            VQEC_VISION_AI_DSP_V1_MINOR) {
+        return vqec_vision_ai_dsp_v1_wire_incompatible;
+    }
+    vqec_vision_ai_dsp_v1_operation_response decoded;
+    decoded.operation =
+        vqec_vision_ai_qcom_dvwir_read_u16(_wire + VQEC_VISION_AI_DSP_V1_KIND_OFFSET);
+    const uint32_t status =
+        vqec_vision_ai_qcom_dvwir_read_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_12_OFFSET);
+    decoded.output_bytes =
+        vqec_vision_ai_qcom_dvwir_read_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_16_OFFSET);
+    decoded.detail =
+        vqec_vision_ai_qcom_dvwir_read_u32(_wire + VQEC_VISION_AI_DSP_V1_FIELD_20_OFFSET);
+    if (!vqec_vision_ai_qcom_dvwir_status_valid(status)) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    decoded.status = (vqec_vision_ai_dsp_v1_wire_status)status;
+    if (!vqec_vision_ai_qcom_dvwir_response_operation_valid(decoded.operation, decoded.status) ||
+        (status != (uint32_t)vqec_vision_ai_dsp_v1_wire_ok && decoded.output_bytes != 0U)) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    *_response = decoded;
     return vqec_vision_ai_dsp_v1_wire_ok;
 }

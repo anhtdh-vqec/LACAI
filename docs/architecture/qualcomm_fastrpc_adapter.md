@@ -3,9 +3,10 @@
 This document defines private mapping ownership and the required model-independent DSP
 boundary. It distinguishes the implemented cache from the proposed replacement protocol.
 
-**Status:** source-delivered — mapping leases, bounded cache retirement and SDK-generated
-frozen legacy stub are implemented; the model-independent DSP protocol below is a proposed,
-not yet implemented ABI. **Layer:** adapters. **Source:** `src/adapters/qualcomm`.
+**Status:** source-delivered — mapping leases, bounded cache retirement, SDK-generated frozen
+legacy stub, v1 envelope/dense payload, bounded service core and reproducible v68 skeleton build
+are implemented; production host activation and BSP deployment acceptance remain open.
+**Layer:** adapters. **Source:** `src/adapters/qualcomm`.
 
 ## Responsibility
 
@@ -96,23 +97,34 @@ Reusing compact-result workspace avoids fresh result-vector allocation after war
 
 [ADR 0007](../adr/0007_versioned_fastrpc_operations.md) records the separate ABI and
 review gates. The presence of SDK 5.5.7.0 removes QAIC discovery as a blocker but the
-DSP compiler currently needs `libtinfo.so.5`, which the host does not provide. A temporary
-link to `libtinfo.so.6` starts the compiler for local diagnosis but is not an approved
-toolchain installation or release-build receipt.
+DSP compiler needs `libtinfo.so.5`, which the host base image does not provide. The source build
+can use an explicitly supplied compatibility-library directory; local evidence used the
+unmodified Ubuntu `libtinfo5` package extracted outside the SDK and repository. This is
+reproducible compiler evidence, not BSP approval of the build host or a signing receipt.
 
 Do not change legacy method ordinals or call a new method against an old binary. A separate
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain
 generation and completion mode before model activation.
 
-`vqec_vision_dsp_v1.idl` is a proposed transport draft. The eSDK CMake build runs QAIC
-against it and checks that a v1 header/stub/skeleton can be generated, but does not compile,
-deploy or open that skeleton. Its single packed input sequence is not yet accepted for the
-multi-tensor hot path: it could require another ARM copy. Capability wire format, bounded
-lengths, registered-buffer/scatter-gather design and kernel implementation remain under
-AI APP/BSP review. No runtime chooses v1 based on the presence of these generated files.
-The shared v1 wire helper validates only the fixed 32-byte transport envelope and
-capability bounds. A successful envelope check is not permission to execute an operation:
-image, dense, anchor and ROI payload schemas and device-side validation are still absent.
+`vqec_vision_dsp_v1.idl` remains proposed until AI APP/BSP approval. The eSDK CMake build runs
+QAIC generation checks. `tools/vqec_vision_build_dsp_v1.sh` independently regenerates QAIC,
+compiles the project-owned service with Hexagon 8.7.06 for v68, verifies required exports and
+emits source/artifact digests. It removes only non-runtime linker command metadata from the ELF;
+two clean builds produce the same artifact digest. The resulting binary is not signed, deployed
+or board-accepted by that check.
+
+The v1 source now implements the fixed 32-byte capability/request envelope, 24-byte operation
+response, and one 120-byte `dense_decode` payload. Validation covers exact lengths, generation,
+enum values, arithmetic bounds, tensor packing, finite quantization/transform values and bounded
+output before tensor access. The same allocation-free kernel compiles for eSDK ARM conformance
+and Hexagon and treats person `8400/1` and fire/smoke `2100/2` as descriptor data. A four-session
+DSP pool owns fixed scratch per session, serializes same-session execution and prevents stale
+handle reuse through slot generation.
+
+The IDL still carries one packed input sequence. It is not accepted for the multi-tensor hot path
+until registered-buffer or scatter/gather transport proves that it does not add an ARM copy.
+Image-transform, anchor-distance and ROI-align payloads remain unsupported and fail closed. No
+production runtime chooses v1 merely because generated or built files are present.
 
 The transport exposes operation families, not model IDs:
 

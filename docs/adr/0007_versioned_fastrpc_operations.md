@@ -61,6 +61,15 @@ The fixed envelope codec is shared C that can compile for ARM and Hexagon. It pe
 only transport validation; no operation payload, result schema or release capacity is
 approved by this ADR draft.
 
+Every completed call returns a fixed 24-byte operation response independent of the QAIC
+transport return code. It reuses magic and ABI fields at offsets 0–8, stores the operation at
+10, wire status at 12, valid output bytes at 16 and an operation-specific detail counter at
+20. A failed operation must report zero output bytes. For `dense_decode`, detail is the number
+of threshold-passing candidates excluded or replaced by the configured candidate bound.
+Transport failure means the response cannot be trusted; operation failure is encoded in this
+response and remains distinct from QAIC/FastRPC errors. Operation zero is reserved for a
+request rejected before its operation field can be trusted and is never valid on success.
+
 The first delivered operation payload is `dense_decode` and extends the 32-byte request
 envelope to 120 bytes. Its fixed fields are unsigned little-endian integers or IEEE-754
 binary32 bits; the device never casts descriptor bytes to a C struct. It declares:
