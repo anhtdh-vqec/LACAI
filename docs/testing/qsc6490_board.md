@@ -3,9 +3,9 @@
 This document defines the only authorized LACAI development target and retains the latest
 reproducible evidence for that target. It is not a chronological archive of superseded boards.
 
-**Status:** board-smoke — QCS6490 `192.168.138.98` passed the 2026-09-18 native,
-canonical-deployment and exact cDSP-overlay candidate checks described below. Released-FW
-completion and sustained acceptance remain open. **Layer:** docs.
+**Status:** accepted — QCS6490 `192.168.138.98` passed the declared five-minute full-workload
+AI APP gate on 2026-09-18. Released-FW completion and product-release qualification remain
+external gates. **Layer:** docs.
 **Source:** `tools/board/`, `docs/testing/board_workspace.md`.
 
 ## Responsibility
@@ -80,7 +80,7 @@ tools/board/vqec_vision_preview_acceptance.sh \
   --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
   --output-dir /tmp/lacai-preview-acceptance \
   --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
-  --expected-fps 25 --fps-tolerance 1.0
+  --expected-fps 30 --fps-tolerance 1.0
 ```
 
 The output contains `capture.mkv`, `metrics.txt` and `overlay_contact_sheet.png`. The video
@@ -88,57 +88,45 @@ is transient test evidence and must not be committed because it may contain pers
 
 ## Current evidence
 
-The latest retained evidence on 2026-09-18 is:
+The exact final candidate was built with the approved eSDK and Hexagon SDK 5.5.7.0. Production
+used generic FastRPC v1 for image transform, dense decode and overlay compose, QNN HTP for the
+models, the neutral portable SCRFD decoder and bounded EdgeFace cascade. No legacy skeleton was
+present in the final runtime layout.
 
-- approved eSDK/QEMU CTest: **136/136**;
-- isolated native candidate on `.98`: **128/128**;
-- the canonical deployed person + face + fire/smoke service stopped cleanly with
-  `first_error=0`, 66 cascade tasks/embeddings and no cascade failure;
-- the canonical RTSP preview produced 201 packets in 8.000 seconds, or **25.125 FPS**, at
-  H.264 1920x1080. The generated four-frame contact sheet was reviewed: person/face boxes
-  and labels followed the intended objects, orientation and colors were correct, and no
-  stale rectangles were visible;
-- the canonical process 15-second warm sample was
-  `10.59% usr + 15.86% sys = 26.45%` of one logical core, with average RSS about
-  422520 KiB, HWM 423084 KiB, 44 threads and 160 FDs. This misses the plan's `<=12%`
-  sustained-CPU target and is not a soak result;
-- v68 FastRPC v1 skeleton SHA-256
-  `a5e7d1c030bb110c6b493be5c9c8349ec68b905443ff93d2c0af96ee67625f5a`;
-- live v1 client open/query/execute/close: 24 valid output bytes, no truncation, output box
-  `15,15,25,25`; a second process returned a different nonzero domain generation.
+| Field | Result |
+|---|---|
+| Workload | person + SCRFD + fire/smoke primary graphs; configured EdgeFace cascade |
+| Source/output | DMA-heap fixture, 1920x1080@30; H.264 preview, eight surfaces |
+| DSP smoke | operation mask `19`; image transform, dense and overlay all executed |
+| eSDK/QEMU | 135/135 CTest pass |
+| Preview capture | 241 packets/8 s = **30.125 FPS**, H.264 1920x1080 |
+| Five-minute throughput | 9006 ring frames/300.119829 s = **30.008 FPS** |
+| Five-minute CPU | 6.53% usr + 6.96% sys = **13.50% average** of one logical core |
+| CPU peak | 16.00% in one one-second sample; no per-second ceiling was specified |
+| Memory/lifetime | VmRSS/HWM 352940 -> 353448 KiB; threads 48 -> 48; FDs 122 -> 122 |
+| Model/output health | slots 0/1/2 routed; `cascade_failed=0`; render failures 0 |
 
-The earlier exact clean-build service candidate correctly rejected the board's stale model
-catalog marked schema 2 and then exposed an unconditional legacy-skeleton composition defect.
-That defect was corrected before the overlay run: dense-only person composition now opens the
-negotiated v1 skeleton without requiring the legacy model-named ABI.
+The four-frame contact sheet was visually reviewed: person/face boxes and labels followed the
+objects, geometry/orientation/colour were correct, and no stale overlay appeared. Labels clipped
+at the extreme frame edge only when their associated box was itself clipped; this was not surface
+corruption.
 
-The exact cDSP-overlay candidate was then built with the approved eSDK and Hexagon SDK 5.5.7.0,
-staged separately under `/opt/lacai`, and tested with eight admitted preview surfaces. The v1
-system-client smoke negotiated operation mask `18` (`dense_decode` plus `overlay_compose`) and
-successfully composed registered rpcmem NV12 input/output. The native overlay conformance test
-also passed on the board. The final service SHA-256 was
-`d30aad0fdcaa7e8a890bad8456146a3cd10327ce68ecc0bc066216616fbce36b`; the unsigned
-skeleton SHA-256 was `165aad2caef154a4b3b93a49b7df68642618f0d00c8001928e67a1a9f797fc0a`.
+Exact final SHA-256 values:
 
-For a 1920x1080@30 person workload with 25 FPS preview, the DMA-heap camera fixture exercised
-registered input without the memfd staging fallback. Host capture received 201 packets in
-8.000 seconds (**25.125 FPS**) at H.264 1920x1080. The contact sheet was reviewed in this run:
-green boxes and `PERSON` labels followed people, remained in frame, retained correct colour and
-orientation, and showed no stale rectangles. A 20-second warm `pidstat` sample measured
-`10.04% usr + 3.95% sys = 13.99%` of one logical core; RSS/HWM was 246764 KiB with 21 threads.
-This is a short board smoke, not the 30-minute `SYS-PERF-01` gate. The final lifetime build
-advanced the ring by 51 frames in two seconds and stopped with `first_error=0`.
+- service: `9adfeabc7dd7749d78bbc8c23b76390c7df67d57674d1058b7c3b4bee4735759`;
+- v68 skeleton: `a1f286c64c9e2e6d5dc20c39ee26a6e8f90db1efd9505740b90257e3d23eaec7`;
+- DSP receipt: `cbe94d32de6fdf6bd6622305390e09aea3bb822f94daa19dae7942ae0026e2e6`;
+- full-run script: `8016987c52e4b298a3579590649c4ed6d27c80e168fae9af7d3eb61131948ef7`.
 
-The same person path with the memfd compatibility fixture used one explicit rpcmem staging copy
-and measured `11.10% usr + 5.75% sys = 16.85%` over 20 seconds. This A/B confirms that source
-registration matters and that the fallback must not be labelled zero-copy. A 10-second perf
-sample on the registered path attributed the largest resolved userspace samples to
-`fcvColorYCbCr420PseudoPlanarToRGB888u8` and FastCV scale functions in model preprocessing;
-`qtivoverlay` was absent. Moving the remaining image transform behind the generic v1 operation
-is therefore the next measured CPU item.
+Raw board evidence is retained under `/opt/lacai/out/acceptance_5m/`. After promotion, the
+canonical `/opt/lacai/run_full.sh` path reproduced 29.997 FPS and 13.40% CPU over a ten-second
+sanity sample. The workload was intentionally left running for VLC review at
+`rtsp://192.168.138.98:8554/live/ai/detect0`.
 
-This evidence does not prove signed DSP deployment, released-FW DMA completion, model
-quality, cold-start CPU, thermal stability or leak freedom.
+This accepts the AI APP lead's explicit five-minute, 30 FPS, average-CPU-below-15% gate. The
+508 KiB short-run RSS change is not leak-free proof. Signed DSP deployment, released-FW DMA
+completion, independent model quality, reset-under-load and product thermal/long-soak evidence
+remain owned release gates rather than hidden claims of this result.
 
 ## Evidence record
 
@@ -161,12 +149,12 @@ record and the exact candidate digest. Remove temporary uploads after results ar
 
 ## Limits and next work
 
-- Production source selects negotiated DSP v1 for dense packages and cDSP preview composition;
-  legacy remains only for operation families not implemented in v1.
-- Run the full person + face + fire/smoke workload from one exact candidate. The standalone fire
-  run without a fire detection did not exercise preview encode and is not a performance result.
-- Complete cold-start CPU profiling, the declared sustained workload, memory soak and
-  restart-cycle leak gate.
+- Production source selects negotiated DSP v1 for preprocessing, dense packages and cDSP preview
+  composition; the accepted runtime layout contains no legacy DSP artifact.
+- Cold-start still has a high QNN graph-preparation peak. Phase profiling and staged activation
+  remain optimization work, but are not part of the accepted steady-state gate.
+- Complete product-policy thermal/long-soak and restart-cycle qualification when required; do not
+  infer leak freedom from this five-minute result.
 - Complete registered multi-tensor DSP transport, cache/fence/completion and reset while
   work is in flight.
 - Released-FW allocator, camera, RTSP/UI and recording acceptance still require BSP+FW

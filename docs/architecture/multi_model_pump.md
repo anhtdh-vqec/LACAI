@@ -53,7 +53,10 @@ its owner; stop clears it before source reconciliation.
   one frame;
 - result polling rotates after each delivered result to prevent a fast graph monopolizing
   output progress;
-- if every graph has an outstanding job, the pump does not receive a frame;
+- acquisition follows the source clock even when every graph has an outstanding job;
+  busy models apply their declared drop/latest-wins policy while the independent one-slot
+  preview mailbox advances and releases old FW frames, so accelerator latency cannot
+  throttle preview or camera ACK progress;
 - a due but busy graph skips the current frame and is recorded in `busy_model_mask`; it
   never creates a stale-frame backlog or burst retry;
 - each tensor binding owns one persistent preprocessing output buffer, reused across frames

@@ -10,6 +10,7 @@
 
 extern "C" {
 #include "vqec_vision_dsp_v1_dense.h"
+#include "vqec_vision_dsp_v1_image.h"
 #include "vqec_vision_dsp_v1_overlay.h"
 }
 
@@ -27,6 +28,12 @@ constexpr std::uint32_t g_overlay_side = 64U;
 constexpr std::uint32_t g_overlay_y_bytes = g_overlay_side * g_overlay_side;
 constexpr std::uint32_t g_overlay_surface_bytes =
     g_overlay_y_bytes + g_overlay_y_bytes / 2U;
+constexpr std::uint32_t g_image_source_side = 64U;
+constexpr std::uint32_t g_image_tensor_side = 32U;
+constexpr std::uint32_t g_image_input_bytes =
+    g_image_source_side * g_image_source_side * 3U / 2U;
+constexpr std::uint32_t g_image_output_bytes =
+    g_image_tensor_side * g_image_tensor_side * 3U * sizeof(std::uint16_t);
 
 void vqec_vision_ai_tools_d1smk_write_u16(std::uint8_t* _output, std::uint16_t _value) {
     _output[0] = static_cast<std::uint8_t>(_value);
@@ -118,6 +125,70 @@ int main(int _argc, char** _argv) {
         return g_exit_failure;
     }
 
+    const std::uint32_t image_mask =
+        1U << (VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM - 1U);
+    if ((capabilities.operations_mask & image_mask) == 0U) {
+        std::cerr << "DSP v1 service does not advertise image_transform\n";
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+    rpcmem_pool image_pool;
+    const auto image_allocated = image_pool.vqec_vision_ai_qcom_rpcm_allocate(
+        std::vector<std::size_t>{g_image_input_bytes, g_image_output_bytes});
+    if (image_allocated.code_ != status_code::ok) {
+        std::cerr << image_allocated.message_ << '\n';
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+    const auto& image_input = image_pool.vqec_vision_ai_qcom_rpcm_slot(0U);
+    const auto& image_output = image_pool.vqec_vision_ai_qcom_rpcm_slot(1U);
+    std::memset(image_input.data_, 128, g_image_input_bytes);
+    std::memset(image_output.data_, 0, g_image_output_bytes);
+    vqec_vision_ai_dsp_v1_image_config image_config{};
+    image_config.pixel_format = VQEC_VISION_AI_DSP_V1_IMAGE_PIXEL_NV12;
+    image_config.matrix = VQEC_VISION_AI_DSP_V1_IMAGE_MATRIX_BT709;
+    image_config.range = VQEC_VISION_AI_DSP_V1_IMAGE_RANGE_LIMITED;
+    image_config.interpolation = VQEC_VISION_AI_DSP_V1_IMAGE_INTERPOLATION_BILINEAR;
+    image_config.resize = VQEC_VISION_AI_DSP_V1_IMAGE_RESIZE_LETTERBOX;
+    image_config.placement = VQEC_VISION_AI_DSP_V1_IMAGE_PLACEMENT_CENTRE;
+    image_config.channel_order = VQEC_VISION_AI_DSP_V1_IMAGE_CHANNEL_RGB;
+    image_config.normalization = VQEC_VISION_AI_DSP_V1_IMAGE_NORMALIZATION_OFFSET_SCALE;
+    image_config.dtype = VQEC_VISION_AI_DSP_V1_IMAGE_DTYPE_UINT16;
+    image_config.source_width = g_image_source_side;
+    image_config.source_height = g_image_source_side;
+    image_config.source_y_stride = g_image_source_side;
+    image_config.source_uv_offset = g_image_source_side * g_image_source_side;
+    image_config.source_uv_stride = g_image_source_side;
+    image_config.crop_width = g_image_source_side;
+    image_config.crop_height = g_image_source_side;
+    image_config.tensor_width = g_image_tensor_side;
+    image_config.tensor_height = g_image_tensor_side;
+    image_config.destination_width = g_image_tensor_side;
+    image_config.destination_height = g_image_tensor_side;
+    image_config.pad[0] = image_config.pad[1] = image_config.pad[2] = 114.0F;
+    image_config.scale[0] = image_config.scale[1] = image_config.scale[2] = 1.0F / 255.0F;
+    image_config.quantization_scale = 1.0F / 65535.0F;
+    std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_IMAGE_DESCRIPTOR_BYTES>
+        image_descriptor{};
+    const auto image_encoded = vqec_vision_ai_qcom_d1img_encode_descriptor(
+        &image_config, capabilities.domain_generation, g_image_input_bytes,
+        g_image_output_bytes, image_descriptor.data(), image_descriptor.size());
+    const auto image_executed = client.vqec_vision_ai_qcom_d1cli_execute(
+        image_descriptor.data(), image_descriptor.size(),
+        static_cast<const std::uint8_t*>(image_input.data_), g_image_input_bytes,
+        static_cast<std::uint8_t*>(image_output.data_), g_image_output_bytes);
+    std::uint16_t image_first_value = 0U;
+    std::memcpy(&image_first_value, image_output.data_, sizeof(image_first_value));
+    if (image_encoded != vqec_vision_ai_dsp_v1_wire_ok ||
+        image_executed.status_.code_ != status_code::ok ||
+        image_executed.completion_ != dsp_v1_completion::completed ||
+        image_executed.output_bytes_ != g_image_output_bytes || image_first_value == 0U) {
+        std::cerr << "Registered image transform failed: "
+                  << image_executed.status_.message_ << '\n';
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+
     const std::uint32_t overlay_mask =
         1U << (VQEC_VISION_AI_DSP_V1_OVERLAY_COMPOSE - 1U);
     if ((capabilities.operations_mask & overlay_mask) == 0U) {
@@ -189,6 +260,8 @@ int main(int _argc, char** _argv) {
               << vqec_vision_ai_tools_d1smk_read_f32(output.data() + sizeof(float)) << ','
               << vqec_vision_ai_tools_d1smk_read_f32(output.data() + 2U * sizeof(float)) << ','
               << vqec_vision_ai_tools_d1smk_read_f32(output.data() + 3U * sizeof(float))
+              << " image_bytes=" << image_executed.output_bytes_
+              << " image_first_value=" << image_first_value
               << " overlay_bytes=" << overlay_executed.output_bytes_
               << " overlay_pixel="
               << static_cast<unsigned>(overlay_bytes[16U * g_overlay_side + 16U]) << '\n';

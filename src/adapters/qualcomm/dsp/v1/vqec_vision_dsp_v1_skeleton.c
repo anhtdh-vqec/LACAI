@@ -3,6 +3,7 @@
 #include <AEEStdErr.h>
 #include <qurt_mutex.h>
 #include <qurt_sclk.h>
+#include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 typedef struct vqec_vision_ai_dsp_v1_skeleton_context {
     uint32_t active;
     uint32_t generation;
+    void* fastcv_library;
     vqec_vision_ai_dsp_v1_service service;
 } vqec_vision_ai_dsp_v1_skeleton_context;
 
@@ -25,6 +27,33 @@ static qurt_mutex_t
 static uint32_t g_vqec_vision_ai_dsp_v1_last_generation;
 static vqec_vision_ai_dsp_v1_skeleton_context
     g_vqec_vision_ai_dsp_v1_contexts[VQEC_VISION_AI_DSP_V1_SKELETON_MAX_SESSIONS];
+
+static int vqec_vision_ai_qcom_d1skl_load_image_backend(
+    vqec_vision_ai_dsp_v1_skeleton_context* _context) {
+    static const char g_fastcv_library_name[] = "libfastcvadsp.so";
+    static const char g_scale_luma_symbol[] = "fcvScaleDownMNu8";
+    static const char g_scale_chroma_symbol[] = "fcvScaleDownMNInterleaveu8";
+    static const char g_color_symbol[] = "fcvColorYCbCr420PseudoPlanarToRGB888u8";
+    vqec_vision_ai_dsp_v1_image_backend backend;
+    memset(&backend, 0, sizeof(backend));
+    _context->fastcv_library = dlopen(g_fastcv_library_name, RTLD_NOW);
+    if (_context->fastcv_library == NULL) {
+        return 0;
+    }
+    void* symbol = dlsym(_context->fastcv_library, g_scale_luma_symbol);
+    memcpy(&backend.scale_luma, &symbol, sizeof(backend.scale_luma));
+    symbol = dlsym(_context->fastcv_library, g_scale_chroma_symbol);
+    memcpy(&backend.scale_chroma, &symbol, sizeof(backend.scale_chroma));
+    symbol = dlsym(_context->fastcv_library, g_color_symbol);
+    memcpy(&backend.convert_color, &symbol, sizeof(backend.convert_color));
+    if (vqec_vision_ai_qcom_d1svc_configure_image_backend(&_context->service, &backend) !=
+        vqec_vision_ai_dsp_v1_wire_ok) {
+        dlclose(_context->fastcv_library);
+        _context->fastcv_library = NULL;
+        return 0;
+    }
+    return 1;
+}
 
 static uint32_t vqec_vision_ai_qcom_d1skl_next_generation(void) {
     uint32_t generation = (uint32_t)qurt_sysclock_get_hw_ticks();
@@ -87,6 +116,7 @@ int vqec_vision_dsp_v1_open(const char* _uri, remote_handle64* _handle) {
             qurt_mutex_unlock(&g_vqec_vision_ai_dsp_v1_pool_mutex);
             return AEE_EFAILED;
         }
+        (void)vqec_vision_ai_qcom_d1skl_load_image_backend(context);
         context->generation = generation;
         context->active = 1U;
         *_handle = vqec_vision_ai_qcom_d1skl_encode_handle(slot, generation);
@@ -114,6 +144,11 @@ int vqec_vision_dsp_v1_close(remote_handle64 _handle) {
     }
     qurt_mutex_lock(&g_vqec_vision_ai_dsp_v1_execution_mutexes[encoded_slot - 1U]);
     context->active = 0U;
+    vqec_vision_ai_qcom_d1svc_cleanup(&context->service);
+    if (context->fastcv_library != NULL) {
+        dlclose(context->fastcv_library);
+        context->fastcv_library = NULL;
+    }
     memset(&context->service, 0, sizeof(context->service));
     qurt_mutex_unlock(&g_vqec_vision_ai_dsp_v1_execution_mutexes[encoded_slot - 1U]);
     qurt_mutex_unlock(&g_vqec_vision_ai_dsp_v1_pool_mutex);

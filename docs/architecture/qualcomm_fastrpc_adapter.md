@@ -3,10 +3,9 @@
 This document defines private mapping ownership and the required model-independent DSP
 boundary. It distinguishes the implemented cache from the proposed replacement protocol.
 
-**Status:** board-smoke — mapping leases, SDK-generated legacy/v1 stubs, v1 dense/overlay
-payloads, bounded service/skeleton and host negotiation client are implemented; isolated dense
-and registered-buffer overlay compose plus exact-candidate preview pass on `.98`, while BSP
-signing and released-FW completion remain open.
+**Status:** accepted — generic v1 image transform, dense decode and overlay compose passed the
+declared five-minute AI APP workload gate on `.98`; BSP signing and released-FW completion remain
+external release gates.
 **Layer:** adapters. **Source:** `src/adapters/qualcomm`.
 
 ## Responsibility
@@ -108,15 +107,19 @@ Do not change legacy method ordinals or call a new method against an old binary.
 versioned protocol negotiates ABI revision, operations, limits, scalar encodings, domain
 generation and completion mode before model activation.
 
-`vqec_vision_dsp_v1.idl` remains proposed until AI APP/BSP approval. The eSDK CMake build runs
-QAIC generation checks. `tools/build/vqec_vision_build_dsp_v1.sh` independently regenerates QAIC,
+`vqec_vision_dsp_v1.idl` is the LACAI baseline ABI v1; any revision still requires AI APP/BSP
+approval. The eSDK CMake build runs QAIC generation checks.
+`tools/build/vqec_vision_build_dsp_v1.sh` independently regenerates QAIC,
 compiles the project-owned service with Hexagon 8.7.06 for v68, verifies required exports and
 emits source/artifact digests. It removes only non-runtime linker command metadata from the ELF;
 two clean builds produce the same artifact digest. The resulting binary is not signed, deployed
 or board-accepted by that check.
 
 The v1 source implements the fixed 32-byte capability/request envelope, 24-byte operation
-response, a 120-byte `dense_decode` payload and a bounded `overlay_compose` payload. Dense
+response, a 176-byte `image_transform` payload, a 120-byte `dense_decode` payload and a bounded
+`overlay_compose` payload. Image-transform validation covers exact NV12 planes, geometry,
+BT.709 limited-range colour, bilinear letterbox, placement, normalization, UINT16 quantization
+and capacities. Dense
 validation covers exact lengths, generation, enum values, arithmetic bounds, tensor packing,
 finite quantization/transform values and bounded output before tensor access. The same
 allocation-free dense kernel compiles for eSDK ARM conformance and Hexagon and treats person
@@ -128,8 +131,8 @@ generation.
 
 The IDL still carries one input and one output sequence. It is not accepted for the multi-tensor
 hot path until registered-buffer or scatter/gather transport proves that it does not add an ARM
-copy. Image-transform, anchor-distance and ROI-align payloads remain unsupported and fail
-closed. `overlay_compose` is supported as a single-source/single-destination operation; both
+copy. Anchor-distance and ROI-align payloads remain unsupported and fail closed.
+`image_transform` and `overlay_compose` are single-source/single-destination operations; both
 pointers must remain valid through synchronous completion. No production runtime chooses v1
 merely because generated or built files are present.
 
@@ -144,17 +147,12 @@ synchronous transport return plus a valid response is `completed`. Any transport
 error faults the session and returns `uncertain`; closing that handle is not proof that borrowed
 input/output storage is reusable. The caller must retain or quarantine the owners until a BSP
 completion/recovery contract resolves them. Production composition selects this negotiated
-client for every validated YOLO-style `dense_decode` package and for preview
+client for validated `image_transform`, YOLO-style `dense_decode` and preview
 `overlay_compose`. Person and fire/smoke differ only through immutable descriptor data; there
-is no model-id dispatch. Their preprocessing remains behind `image_processor_port` and uses
-the existing FastCV adapter.
-
-`anchor_distance`, image transform and ROI align remain explicitly unsupported by v1 until
-their descriptors and kernels pass their own gates; SCRFD therefore keeps a separately
-configured legacy compatibility session. Neither skeleton path is derived from the model
-root, and the legacy session is not opened for dense-only deployments. Legacy clock corner,
-latency vote and unsigned-PD permission are also explicit startup policy. Unsigned PD defaults
-off and is only enabled by the dedicated candidate/development option; release signing remains
+is no model-id dispatch. SCRFD uses the neutral portable anchor-distance decoder, so the
+production workload no longer opens or deploys the legacy model-named skeleton. ROI align
+remains outside v1 and EdgeFace retains its bounded host alignment adapter. Unsigned PD defaults
+off and is enabled only by the dedicated candidate/development option; release signing remains
 a BSP-owned gate.
 
 The 2026-09-18 `.98` candidate opened the
@@ -162,6 +160,11 @@ Hexagon-built skeleton, negotiated `dense_decode`, executed a model-independent 
 descriptor and returned the expected 24-byte record. A second process received a different
 nonzero domain generation. This is live protocol/kernel smoke, not registered-buffer,
 reset-under-in-flight-work or release acceptance.
+
+The production v1 image adapter retains a registered DMA-BUF input mapping, reuses rpcmem output
+and DSP scratch, and returns one reusable neutral tensor. It validates capabilities and the
+complete transform contract before RPC. The skeleton resolves FastCV dynamically and advertises
+the operation only when every required function is present.
 
 The first production v1 dense adapter uses one pre-sized ARM packing buffer because the current
 IDL accepts one packed input sequence. The copy is bounded and a known transport limitation;
@@ -203,6 +206,12 @@ do not copy and rename them. A legacy binary plus a generic class name is not a 
 Lease tests exercise capacity, clear, concurrent access, move replacement and FD cleanup with
 CPU mappings. They do not prove DSP coherency, DMA completion, reset safety, numeric parity
 or CPU targets. See the [optimization plan](../planning/architecture_improvement/dsp_multiplatform_optimization_plan.md).
+
+The 2026-09-18 final board candidate negotiated operation mask `19` and executed image transform,
+dense decode and overlay compose. Its declared full workload sustained 30.008 output FPS and
+13.50% average process CPU over five minutes. FD count stayed at 122, thread count stayed at 48
+and RSS/HWM increased by 508 KiB. This accepts the AI APP plan gate only; it does not prove
+released-FW DMA completion, BSP signing, independent model accuracy or long-soak leak freedom.
 
 ## See also
 

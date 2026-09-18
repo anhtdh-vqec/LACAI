@@ -194,7 +194,6 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         return {status_code::invalid_state, "pump requires a running RAW source"};
     }
 
-    bool has_available_graph = false;
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         const auto& graph = *bindings_[slot].graph_;
         if (graph.vqec_vision_ai_ports_infgr_get_state() !=
@@ -203,14 +202,11 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             is_failed_ = true;
             return {status_code::invalid_state, "pump requires every model graph running"};
         }
-        has_available_graph = has_available_graph ||
-            (graph.vqec_vision_ai_ports_infgr_get_outstanding() == 0 &&
-             !vqec_vision_ai_appl_mmump_model_busy(slot));
-    }
-    if (!has_available_graph) {
-        return {status_code::pending, "all model graphs have outstanding jobs"};
     }
 
+    // Acquisition follows the source clock, not accelerator availability. A busy model is
+    // handled by its declared drop/latest-wins policy below, while the independent one-slot
+    // preview mailbox keeps camera ACK and live preview progress bounded at source cadence.
     raw_frame frame;
     const auto received = source_.vqec_vision_ai_ports_rawsr_receive(frame, 0);
     if (received.code_ == status_code::timeout) {

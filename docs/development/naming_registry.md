@@ -386,6 +386,7 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tools/diagnostics/vqec_vision_model_runner.cpp | mdlrun | vqec_vision_ai_tools_mdlrun_ |
 | tools/board/vqec_vision_board_native_tests.sh | bntst | vqec_vision_ai_tools_bntst_ |
 | tools/board/vqec_vision_preview_acceptance.sh | pvacc | no named functions; top-level host acceptance flow |
+| tools/board/vqec_vision_run_full.sh | rnful | vqec_vision_ai_tools_rnful_ |
 | tools/checks/vqec_vision_check_docs_layout.sh | dclay | vqec_vision_ai_tools_dclay_ |
 | tools/fixtures/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
 | tools/fixtures/vqec_vision_fw_camera_sim_test.py | fwstt | vqec_vision_ai_tools_fwstt_ |
@@ -610,6 +611,8 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_dense_test.cpp | d1dst | vqec_vision_ai_unit_d1dst_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_overlay.c | d1ovr | vqec_vision_ai_qcom_d1ovr_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_overlay_test.cpp | d1ovt | vqec_vision_ai_unit_d1ovt_ |
+| src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_image.c | d1img | vqec_vision_ai_qcom_d1img_ |
+| tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_image_test.cpp | d1imt | vqec_vision_ai_unit_d1imt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_service.c | d1svc | vqec_vision_ai_qcom_d1svc_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_service_test.cpp | d1svt | vqec_vision_ai_unit_d1svt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |

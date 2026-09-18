@@ -299,7 +299,11 @@ int main() {
     source.vqec_vision_ai_unit_mmpst_supply_frame(2, std::make_shared<int>(8));
     check(pump.vqec_vision_ai_appl_mmump_pump_step(103, result, report).code_ ==
           status_code::pending);
-    check(source.receive_calls_ == 1);
+    check(source.receive_calls_ == 2 && report.busy_model_mask_ == 3);
+    raw_frame busy_preview;
+    check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(busy_preview).code_ ==
+          status_code::ok);
+    check(busy_preview.descriptor_.buffer_id_ == 2 && busy_preview.owner_ != nullptr);
     pump.vqec_vision_ai_appl_mmump_begin_stop();
     check(pump.vqec_vision_ai_appl_mmump_take_preview_frame(preview_frame).code_ ==
           status_code::pending);

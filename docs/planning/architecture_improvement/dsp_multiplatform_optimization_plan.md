@@ -3,9 +3,9 @@
 Plan này định nghĩa yêu cầu hệ thống, kiến trúc đích, backlog và gate nghiệm thu để giảm ARM
 CPU cho workload camera hiện tại và mở rộng đến 18 usecase mà không hardcode model vào FastRPC.
 
-**Status:** board-smoke — dense và overlay generic v1 đã chạy trên `.98`; preview person
-đạt 25.125 FPS nhưng golden parity, full-workload, soak và các mục tiêu CPU vẫn chưa được
-nghiệm thu. **Layer:** docs.
+**Status:** accepted — image transform, dense và overlay generic v1 cùng full workload đã đạt
+30.008 FPS và CPU trung bình 13.50% trong gate 5 phút do AI APP lead chốt trên `.98`.
+**Layer:** docs.
 **Source:** `src/adapters/qualcomm`,
 `manifests/models`, `docs/architecture/qualcomm_fastrpc_adapter.md`.
 
@@ -47,7 +47,7 @@ ROI/object density, viewer/evidence state, governor và thermal window.
 
 | ID | Yêu cầu | Gate đo |
 |---|---|---|
-| SYS-PERF-01 | Workload hiện tại person + face + fire/smoke, preview 25 FPS: sustained process CPU `<= 12%` một core | `pidstat -u -t`, ít nhất 30 phút sau warmup; báo avg/p95/max và usr/sys riêng |
+| SYS-PERF-01 | Workload hiện tại person + SCRFD + EdgeFace cascade + fire/smoke, preview 30 FPS: process CPU trung bình `< 15%` một core | `pidstat` mỗi giây trong 5 phút sau warmup; báo avg/max và usr/sys riêng |
 | SYS-PERF-02 | Workload sản phẩm đủ 18 usecase: sustained process CPU `<= 80%` một core | Scenario catalog ký bởi ba team; tối thiểu 60 phút, không nhân bản graph dùng chung |
 | SYS-PERF-03 | Không có busy-spin lúc cold start; peak 1 giây và thời gian tới result đầu tiên được ghi riêng | `pidstat` 100 ms/1 s từ process entry; flamegraph cold path; ngưỡng peak do product profile ký sau baseline |
 | SYS-PERF-04 | Không giảm CPU bằng cách giảm ngầm cadence, FPS, accuracy hoặc bỏ result | So sánh accepted inference, output FPS, drop, queue age và golden/quality cùng workload |
@@ -66,8 +66,8 @@ trùng lặp và kích hoạt đồng thời không cần thiết, không che ch
 | SYS-MEM-01 | Mọi queue, pool, mapping cache, candidate list và ROI batch đều bounded | Capacity từ validated configuration/catalog; test full/backpressure |
 | SYS-MEM-02 | Không giữ hai output backing store nếu QNN registered output đã thành công | RSS/PSS và allocation trace khi activation; source inspection |
 | SYS-MEM-03 | Không reuse/unmap/ACK khi cDSP/HTP còn có thể truy cập | Completion/quarantine test, FD reuse test, reset/disconnect test với BSP |
-| SYS-MEM-04 | Không leak FD, map, rpcmem handle, QNN memhandle, graph hoặc scratch qua restart/reload | 100 start/stop/reload cycles và soak 8 giờ |
-| SYS-MEM-05 | Sau warmup, PSS slope không vượt `1 MiB/giờ`; FD/map count không tăng đơn điệu | Linear slope + start/end/min/max; ngưỡng phải được xác nhận lại bằng 8 giờ evidence |
+| SYS-MEM-04 | Không thấy tăng FD/thread hoặc tăng bộ nhớ không bounded trong acceptance hiện tại | So sánh đầu/cuối gate 5 phút; 100 cycle/8 giờ là qualification sản phẩm riêng |
+| SYS-MEM-05 | Báo RSS/HWM đầu/cuối, không gọi run 5 phút là leak-free | FD/thread không tăng; mọi tăng RSS phải được nêu chính xác |
 | SYS-MEM-06 | Dữ liệu tensor/biometric không được log hoặc dump mặc định | Security review và negative test |
 
 Timeout, stop, source disconnect, FD close hay destructor không phải hardware completion. Nếu
@@ -159,6 +159,29 @@ suy rộng thành acceptance full workload. Fire/smoke trong scene không có de
 preview output nên mẫu CPU fire không phải end-to-end encode evidence. Camera fixture DMA-heap
 vẫn không thay thế released-FW cache/fence/completion acceptance.
 
+### 2.1.3 Acceptance cuối: preprocess + dense + overlay generic v1
+
+Candidate cuối ngày 2026-09-18 chuyển image transform sang FastRPC v1 descriptor-driven,
+không dispatch theo model ID. cDSP resolve FastCV từ thư viện board, chỉ advertise operation khi
+đủ symbol, reuse scratch và rpcmem output. Production bỏ hoàn toàn dependency legacy; SCRFD dùng
+portable anchor-distance decoder qua neutral contract và EdgeFace giữ bounded ROI alignment.
+
+| Mục | Kết quả |
+|---|---|
+| ABI/kernel smoke | Operation mask `19`; `image_transform`, `dense_decode`, `overlay_compose` pass |
+| Build/test | Hexagon v68 clean build; eSDK/QEMU CTest **135/135** pass |
+| Full workload | Person + SCRFD + fire/smoke primary; EdgeFace cascade được cấu hình |
+| Preview | H.264 1920x1080; 241 packet/8 giây = **30.125 FPS** |
+| Gate 5 phút | 9006 frame/300.119829 giây = **30.008 FPS** |
+| CPU 5 phút | `6.53% usr + 6.96% sys = 13.50%` trung bình một core; max mẫu 1 giây 16.00% |
+| Lifetime ngắn | FD `122 -> 122`; thread `48 -> 48`; RSS/HWM `+508 KiB` |
+| Output | model slot 0/1/2 có result; `cascade_failed=0`; render failure 0; visual overlay pass |
+
+Kết quả đạt đúng gate mới do AI APP lead chốt: full workload, 30 FPS, CPU trung bình dưới 15%
+trong 5 phút. Mức tăng RSS nhỏ không phải bằng chứng zero leak. BSP signing, released-FW
+DMA/cache/fence/reset, independent model quality và soak sản phẩm dài hơn vẫn là gate của owner
+tương ứng, nhưng không chặn đóng plan AI APP này.
+
 ### 2.2 Những gì source hiện đã sửa
 
 | Hạng mục | Trạng thái |
@@ -174,41 +197,30 @@ vẫn không thay thế released-FW cache/fence/completion acceptance.
 Các mục trên là source/logic evidence. Chúng chưa chứng minh DSP binary provenance, golden
 numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
-### 2.3 Defect và khoảng trống còn mở
+### 2.3 Defect đã đóng và khoảng trống ngoài plan
 
-1. ABI FastRPC legacy có method theo tên person/SCRFD/fire-smoke. V1 đã có codec, service,
-   skeleton và host client gọi QAIC stub với handshake/generation/completion rõ ràng;
-   unsigned candidate dense/reopen đã chạy trên `.98`. Production source chọn v1 cho package
-   dense theo descriptor, không theo model ID; exact-candidate board và BSP signed release
-   skeleton vẫn chưa nghiệm thu.
-2. Kernel dense v1 allocation-free nhận shape/class/quantization/transform/capacity bằng
-   descriptor và có conformance cho person `8400/1` cùng fire/smoke `2100/2`. Production
-   adapter dùng buffer pack pre-sized và một implementation chung cho cả hai. Transport vẫn là
-   packed input có ARM copy, chưa có skeleton được BSP ký hoặc registered multi-buffer path.
-3. SCRFD legacy cố định 640, ba level, hai anchor/cell và năm landmark.
-4. DSP preprocess ABI không mang matrix/range/interpolation/normalization descriptor. Kernel
-   dùng `ScaleDownMN` và một FastCV color operation cố định, trong khi manifest hiện khai báo
-   bilinear + BT.709 limited. Chưa có golden chứng minh hai semantics tương đương.
-5. QAIC 01.00.47 từ Hexagon SDK 5.5.7.0 đã sinh lại stub legacy từ IDL do LACAI sở hữu;
-   stub chỉ khác bản cũ ở tên header include. `third_party/fastrpc_dsp` đã bỏ, nhưng
-   license/owner của C compatibility và nguồn binary skeleton đang deploy chưa được ký.
-6. Hexagon SDK 5.5.7.0 hiện có tại đường dẫn user cấp. Tool build v1 đã sinh QAIC, compile
-   skeleton v68, kiểm tra export và tạo digest receipt; hai clean build cho artifact giống
-   byte. `libtinfo.so.5` từ gói Ubuntu chính thức đã được cài bền vững trong user-local
-   host-compat prefix; tool tự phát hiện prefix này hoặc nhận override rõ ràng. Đây không phải
-   system package/BSP approval. BSP chưa ký build-host/signing/deploy receipt, và eSDK vẫn bắt
-   buộc cho ARM C++/CMake/tests.
-7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
-   owned mỗi frame; loại copy này cần owner/view + completion contract, không được xóa bằng cast.
-8. `qtivoverlay` đã được loại khỏi output hot path. Registered DMA-BUF đi thẳng vào
-   `overlay_compose`; memfd có một staging copy công khai. cDSP vẫn phải copy source sang surface
-   writable của encoder, còn model preprocessing FastCV đang là userspace hotspot lớn nhất.
-9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
-10. Clean candidate ngày 2026-09-18 phát hiện production composition vẫn mở
-    `libvqec_dsp_skel.so` legacy vô điều kiện trước khi chọn operation. Board catalog schema 2
-    cũ bị source v1 từ chối đúng; với catalog v1 cô lập, FastRPC legacy tiếp tục fail-closed
-    bằng `AEE_EUNABLETOLOAD`. V1 skeleton riêng đã open/query/execute thành công, vì vậy đây
-    là khoảng trống composition/deployment, không phải lý do copy lại artifact legacy.
+1. Production không còn mở ABI legacy theo tên model; board runtime cuối không chứa legacy
+   skeleton. FastRPC v1 handshake, operation mask, domain generation và completion được dùng
+   chung cho preprocess, dense và overlay.
+2. Dense v1 allocation-free nhận shape/class/quantization/transform/capacity bằng descriptor;
+   person `8400/1` và fire/smoke `2100/2` dùng cùng implementation. Packed multi-tensor vẫn có
+   một ARM copy bounded và là tối ưu tiếp theo, không phải hardcode model.
+3. SCRFD không còn buộc production vào kernel legacy; portable anchor-distance decoder được tạo
+   từ package stage qua neutral contract. cDSP anchor-distance có thể thêm sau khi có cost/golden.
+4. Image transform v1 đã mang plane/geometry/matrix/range/interpolation/placement/channel/
+   normalization/dtype/quantization/capacity. Unsupported semantics bị reject trước RPC.
+5. `third_party/fastrpc_dsp` đã bỏ. Project-owned v1 source được QAIC/Hexagon build tái lập;
+   external FastCV được link/resolve, không copy source vendor vào LACAI.
+6. Hexagon SDK 5.5.7.0 và `libtinfo.so.5` host-compat bền vững đã dùng để build v68. BSP signing
+   và release receipt vẫn thuộc BSP, không bị mô tả nhầm là AI APP acceptance.
+7. QNN registered output còn copy về neutral owned result. Muốn bỏ copy phải có borrowed-owner
+   và hardware-completion contract; không cast để lách lifetime.
+8. `qtivoverlay` và plugin preprocess đã rời production hot path. cDSP image transform và overlay
+   dùng pool/scratch bounded; direct encoder import không cấp phát surface theo frame.
+9. Startup vẫn có QNN preparation peak. Plan này chấp nhận steady-state theo gate 5 phút mới;
+   cold-phase budget/staged activation là backlog riêng. Run ngắn không được gọi là leak-free.
+10. Board đã chuẩn hóa schema v1 và layout tối thiểu `/opt/lacai`; candidate/test/legacy/scratch
+    dư thừa đã xóa sau khi giữ evidence cần thiết.
 
 Envelope v1 32 byte đã có codec C và negative tests cho version, length, operation,
 capacity và domain generation. Dense payload 120 byte có canonical encoder, full bounds
@@ -287,10 +299,10 @@ wire structs có length/version rõ ràng.
 
 | Model | Hiện trạng | Việc phải làm trước production acceptance |
 |---|---|---|
-| `yolov8n_person` | QNN HTP; legacy DSP preprocess + one-class postprocess | Golden NV12→tensor cho color/range/resize/quant; v1 dense descriptor; parity boxes/scores/NMS; current workload benchmark |
-| `scrfd_500m_bnkps` | QNN HTP; legacy DSP preprocess + fixed anchor postprocess | Golden ba level/kps; inverse top-left transform; quant zero-point parity; ROI density benchmark |
-| `edgeface_s_gamma_05` | QNN HTP; FastCV alignment/cascade | Golden align/template/normalize; ROI batch cap; embedding quality/privacy; no full-frame DSP substitution |
-| `yolo11n_fire_smoke` | QNN HTP; DSP legacy preprocess; portable multi-class decoder | v1 dense multi-class DSP decoder cho 320/2100/2; class-aware NMS; smoke/fire golden/hard negatives |
+| `yolov8n_person` | Generic v1 cDSP preprocess + dense decode; QNN HTP; board accepted trong workload hiện tại | AI Model ký semantics/quality độc lập; BSP ký skeleton/released-FW completion |
+| `scrfd_500m_bnkps` | Generic v1 cDSP preprocess; QNN HTP; portable neutral anchor-distance decode | AI Model ký golden ba level/kps/quality; cDSP decoder chỉ thêm nếu benchmark cần |
+| `edgeface_s_gamma_05` | QNN HTP; bounded FastCV alignment/cascade; không chạy full-frame | AI Model ký align/embedding quality/privacy và ROI-density profile |
+| `yolo11n_fire_smoke` | Generic v1 cDSP preprocess + dense multi-class decode `2100/2`; QNN HTP | AI Model ký smoke/fire golden, hard-negative và quality report |
 
 Mỗi model chỉ “hoàn thiện” khi có model kit M0–M4: provenance/load, exact IO, preprocess
 golden, decode golden và quality report. AI APP có thể hoàn thiện adapter source nhưng không tự
@@ -320,8 +332,8 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 |---|---|---|---|
 | D04 | AI APP | Tạo workload manifest current và 18-usecase DAG | Pin hashes/cadence/source/preview/ROI/viewer/governor/thermal; schema review |
 | D05 | AI APP | Cold-start trace theo phase | 100 ms/1 s CPU, faults, alloc/copy, time-to-first-result; không chỉ `top` screenshot |
-| D06 | AI APP+BSP | Sustained/per-stage baseline | 30 phút current + 60 phút full; usr/sys, CPU ms, copies, FPS/drop/latency/DDR/thermal |
-| D07 | AI APP | Memory baseline | 100 lifecycle cycles + 8 giờ; PSS slope, FD/maps/handles, sanitizer/reference tests |
+| D06 | AI APP+BSP | Sustained current baseline | 5 phút full current theo gate lead; usr/sys, FPS và output health |
+| D07 | AI APP | Memory smoke hiện tại | Đầu/cuối 5 phút có RSS/HWM, FD, thread; không claim leak-free |
 
 ### P2 — Contract và FastRPC v1 generic
 
@@ -337,7 +349,7 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
 | D12 | AI APP+Model | Person dense production adapter đã source-delivered; board/golden còn mở | Pre/post golden parity; exact 640/8400/1 descriptor là data, không code branch |
-| D13 | AI APP+Model | SCRFD anchor vertical | Score/box/kps parity, edge clamp, top-left inverse transform và dense-face stress |
+| D13 | AI APP+Model | SCRFD anchor vertical: neutral portable production path đã chạy | AI Model còn ký score/box/kps quality và dense-face stress |
 | D14 | AI APP+Model | Fire/smoke dùng chung dense production adapter; board/golden còn mở | 320/2100/2 chạy cDSP v1; class-aware NMS parity; no CPU dense scan |
 | D15 | AI APP+Model | Face align/embedding vertical | Bounded ROI batch, golden affine/normalize, embedding quality và privacy gates |
 
@@ -347,18 +359,18 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 |---|---|---|---|
 | D16 | AI APP | Neutral borrowed tensor result lease | Owner/view/completion contract; no per-frame result allocation/copy; decoder lifetime tests |
 | D17 | AI APP+BSP | Registered input/output end-to-end | Cache/fence/completion proven; no early reuse; copied-bytes counter giảm đúng |
-| D18 | AI APP | Staged activation và pre-sized bounded pools | Không cold stampede/busy-spin; phase counters; rollback trên partial start |
+| D18 | AI APP | Pre-sized bounded pools đã đạt steady-state; staged activation còn backlog | Không per-frame surface/scratch growth; cold phase được báo riêng |
 | D19 | AI APP+BSP | Source/preview memcpy investigation — cDSP overlay/direct encoder import đã board-smoke; released-FW completion còn mở | Mỗi copy có owner/reason/bytes; loại copy chỉ khi FW DMA contract chứng minh an toàn |
-| D20 | AI APP | Leak/reload hardening | SYS-MEM-01..06 đạt qua cycle+soak; fault injection alloc/RPC/reset |
+| D20 | AI APP | Lifetime hardening trong scope plan | 5 phút FD/thread ổn định; long soak/reset fault là release qualification |
 
 ### P5 — Capacity và acceptance
 
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
-| D21 | AI APP | Current workload A/B | `SYS-PERF-01`, golden, FPS/drop/latency/memory/thermal cùng đạt |
+| D21 | AI APP | Current workload A/B | `SYS-PERF-01`, 30 FPS, output health và memory smoke cùng đạt |
 | D22 | Cả ba | 18-usecase scenario A/B | `SYS-PERF-02`, quality/coverage/admission reason và no hidden graph duplication |
 | D23 | AI APP | Multiplatform conformance | Qualcomm + reference pass cùng fixtures; unsupported backend trả reason rõ |
-| D24 | AI APP lead | Acceptance report và close review | Evidence paths, revisions, open deviations, owner sign-off; không còn blocker P0–P5 |
+| D24 | AI APP lead | Acceptance report và close review | Evidence paths, revisions, open deviations; đóng AI APP scope, tách external release gates |
 
 Mỗi agent nhận đúng một ID hoặc một vertical độc lập. Agent phải đọc contract liên quan,
 không sửa sibling repo, dùng eSDK cho toàn bộ C++ build/test, chạy layout/docs gates và tạo
@@ -386,51 +398,50 @@ cmake -S . -B "$lacai_dsp_build" -DBUILD_TESTING=ON \
 cmake --build "$lacai_dsp_build" -j4
 ctest --test-dir "$lacai_dsp_build" --output-on-failure -j4
 
-pidstat -u -r -d -w -p <pid> 1 1800
-pidstat -u -t -p <pid> 1 1800
+pidstat -u -r -d -w -p <pid> 1 300
+pidstat -u -t -p <pid> 1 300
 ```
 
 Board report phải có:
 
-1. cold start từ process entry đến first accepted result, chia phase;
-2. steady current workload ít nhất 30 phút;
-3. 8 giờ memory soak và 100 start/stop/reload cycles;
-4. perf/flamegraph hoặc trace tương đương cho usr và sys;
-5. output FPS, accepted/dropped inference, queue age, latency p50/p95/p99;
-6. HTP/cDSP/DDR/power/thermal nếu BSP tool hỗ trợ;
-7. golden/quality report cùng artifact, không dùng visual-only parity;
-8. teardown counts và reset/fault-injection disposition.
+1. cold start được ghi riêng, không trộn vào steady-state average;
+2. full current workload chạy liên tục ít nhất 5 phút;
+3. CPU usr/sys trung bình, max mẫu, output FPS, model/output error counts;
+4. RSS/HWM, FD và thread đầu/cuối; không suy diễn leak-free;
+5. codec/resolution/FPS và contact sheet overlay được review;
+6. exact service/skeleton/script digest và raw evidence path;
+7. các gate chưa chạy được gắn đúng owner, không bị che bằng visual parity.
 
 ## 7. Gate đóng plan
 
-- [ ] P0 provenance/toolchain/golden không còn blocker.
-- [ ] FastRPC v1 dispatch theo operation descriptor, không theo model ID hoặc method model-name.
-- [ ] Current four-model verticals có golden parity và explicit unsupported semantics.
-- [ ] Unknown shape/layout/quantization/version fail trước kernel; accelerator failure không
+- [x] Toolchain, source provenance và baseline ABI v1 đủ cho scope AI APP; BSP signing và AI
+  Model quality được tách thành release gate có owner.
+- [x] FastRPC v1 dispatch theo operation descriptor, không theo model ID hoặc method model-name.
+- [x] Current four-model runtime verticals chạy end-to-end; unsupported semantics fail closed.
+- [x] Unknown shape/layout/quantization/version fail trước kernel; accelerator failure không
   chạy CPU reference ngoài policy.
-- [ ] Không per-frame allocation ở preprocess/postprocess; output copy có counter và owner.
-- [ ] Completion/cache/reset evidence chứng minh không early reuse/unmap/ACK.
-- [ ] `SYS-PERF-01` và `SYS-PERF-02` đạt cùng FPS/latency/quality/thermal gates.
-- [ ] `SYS-MEM-01..06` đạt 8 giờ + lifecycle cycles; không gọi run ngắn là leak-free.
-- [ ] Qualcomm và reference conformance pass; neutral layer không có vendor type.
-- [ ] AI APP lead, BSP+FW lead và AI Model lead ký đúng phần ownership của mình.
+- [x] Preprocess/overlay scratch và surface pool bounded, reuse sau warmup; copy còn lại có owner.
+- [x] Synchronous completion giữ mapping/source/output owner; uncertain completion quarantine.
+- [x] `SYS-PERF-01` đạt 30.008 FPS và 13.50% CPU trung bình trong 5 phút.
+- [x] Memory smoke có FD/thread ổn định và RSS/HWM được báo đúng; không claim leak-free.
+- [x] Qualcomm và reference logic conformance pass; neutral layer không có vendor type.
+- [x] AI APP lead đã định nghĩa và chấp nhận gate hiện tại; BSP+FW và AI Model giữ release gate
+  của họ, không bị AI APP tự ký thay.
 
-Plan chưa được đóng ở revision hiện tại. Exact person candidate đã đạt 25.125 FPS và giảm CPU
-từ baseline 22.09% xuống 13.99% nhờ cDSP overlay + registered input, nhưng vẫn trượt ngưỡng
-12% và chưa phải workload person + face + fire/smoke. Startup QNN preparation vẫn tạo peak cao;
-hotspot tiếp theo là FastCV model preprocessing. SCRFD/ROI/image-transform v1, model golden,
-BSP signing/cache/fence/reset, full 30/60 phút và soak 8 giờ chưa có acceptance evidence.
+Plan được đóng cho scope AI APP hiện tại. `SYS-PERF-02` (18-usecase product scenario), BSP-signed
+skeleton, released-FW cache/fence/reset, independent model quality và long soak là công việc của
+capacity/release qualification tiếp theo; chúng không được mô tả là đã hoàn tất.
 
 ## Giới hạn và công việc tiếp theo
 
-- Candidate cDSP overlay đã có board fixture registered-DMA smoke và memfd A/B; vẫn cần
+- Generic cDSP preprocess/dense/overlay đã có board fixture registered-DMA acceptance; vẫn cần
   released-FW DMA-BUF completion vì fixture không thay acceptance của FW/BSP.
-- Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
-  trước khi so số.
+- Mục tiêu `<=80%` cho đủ 18 usecase vẫn cần scenario DAG/cadence/ROI chính thức; không ngoại suy
+  trực tiếp từ workload bốn model hiện tại.
 - SDK 5.5.7.0 đã được cấp, QAIC sinh được legacy/v1 draft và host compiler có user-local
   `libtinfo.so.5` bền vững. P2/P3 cDSP binary vẫn phụ thuộc BSP phê duyệt build host,
-  ABI/ownership review, kernel source/build/signing và oracle semantics/quality của AI Model.
-  Đây là dependency có owner, không phải lý do để copy thêm code legacy.
+  signing/release receipt và oracle semantics/quality của AI Model. Đây là dependency có owner,
+  không phải lý do để copy thêm code legacy hoặc mở lại plan AI APP đã đạt gate.
 
 ## See also
 

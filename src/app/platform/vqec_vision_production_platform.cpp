@@ -9,7 +9,6 @@
 
 #include "vqec_vision_dbus_rpc.hpp"
 #include "vqec_vision_backend_factory.hpp"
-#include "vqec_vision_fastcv_processor.hpp"
 #if defined(VQEC_VISION_AI_HAS_FASTCV_ALIGNER)
 #include "vqec_vision_fastcv_aligner.hpp"
 #endif
@@ -18,8 +17,6 @@
 #include "vqec_vision_iou_tracker.hpp"
 #include "vqec_vision_source_lifecycle.hpp"
 #include "vqec_vision_anchor_distance_decoder.hpp"
-#include "vqec_vision_dsp_session.hpp"
-#include "vqec_vision_dsp_decoder.hpp"
 #include "vqec_vision_dsp_v1_dense_decoder.hpp"
 #include "vqec_vision_dsp_buffer_cache.hpp"
 #include "vqec_vision_dsp_preprocessor.hpp"
@@ -57,7 +54,6 @@ struct model_slot_owner {
     alignment_template alignment_;
     preprocess_spec preprocess_;
     std::uint64_t max_frame_allocation_bytes_{0};
-    bool uses_legacy_dsp_preprocessor_{false};
 };
 
 json vqec_vision_ai_appl_pdplt_load(const std::string& _path) {
@@ -181,35 +177,9 @@ struct production_platform::implementation {
     std::vector<std::unique_ptr<source_lifecycle>> sources_;
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
-    std::shared_ptr<dsp_session> dsp_session_;
     std::shared_ptr<dsp_v1_client> dsp_v1_client_;
     std::shared_ptr<dsp_buffer_cache> dsp_buffer_cache_;
 };
-
-status vqec_vision_ai_appl_pdplt_open_legacy_dsp(
-    const std::string& _skel_dir, std::int32_t _clock_corner, std::int32_t _latency_us,
-    bool _enable_unsigned_pd, std::shared_ptr<dsp_session>& _session) {
-    if (_session != nullptr) {
-        return {};
-    }
-    if (_skel_dir.empty() || _skel_dir.front() != '/' ||
-        _skel_dir.find("..") != std::string::npos) {
-        return {status_code::unsupported,
-            "activated operation requires an absolute legacy DSP skeleton directory"};
-    }
-    auto candidate = std::make_shared<dsp_session>();
-    dsp_session_config config;
-    config.skel_dir_ = _skel_dir;
-    config.clock_corner_ = _clock_corner;
-    config.latency_us_ = _latency_us;
-    config.enable_unsigned_pd_ = _enable_unsigned_pd;
-    const auto opened = candidate->vqec_vision_ai_qcom_dspsn_open(config);
-    if (opened.code_ != status_code::ok) {
-        return opened;
-    }
-    _session = std::move(candidate);
-    return {};
-}
 
 status vqec_vision_ai_appl_pdplt_open_dsp_v1(
     const std::string& _skel_dir, bool _enable_unsigned_pd,
@@ -513,29 +483,40 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return {status_code::invalid_argument,
                     "anchor-distance package must be a primary model"};
             }
-            const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_legacy_dsp(
-                impl.config_.dsp_legacy_skel_dir_, impl.config_.dsp_legacy_clock_corner_,
-                impl.config_.dsp_legacy_latency_us_, impl.config_.dsp_enable_unsigned_pd_,
-                impl.dsp_session_);
-            if (dsp_opened.code_ != status_code::ok) {
-                return dsp_opened;
+            const auto dsp_v1_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+                impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
+                impl.dsp_v1_client_);
+            if (dsp_v1_opened.code_ != status_code::ok) {
+                return dsp_v1_opened;
             }
-            dsp_decoder_config dsp_config;
-            dsp_config.kind_ = dsp_decoder_kind::scrfd;
-            dsp_config.source_width_ = model_source->profile_.width_;
-            dsp_config.source_height_ = model_source->profile_.height_;
-            dsp_config.tensor_width_ = model.tensor_width_;
-            dsp_config.tensor_height_ = model.tensor_height_;
-            dsp_config.placement_ = model.placement_;
-            dsp_config.class_id_ = package.class_id_;
-            dsp_config.landmark_schema_id_ = package.landmark_schema_id_;
-            dsp_config.landmark_schema_version_ = package.landmark_schema_version_;
-            dsp_config.landmark_count_ = package.landmark_count_;
-            dsp_config.confidence_threshold_ = package.confidence_threshold_;
-            dsp_config.iou_threshold_ = package.iou_threshold_;
-            dsp_config.session_ = impl.dsp_session_;
-            owner.decoder_ = std::make_unique<dsp_decoder>(std::move(dsp_config));
-            owner.uses_legacy_dsp_preprocessor_ = true;
+            anchor_distance_decoder_config decoder_config;
+            decoder_config.source_width_ = model_source->profile_.width_;
+            decoder_config.source_height_ = model_source->profile_.height_;
+            decoder_config.tensor_width_ = model.tensor_width_;
+            decoder_config.tensor_height_ = model.tensor_height_;
+            decoder_config.placement_ = model.placement_;
+            decoder_config.class_id_ = package.class_id_;
+            decoder_config.landmark_schema_id_ = package.landmark_schema_id_;
+            decoder_config.landmark_schema_version_ = package.landmark_schema_version_;
+            decoder_config.landmark_count_ = package.landmark_count_;
+            decoder_config.anchor_offset_cells_ = package.anchor_offset_cells_;
+            decoder_config.confidence_threshold_ = package.confidence_threshold_;
+            decoder_config.iou_threshold_ = package.iou_threshold_;
+            decoder_config.max_candidates_ = package.max_candidates_;
+            decoder_config.stages_.reserve(package.stages_.size());
+            for (const auto& package_stage : package.stages_) {
+                anchor_distance_stage_config stage;
+                stage.score_tensor_ = package_stage.score_tensor_;
+                stage.box_tensor_ = package_stage.box_tensor_;
+                stage.landmark_tensor_ = package_stage.landmark_tensor_;
+                stage.stride_ = package_stage.stride_;
+                stage.grid_width_ = package_stage.grid_width_;
+                stage.grid_height_ = package_stage.grid_height_;
+                stage.anchors_per_cell_ = package_stage.anchors_per_cell_;
+                decoder_config.stages_.push_back(std::move(stage));
+            }
+            owner.decoder_ =
+                std::make_unique<anchor_distance_decoder>(std::move(decoder_config));
         } else {
             if (model.role_ != model_role::primary) {
                 return {status_code::invalid_argument,
@@ -603,17 +584,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return created;
             }
             if (owner.decoder_ != nullptr) {
-                if (owner.uses_legacy_dsp_preprocessor_) {
-                    dsp_preprocessor_config prep_cfg;
-                    prep_cfg.kind_ = dsp_preprocessor_kind::scrfd;
-                    prep_cfg.session_ = impl.dsp_session_;
-                    prep_cfg.buffer_cache_ = impl.dsp_buffer_cache_;
-                    instance.processor_ = std::make_unique<dsp_preprocessor>(std::move(prep_cfg));
-                } else {
-                    instance.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-                        _deployment.sources_[slot].memory_.max_frame_allocation_bytes_,
-                        impl.config_.preprocess_output_timeout_ns_});
-                }
+                dsp_preprocessor_config prep_cfg;
+                prep_cfg.client_ = impl.dsp_v1_client_;
+                prep_cfg.buffer_cache_ = impl.dsp_buffer_cache_;
+                instance.processor_ = std::make_unique<dsp_preprocessor>(std::move(prep_cfg));
             }
             owner.instances_.push_back(std::move(instance));
         }
@@ -904,9 +878,10 @@ status production_platform::vqec_vision_ai_appl_pdplt_create_offline_model(
             if (offline.decoder_ == nullptr) {
                 return {status_code::invalid_state, "offline primary decoder is unavailable"};
             }
-            offline.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-                model.max_frame_allocation_bytes_,
-                implementation_->config_.preprocess_output_timeout_ns_});
+            dsp_preprocessor_config prep_cfg;
+            prep_cfg.client_ = implementation_->dsp_v1_client_;
+            prep_cfg.buffer_cache_ = implementation_->dsp_buffer_cache_;
+            offline.processor_ = std::make_unique<dsp_preprocessor>(std::move(prep_cfg));
         } else {
 #if defined(VQEC_VISION_AI_HAS_FASTCV_ALIGNER)
             if (offline.embedding_decoder_ == nullptr) {

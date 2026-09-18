@@ -29,6 +29,7 @@ stable while their parent directory identifies the owner and execution environme
 |---|---|
 | `vqec_vision_board_native_tests.sh` | Reproducible native board run with manifest and Zvec fixtures |
 | `vqec_vision_preview_acceptance.sh` | Host capture of `.98` RTSP output, effective packet FPS gate and overlay contact sheet |
+| `vqec_vision_run_full.sh` | Start/stop/status wrapper for the complete board workload and VLC-ready RTSP preview |
 | `vqec_vision_dsp_v1_smoke.cpp` | Explicit board probe for v1 capability negotiation and one descriptor-driven dense operation; requires an absolute candidate skeleton directory |
 | `vqec_vision_qnn_engine_smoke.cpp` | Board smoke: compose/execute (and `--reload-cycles`) for one model library |
 | `vqec_vision_qnn_board_smoke.sh` | Board-side `qnn-net-run` smoke for one model library |

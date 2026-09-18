@@ -91,6 +91,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     add_library(vqec_vision_ai_dsp_v1_dense STATIC
         dsp/v1/vqec_vision_dsp_v1_dense.c
+        dsp/v1/vqec_vision_dsp_v1_image.c
         dsp/v1/vqec_vision_dsp_v1_overlay.c)
     target_include_directories(vqec_vision_ai_dsp_v1_dense PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")

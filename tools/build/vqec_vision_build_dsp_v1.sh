@@ -98,12 +98,13 @@ compile_flags=("-m$dsp_arch" -O2 -std=c11 -Wall -Wextra -Werror -fPIC
 sources=("$generated_dir/vqec_vision_dsp_v1_skel.c"
     "$v1_dir/vqec_vision_dsp_v1_skeleton.c"
     "$v1_dir/vqec_vision_dsp_v1_service.c"
+    "$v1_dir/vqec_vision_dsp_v1_image.c"
     "$v1_dir/vqec_vision_dsp_v1_overlay.c"
     "$v1_dir/vqec_vision_dsp_v1_dense.c"
     "$v1_dir/vqec_vision_dsp_v1_wire.c")
 objects=("$work_dir/01_skel.o" "$work_dir/02_service_binding.o"
-    "$work_dir/03_service.o" "$work_dir/04_overlay.o" "$work_dir/05_dense.o"
-    "$work_dir/06_wire.o")
+    "$work_dir/03_service.o" "$work_dir/04_image.o" "$work_dir/05_overlay.o"
+    "$work_dir/06_dense.o" "$work_dir/07_wire.o")
 for index in "${!sources[@]}"; do
     "$compiler" "${compile_flags[@]}" -c "${sources[$index]}" \
         -o "${objects[$index]}"
@@ -139,6 +140,8 @@ receipt="$work_dir/vqec_vision_dsp_v1_build_receipt.txt"
         "$idl" "$v1_dir/vqec_vision_dsp_v1_skeleton.c" \
         "$v1_dir/vqec_vision_dsp_v1_service.c" \
         "$v1_dir/vqec_vision_dsp_v1_service.h" \
+        "$v1_dir/vqec_vision_dsp_v1_image.c" \
+        "$v1_dir/vqec_vision_dsp_v1_image.h" \
         "$v1_dir/vqec_vision_dsp_v1_overlay.c" \
         "$v1_dir/vqec_vision_dsp_v1_overlay.h" \
         "$v1_dir/vqec_vision_dsp_v1_dense.c" \

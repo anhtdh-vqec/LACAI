@@ -4,9 +4,9 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** board-smoke — board `.98` native 128/128 and canonical live H.264
-1920x1080 at 25.125 FPS ran from this layout on 2026-09-18. **Layer:** docs. **Source:** n/a (references
-`tools/board/vqec_vision_board_native_tests.sh` and the board workspace).
+**Status:** accepted — the minimal canonical layout ran the declared full workload at
+30.008 FPS and 13.50% average CPU for five minutes on `.98` on 2026-09-18. **Layer:** docs.
+**Source:** `tools/board/vqec_vision_run_full.sh`.
 
 ## Standard root and layout
 
@@ -16,20 +16,15 @@ name. The layout is:
 | Path | Contents |
 |---|---|
 | `bin/` | Canonical service binary `vqec_ai_vision_applications` only |
-| `config/` | Deployment, model catalog, model registry, usecase snapshot, reviewed hardware admission profile, FR fixture |
+| `config/` | Full deployment, model catalog/registry, usecase snapshot and measured hardware profile |
 | `models/` | Licensed model artifacts and their package dirs |
 | `dsp/v1/` | Exact negotiated v1 skeleton and its build/signing receipt |
-| `dsp/legacy/` | Separately reviewed compatibility skeleton; never populated by copying an unknown board binary |
-| `manifests/` | Staged repository `manifests/models` tree (decoder/IO/preprocess fixtures) |
 | `lib/` | Zvec shared libraries for `LD_LIBRARY_PATH` |
-| `tests/` | Cross-built native test binaries staged for the board runner |
-| `tools/board/` | Native runner and target probes copied from the repository role directory |
-| `tools/fixtures/` | Compatibility camera, RTSP and D-Bus peers copied from the repository role directory |
-| `inputs/` | Raw tensors/inputs for smoke tools |
-| `enrollment/` | Authorized enrollment images under the configured root |
+| `tools/board/` | The repository-owned full-workload runner |
+| `tools/fixtures/` | DMA-heap compatibility camera and RTSP ring reader |
 | `protected_gallery/` | AI-owned encrypted gallery/key/lock files (mode 0600) |
-| `out/` | Service/RTSP/camera/dbus logs (never evidence by itself) |
-| `*_run_*.sh` | Board-local convenience run scripts (not repository source) |
+| `out/` | Current logs and the retained `acceptance_5m/` raw evidence |
+| `run_full.sh` | Canonical link/copy of `tools/board/vqec_vision_run_full.sh` |
 
 `/opt` is backed by the writable rootfs overlay; the directory is owned by the service UID.
 Private Zvec storage lives on tmpfs under `/run`, not here.
@@ -59,11 +54,10 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
 
    - service binary `$lacai_build_dir/src/app/vqec_ai_vision_applications` -> `/opt/lacai/bin/vqec_ai_vision_applications`;
    - Hexagon-built `libvqec_vision_dsp_v1_skel.so` plus receipt -> `/opt/lacai/dsp/v1/`;
-   - an owner-approved legacy compatibility skeleton, when an activated package still needs
-     it, -> `/opt/lacai/dsp/legacy/`;
-   - native test binaries `vqec_vision_ai_*test*` -> `/opt/lacai/tests/`;
-   - repository `manifests/models` -> `/opt/lacai/manifests/models`;
-   - `tools/board/vqec_vision_board_native_tests.sh` -> `/opt/lacai/tools/board/`;
+   - native test binaries and manifests may be staged into a temporary candidate directory for
+     validation, then removed after evidence is retained; they are not part of runtime layout;
+   - `tools/board/vqec_vision_run_full.sh` -> `/opt/lacai/tools/board/` and
+     `/opt/lacai/run_full.sh`;
    - required `tools/fixtures/` scripts -> `/opt/lacai/tools/fixtures/`;
    - Zvec shared libraries -> `/opt/lacai/lib/`.
 
@@ -99,73 +93,22 @@ replacing the canonical service; hash it, record its profile and clean it up aft
 
 ## Production smoke workflow
 
-The production smoke publishes AI overlay + H.264 to the FW v5 ring, read back by the mock
-RTSP service. It needs the compatibility camera simulator, the ring reader, and the service
-with its full explicit configuration (the service refuses to start with any required value
-missing).
-
-Canonical service invocation (all flags are required):
-
-Provision `config/hardware_admission_profile.json` from the measured, owner-reviewed
-schema in [hardware admission profile](../architecture/hardware_admission_profile.md).
-No repository fixture supplies product capacity. The example below cannot run until the
-file and its evidence are available; do not fabricate limits to make it start.
+The canonical runner validates required files and the DMA heap, creates bounded runtime state,
+starts the compatibility camera, full production service and RTSP bridge, and prints the VLC URL.
+It owns only processes whose PID and command match its state files; it does not use `killall`.
 
 ```bash
-dbus-run-session -- sh -c '
-  python3 /opt/lacai/tools/fixtures/vqec_vision_fr_runtime_dbus_test.py \
-    --fixture /opt/lacai/config/fr_runtime_test.json >/opt/lacai/out/dbus.log 2>&1 &
-  sleep 1
-  exec /opt/lacai/bin/vqec_ai_vision_applications \
-    --mode production --platform qualcomm \
-    --usecase-dbus-session --usecase-service-name com.vqec.AiVision.Control \
-    --usecase-object-path /com/vqec/AiVision/UsecaseControl \
-    --usecase-peer-name com.vqec.FwEnrollmentTest \
-    --usecase-rpc-timeout-ms 10000 --usecase-callbacks-per-poll 8 \
-    --deployment /opt/lacai/config/deployment.json \
-    --model-catalog /opt/lacai/config/model_catalog.json \
-    --usecase-snapshot /opt/lacai/config/usecase_control_snapshot.json \
-    --model-package-registry /opt/lacai/config/model_registry.json \
-    --qnn-backend-library /usr/lib/libQnnHtp.so \
-    --qnn-system-library /usr/lib/libQnnSystem.so \
-    --model-root /opt/lacai/models/ \
-    --dsp-v1-skel-dir /opt/lacai/dsp/v1 \
-    --dsp-legacy-skel-dir /opt/lacai/dsp/legacy \
-    --dsp-legacy-clock-corner 7 --dsp-legacy-latency-us 100 \
-    --dsp-enable-unsigned-pd \
-    --hardware-profile /opt/lacai/config/hardware_admission_profile.json \
-    --tracker-contract portable.iou.tracker.v1 \
-    --event-schema-id reference.zone --event-schema-version 1 \
-    --consumer-id-prefix lacai_ai \
-    --camera-socket-dir /run/camera_ai --camera-producer-uid 0 --nv12-format 23 \
-    --output-ring-id encoded_ai_detect0_cam0_ch0 \
-    --output-bitrate 4000000 --output-keyframe-interval 30 \
-    --output-box-color-rgba 0x00ff00ff --output-surface-count 8 \
-    --output-colorimetry bt709 --output-interlace-mode progressive \
-    --fr-gallery-path /run/lacai_fr_index/face_protected_1 \
-    --fr-protected-directory /opt/lacai/protected_gallery \
-    --fr-gallery-file gallery.bin --fr-key-file gallery.key --fr-lock-file gallery.lock \
-    --fr-gallery-id face_protected_1 --fr-preprocess-revision 1 \
-    --fr-store-max-bytes 16777216 --fr-min-similarity 0.35 --fr-subject-margin 0.05 \
-    --fr-max-templates 5 --fr-top-k 5 \
-    --fr-feature-id face_recognition --fr-identity-attribute subject_ref \
-    --enrollment-dbus-session --enrollment-peer-name com.vqec.FwEnrollmentTest \
-    --enrollment-image-root /opt/lacai/enrollment
-'
+/opt/lacai/run_full.sh start
+/opt/lacai/run_full.sh status
+/opt/lacai/run_full.sh logs
+/opt/lacai/run_full.sh stop
 ```
 
-Before starting, the camera simulator and reader must run, and the tmpfs private index
-parent must exist:
-
-```bash
-mkdir -m 0777 /run/camera_ai
-mkdir -p -m 0700 /run/lacai_fr_index        # service-UID-owned tmpfs parent
-python3 /opt/lacai/tools/fixtures/vqec_vision_fw_camera_sim.py \
-  --socket-dir /run/camera_ai --camera 0 --channel 0 --consumer ai \
-  --width 1920 --height 1080 --fps 30 --max-in-flight 3 &
-python3 /opt/lacai/tools/fixtures/vqec_vision_ring_rtsp.py read \
-  --ring-id encoded_ai_detect0_cam0_ch0 --port 8554 --mount /live/ai/detect0 --fps 30 &
-```
+Open `rtsp://192.168.138.98:8554/live/ai/detect0` in VLC after `start` reports success.
+`restart` performs the bounded stop and full start. Deployment choices can be overridden through
+documented `LACAI_*` environment variables in the script, while the canonical defaults use only
+`/opt/lacai` and the measured `.98` configuration. The default full workload uses parallel model
+execution, eight output surfaces, 30 FPS preview and the registered `qcom,system` DMA heap.
 
 Verify from the host:
 
@@ -174,7 +117,7 @@ tools/board/vqec_vision_preview_acceptance.sh \
   --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
   --output-dir /tmp/lacai-preview-acceptance \
   --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
-  --expected-fps 25 --fps-tolerance 1.0
+  --expected-fps 30 --fps-tolerance 1.0
 ```
 
 The tool must pass codec, dimensions and effective packet FPS. Open
@@ -197,7 +140,8 @@ orientation, color and absence of stale overlay. Service metrics must also print
   first.
 - **Rules:** no personal directory names in paths or repository content; no credentials,
   model binaries, biometric data or private SDKs in Git; `/opt/lacai` is the only board
-  workspace; stop every started process and remove ring files before finishing a session.
+  workspace. A requested live-view session may be left running and must be reported explicitly;
+  otherwise stop it with the canonical runner before finishing.
 
 ## See also
 

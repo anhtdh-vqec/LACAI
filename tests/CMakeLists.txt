@@ -977,6 +977,15 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_dsp_v1_overlay_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dsp_v1_overlay_compose COMMAND vqec_vision_ai_dsp_v1_overlay_test)
 
+    add_executable(vqec_vision_ai_dsp_v1_image_test
+        unit/adapters/qualcomm/vqec_vision_dsp_v1_image_test.cpp)
+    target_include_directories(vqec_vision_ai_dsp_v1_image_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/adapters/qualcomm/dsp/v1)
+    target_link_libraries(vqec_vision_ai_dsp_v1_image_test PRIVATE
+        vqec_vision_ai_dsp_v1_dense)
+    set_target_properties(vqec_vision_ai_dsp_v1_image_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME dsp_v1_image_transform COMMAND vqec_vision_ai_dsp_v1_image_test)
+
     add_executable(vqec_vision_ai_dsp_v1_service_test
         unit/adapters/qualcomm/vqec_vision_dsp_v1_service_test.cpp)
     target_link_libraries(vqec_vision_ai_dsp_v1_service_test
@@ -1001,7 +1010,8 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         COMMAND vqec_vision_ai_dsp_v1_dense_decoder_test)
 
     add_executable(vqec_vision_ai_dsp_preprocessor_test unit/adapters/qualcomm/vqec_vision_dsp_preprocessor_test.cpp)
-    target_link_libraries(vqec_vision_ai_dsp_preprocessor_test PRIVATE vqec_vision_ai_qualcomm)
+    target_link_libraries(vqec_vision_ai_dsp_preprocessor_test PRIVATE
+        vqec_vision_ai_qualcomm vqec_vision_ai_dsp_v1_service)
     set_target_properties(vqec_vision_ai_dsp_preprocessor_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dsp_preprocessor_unit COMMAND vqec_vision_ai_dsp_preprocessor_test)
 endif()

@@ -52,6 +52,13 @@ struct renderer_surface_state {
     std::atomic<bool> busy_{false};
 };
 
+struct renderer_submission_metadata {
+    GstClockTime encoder_pts_{GST_CLOCK_TIME_NONE};
+    std::uint64_t frame_id_{0};
+    std::uint64_t source_pts_ns_{0};
+    bool valid_{false};
+};
+
 std::uint32_t vqec_vision_ai_qcom_qtvr_align_up(std::uint32_t _value,
                                                  std::uint32_t _alignment) {
     return (_value + _alignment - 1U) & ~(_alignment - 1U);
@@ -310,6 +317,8 @@ struct qtiv_renderer::implementation {
     rpcmem_pool staging_pool_;
     renderer_surface_layout surface_layout_;
     std::vector<std::shared_ptr<renderer_surface_state>> surface_states_;
+    std::array<renderer_submission_metadata, fw_ring_layout::g_slot_count>
+        submission_metadata_{};
     std::array<vqec_vision_ai_dsp_v1_overlay_box,
                VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_BOXES> overlay_boxes_{};
     std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_LABEL_BYTES> labels_{};
@@ -399,17 +408,20 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
     const std::string bitrate = std::to_string(_config.bitrate_bps_);
     const std::string keyframe_interval =
         std::to_string(_config.keyframe_interval_frames_);
+    const std::string surface_count = std::to_string(_config.output_surface_count_);
     const std::string description =
         "appsrc name=src is-live=true format=time"
         " ! capsfilter name=surfacecaps"
-        " ! queue max-size-buffers=2"
+        " ! queue max-size-buffers=" + surface_count +
+        " max-size-bytes=0 max-size-time=0"
         " ! v4l2h264enc capture-io-mode=dmabuf output-io-mode=dmabuf-import"
         " extra-controls=\"controls,video_bitrate=" + bitrate +
         ",video_gop_size=" + keyframe_interval + "\""
         // Repeat SPS/PPS on every IDR so a late RTSP reader can start from any retained
         // keyframe in the bounded ring.
         " ! h264parse config-interval=-1"
-        " ! appsink name=enc max-buffers=2 drop=true sync=false";
+        " ! appsink name=enc max-buffers=" + surface_count +
+        " drop=false sync=false";
     GError* error = nullptr;
     impl.pipeline_ = gst_parse_launch(description.c_str(), &error);
     if (impl.pipeline_ == nullptr || error != nullptr) {
@@ -738,6 +750,56 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         drop_boxes = true;
     }
 
+    bool any_sample = false;
+    const auto drain_encoder = [&impl, &any_sample]() -> status {
+        GstSample* sample = nullptr;
+        status result;
+        while ((sample = gst_app_sink_try_pull_sample(
+                    GST_APP_SINK(impl.appsink_), g_encoder_poll_timeout_ns)) != nullptr) {
+            any_sample = true;
+            GstBuffer* encoded = gst_sample_get_buffer(sample);
+            GstMapInfo out_map {};
+            if (encoded != nullptr && gst_buffer_map(encoded, &out_map, GST_MAP_READ)) {
+                const bool keyframe =
+                    (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
+                const GstClockTime encoded_pts = GST_BUFFER_PTS(encoded);
+                std::uint64_t frame_id = 0U;
+                std::uint64_t source_pts_ns = GST_CLOCK_TIME_IS_VALID(encoded_pts) ?
+                    encoded_pts : 0U;
+                for (auto& metadata : impl.submission_metadata_) {
+                    if (metadata.valid_ && metadata.encoder_pts_ == encoded_pts) {
+                        frame_id = metadata.frame_id_;
+                        source_pts_ns = metadata.source_pts_ns_;
+                        metadata.valid_ = false;
+                        break;
+                    }
+                }
+                if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data),
+                        out_map.size, impl.config_.width_, impl.config_.height_, frame_id,
+                        source_pts_ns, source_pts_ns, keyframe)) {
+                    ++impl.written_;
+                } else {
+                    result = {status_code::io_error,
+                        "cannot write the encoded ring slot"};
+                }
+                gst_buffer_unmap(encoded, &out_map);
+            } else {
+                result = {status_code::io_error,
+                    "cannot map the encoded access unit"};
+            }
+            gst_sample_unref(sample);
+        }
+        return result;
+    };
+
+    // Reap completed encoder work before acquiring a bounded DMA surface. The encoder may
+    // retain every submitted input until its corresponding appsink sample is consumed; doing
+    // acquisition first therefore deadlocks a full surface pool.
+    const auto reaped = drain_encoder();
+    if (reaped.code_ != status_code::ok) {
+        return reaped;
+    }
+
     status compose_status;
     GstBuffer* buffer = impl.vqec_vision_ai_qcom_qtvr_copy_nv12(
         _frame, _payload.overlay_, !drop_boxes, compose_status);
@@ -754,44 +816,26 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
             s_last_renderer_drop_ns = now_ns;
         }
     }
-    GST_BUFFER_PTS(buffer) = impl.submitted_ * GST_SECOND / impl.config_.fps_;
+    const GstClockTime encoder_pts = impl.submitted_ * GST_SECOND / impl.config_.fps_;
+    GST_BUFFER_PTS(buffer) = encoder_pts;
     GST_BUFFER_DURATION(buffer) = GST_SECOND / impl.config_.fps_;
+    auto& metadata = impl.submission_metadata_[
+        impl.submitted_ % impl.submission_metadata_.size()];
+    metadata.encoder_pts_ = encoder_pts;
+    metadata.frame_id_ = _frame.descriptor_.buffer_id_;
+    metadata.source_pts_ns_ =
+        _frame.descriptor_.pts_ns_ != UINT64_MAX && _frame.descriptor_.pts_ns_ != 0U ?
+            _frame.descriptor_.pts_ns_ : encoder_pts;
+    metadata.valid_ = true;
     ++impl.submitted_;
     const GstFlowReturn pushed = gst_app_src_push_buffer(GST_APP_SRC(impl.appsrc_), buffer);
     if (pushed != GST_FLOW_OK) {
+        metadata.valid_ = false;
         return {status_code::io_error, "qtiv renderer appsrc rejected the frame"};
     }
-    GstSample* sample = nullptr;
-    bool any_sample = false;
-    status result = {};
-    while ((sample = gst_app_sink_try_pull_sample(
-                GST_APP_SINK(impl.appsink_), g_encoder_poll_timeout_ns)) != nullptr) {
-        any_sample = true;
-        GstBuffer* encoded = gst_sample_get_buffer(sample);
-        GstMapInfo out_map {};
-        if (encoded != nullptr && gst_buffer_map(encoded, &out_map, GST_MAP_READ)) {
-            const bool keyframe = (GST_BUFFER_FLAGS(encoded) & GST_BUFFER_FLAG_DELTA_UNIT) == 0;
-            const GstClockTime encoded_pts = GST_BUFFER_PTS(encoded);
-            const std::uint64_t timestamp_ns =
-                GST_CLOCK_TIME_IS_VALID(encoded_pts) ? encoded_pts : 0U;
-            const std::uint64_t frame_pts =
-                _frame.descriptor_.pts_ns_ != UINT64_MAX && _frame.descriptor_.pts_ns_ != 0 ?
-                    _frame.descriptor_.pts_ns_ : timestamp_ns;
-            if (impl.ring_.push(static_cast<const std::uint8_t*>(out_map.data), out_map.size,
-                    _frame.descriptor_.width_, _frame.descriptor_.height_,
-                    _frame.descriptor_.buffer_id_,
-                    frame_pts,
-                    frame_pts,
-                    keyframe)) {
-                ++impl.written_;
-            } else {
-                result = {status_code::io_error, "cannot write the encoded ring slot"};
-            }
-            gst_buffer_unmap(encoded, &out_map);
-        } else {
-            result = {status_code::io_error, "cannot map the encoded access unit"};
-        }
-        gst_sample_unref(sample);
+    const auto drained = drain_encoder();
+    if (drained.code_ != status_code::ok) {
+        return drained;
     }
     if (!any_sample) {
         const auto pipeline = vqec_vision_ai_qcom_qtvr_read_pipeline_error(impl.pipeline_);
@@ -800,7 +844,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         }
         return {status_code::pending, "encoder produced no access unit"};
     }
-    return result;
+    return {};
 }
 
 void qtiv_renderer::vqec_vision_ai_qcom_qtvr_set_demand(bool _has_demand) noexcept {

@@ -20,6 +20,27 @@ vqec_vision_ai_qcom_d1svc_initialize(vqec_vision_ai_dsp_v1_service* _service,
     return vqec_vision_ai_dsp_v1_wire_ok;
 }
 
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_d1svc_configure_image_backend(
+    vqec_vision_ai_dsp_v1_service* _service,
+    const vqec_vision_ai_dsp_v1_image_backend* _backend) {
+    if (_service == NULL || _backend == NULL || _backend->scale_luma == NULL ||
+        _backend->scale_chroma == NULL || _backend->convert_color == NULL) {
+        return vqec_vision_ai_dsp_v1_wire_malformed;
+    }
+    _service->image_backend = *_backend;
+    _service->capabilities.operations_mask |=
+        1U << (VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM - 1U);
+    return vqec_vision_ai_dsp_v1_wire_ok;
+}
+
+void vqec_vision_ai_qcom_d1svc_cleanup(vqec_vision_ai_dsp_v1_service* _service) {
+    if (_service == NULL) {
+        return;
+    }
+    vqec_vision_ai_qcom_d1img_release_scratch(&_service->image_scratch);
+    memset(&_service->image_backend, 0, sizeof(_service->image_backend));
+}
+
 vqec_vision_ai_dsp_v1_wire_status
 vqec_vision_ai_qcom_d1svc_query_capabilities(const vqec_vision_ai_dsp_v1_service* _service,
                                              uint8_t* _response, size_t _response_bytes) {
@@ -41,13 +62,19 @@ vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_d1svc_execute(
     vqec_vision_ai_dsp_v1_dense_result dense_result = {0U, 0U, 0U};
     vqec_vision_ai_dsp_v1_request request = {0U, 0U, 0U, 0U, 0U};
     uint32_t overlay_output_bytes = 0U;
+    uint32_t image_output_bytes = 0U;
     vqec_vision_ai_dsp_v1_wire_status operation_status =
         vqec_vision_ai_qcom_dvwir_validate_request(
             &_service->capabilities, _descriptor, _descriptor_bytes, _input_bytes,
             _output_bytes, &request);
     const int request_valid = operation_status == vqec_vision_ai_dsp_v1_wire_ok;
     if (request_valid) {
-        if (request.operation == VQEC_VISION_AI_DSP_V1_DENSE_DECODE) {
+        if (request.operation == VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM) {
+            operation_status = vqec_vision_ai_qcom_d1img_execute(
+                &_service->capabilities, &_service->image_backend,
+                &_service->image_scratch, _descriptor, _descriptor_bytes, _input,
+                _input_bytes, _output, _output_bytes, &image_output_bytes);
+        } else if (request.operation == VQEC_VISION_AI_DSP_V1_DENSE_DECODE) {
             operation_status = vqec_vision_ai_qcom_d1dns_execute(
                 &_service->capabilities, _descriptor, _descriptor_bytes, _input, _input_bytes,
                 _output, _output_bytes, &_service->dense_scratch, &dense_result);
@@ -60,8 +87,10 @@ vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_d1svc_execute(
         }
     }
     const uint16_t response_operation = request_valid ? request.operation : 0U;
-    const uint32_t response_output_bytes = request.operation == VQEC_VISION_AI_DSP_V1_DENSE_DECODE ?
-        dense_result.output_bytes : overlay_output_bytes;
+    const uint32_t response_output_bytes =
+        request.operation == VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM ? image_output_bytes :
+        request.operation == VQEC_VISION_AI_DSP_V1_DENSE_DECODE ?
+            dense_result.output_bytes : overlay_output_bytes;
     const uint32_t response_detail = request.operation == VQEC_VISION_AI_DSP_V1_DENSE_DECODE ?
         dense_result.truncated_candidates : 0U;
     const vqec_vision_ai_dsp_v1_operation_response operation_response = {

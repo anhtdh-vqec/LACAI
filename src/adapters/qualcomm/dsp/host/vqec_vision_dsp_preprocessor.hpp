@@ -1,35 +1,22 @@
 #ifndef VQEC_VISION_AI_QUALCOMM_DSP_PREPROCESSOR_HPP
 #define VQEC_VISION_AI_QUALCOMM_DSP_PREPROCESSOR_HPP
 
-#include <array>
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
 
 #include "vqec_vision_dsp_buffer_cache.hpp"
-#include "vqec_vision_dsp_session.hpp"
+#include "vqec_vision_dsp_v1_client.hpp"
 
 namespace vqec::vision::ai {
 
-enum class dsp_preprocessor_kind {
-    yolov8,
-    scrfd
-};
-
 struct dsp_preprocessor_config {
-    dsp_preprocessor_kind kind_{dsp_preprocessor_kind::yolov8};
-    std::shared_ptr<dsp_session> session_;
+    std::shared_ptr<dsp_v1_client> client_;
     std::shared_ptr<dsp_buffer_cache> buffer_cache_;
 };
 
-// Hexagon cDSP image preprocessor adapting raw NV12 camera DMA-BUFs into quantized
-// uint16 NHWC model input tensors via FastRPC and cDSP FastCV HVX.
+// Descriptor-driven cDSP image transform. Model identity never crosses this boundary;
+// exact pixel/tensor semantics are derived from the admitted inference plan.
 class dsp_preprocessor final : public image_processor_port {
 public:
     explicit dsp_preprocessor(dsp_preprocessor_config _config);
@@ -47,12 +34,6 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_imgpr_preprocess(
         const raw_frame& _frame, const inference_plan& _plan,
         const tensor_spec& _target, std::vector<tensor_blob>& _outputs) override;
-
-    [[nodiscard]] static std::array<std::int32_t, 12> vqec_vision_ai_qcom_dsppr_compute_geom(
-        dsp_preprocessor_kind _kind,
-        std::uint32_t _src_w, std::uint32_t _src_h,
-        std::int32_t _y_stride, std::uint32_t _uv_offset, std::int32_t _uv_stride,
-        std::uint32_t _tensor_side);
 
 private:
     struct implementation;

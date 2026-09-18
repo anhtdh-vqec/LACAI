@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "vqec_vision_dsp_v1_dense.h"
+#include "vqec_vision_dsp_v1_image.h"
 #include "vqec_vision_dsp_v1_overlay.h"
 
 #ifdef __cplusplus
@@ -21,11 +22,19 @@ extern "C" {
 typedef struct vqec_vision_ai_dsp_v1_service {
     vqec_vision_ai_dsp_v1_capabilities capabilities;
     vqec_vision_ai_dsp_v1_dense_scratch dense_scratch;
+    vqec_vision_ai_dsp_v1_image_backend image_backend;
+    vqec_vision_ai_dsp_v1_image_scratch image_scratch;
 } vqec_vision_ai_dsp_v1_service;
 
 vqec_vision_ai_dsp_v1_wire_status
 vqec_vision_ai_qcom_d1svc_initialize(vqec_vision_ai_dsp_v1_service* _service,
                                      uint32_t _domain_generation);
+
+vqec_vision_ai_dsp_v1_wire_status vqec_vision_ai_qcom_d1svc_configure_image_backend(
+    vqec_vision_ai_dsp_v1_service* _service,
+    const vqec_vision_ai_dsp_v1_image_backend* _backend);
+
+void vqec_vision_ai_qcom_d1svc_cleanup(vqec_vision_ai_dsp_v1_service* _service);
 
 vqec_vision_ai_dsp_v1_wire_status
 vqec_vision_ai_qcom_d1svc_query_capabilities(const vqec_vision_ai_dsp_v1_service* _service,

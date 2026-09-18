@@ -1221,7 +1221,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | Plan 0 pass | C01–C10, stable IDs, owner/sign-off matrix |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
-| [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | Plan 0 + Plan 1; C02/C03 | Neutral tensor lease, Qualcomm vertical, golden/A-B report |
+| [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
 | [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1–4 pass | Profiles, board/release acceptance |
 
 Quy tắc giao agent: ghi plan/task ID trong issue; không sửa sibling repository; không đổi
@@ -1231,9 +1231,10 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Tài liệu chỉ đề xuất; chưa đổi code, ABI, dependency, CI hay ownership thực tế.
-- Chưa có profile mới để phân bổ chính xác CPU theo stage; chưa xác minh lại mức 15–20%
-  người dùng quan sát ở FW. Không có cam kết mức giảm CPU cụ thể.
+- Các plan metadata/event/integration vẫn là đề xuất; Plan 4 đã có source và board acceptance
+  theo gate AI APP riêng, không tự nâng status các plan khác.
+- Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
+  vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
 - Chưa benchmark SQLite/DuckDB/Parquet/librdkafka trên target; lựa chọn là hướng spike có
   điều kiện, không khẳng định dependency đã tương thích eSDK/production.
 - Chưa có sizing/SLO sản phẩm cuối cùng. Mọi queue, timeout, cadence, quota và retention

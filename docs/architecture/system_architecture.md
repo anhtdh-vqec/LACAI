@@ -4,8 +4,8 @@ This document is the current architecture direction for LACAI: the layer boundar
 ownership, data flow, contract roles and resource rules for the AI APP that replaces
 `ai_app` in FW. Unified baseline: 2026-09-15.
 
-**Status:** source-delivered — production composition and historical compatibility evidence
-exist; the current board validation target is `.98` when a board is allocated.
+**Status:** accepted — the current Qualcomm workload passed its declared five-minute AI APP
+30 FPS / average-CPU gate on `.98`; external release gates remain listed below.
 **Layer:** reference. **Source:** `n/a`.
 
 ## Responsibility
@@ -38,8 +38,9 @@ exist; the current board validation target is `.98` when a board is allocated.
 Backend decision: ADR 0002 establishes reuse of Qualcomm plugins; ADR 0003 adds an owned
 QNN adapter for the needed capability/dtype. Both keep neutral ports. Prefer reusing
 verified vendor implementations; not every step must use a plugin when an SDK adapter has
-a reason and evidence. Production currently pairs FastCV + owned QNN directly; fully
-capability/config-driven backend selection remains an unfinished goal.
+a reason and evidence. Production uses the neutral image port with generic FastRPC v1 cDSP
+preprocessing plus owned QNN; fully capability/config-driven backend selection remains an
+unfinished goal.
 
 ADR 0004 chooses Zvec for the FR index. AI owns matching, protected gallery, encryption,
 key lifecycle and recovery; FW only sends authorized enrollment/remove commands. This is
@@ -48,10 +49,11 @@ FW.
 
 ## Data flow
 
-The diagrams define intended ownership. Current production person composition uses
-multi_source_supervisor/session/pump, private FastCV preprocessing, owned QNN, decoding,
-reference tracking and Qualcomm preview output. Production pairs FastCV/QNN HTP with cDSP
-overlay compose, V4L2 hardware encode and ring output. The FD -> exact-frame alignment -> EdgeFace -> typed embedding
+The diagrams define intended ownership. Current production composition uses
+multi_source_supervisor/session/pump, generic v1 cDSP preprocessing, owned QNN, generic dense
+or portable anchor-distance decoding, reference tracking and Qualcomm preview output.
+Production pairs cDSP/FastCV preprocessing and QNN HTP with cDSP overlay compose, V4L2 hardware
+encode and ring output. The FD -> exact-frame alignment -> EdgeFace -> typed embedding
 flow is connected at source through neutral ports. The app composition root may include
 concrete adapters; orchestration and neutral contracts depend only on ports. The secondary
 cascade is source-composed and logic-tested, while live model/golden evidence remains an
@@ -91,7 +93,9 @@ FW RAW Source Service -- frame descriptor + handles --> source adapter
                                                    |
                                          bounded scheduler/admission
                                                    |
-                         Qualcomm image processor (FastCV; C2D optional)
+                         neutral image processor
+                    Qualcomm: FastRPC v1 -> cDSP FastCV
+                    other vendors: capability adapter
                                                    |
                                         AI-owned tensor buffer pool
                                                    |
@@ -247,11 +251,11 @@ Logs have source/job/model/feature/correlation id, no per-frame INFO or biometri
 
 ## Limits and next work
 
-- Live cascade/golden parity, recognition/attendance, hardware-backed gallery key
+- Independent model golden/quality approval, recognition/attendance, hardware-backed gallery key
   qualification, generic backend factory, released-FW DMA completion and performance
   acceptance remain incomplete.
 - Fully capability/config-driven backend selection remains an unfinished goal; production
-  currently pairs FastCV + owned QNN directly.
+  currently binds generic FastRPC v1 cDSP preprocessing and owned QNN through neutral ports.
 - Signed provisioning, durable desired receipts and detailed runtime health observation
   remain open.
 - Not yet included: graph editor, arbitrary third-party plugins, hotload, universal
