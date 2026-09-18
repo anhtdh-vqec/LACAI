@@ -45,7 +45,7 @@ quantization. Exact parity for the converted artifact still needs privacy-safe g
 
 | Field | Current value | Status | How to verify |
 |---|---|---|---|
-| Artifact SHA-256 / bytes | `2f315dcd…03d9` / 1075944 | observed on `.48` | confirm same revision delivered |
+| Artifact SHA-256 / bytes | `2f315dcd…03d9` / 1075944 | historical observation only | confirm the same revision on `192.168.138.98` |
 | Runtime | QAIRT 2.43.0 | observed | pin exact runtime used for export |
 | Input | `input_1` `[1,640,640,3]` NHWC uint16, scale `3.03988327e-05`, zp `32768` | observed | model team confirms export ABI |
 | Outputs | 9 tensors `score_{8,16,32}`, `bbox_{8,16,32}`, `kps_{8,16,32}` with per-tensor scale/zp in `io_manifest.json` | observed | confirm names/quantization |
@@ -62,7 +62,7 @@ quantization. Exact parity for the converted artifact still needs privacy-safe g
 
 | Field | Current value | Status | How to verify |
 |---|---|---|---|
-| Artifact SHA-256 / bytes | `6faf62d1…4815` / 4725832 | observed on `.48` | confirm same revision delivered |
+| Artifact SHA-256 / bytes | `6faf62d1…4815` / 4725832 | historical observation only | confirm the same revision on `192.168.138.98` |
 | Input | `input` `[1,112,112,3]` NHWC uint16, scale `3.05180438e-05`, zp `32768` | confirmed by model team | `q = round(normalized / input_scale) + 32768` |
 | Output | `embedding` `[1,512]` uint16, scale `4.08594024e-05`, zp `12899` | confirmed by model team | `float_embedding = (q - 12899) * 4.08594024e-05` |
 | Normalization | `x/127.5 - 1.0` | confirmed from upstream reference | golden input tensor parity for converted artifact |

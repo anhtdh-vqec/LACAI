@@ -50,7 +50,7 @@ behavioural evidence comes from the board-only `vqec_vision_ai_qnn_engine_smoke`
 | `VQEC_VISION_AI_ENABLE_FEATURE_CATALOG` | bounded feature-catalog loader | build environment |
 | `VQEC_VISION_AI_BUILD_MANIFEST_CHECK` | optional metadata checker executable | build environment |
 | `VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST` | SHA-256 artifact comparison | build environment |
-| `VQEC_VISION_AI_ENABLE_ZVEC` | derived embedding index (default ON) | pinned public ARM64 SDK via `tools/vqec_vision_prepare_zvec.sh` |
+| `VQEC_VISION_AI_ENABLE_ZVEC` | derived embedding index (default ON) | pinned public ARM64 SDK via `tools/build/vqec_vision_prepare_zvec.sh` |
 | `VQEC_VISION_AI_ENABLE_FASTCV` | Qualcomm FastCV preprocessing/alignment | build environment |
 | `VQEC_VISION_AI_ENABLE_FW_RING` | FW shared-memory ring wrapper | pinned FW SDK; not built |
 
@@ -81,10 +81,11 @@ evidence. Zvec is disabled in the neutral/host configurations because its SDK is
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
 
-cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+lacai_neutral_build="$(mktemp -d /tmp/lacai-esdk-neutral.XXXXXX)"
+cmake -S . -B "$lacai_neutral_build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-cmake --build build-esdk-neutral -j4
-ctest --test-dir build-esdk-neutral --output-on-failure
+cmake --build "$lacai_neutral_build" -j4
+ctest --test-dir "$lacai_neutral_build" --output-on-failure
 ```
 
 The expanded command is in the repository [README](../../README.md#build-và-test).

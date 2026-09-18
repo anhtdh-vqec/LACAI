@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fetch the reviewed public target SDK; no host C++ build is performed.
 set -euo pipefail
-project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 dependency_root="$project_root/third_party/zvec"
 if [[ -e "$dependency_root/sdk" ]]; then
     echo "Zvec SDK already exists; remove it explicitly before a reviewed replacement."

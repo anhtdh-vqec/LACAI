@@ -11,7 +11,7 @@ below. **Layer:** reference. **Source:** `n/a`.
 
 Result: runtime switching and image-path enrollment pass against simulated FW on QCS6490
 `.98`. This is integration evidence; release acceptance is still open for the gates below.
-No access was made to `.48` or `.99`. No biometric fixtures, model binaries or credentials
+Only `192.168.138.98` is an authorized device target. No biometric fixtures, model binaries or credentials
 are included in Git.
 
 ## Responsibility
@@ -26,7 +26,7 @@ are included in Git.
 ## Candidate and environment
 
 - C++17 candidate built with `/home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux`;
-  build tree `build-esdk-full`. No host C++ configuration/build was used.
+  expanded eSDK candidate. No host C++ configuration/build was used.
 - Target deployment: QCS6490 / Qualcomm Linux 1.8, artifacts under `/opt/lacai`.
 - Live roots: configured person detector and face detector; dependent face embedding model.
   Qualcomm preprocessing/alignment, QNN, QTI overlay/H264 and FW-compatible encoded ring.
@@ -44,7 +44,7 @@ are included in Git.
 |---|---|---|
 | eSDK build + QEMU CTest | 123/123 passed; affected checks rerun after native-fixture path fix | PASS logic/target ABI, no BSP acceptance |
 | Private Zvec storage | Real library: unsafe-mode/symlink/relative path rejection, private tmpfs create/query, directory rename with pinned FD, close cleanup | PASS eSDK/QEMU and `.98` |
-| Native logic/contract binaries | 117/117 on `.98` via `tools/vqec_vision_board_native_tests.sh` (manifest and Zvec fixtures supplied) | PASS |
+| Native logic/contract binaries | 117/117 on `.98` via `tools/board/vqec_vision_board_native_tests.sh` (manifest and Zvec fixtures supplied) | PASS |
 | Initial enabled roots | Usecase status plus `/proc/<pid>/maps` | Person, FD and FR model libraries resident |
 | Both → person only | D-Bus complete desired plan, new published generation, same PID | Person resident; FD/FR libraries absent |
 | Person only → all off | Same persistent usecase D-Bus object | All three model libraries absent; control remains responsive |
@@ -137,15 +137,26 @@ For device-free service-generation testing:
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake --build build-esdk-full -j4
-ctest --test-dir build-esdk-full --output-on-failure
+lacai_expanded_build="$(mktemp -d /tmp/lacai-esdk-expanded.XXXXXX)"
+cmake -S . -B "$lacai_expanded_build" -DBUILD_TESTING=ON \
+  -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON \
+  -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
+  -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
+  -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
+  -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON \
+  -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
+  -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON \
+  -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON
+cmake --build "$lacai_expanded_build" -j4
+ctest --test-dir "$lacai_expanded_build" --output-on-failure
 ```
 
 `service_usecase_runtime_dbus` owns a simulated FW peer, starts the eSDK target service
 through QEMU and checks both → first → off → second → both without process restart.
 Python/GI is only the control runner; C++ executes through the eSDK emulator.
 
-For native testing use `tools/vqec_vision_fr_runtime_dbus_test.py --fixture <private-json>`
+For native testing use `tools/fixtures/vqec_vision_fr_runtime_dbus_test.py --fixture <private-json>`
 on the board's same configured bus. Start it before AI binds its trusted peer; it owns
 `peer_name`. The fixture must belong to an isolated test deployment and contain:
 

@@ -29,7 +29,7 @@ RTSP/UI, recording and persistent evidence/search.
 
 - No internal queue, retry or FW transport; delivery status is separate from event completion.
 - Full authorization-scope wiring through `prepared_overlay` remains open.
-- The Qualcomm service path writes H.264 to the released FW ring. A `.48` board smoke
+- The Qualcomm service path writes H.264 to the released FW ring. A QCS6490 board smoke
   showed correct NV12 color, visible person boxes and late-join RTSP decoding through the
   FW compatibility harness; released FW RTSP/UI acceptance remains open.
 

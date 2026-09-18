@@ -121,7 +121,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
             PRIVATE ${VQEC_VISION_AI_CDSPRPC_LIBRARY})
     endif()
     add_executable(vqec_vision_ai_dsp_v1_smoke
-        "${CMAKE_SOURCE_DIR}/tools/vqec_vision_dsp_v1_smoke.cpp")
+        "${CMAKE_SOURCE_DIR}/tools/board/vqec_vision_dsp_v1_smoke.cpp")
     target_include_directories(vqec_vision_ai_dsp_v1_smoke PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1")
     target_link_libraries(vqec_vision_ai_dsp_v1_smoke PRIVATE
@@ -198,7 +198,7 @@ if(VQEC_VISION_AI_ENABLE_QNN_ENGINE)
 
     # Board-only smoke; not registered as a test and never run by the host/QEMU matrix.
     add_executable(vqec_vision_ai_qnn_engine_smoke
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_qnn_engine_smoke.cpp)
+        ${CMAKE_SOURCE_DIR}/tools/board/vqec_vision_qnn_engine_smoke.cpp)
     target_link_libraries(vqec_vision_ai_qnn_engine_smoke
         PRIVATE vqec_vision_ai_qnn_engine)
     set_target_properties(vqec_vision_ai_qnn_engine_smoke PROPERTIES CXX_EXTENSIONS OFF)
@@ -207,7 +207,7 @@ endif()
 # Board-only smoke for the QtIV color-conversion offload. Not registered as a test.
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     add_executable(vqec_vision_ai_qtiv_color_smoke
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_qtiv_color_smoke.cpp)
+        ${CMAKE_SOURCE_DIR}/tools/board/vqec_vision_qtiv_color_smoke.cpp)
     target_link_libraries(vqec_vision_ai_qtiv_color_smoke
         PRIVATE vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_qtiv_color_smoke PROPERTIES CXX_EXTENSIONS OFF)
@@ -227,7 +227,7 @@ if(VQEC_VISION_AI_ENABLE_FASTCV)
             "qcom-fastcv-binaries sysroot")
     endif()
     add_executable(vqec_vision_ai_fastcv_affine_smoke
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_fastcv_affine_smoke.cpp)
+        ${CMAKE_SOURCE_DIR}/tools/board/vqec_vision_fastcv_affine_smoke.cpp)
     target_include_directories(vqec_vision_ai_fastcv_affine_smoke PRIVATE
         "${VQEC_VISION_AI_FASTCV_INCLUDE_DIR}")
     target_link_libraries(vqec_vision_ai_fastcv_affine_smoke PRIVATE

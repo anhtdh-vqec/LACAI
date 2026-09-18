@@ -79,7 +79,7 @@ if(VQEC_VISION_AI_ENABLE_ZVEC)
         PATHS "${VQEC_VISION_AI_ZVEC_ROOT}/lib"
         NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
     if(NOT VQEC_VISION_AI_ZVEC_INCLUDE_DIR OR NOT VQEC_VISION_AI_ZVEC_LIBRARY)
-        message(FATAL_ERROR "Zvec C API SDK missing. Run bash tools/vqec_vision_prepare_zvec.sh or supply a reviewed VQEC_VISION_AI_ZVEC_ROOT.")
+        message(FATAL_ERROR "Zvec C API SDK missing. Run bash tools/build/vqec_vision_prepare_zvec.sh or supply a reviewed VQEC_VISION_AI_ZVEC_ROOT.")
     endif()
     add_library(vqec_vision_ai_zvec_external INTERFACE)
     target_include_directories(vqec_vision_ai_zvec_external SYSTEM INTERFACE

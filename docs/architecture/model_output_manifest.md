@@ -9,7 +9,7 @@ handoff checker.
 Model Integration Package. **Layer:** runtime. **Source:**
 `src/runtime/model_registry/vqec_vision_output_manifest.cpp`,
 `tests/unit/runtime/vqec_vision_output_manifest_test.cpp`,
-`tools/vqec_vision_manifest_check.cpp`.
+`tools/diagnostics/vqec_vision_manifest_check.cpp`.
 
 ## Responsibility
 

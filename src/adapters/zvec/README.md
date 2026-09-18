@@ -23,7 +23,7 @@ The collection is derived from AI's authenticated encrypted gallery and has no a
 | `vqec_vision_zvec_embedding_index.cpp` | C API adapter; private directory binding, collection lifecycle and query/mutation validation |
 | `vqec_vision_zvec_embedding_index.hpp` | Adapter-private policies and neutral index implementation |
 
-Zvec is enabled by default. `bash tools/vqec_vision_prepare_zvec.sh` acquires the checksum-
+Zvec is enabled by default. `bash tools/build/vqec_vision_prepare_zvec.sh` acquires the checksum-
 verified public ARM64 SDK under `third_party/zvec/sdk`; an alternate reviewed SDK may be
 provided through `VQEC_VISION_AI_ZVEC_ROOT`. Target `vqec_vision_ai_zvec_embedding` links
 `libzvec_c_api.so`; perception has no Zvec dependency.

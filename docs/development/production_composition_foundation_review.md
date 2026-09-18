@@ -132,7 +132,7 @@ Final profile SHA-256:
 
 ## See also
 
-- [Plan 0](../planning/architecture_improvement/production_composition_foundation_plan.md)
+- [Architecture improvement plans](../planning/architecture_improvement/README.md)
 - [Implementation status](implementation_status.md)
 - [Capability matrix](capability_matrix.md)
 - [Board workspace](../testing/board_workspace.md)

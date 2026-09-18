@@ -10,8 +10,8 @@ durable receipt, signed provisioning or performance acceptance gates.
 Ngày lập: 2026-09-15. Cập nhật theo source hiện tại: 2026-09-15.
 Trạng thái: kế hoạch triển khai và nghiệm thu. Các mục đã đánh dấu chỉ có nghĩa là source
 và logic test tương ứng đã có; gate board/golden/owner review vẫn quyết định nghiệm thu.
-Đích triển khai: QCS6490 / Qualcomm Linux 1.8. Board phát triển hiện được phân bổ là `.98`;
-không dùng `.99` hoặc `.48` khi các board đó đang có người sử dụng.
+Đích triển khai: QCS6490 / Qualcomm Linux 1.8. Board phát triển duy nhất được phép dùng là
+`192.168.138.98`.
 
 **Status:** planning — FR completion plan.
 
@@ -116,7 +116,7 @@ full-frame chỉ để làm hai model cùng execute.
 **Gate:** cùng input, QNN execution/parity đã đối chiếu; input preprocessing có nguồn rõ.
 Sai contract phải fail activation; artifact digest không được gọi là chữ ký xác thực.
 
-**Tiến độ M0 (2026-09-15):** metadata package đã tạo từ ABI probe thật trên `.48` —
+**Tiến độ M0 (2026-09-15):** metadata package đã tạo từ ABI probe QCS6490 thật —
 `manifests/models/scrfd_500m_bnkps/` (io_manifest, decoder.json anchor_distance,
 preprocess, model_metadata + SHA-256) và `manifests/models/edgeface_s_gamma_05/`
 (io_manifest, preprocess, model_metadata + SHA-256; decoder.json để M5). Catalog/registry
@@ -222,7 +222,7 @@ không được trả trước real completion. Native tests với workers giả
 **Gate:** crop/tensor parity và đo latency/CPU/copies trên board; không reuse destination
 khi HTP còn đọc. Input 112×112 chỉ thuộc package EdgeFace hiện tại.
 
-**Tiến độ M4 capability (2026-09-15):** đã kiểm chứng trên `.48` + eSDK sysroot —
+**Tiến độ M4 capability (2026-09-15):** đã kiểm chứng trên QCS6490 + eSDK sysroot —
 `qtivtransform` chỉ có crop/destination/resize/flip/rotate 90° (không affine tuỳ ý); FastCV
 `libfastcvopt.so.1.8.0` export affine warp (`fcvTransformAffineu8_v2`,
 `fcv3ChannelTransformAffineClippedBCu8`, `fcvGeomAffineFitf32`, `fcvGetPerspectiveTransformf32`).

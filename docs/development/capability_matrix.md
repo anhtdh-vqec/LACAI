@@ -1,6 +1,6 @@
 # Capability matrix
 
-Snapshot 2026-09-17, synchronized with the clean-base source. Board smoke differs from
+Snapshot 2026-09-18, synchronized with the clean source layout. Board smoke differs from
 product acceptance. Test/configuration counts live in
 [implementation status](implementation_status.md); do not infer capability from an
 installed SDK/plugin. Evidence rules: [documentation style](documentation_style.md).
@@ -30,7 +30,7 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Hardware admission envelope | Explicit loader, source tensor budget, preview count consistency; one-source profile | `.98` process/thermal observations and declared-workload ceilings; native admission tests | Complete device allocation, sustained DDR/thermal/coexistence and owner review |
 | FD→embedding→attendance | Source-composed through typed embedding | FD→embedding compatibility smoke `.98`; attendance absent | Golden/released-FW cascade, enrollment, matching, recovery, events |
 | Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |
-| Performance target | `.98` compatibility: single-model 36-38% of one core; dual-model+FR ~60-65% | Historical diagnostics; `route_latency_*` steady metric | Requested CPU 15–25%, 25-30 FPS FR and thermal |
+| Performance target | Canonical `.98` person + face + fire/smoke preview: 25.125 FPS and 26.45% of one logical core in a 15-second warm sample | Visual overlay smoke and `route_latency_*` steady metric | `<=12%` current-workload gate, 30-minute statistics, cold start, thermal and soak |
 | Recovery/metrics helpers | Partial source | No release soak | BSP reset, durable control, complete stage metrics |
 | Fuzzing tools | Source exists | No new run in this review | eSDK-compatible instrumentation and recorded runs |
 

@@ -22,7 +22,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
    `vqec_vision_<logical_name>.<extension>`. Strip the physical prefix when resolving
    registered file_id; do not rename existing function symbols. Markdown, tool-defined
    build/config names, manifest data and external source references are exceptions
-   specified in code_convention.md section 0. Run tools/vqec_vision_check_source_layout.ps1.
+   specified in code_convention.md section 0. Run tools/checks/vqec_vision_check_source_layout.ps1.
    FW compatibility baseline is docs/contracts/fw_release_compatibility.md;
    AI owns preview overlay/encode/ring production, FW owns RTSP/UI and recording.
 
@@ -69,7 +69,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
     filenames (README.md and NNNN_slug.md ADRs excepted), one H1, a `Status:` line before
     the first `##`, English for architecture/contracts/development/testing/adr/operations,
     Vietnamese allowed only under docs/planning, and one language per file. Run
-    tools/vqec_vision_check_docs_layout.sh and update docs/README.md when adding or
+    tools/checks/vqec_vision_check_docs_layout.sh and update docs/README.md when adding or
     removing a document. A new document that violates the template is a defect.
 16. This is the first LACAI product baseline. Every LACAI-owned schema and wire/ABI
     contract starts at version 1 (ABI 1.0); do not label a replacement for pre-release
@@ -198,8 +198,7 @@ The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.
 
-The user-authorized QCS6490 test target is `.98`; `.99` and `.48` are currently in use by
-other developers and must not be accessed. Connection guidance is recorded in
+The only user-authorized QCS6490 test target is `192.168.138.98`. Connection guidance is recorded in
 docs/testing/qsc6490_board.md. The board workspace is standardized under `/opt/lacai`; use
 the layout and build/stage/test/run procedure in docs/testing/board_workspace.md and never
 use a personal directory name. Verify any local alias resolves to `.98`, then try BatchMode

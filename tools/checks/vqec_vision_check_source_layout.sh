@@ -4,7 +4,7 @@
 
 set -u
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source_roots=(src include tests tools)
 source_extensions='\.(c|cc|cpp|cxx|h|hh|hpp|hxx|ps1|py|sh)$'
 include_root_list=(include src

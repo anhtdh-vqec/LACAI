@@ -25,10 +25,10 @@ Quy tắc bắt buộc cho mọi thay đổi: [AGENTS.md](AGENTS.md).
 | Perception / feature pipeline | Source-delivered + person smoke | YOLOv8 decoder, IoU tracker, feature pipeline; person detections đã chạy từ camera thật qua QNN HTP |
 | Face cascade | Compatibility board smoke | SCRFD decode → exact-frame FastCV alignment → EdgeFace → typed embedding đã chạy trên `.98`; golden/post-fix multi-face/released-FW acceptance chưa |
 | Output / preview / encoded | Qualcomm board smoke | FastCV preprocess + QNN HTP + QTI overlay/H.264 đạt 30 AI results/s và 30.1 RTSP FPS trên compatibility flow; released-FW/thermal/latency acceptance chưa |
-| Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production person flow đã chạy trên board `.48` qua compatibility FW services |
+| Service `vqec_ai_vision_applications` | Chạy được | Reference/fake dưới QEMU; Qualcomm production flow đã chạy trên `192.168.138.98` qua compatibility FW services |
 
 **Evidence snapshot 2026-09-17:** expanded eSDK QEMU suite **123/123**; board `.98` native
-suite **117/117** with fixtures via `tools/vqec_vision_board_native_tests.sh`. Production
+suite **117/117** with fixtures via `tools/board/vqec_vision_board_native_tests.sh`. Production
 smoke publishes H.264 1920x1080 30/1 with D-Bus FR transitions and `first_error=0`. The
 routed-result metric is `route_latency_*` (steady reservation-to-routing). Clean-base
 remediation (ring ABI, QNN reload, config, validation, CI) is complete; see
@@ -82,7 +82,7 @@ Xem [system architecture](docs/architecture/system_architecture.md) và
 | `src/features/` | 14 gói feature (hiện chỉ README; processor/entitlement chưa có) |
 | `src/outputs/` | Overlay, encoded dispatch, feature-event dispatch |
 | `src/runtime/` | Admission, lifecycle, model registry, feature manager, scheduler |
-| `src/adapters/` | Qualcomm, camera, FW control/output, reference, platform để trống |
+| `src/adapters/` | Qualcomm, camera, FW control/output, storage, Zvec và reference |
 | `docs/` | Architecture, ADR, contracts, research, testing, development |
 | `config/`, `manifests/` | Schema + example cho deployment/model/feature catalog |
 | `tools/`, `.github/workflows/` | Checker cấu trúc, smoke script, CI |
@@ -95,17 +95,19 @@ Bắt buộc dùng toolchain eSDK; host compiler không được coi là bằng 
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
 
 # Logic-only profile (explicitly disables Zvec; not the default product build)
-cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+lacai_neutral_build="$(mktemp -d /tmp/lacai-esdk-neutral.XXXXXX)"
+cmake -S . -B "$lacai_neutral_build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-cmake --build build-esdk-neutral -j4
-ctest --test-dir build-esdk-neutral --output-on-failure
+cmake --build "$lacai_neutral_build" -j4
+ctest --test-dir "$lacai_neutral_build" --output-on-failure
 
 # Cấu hình mở rộng; Zvec enabled by default, acquire pinned public SDK once
-bash tools/vqec_vision_prepare_zvec.sh
+bash tools/build/vqec_vision_prepare_zvec.sh
 # Skip bootstrap when third_party/zvec/sdk already exists.
 # Camera, D-Bus, GStreamer, Qualcomm, JSON, digest, QNN engine
-cmake -S . -B build-esdk-full -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+lacai_expanded_build="$(mktemp -d /tmp/lacai-esdk-expanded.XXXXXX)"
+cmake -S . -B "$lacai_expanded_build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
   -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
   -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
@@ -114,15 +116,15 @@ cmake -S . -B build-esdk-full -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON -DVQEC_VISION_AI_BUILD_MANIFEST_CHECK=ON \
   -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-cmake --build build-esdk-full -j4
-ctest --test-dir build-esdk-full --output-on-failure
+cmake --build "$lacai_expanded_build" -j4
+ctest --test-dir "$lacai_expanded_build" --output-on-failure
 ```
 
 Kiểm tra cấu trúc filename/include (read-only):
 
 ```bash
-bash tools/vqec_vision_check_source_layout.sh
-# PowerShell alternative: tools/vqec_vision_check_source_layout.ps1
+bash tools/checks/vqec_vision_check_source_layout.sh
+# PowerShell alternative: tools/checks/vqec_vision_check_source_layout.ps1
 ```
 
 Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
@@ -140,7 +142,7 @@ Board smoke: [QCS6490 target](docs/testing/qsc6490_board.md) và
 8. [Feature catalog](docs/architecture/feature_catalog.md) và [model catalog](docs/architecture/model_catalog.md)
 9. [Multi-source configuration](docs/architecture/multi_source_configuration.md)
 10. [Implementation status](docs/development/implementation_status.md), [capability matrix](docs/development/capability_matrix.md), [review checklist](docs/development/review_checklist.md)
-11. [Delivery plan](docs/planning/delivery_plan.md), [Model integration M0–M4](docs/planning/model_integration_plan.md)
+11. [Architecture improvement plans](docs/planning/architecture_improvement/README.md), [Model integration M0–M4](docs/planning/model_integration_plan.md)
 
 ## Phạm vi
 

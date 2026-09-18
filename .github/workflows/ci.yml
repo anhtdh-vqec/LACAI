@@ -14,9 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Structural source layout check
-        run: bash tools/vqec_vision_check_source_layout.sh
+        run: bash tools/checks/vqec_vision_check_source_layout.sh
       - name: Documentation layout check
-        run: bash tools/vqec_vision_check_docs_layout.sh
+        run: bash tools/checks/vqec_vision_check_docs_layout.sh
 
   # Host sanitizer build (neutral configuration): ASan+UBSan over the portable modules.
   # This is host evidence, not the eSDK target build.
@@ -119,7 +119,7 @@ jobs:
           set -euo pipefail
           source "${{ vars.ESDK_ROOT }}/environment-setup-armv8-2a-qcom-linux"
           # Zvec is on by default; acquire the checksum-verified public SDK unless present.
-          bash tools/vqec_vision_prepare_zvec.sh
+          bash tools/build/vqec_vision_prepare_zvec.sh
           qnn=OFF
           qairt_arg=""
           if [ -n "${{ vars.QAIRT_ROOT }}" ]; then

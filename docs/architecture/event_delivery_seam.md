@@ -48,4 +48,4 @@ Status: normative — source delivered and contract tested.
 
 - [Feature event dispatch](feature_event_dispatch.md)
 - [Feature event contract](feature_event_contract.md)
-- [Production composition foundation plan](../planning/architecture_improvement/production_composition_foundation_plan.md)
+- [Production composition foundation review](../development/production_composition_foundation_review.md)

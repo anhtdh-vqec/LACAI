@@ -97,7 +97,7 @@ event media sink và cấu hình artifact.
   Hai báo cáo chi tiết `docs/2026-09-09-phase1-results.md` và
   `docs/2026-09-10-phase2-results.md` được README dẫn nhưng không tìm thấy trong checkout
   FW đang đọc. Vì vậy coi số liệu đó là báo cáo lịch sử, chưa tự tái lập.
-- Đợt review trước đã chạy bộ binary eSDK có sẵn trong `build-esdk-full`: 123/123 CTest
+- Đợt review trước đã chạy bộ binary eSDK mở rộng: 123/123 CTest
   qua QEMU thành công. Không phải clean rebuild của thay đổi mới; không chứng minh DMA,
   QoS, CPU hay conformance với FW phát hành.
 - Lần bổ sung README này không chạy thêm benchmark board, không đổi source C++, không
@@ -1129,7 +1129,7 @@ Chốt SLO latency/FPS/accuracy/power và điều kiện workload cùng lúc, tr
   revoke/stop đang chạy, kết quả đến sau source epoch đổi.
 - Không ACK/recycle RAW frame hay output buffer trước hardware completion.
 - QEMU kiểm tra logic bằng eSDK; DMA/cache/fence và hiệu năng chỉ kết luận bằng board.
-  Dùng board được cấp `.98`, workspace `/opt/lacai`; không truy cập `.99` hoặc `.48`.
+  Chỉ dùng board `192.168.138.98`, workspace `/opt/lacai`.
 - Không bắt chước script deploy hay đường staging cá nhân của repository FW tham chiếu.
 
 ## 12. Lộ trình cải tiến và review tiếp
@@ -1217,7 +1217,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 
 | Plan | Chủ trì | Bắt đầu khi | Kết quả chính |
 |---|---|---|---|
-| [Plan 0. Production composition foundation](production_composition_foundation_plan.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
+| [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | Plan 0 pass | C01–C10, stable IDs, owner/sign-off matrix |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |

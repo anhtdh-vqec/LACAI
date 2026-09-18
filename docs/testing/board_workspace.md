@@ -6,7 +6,7 @@ and no personal directory names enter the repository.
 
 **Status:** board-smoke — board `.98` native 121/121 and live H.264 1920x1080 30/1
 corrective smoke ran from this layout on 2026-09-17. **Layer:** docs. **Source:** n/a (references
-`tools/vqec_vision_board_native_tests.sh` and the board workspace).
+`tools/board/vqec_vision_board_native_tests.sh` and the board workspace).
 
 ## Standard root and layout
 
@@ -21,7 +21,8 @@ name. The layout is:
 | `manifests/` | Staged repository `manifests/models` tree (decoder/IO/preprocess fixtures) |
 | `lib/` | Zvec shared libraries for `LD_LIBRARY_PATH` |
 | `tests/` | Cross-built native test binaries staged for the board runner |
-| `tools/` | Board-side Python simulators/peers and the board runner copy |
+| `tools/board/` | Native runner and target probes copied from the repository role directory |
+| `tools/fixtures/` | Compatibility camera, RTSP and D-Bus peers copied from the repository role directory |
 | `inputs/` | Raw tensors/inputs for smoke tools |
 | `enrollment/` | Authorized enrollment images under the configured root |
 | `protected_gallery/` | AI-owned encrypted gallery/key/lock files (mode 0600) |
@@ -37,16 +38,28 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
 
    ```bash
    source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-   cmake --build build-esdk-full -j4
-   ctest --test-dir build-esdk-full --output-on-failure
+   lacai_build_dir="$(mktemp -d /tmp/lacai-esdk.XXXXXX)"
+   cmake -S . -B "$lacai_build_dir" -DBUILD_TESTING=ON \
+     -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+     -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON \
+     -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
+     -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
+     -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
+     -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON \
+     -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
+     -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON \
+     -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON
+   cmake --build "$lacai_build_dir" -j"$(nproc)"
+   ctest --test-dir "$lacai_build_dir" --output-on-failure
    ```
 
 2. Stage the artifacts to the board (the user handles pushes; this is `scp`/`ssh` only):
 
-   - service binary `build-esdk-full/src/app/vqec_ai_vision_applications` -> `/opt/lacai/bin/vqec_ai_vision_applications`;
+   - service binary `$lacai_build_dir/src/app/vqec_ai_vision_applications` -> `/opt/lacai/bin/vqec_ai_vision_applications`;
    - native test binaries `vqec_vision_ai_*test*` -> `/opt/lacai/tests/`;
    - repository `manifests/models` -> `/opt/lacai/manifests/models`;
-   - `tools/vqec_vision_board_native_tests.sh` -> `/opt/lacai/tools/`;
+   - `tools/board/vqec_vision_board_native_tests.sh` -> `/opt/lacai/tools/board/`;
+   - required `tools/fixtures/` scripts -> `/opt/lacai/tools/fixtures/`;
    - Zvec shared libraries -> `/opt/lacai/lib/`.
 
 3. `sync` before executing a freshly written binary on the `/opt` overlay.
@@ -57,7 +70,7 @@ Run the repository board runner, which supplies the fixtures two device-free tes
 
 ```bash
 cd /opt/lacai
-LD_LIBRARY_PATH=/opt/lacai/lib sh tools/vqec_vision_board_native_tests.sh \
+LD_LIBRARY_PATH=/opt/lacai/lib sh tools/board/vqec_vision_board_native_tests.sh \
   tests manifests/models <zvec_tmpfs_root> <zvec_scratch_base>
 ```
 
@@ -95,7 +108,7 @@ file and its evidence are available; do not fabricate limits to make it start.
 
 ```bash
 dbus-run-session -- sh -c '
-  python3 /opt/lacai/tools/vqec_vision_fr_runtime_dbus_test.py \
+  python3 /opt/lacai/tools/fixtures/vqec_vision_fr_runtime_dbus_test.py \
     --fixture /opt/lacai/config/fr_runtime_test.json >/opt/lacai/out/dbus.log 2>&1 &
   sleep 1
   exec /opt/lacai/bin/vqec_ai_vision_applications \
@@ -138,23 +151,27 @@ parent must exist:
 ```bash
 mkdir -m 0777 /run/camera_ai
 mkdir -p -m 0700 /run/lacai_fr_index        # service-UID-owned tmpfs parent
-python3 /opt/lacai/tools/vqec_vision_fw_camera_sim.py \
+python3 /opt/lacai/tools/fixtures/vqec_vision_fw_camera_sim.py \
   --socket-dir /run/camera_ai --camera 0 --channel 0 --consumer ai \
   --width 1920 --height 1080 --fps 30 --max-in-flight 3 &
-python3 /opt/lacai/tools/vqec_vision_ring_rtsp.py read \
+python3 /opt/lacai/tools/fixtures/vqec_vision_ring_rtsp.py read \
   --ring-id encoded_ai_detect0_cam0_ch0 --port 8554 --mount /live/ai/detect0 --fps 30 &
 ```
 
 Verify from the host:
 
 ```bash
-ffprobe -rtsp_transport tcp -v error \
-  -show_entries stream=codec_name,width,height,r_frame_rate \
-  -of default=noprint_wrappers=1 rtsp://192.168.138.98:8554/live/ai/detect0
+tools/board/vqec_vision_preview_acceptance.sh \
+  --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
+  --output-dir /tmp/lacai-preview-acceptance \
+  --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
+  --expected-fps 25 --fps-tolerance 1.0
 ```
 
-Expected: H.264, 1920x1080, `30/1`; service metrics print `first_error=0`, cascade
-`cascade_failed=0`, and a steady `route_latency_*`.
+The tool must pass codec, dimensions and effective packet FPS. Open
+`overlay_contact_sheet.png` and explicitly verify correct boxes/labels, coordinates,
+orientation, color and absence of stale overlay. Service metrics must also print
+`first_error=0`, `cascade_failed=0` and a steady `route_latency_*`.
 
 ## Troubleshooting and rules
 
@@ -178,4 +195,5 @@ Expected: H.264, 1920x1080, `30/1`; service metrics print `first_error=0`, casca
 - [QSC6490 target](qsc6490_board.md), [FW camera service](lacai_camera_service.md)
 - [FW release compatibility](../contracts/fw_release_compatibility.md)
 - [eSDK emulation](esdk_emulation.md), [eSDK configuration matrix](esdk_configuration_matrix.md)
-- [Board native test runner](../../tools/vqec_vision_board_native_tests.sh)
+- [Board native test runner](../../tools/board/vqec_vision_board_native_tests.sh)
+- [Preview acceptance capture](../../tools/board/vqec_vision_preview_acceptance.sh)

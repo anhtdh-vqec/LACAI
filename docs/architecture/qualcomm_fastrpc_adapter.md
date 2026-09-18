@@ -108,7 +108,7 @@ versioned protocol negotiates ABI revision, operations, limits, scalar encodings
 generation and completion mode before model activation.
 
 `vqec_vision_dsp_v1.idl` remains proposed until AI APP/BSP approval. The eSDK CMake build runs
-QAIC generation checks. `tools/vqec_vision_build_dsp_v1.sh` independently regenerates QAIC,
+QAIC generation checks. `tools/build/vqec_vision_build_dsp_v1.sh` independently regenerates QAIC,
 compiles the project-owned service with Hexagon 8.7.06 for v68, verifies required exports and
 emits source/artifact digests. It removes only non-runtime linker command metadata from the ELF;
 two clean builds produce the same artifact digest. The resulting binary is not signed, deployed

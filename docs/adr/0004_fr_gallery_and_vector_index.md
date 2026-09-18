@@ -87,7 +87,7 @@ execution, derived-index at-rest protection and failure qualification remain ope
 The pinned public Linux ARM64 v0.7.0 SDK is now acquired under third_party/zvec/sdk
 using the checksum-verified bootstrap. CMake enables the adapter by default and links
 libzvec_c_api.so. On 2026-09-15 the eSDK-built integration executable passed both QEMU
-and native QCS6490 .48 execution (zero failed checks). That historical run predates
+and native QCS6490 execution (zero failed checks). That historical run predates
 durable recovery. On 2026-09-16 the authorized `.98` board passed encrypted-store clean-restart recovery,
 runtime disable/re-enable and multi-template D-Bus enrollment/removal. The authoritative
 snapshot is encrypted; production now confines the derived collection to private tmpfs and destroys it on close;

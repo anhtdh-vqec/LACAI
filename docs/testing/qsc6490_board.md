@@ -1,706 +1,159 @@
-# QCS6490 board test target
+# QCS6490 board target
 
-This is the dated board-evidence log for the QCS6490 target, covering the allocated host,
-build configuration and every recorded native/board run. Sections are historical records;
-newer source does not retroactively change an earlier run's numbers.
+This document defines the only authorized LACAI development target and retains the latest
+reproducible evidence for that target. It is not a chronological archive of superseded boards.
 
-**Status:** board-smoke — latest candidate passes **130/130** native executables and the
-two-source service smoke on `.98`; earlier FastRPC cDSP evidence is retained below.
-**Layer:** reference.
-**Source:** `n/a`.
-
-The currently allocated development target is `192.168.138.98`. Boards `.99` and `.48` are
-in use by other developers and must not be accessed until the user reallocates them. The
-existing local alias may still point at an earlier target, so verify its resolved hostname
-before using it. Try BatchMode access first. Passwords must remain outside this repository
-and command output.
+**Status:** board-smoke — QCS6490 `192.168.138.98` passed the 2026-09-18 native and
+canonical-deployment preview checks described below. The exact source candidate remains
+blocked at the legacy DSP loading boundary. **Layer:** docs.
+**Source:** `tools/board/`, `docs/testing/board_workspace.md`.
 
 ## Responsibility
 
-- Records the allocated QCS6490 target, the approved eSDK build configuration and each dated
-  native/board run.
-- Keeps earlier run numbers and coincident conditions intact; a later fix does not rewrite
-  an earlier record.
-- Must not be read as device DMA completion, model accuracy, released-FW or performance
-  acceptance unless a section explicitly claims measured evidence.
+- Authorize only `192.168.138.98` for LACAI board work.
+- Define evidence that must be collected from the exact staged candidate.
+- Keep credentials outside Git, logs and command history.
+- Separate native logic smoke, live preview correctness, throughput, resource and external
+  owner acceptance.
 
-## Current state (2026-09-17)
+## Target and access rules
 
-Cross-built native suite: **117/117** on `.98` via
-`tools/vqec_vision_board_native_tests.sh <test_dir> <manifest_models_dir> <zvec_tmpfs_root>
-<zvec_scratch_base>`, which supplies the manifest and Zvec fixtures two device-free tests
-need. The eSDK/QEMU expanded suite is 123/123. The routed-result latency metric was renamed
-`route_latency_*` (steady reservation-to-routing) — earlier `e2e_*` mentions below are dated
-records of the removed pipeline-PTS accumulator. The sections below are a dated log; newer
-source does not retroactively change an earlier run's numbers.
+The target is `192.168.138.98`, QCS6490 / Qualcomm Linux 1.8. Use `/opt/lacai` as the
+only board workspace. Verify that any local SSH alias resolves to this exact address before
+use, then try non-interactive key access first:
 
-## 2026-09-10 target and logic smoke
+```bash
+getent hosts 192.168.138.98
+ssh -o BatchMode=yes -o ConnectTimeout=5 root@192.168.138.98 true
+```
 
-Observed on 2026-09-10:
+An interactive password prompt may be used when key access is unavailable, but credentials
+must never appear in a script, URI, repository file, copied terminal output or commit.
 
-- QCS6490 RB3 Gen2 Vision Kit, AArch64;
-- Qualcomm Linux `1.8-ver.1.1`, kernel `6.6.119-qli-1.8-ver.1.1`;
-- GStreamer `1.22.12`;
-- `qtimlqnn` and `qtimlvconverter` load through `gst-inspect-1.0` from
-  `/usr/lib/gstreamer-1.0`.
+## Build and staging
 
-The validation candidate was built only with the approved eSDK and all available
-adapter flags enabled:
+Build only with the approved eSDK and keep generated build output outside the repository:
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake -S . -B build-esdk -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+lacai_build_dir="$(mktemp -d /tmp/lacai-esdk.XXXXXX)"
+cmake -S . -B "$lacai_build_dir" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
   -DVQEC_VISION_AI_ENABLE_CAMERA=ON \
   -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
   -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON
-cmake --build build-esdk -j4
+cmake --build "$lacai_build_dir" -j"$(nproc)"
+ctest --test-dir "$lacai_build_dir" --output-on-failure
 ```
 
-All 57 generated unit/contract binaries were copied to `/tmp/lacai-board-tests` and
-executed natively on the board. Result on 2026-09-10: **57/57 passed**. This includes
-Linux socket/FD fixtures, GStreamer DMA-BUF ownership helpers and the synthetic graph
-submission/drain/retention lifecycle, plus neutral runtime composition from admission
-through source-session/perception ownership. The graph fixture deep-copies its pass-through
-buffer at a test-only pad probe so input release is independent from the synthetic
-tensor output, matching the ownership shape of an inference transform.
+Stage the exact candidate as described in [board workspace](board_workspace.md). Record the
+Git revision and SHA-256 of the service, tests and DSP skeleton before execution. Do not
+replace the canonical service until the isolated candidate passes.
 
-The Qualcomm guard binary also has an opt-in installed-plugin check:
+## Mandatory acceptance sequence
+
+Run the following gates in order for every candidate that changes source layout, Qualcomm
+adapters, memory ownership, output or DSP behavior.
+
+1. Run all native executables through
+   `tools/board/vqec_vision_board_native_tests.sh` with the model-manifest and Zvec
+   fixtures. Record `PASS`, `FAIL` and the staged candidate digest; a historical count is
+   not a target.
+2. Start the compatibility camera, production service and FW-ring RTSP reader from
+   `/opt/lacai`. Confirm `first_error=0`, no cascade failure and a clean stop/drain.
+3. Run `tools/board/vqec_vision_preview_acceptance.sh` on the host. It captures the live
+   stream, derives effective FPS from captured packets/duration and generates an overlay
+   contact sheet.
+4. Open the contact sheet and verify that boxes/labels follow the intended objects, remain
+   inside the frame, have correct color/orientation and contain no stale rectangles from a
+   previous frame. Record the reviewer and result; codec metadata alone cannot pass this gate.
+5. Measure warm CPU, RSS/HWM, FD and thread counts for the declared workload. Run the
+   duration required by the active performance gate; a short sample is only smoke evidence.
+6. For DSP changes, run capability negotiation and one real system-client operation from
+   the exact staged skeleton directory. Reset/restart and registered-buffer gates remain
+   separate from a successful dense-operation call.
+
+Example host-side preview capture after the board publishes RTSP:
 
 ```bash
-VQEC_VISION_AI_REQUIRE_QUALCOMM_PLUGINS=1 \
-  /tmp/lacai-board-tests/vqec_vision_ai_plugin_graph_test
+tools/board/vqec_vision_preview_acceptance.sh \
+  --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
+  --output-dir /tmp/lacai-preview-acceptance \
+  --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
+  --expected-fps 25 --fps-tolerance 1.0
 ```
 
-It verifies `appsrc`, `qtimlvconverter`, `capsfilter`, `qtimlqnn` and `appsink`, inspects
-the converter/QNN properties used by LACAI, and configures the production graph to NULL
-with explicit test metadata. The 2026-09-10 run passed with zero failed checks. It does
-not call `load_model`, so the fixture paths are never opened.
-
-This is target ABI and logic smoke evidence. The run did not acquire a live FW Camera
-Service stream, load a model through `qtimlqnn`, prove HTP/FastCV execution, validate
-device completion for a real DMA-BUF, measure performance or qualify BSP recovery.
-Those require a pinned model/backend/system bundle and a controlled FW test source.
-
-## 2026-09-14 board run (device online)
-
-Board reachable and used as the native target. Artifacts were built only with the approved
-eSDK (expanded configuration) and copied to `/opt/lacai` on the board.
-
-- Native test binaries: **81/81 passed** (all `vqec_vision_ai_*test*` executables),
-  covering camera/GStreamer/Qualcomm fixtures and the neutral runtime, worker, pool,
-  decoder, tracker, feature, encoder/ring and secondary-scheduler units.
-- `VQEC_VISION_AI_REQUIRE_QUALCOMM_PLUGINS=1 vqec_vision_ai_plugin_graph_test`: exit 0
-  (installed `qtimlvconverter`/`qtimlqnn` properties inspected, NULL-state graph config).
-- Service executable:
-  - `--mode harness ... --steps 160 --require-sources 2` → exit 0, `routed_sources=2`;
-  - `--mode production --platform fake ...` → exit 0, `routed_sources=2`;
-  - `--mode production --platform qualcomm` → exit 3 (fail-closed, no fallback).
-- QNN runtime: `qnn-platform-validator --backend dsp --testBackend` → DSP unit test
-  **Passed**, `Core Version = Hexagon Architecture V68`. Image QAIRT is 2.43.0.
-- Model smoke `qnn-net-run` against `/usr/lib/libQnnHtp.so`: SCRFD-500M-KPS wrote
-  `score_8/16/32`, `bbox_8/16/32`, `kps_8/16/32`; YOLOv8n-person wrote `boxes_out`,
-  `conf_out`.
-- LACAI-owned QNN engine `vqec_vision_ai_qnn_engine_smoke`: SCRFD (9 outputs) and
-  YOLOv8n-person (2 outputs) **execute on HTP** (exit 0). This exposed and fixed a real
-  defect: the generated model library composes but does not finalize the graph, so
-  `prepare` must call `graphFinalize` before `graphExecute`.
-- Numeric parity: with the same native input, the owned engine output is **byte-identical**
-  to `qnn-net-run --use_native_input_files --use_native_output_files` — SCRFD 9/9 and
-  YOLOv8n 2/2 tensors match. This is engine-versus-runtime parity, not model accuracy
-  against a labelled reference.
-- First board latency baseline (owned engine, synchronous `graphExecute`, client buffers,
-  50 iterations after load; excludes preprocess and does not include graph prepare):
-  SCRFD-500M-KPS min 3.77 / avg 5.20 / max 6.62 ms; YOLOv8n-person min 10.83 / avg 12.12 /
-  max 13.27 ms. Recorded as a seed, not an acceptance threshold.
-
-A later 2026-09-14 re-run after the QoS mailbox, source-session worker, supervisor async
-mode, metrics, allocation reuse and CMake split re-passed **82/82** native test binaries.
-Since the CMake split, executables are emitted under the module build directory
-(`build-esdk-full/tests/`, `build-esdk-full/src/app/`, `build-esdk-full/src/adapters/...`),
-not the build root; the board set was rebuilt from those paths. The service prints a metrics
-line including routed-result latency
-(`metrics steps=170 routed=42 delivered=42 denied=0 failed=0 e2e_avg_us=... samples=42`);
-the reference fixture's pipeline PTS is not a steady-clock domain, so that latency value is
-only meaningful when an adapter explicitly maps pipeline PTS from the step clock. The
-owned QNN path does not currently provide that mapping. The owned engine still executes
-SCRFD and YOLOv8n on HTP (latency varies with board
-load; ~3-7 ms SCRFD, ~10-18 ms YOLOv8n across runs).
-
-The board workspace is standardized under `/opt/lacai`; see
-[board workspace and workflow](board_workspace.md) for the layout, build/stage, native test
-and production smoke procedure. Historical logs below may name an older personal directory
-that is no longer used.
-
-## 2026-09-16 AI-owned protected gallery on `.98`
-
-The eSDK-built production binary was staged separately from the existing live binary,
-using the already staged licensed model packages and Zvec libraries. The original
-transient Zvec collection and permitted enrollment JPEG were retained. The first
-attempt exposed a Zvec C API behavior on a missing derived collection: its open error
-was not `NOT_FOUND`. The adapter now checks the configured path before opening it;
-missing means create, while unreadable or invalid existing paths fail closed. A real
-Zvec fresh-rebuild regression test passes under eSDK/QEMU.
-
-The service started with an AI-owned protected directory at mode 0700 and separate
-configuration for its encrypted gallery/key/lock filenames, gallery ID, preprocessing
-revision and byte limit. A trusted session-bus test peer invoked the image-path
-`BeginEnrollment` request. `GetGalleryStatus()` reported `(1, 0, 0, true, false)`
-before enrollment, then `(2, 1, 1, true, false)` after one accepted image. The three
-protected files were owned by root at mode 0600; the ciphertext contained no plaintext
-subject reference in a byte scan. This scan alone does not prove cryptographic safety.
-
-After a clean service stop/restart, the peer read `(2, 1, 1, true, false)` without a
-second enrollment; the encrypted file digest was unchanged. The service resumed both
-model slots, with SCRFD cascade embeddings and no reported cascade failures in the
-sampled log. A TCP host `ffprobe` returned H.264, 1920×1080, 30/1 for
-`rtsp://192.168.138.98:8554/live/ai/detect0`. The live recognition label was not
-visually rechecked in this run. The compatibility camera simulator and private session
-bus do not establish released-FW D-Bus/camera integration. Power-cut durability,
-hardware-bound key protection, backup/restore, liveness/accuracy, sustained FPS,
-CPU/thermal and released-FW qualification remain open.
-
-A further rapid restart temporarily failed to open the simulator's QMMF camera and the
-service stopped with no running source session. Starting the simulator again after
-resource release and then starting the service recovered both model slots and RTSP.
-The final running test session used that recovered simulator process. Automated camera
-restart/backoff and clean QMMF release need separate qualification; this incident does
-not invalidate the protected-gallery revision and ciphertext recovery observation.
-
-## 2026-09-16 enrollment image source on `.98`
-
-After the target allocation moved to `192.168.138.98`, the eSDK-built POSIX path
-authorizer and JPEG image-source tests passed natively. The opt-in production smoke ran
-`jpegdec -> videoscale -> videoconvert -> qtivtransform engine=fcv -> appsink`; the adapter
-verified the returned memory was DMA-BUF backed, validated its plane/allocation bounds and
-retained the Gst sample owner through the neutral `raw_frame`. The first probe exposed an
-invalid `memory:GBM` caps assumption and the second exposed the missing I420-to-NV12
-conversion; the recorded passing run includes both fixes. This is native allocator/import
-evidence for one synthetic image, not end-to-end FD/FR performance or zero-copy proof.
-
-## 2026-09-16 image enrollment and live FR output on `.98`
-
-The eSDK-built production service processed the authorized test JPEG through dedicated
-SCRFD and EdgeFace graphs and completed the session-bus D-Bus enrollment request. The
-terminal status reported one accepted sample and advanced the gallery from revision 1 to
-revision 2. The image path was below the configured enrollment root; no image or embedding
-was added to Git.
-
-The first end-to-end attempt exposed two target-only issues. The GBM DMA-BUF returned by
-`qtivtransform` could be mapped through the GStreamer allocator but not directly with
-`mmap`; the cold image path now retains a packed memfd for FastCV alignment while detector
-preprocessing continues to consume the DMA-BUF. The still-image detector also produced no
-tracker identity, so the pipeline now assigns the immutable nonzero image buffer ID as the
-request-local track identity after it has proved that exactly one landmark-bearing face
-exists.
-
-After enrollment, the same service process ran live recognition, Qualcomm overlay/H.264
-encoding and the released FW ring. A host `ffprobe` TCP RTSP probe reported H.264,
-1920x1080 and 30/1 FPS at `rtsp://192.168.138.98:8554/live/ai/detect0`; the ring write
-sequence exceeded 800 without a recognition, label-correlation, render or executor error.
-The service remained running so visual name matching could be checked by a person at the
-camera.
-
-This run used the compatibility camera mock. At one sample the service used about 57% of
-one CPU and the mock about 34%; the mock performs a full NV12 copy into memfd and the
-renderer performs another copy into a QTI surface. These figures do not represent the
-released FW DMA-BUF path and are not a CPU acceptance result. A prior camera HAL run had
-orphaned CSL resources and reported LRME allocation failure; a controlled reboot of the
-assigned `.98` test board restored direct `qtiqmmfsrc` capture before the passing run.
-
-## 2026-09-16 FR cascade run
-
-The board was reachable at `.99` using the approved test account. The production binary
-was rebuilt with the eSDK and `VQEC_VISION_AI_ENABLE_FASTCV=ON`; the required Zvec shared
-libraries were staged outside the repository under `/opt/lacai/lib`. A 300-step run used
-the face deployment/catalog/package registry and the live camera simulator on
-`/run/camera_ai`:
-
-```text
-steps=305 routed=24 delivered=0 denied=0 failed=0
-cascade_tasks=1 cascade_embeddings=1 cascade_failed=0 first_error=0
-```
-
-SCRFD and EdgeFace prepared and executed on the board, and the cascade produced one
-embedding without a graph or ownership failure. The run had an empty gallery, so no
-identity label was expected. The service's `e2e_avg_us` remains unusable for latency
-acceptance because the current camera pipeline PTS is not mapped to the service steady
-clock; this is tracked separately from the successful execution evidence. No claim of
-25--30 FPS FR output or attendance readiness is made from this run.
-Newly written executables on the board's `/opt` overlay occasionally need a `sync` (or a
-copy to `/tmp`) before exec; the native test binaries and service binary run there
-directly.
-
-Model integration (2026-09-14, M0-M4): the `vqec_vision_model_runner` tool ran the real
-YOLOv8n-person package end to end on the board (reference preprocess 2457600-byte input
-tensor, owned QNN execute, `yolov8_decoder`, 0 detections on a plain gray NV12 fixture as
-expected). Raw-output parity through the real preprocess path: `qnn-net-run` fed with the
-runner's dumped input tensor produced `boxes_out` and `conf_out` **byte-identical** to the
-runner's engine outputs (2/2). M2 preprocess golden and M4 decoded golden still need the
-model team's reference tensor/detections.
-
-Still not qualified: model accuracy (inputs were zero/random), async/shared/update, live FW
-camera/DMA completion, hardware encoder/ring, performance and thermal. Those remain in the
-board qualification backlog.
-
-## 2026-09-14 live person-flow repair on `.48`
-
-The additional target `192.168.138.48` was reached through the recorded BatchMode SSH
-alias. The service was rebuilt with the approved eSDK and run against the real QMMF camera
-through the compatibility FW camera service, owned QNN HTP engine and staged
-YOLOv8n-person package.
-
-```text
-qtiqmmfsrc -> RAW lease -> preprocess -> QNN HTP -> decode/tracking
-  -> QTI DMA pool -> qtivoverlay -> v4l2h264enc -> released ring
-  -> compatibility FW RTSP -> ffmpeg client
-```
-
-The 1280x720 run returned 2-4 tracked person observations per routed result. A client
-joined after startup and decoded a frame with three green person boxes. Visual inspection
-confirmed the former green top band was gone. The repaired defects were: copying NV12 by
-declared plane offset/stride; using a GPU-aligned QTI DMA surface required by
-`qtivoverlay`; using Qualcomm's `0xRRGGBBAA` color order with nonzero alpha; and emitting
-periodic IDR frames with SPS/PPS for bounded-ring late join.
-
-Board values were supplied explicitly: BT.709, progressive, 4,000,000 bit/s, GOP interval
-8, four output surfaces and opaque green `0x00FF00FF`. These are test values, not product
-defaults. Because the compatibility camera uses memfd, the test includes CPU copies and
-does not prove released-FW DMA-BUF interop, zero-copy, model accuracy, performance,
-recording/UI behavior or long-run stability.
-
-The first stream exposed a cadence coupling defect: the catalog intentionally requested
-1 FPS inference, and the service rendered only result frames, reducing RTSP to 1 FPS. The
-repaired source session retains one latest preview frame independently of inference and the
-service applies the latest observation snapshot to every camera frame. A 10-second board
-sample wrote 291 H.264 access units (**29.1 FPS**) while inference remained 1 FPS. Rebased
-per-client RTSP timestamps reduced an `ffprobe` late-join startup sample to 0.98 seconds;
-a five-second TCP RTSP decode received 151 frames. These measurements apply only to this
-compatibility setup and are not a product performance or latency acceptance claim.
-
-## 2026-09-15 live AI-throughput repair on `.48`
-
-The model cadence was raised from the prior 1/1 smoke value to the source rate of 30/1 in
-a board-only profile. The portable CPU preprocessor then limited the application to 97
-results per ten seconds (9.7 FPS), with 96.55% of sampled cycles attributed to that stage.
-
-The production platform now supplies a Qualcomm adapter through `image_processor_port`:
-`qtivtransform(engine=fcv)` performs manifest-driven letterbox resize and
-`qtimlvconverter(engine=fcv)` converts NV12 to UINT8 RGB. The graph's UINT16 quantization
-is packed with AArch64 NEON because the plugin's native UINT16 request spent 81.74% of
-sampled cycles in its generic normalization loop. Measured progression was 17.6 FPS for
-that native UINT16 path and 30.1 FPS after UINT8 plus NEON packing.
-
-With overlay, Qualcomm H.264 encode and ring output enabled, the service routed 300 model
-results in ten seconds at 45.4% process CPU. An independent TCP RTSP probe decoded 241
-1280x720 H.264 frames in eight seconds, or 30.1 FPS. The final `perf` sample attributed
-24.31% of CPU cycles to FastCV color conversion, 8.34% to the QNN-side input/output copy,
-5.00% to the remaining adapter preprocess work and 2.78% to YOLO tensor element decode.
-The FastCV DSP scale call was present in the captured stack. See
-[qualcomm_preprocessing.md](../architecture/qualcomm_preprocessing.md) for boundaries and
-remaining qualification work.
-
-This demonstrates frame-rate throughput for one source and one graph. The compatibility
-camera still copies QMMF output into memfd, and the run does not establish released-FW
-DMA-BUF interoperability, percentile capture-to-output latency, thermal stability,
-multi-model capacity or model accuracy.
-
-A follow-up attempt to use the service's `e2e_*` stop metric produced a multi-second
-nonsensical value. Inspection confirmed that the owned QNN graph's internal pipeline PTS
-anchor is not the executor steady-clock domain. That metric is therefore excluded from
-this evidence; a future clock-domain contract must precede percentile latency claims.
-
-## 2026-09-15 live face-cascade run on `.99`
-
-The production service was cross-built with the approved eSDK, including the FastCV and
-owned QNN adapters, then run on `.99` against the compatibility FW camera source, SCRFD
-primary graph and EdgeFace secondary graph. Both model artifacts retained their recorded
-SHA-256 digests outside Git. The service shut down and drained cleanly.
-
-The first run routed 375 primary results and completed 99 embeddings, with six failed
-cascade tasks. Every failure occurred when one source frame produced two accepted faces.
-The secondary submission ledger required strictly increasing PTS, so it rejected the
-second valid ROI because dependent jobs from one frame intentionally share frame identity
-and PTS.
-
-The corrected contract now has two explicit sequence policies. Full-frame graphs require
-unique source frames. A dependent graph may accept consecutive jobs only when both frame ID
-and PTS repeat exactly; equal PTS on another frame and backward PTS remain invalid. Source
-PTS is preserved rather than fabricated per ROI. The post-fix run routed 445 primary
-results, completed five embeddings and reported zero cascade failures. The scene in that
-run did not contain two accepted faces in the same frame, so the repeated-task behavior is
-covered by the eSDK logic test and still needs a live multi-face recheck.
-
-A 15-second `/proc/<pid>/stat` sample measured 29.53% process CPU using the one-core
-convention, with encoded output disabled. This is a short compatibility-source diagnostic,
-not a product CPU, latency, thermal, model-accuracy or released-FW acceptance result. The
-service `e2e_*` metric remains excluded because the QNN pipeline PTS and executor steady
-clock have no established mapping. When the compatibility camera mock stopped, QMMF logged
-a pending-buffer timeout and track deletion failure; no LACAI service process remained.
-
-## 2026-09-16 combined person + FR run on `.98`
-
-The authorized `.98` target ran the eSDK-built production service with two primary roots
-on one 1920x1080 source: `yolov8n_person` at model slot 0 and `scrfd_500m_bnkps` at slot 1.
-`edgeface_s_gamma_05` remained a secondary SCRFD dependency. File enrollment through the
-private D-Bus session completed one template and advanced the gallery revision from 1 to 2.
-
-The first combined activation was rejected before acquisition because the declared 16 MiB
-tensor budget was smaller than the admitted model closure. Raising the example envelope to
-32 MiB allowed composition. After a clean board restart, logs repeatedly reported person
-and face results plus successful `cascade_accepted=1 embedded=1 cascade_failed=0` samples.
-No cascade failure appeared in the verified run.
-
-A host TCP RTSP probe reported H.264, 1920×1080 and 30/1. A captured frame visibly contained
-one green `person` box and two separate face boxes. This proves concurrent composition and
-overlay retention in the compatibility setup. It does not prove model accuracy, persistent
-gallery recovery, released-FW DMA-BUF interop, thermal stability or load/unload behavior for
-the proposed dynamic usecase control plane.
-
-## 2026-09-16 runtime-control and FR validation (.98)
-
-Approved eSDK candidate: 120/120 QEMU CTest; 114/114 native logic/contract binaries
-after supplying target decoder-package manifest fixtures. Same-process D-Bus runtime
-switching checked person/FD/FR model-library residency, all-off control availability,
-peer authorization and protected-gallery preservation. File enrollment/retry/conflict
-and two-template subject deletion passed. Ring-reader replacement regression passed
-natively; ffprobe decoded final H264 at 1920×1080 with metadata `30/1`.
-See [FR validation](face_recognition_production_validation.md) for the full matrix and
-open production gates. This does not certify thermal/AI FPS, accuracy, signed grants,
-TEE keys, fault recovery or released-FW DMA-BUF completion.
-
-Private-index follow-up on `.98`: Zvec now uses configured private tmpfs with mode-0700
-parent/collection, pins the parent FD, rejects unsafe paths/modes and destroys derived
-files on close. Real-library private-storage regression and D-Bus disable/re-enable/file
-enrollment rerun pass; disabled FR leaves no derived collection. The obsolete persistent
-collection was removed after the encrypted gallery rebuilt successfully. Swap/crash-dump
-and hardware-key qualification remain open.
-
-## 2026-09-16 CPU optimization and profiling on `.98`
-
-Following comparative analysis against legacy `ai_app` (which utilized ~25% of one core for
-single-model person flow on QCS6490), LACAI underwent three targeted optimization phases
-built with the approved eSDK toolchain and verified natively on `.98`:
-
-1. **Phase 1 (Supervisor Pacing Control)**:
-   - Defect: Default supervisor step interval was 250 µs (4,000 wakeups/s), causing the main
-     thread to burn ~50% CPU spinning on empty queues.
-   - Fix: Added configurable `--runtime-step-interval-us` pacing (tested at 5,000 µs and
-     15,000 µs), aligning supervisor iterations with the 30 FPS (33.3 ms) video source rate.
-   - Evidence: Supervisor main thread CPU dropped from 50.0% to 10.9%.
-
-2. **Phase 2 (QNN ION Zero-Copy & Pre-allocated Workspace)**:
-   - Optimization: Integrated dynamic `libcdsprpc.so` (`rpcmem`) to register physical ION memory
-     blocks (`QNN_MEM_TYPE_ION`) with HTP via `QnnMem_register`, enabling HTP to DMA-write directly
-     into physical buffers. Pre-allocated `output_workspace_` during `prepare()`, eliminating
-     per-frame `std::vector` heap reallocations and zero-initializations on the hot path.
-   - Teardown: Strict lifecycle ordering (`memDeRegister` -> `rpcmem_free` -> `freeGraphsInfo` ->
-     `dlclose` -> `contextFree`).
-
-3. **Phase 3 (FastCV Neon SIMD Color Conversion & Persistent Scratch Workspaces)**:
-   - Optimization: Replaced CPU scalar color loop with ARM Neon SIMD vectorized
-     `fcvColorYCbCr420PseudoPlanarToRGB888u8` for BT.601 limited NV12 (with 8-byte stride alignment).
-     Introduced persistent thread-confined scratch workspaces (`rgb_scratch_`, `planes_scratch_`,
-     `patches_scratch_`, `luma_scratch_`), eliminating 7 heap allocations per detected face.
-
-4. **Phase 4 (Renderer Cache, Plane Memcpy, Queue Removal & Deadline Loop Pacing)**:
-   - Defect: Frame drops down to 13–14 FPS and 50–60% CPU were traced to four bottlenecks:
-     a) Unconditional `sleep_for` in `service_main.cpp` creating a 35–40 ms loop period
-        (> 33.3 ms 30 FPS period), overwriting incoming camera frames before acquisition.
-     b) Per-frame `::mmap` / `::munmap` on 4 MiB NV12 buffer causing page-fault storms and
-        TLB shootdowns.
-     c) 1,620 individual `std::memcpy` calls per frame across NV12 row strides.
-     d) Redundant GStreamer `queue` element inside the `qtivoverlay` pipeline burning
-        7.5%–10.0% CPU.
-   - Fixes:
-     - Implemented deadline loop pacing (`step_cost_ns < interval ? sleep(interval - step_cost_ns) : 0`).
-     - Added 8-slot cached `mmap` avoiding repeated system calls and page faults on rotating
-       buffer FDs.
-     - Replaced line-by-line copies with 2 contiguous ARM64 Neon memory burst copies for Y and
-       UV planes.
-     - Drained all available access units from `appsink` in a non-blocking pull loop.
-     - Removed redundant `queue` element between `appsrc` and `qtivoverlay`.
-
-5. **Phase 5 (Decoder Direct Float32 Pointer Indexing)**:
-   - Defect: YOLOv8 (8,400 anchors) and SCRFD (16,800 anchors) decoders invoked
-     `vqec_vision_ai_detec_tnrd_read_scalar` up to 504,000 times/second at 30 FPS, performing
-     repeated bounds checking, integer divisions, modulos, type switches, and `memcpy` calls.
-   - Fix: Added fast-path direct `float32*` array indexing in `yolov8_decoder` and
-     `anchor_distance_decoder`, reducing decoder CPU overhead while preserving exact schema
-     validation and typed fallbacks.
-
-6. **Phase 6 (Live Video Stream Frame-Stall Bugfix in `qtiv_renderer`)**:
-   - Defect: Caching virtual memory mappings keyed purely by the kernel integer file
-     descriptor (`slot.fd_ == frame_fd`) was flawed because Linux reuses the lowest available
-     FD immediately upon `close(fd)` of the previous frame. Subsequent camera frames received
-     over SCM_RIGHTS were assigned the recycled FD number, causing `copy_nv12` to repeatedly
-     copy pixels from the stale mapping of the first frame. The stream rendered 30 FPS H.264
-     packets with updating bounding boxes but froze the camera background pixels on frame 1.
-   - Fix: Replaced the unsafe FD-based mapping cache with an RAII
-     `vqec_vision_ai_qcom_qtvr_mmap_guard` that maps each incoming frame freshly and unmaps it
-     reliably upon exit, while retaining the optimized contiguous 2-plane memory copy.
-   - Verification on `.98`: Live video frames now dynamically update with real movement
-     (verified with 21.5% inter-frame pixel changes across a 2-second interval). Output stream
-     sustained at 27.9–30.1 FPS with 63.9%–66.3% single-core CPU on the full dual-model + FR
-     pipeline.
-
-### Measured board evidence (.98)
-
-- **RTSP Stream Output Rate (Measured via FFmpeg TCP probe over 10 seconds)**:
-  - Nominal camera rate: **30 FPS (1920×1080 NV12)**.
-  - Measured output: **301 frames in 10.00 seconds = 30.1 FPS**.
-  - Frame drop rate: **0% (Zero dropped frames)**.
-  - Previous baseline before Phase 4: 13–14 FPS (>50% dropped frames).
-
-- **Single-model Person flow (`yolov8n_person` @ 30 FPS 1080p, overlay, V4L2 H.264 HW encode, ring)**:
-  - Total process CPU: **36.0% – 38.0% of a single core** (representing **~4.5%** of the 8-core SoC capacity).
-  - Thread breakdown:
-    - Preprocessing thread (`input:s+`, `qtimlvconverter` 1080p -> 640x640): 15.9% – 17.0%
-    - Supervisor main thread: 7.5% – 8.0%
-    - Output render & appsrc (`src:src`): 6.5% – 7.0%
-    - Worker thread (YOLOv8 decoder): 3.5% – 4.0%
-    - V4L2 H.264 HW encode: 0.5% – 1.0%
-    - GStreamer queue thread: Eliminated (0.0%)
-
-- **Dual-model + FR Cascade flow (`yolov8n_person` + `scrfd_500m_bnkps` + `edgeface` @ 30 FPS)**:
-  - System idle: **75.0% – 78.0% idle** (SoC-wide CPU load is only 22% – 25%).
-  - Total process CPU: **~60.0% – 65.0% of a single core** across all active threads:
-    - Main supervisor thread: 23.5%
-    - Preprocessing thread 1 (`input:s+`, YOLOv8): 12.0%
-    - Preprocessing thread 2 (`input:s+`, SCRFD): 12.0%
-    - Output render & appsrc (`src:src`): 6.5%
-    - Worker threads (fast-path decoders): 2.5% – 4.0% each
-    - V4L2 H.264 HW encode: 0.5%
-    - Cascade status: Zero cascade failures (`cascade_failed=0`), steady 30 FPS inference routing.
-
-### Comparison against legacy `ai_app`
-
-Legacy `ai_app` was observed at ~15%–20% of one core for person detection because:
-1. **Inference Cadence**: `ai_app` configured `"inference_fps": 10` by default (running 3×
-   fewer inferences per second than LACAI).
-2. **cDSP Preprocessing Offload**: `ai_app` offloaded image letterboxing (`ScaleDownMNu8`
-   and `ColorYCbCr420PseudoPlanarToRGB888u8`) to the Hexagon cDSP via
-   `libvqec_dsp_skel.so`.
-3. **cDSP Postprocessing Offload**: NMS and coordinate decoding were executed on the cDSP.
-
-LACAI runs models at **full 30 FPS** (matching preview rate, per user requirement) using
-Qualcomm Linux standard plugins (`qtimlvconverter` + `qtimlqnn`) on CPU FastCV. At full 30
-FPS:
-- Single-model person flow: **~36% of 1 core** (~4.5% SoC load).
-- Dual-model + FR flow: **~64% of 1 core** (~8.0% SoC load).
-- Output stream: **Steady 28–30.1 FPS live real-time video with zero frame drops**.
-
-## 2026-09-17 clean-base native suite runner
-
-The ad-hoc native batch loop is replaced by
-`tools/vqec_vision_board_native_tests.sh <test_dir> <manifest_models_dir> <zvec_tmpfs_root>
-<zvec_scratch_base>`. Two device-free tests need fixtures and otherwise exit non-zero (a
-missing-fixture result, not a code failure):
-
-- `vqec_vision_ai_decoder_package_test` needs the staged `manifests/models` tree;
-- `vqec_vision_ai_zvec_embedding_index_test` needs an unused collection path on a NON-tmpfs
-  parent plus a current-UID-owned mode-0700 tmpfs directory for its private-index checks.
-
-With those supplied on `.98`, the cross-built native suite is **117/117 passed**. This is
-logic/contract evidence; it is not device DMA completion, model accuracy, released-FW or
-performance acceptance.
-
-## 2026-09-17 cDSP postprocessing offload on `.98`
-
-Following Phase 2 and 3 of `dsp_multiplatform_optimization_plan.md`, FastRPC cDSP execution
-was integrated into LACAI's production pipeline:
-
-- **Hexagon cDSP Unsigned PD Initialization**: FastRPC was configured to load unsigned
-  modules (`fastrpc_shell_unsigned_3`) with `ADSP_LIBRARY_PATH` pointing to `/opt/lacai/dsp`.
-  `libvqec_dsp_skel.so` loads successfully without testsig requirements on Qualcomm Linux 1.8.
-- **YOLOv8 & SCRFD Postprocessing Offload**: Model decoders (`dsp_decoder`) dispatch
-  coordinate reconstruction and greedy NMS directly to cDSP via `vqec_dsp_yolov8n_postprocess`
-  and `vqec_dsp_scrfd_postprocess`, backed by continuous ION physical buffers via `rpcmem_pool`.
-- **CPU Evidence**:
-  - Worker decoder CPU dropped to **0.0%** (previously 3.5%–4.0% each).
-  - Main thread supervisor CPU was sampled at 20.0%–22.4%.
-  - Preprocessing threads (`input:src` via `qtimlvconverter`): 12.4% and 13.9%.
-  - Renderer & encoder: 8.0% and 1.5%.
-  - Total process CPU: **66.2% of 1 core** (~8.2% of 8-core SoC capacity) with **zero dropped frames**
-    and steady 30 FPS output on `rtsp://192.168.138.98:8554/live/ai/detect0`.
-- **Visual Parity**: Bounding boxes for `person` and `face` plus SCRFD landmarks verified visually
-  via TCP RTSP frame capture on `.98`.
-- **Test Suite**: Expanded cross-compiled test suite under eSDK passed **129/129 tests** (100%),
-  including `rpcmem_pool_unit` and `dsp_decoder_unit`.
-
-## 2026-09-18 cDSP preprocessing offload and zero-copy cache on .98
-
-Following Phase 4 of `dsp_multiplatform_optimization_plan.md`, NV12 preprocessing was offloaded
-to the Hexagon cDSP via FastRPC:
-
-- **DMA-BUF SMMU Mapping Cache (`dsp_buffer_cache`)**: Registered incoming frame FDs into the
-  Qualcomm FastRPC session via `remote_register_buf_attr` to enable direct zero-copy SMMU address
-  translation on the cDSP, avoiding CPU memory copies.
-- **Hexagon Preprocessing Routines**: Offloaded letterboxing, bilinear interpolation and color
-  normalization for YOLOv8 (640×640 RGB uint16) and SCRFD (640×640 RGB uint16) to cDSP routines
-  (`vqec_dsp_preprocess_letterbox` and `vqec_dsp_preprocess_scrfd`).
-- **Elimination of Preprocessing CPU Load**:
-  - The two `input:src` CPU worker threads (which previously accounted for 26.3% CPU) were
-    eliminated, dropping preprocessor worker CPU to **0.0%**.
-  - All decoder and postprocessor workers remain at **0.0% CPU**.
-- **Geometry Boundary Invariant Fix**:
-  - Clamped all decoded boxes and SCRFD landmark coordinates to `[0, nextafter(limit, 0.0F)]`
-    in `dsp_decoder.cpp`, preventing out-of-boundary landmark coordinates when subjects appear
-    at the frame edge from triggering supervisor aborts.
-- **Measured Evidence on Target `.98`**:
-  - System idle: **78.6% – 79.5% idle** across the 8-core SoC.
-  - Main supervisor thread: **27.3% – 40.0% of 1 core** (down from ~81% previously).
-  - Memory: RES **405 MB**, stable with zero leaks across sustained runs.
-  - RTSP output (`rtsp://192.168.138.98:8554/live/ai/detect0`): Steady 30 FPS video with dynamic
-    green bounding boxes for all detected `person` and `face` entities and SCRFD landmarks.
-- **Cross-Compiled Native Test Suite**:
-  - **130/130 tests passed** (100%) under eSDK, including `dsp_preprocessor_unit`.
-
-### Review correction recorded 2026-09-18
-
-The section above is retained as historical evidence from that run, but its interpretation is
-narrower than its original wording:
-
-- `remote_register_buf_attr` plus a mapped DMA-BUF avoids one explicit input copy in the
-  adapter; it does not establish end-to-end zero-copy, cache coherency, asynchronous
-  completion or released-FW interoperability.
-- The legacy wire does not carry color matrix, range or interpolation fields. The cDSP
-  implementation calls fixed `ScaleDownMN` and `ColorYCbCr420PseudoPlanarToRGB888u8`
-  operations. Calling this the model's declared BT.709-limited bilinear transform requires
-  golden tensor evidence, which is not present.
-- Visual boxes establish only a smoke observation. They do not prove numeric decode parity,
-  threshold/tie behavior or model quality.
-- A later independent sample of the same three-model class of workload measured about
-  24.78–26.80% of one logical core and roughly 431 MiB RSS. The product target therefore
-  remains open. A short stable RSS sample cannot establish absence of leaks.
-
-## 2026-09-18 FastRPC registration and candidate audit on `.98`
-
-The adapter audit distinguished the two FastRPC host-buffer contracts. The generated QAIC stub
-passes CPU pointers through `remote_handle64_invoke`, so persistent host buffer association uses
-`remote_register_buf_attr2`. `fastrpc_mmap` with `FASTRPC_MAP_FD` is for DSP-side resolution via
-`HAP_mmap_get` and is not interchangeable with QAIC pointer marshalling.
-
-The compatibility camera simulator supplied `/memfd:fwsim_frame_3`, not a DMA-BUF. Registered
-mode did not process frames: the QCS6490 kernel recorded `failed to map buffer` and `-22` for that
-FD. The final source rejects a sealable memfd before registration. An explicit
-`--allow-qaic-copy-input` fixture policy was then used to validate remote execution without
-mislabeling the input as SMMU-imported or zero-copy.
-
-Candidate SHA-256 began with `9d78b5cd`; source was based on `11c8f33` plus the audited changes.
-The source was built with the approved eSDK and the complete expanded suite passed 131/131 under
-QEMU before staging. Board observations were:
-
-- Cold-start process CPU sampled once per second was 90, 95, 95, 92 and 92% for the first five
-  graph-preparation seconds, then 41% before reaching steady processing. The startup-spike
-  requirement remains open.
-- A 30-second steady sample was 6.66% user + 13.63% system = 20.29% of one logical core.
-- The released ring-v5 observer saw `write_sequence` increase by 100 in four seconds: 25 FPS.
-  The sampled slot was 1920x1080 with a non-empty H.264 payload.
-- At 138 seconds RSS was 423464 KiB, PSS was 399326 KiB and the process held 150 FDs. A following
-  30-second sample held RSS at 422876–423004 KiB. Earlier warmup PSS increased, so this is only a
-  memory smoke and does not satisfy the eight-hour leak gate.
-- The canonical `/opt/lacai/run_full.sh` service was restored after the candidate run. Its
-  post-warmup eight-second CPU sample averaged 18.38% of one logical core.
-
-The memfd fixture result proves end-to-end control, remote-kernel and output-ring progress. It is
-not production registered-input performance evidence. A released-FW DMA-BUF run, numeric golden
-parity, longer CPU/thermal sampling and the eight-hour/100-cycle memory gates remain required.
-
-## 2026-09-18 DMA-heap simulator and registered-input smoke on `.98`
-
-The board's Python omits `fcntl`, so the simulator's DMA-heap ioctl path uses libc through
-`ctypes`. With a 64x64 NV12 test allocation, both `/dev/dma_heap/system` and
-`/dev/dma_heap/qcom,system` allocated, mapped and completed CPU write cache-sync. DMA-BUF
-does not support `pread` on this target; the written bytes were checked through the mapping.
-
-The revised simulator uses an ACK-gated 12-slot pool rather than rotating over in-flight
-memfds. A candidate copy was staged separately; the canonical simulator was not replaced.
-The candidate's pool/ACK regression passed on the board, including duplicate-ACK rejection.
-The same FastRPC candidate binary (SHA-256 prefix `9d78b5cd`) ran without
-`--allow-qaic-copy-input`, using `/dev/dma_heap/qcom,system` for the camera fixture:
-
-- Source 1920x1080@30 and person + face + fire/smoke graphs; output ring increased by 100
-  sequences over four seconds, or 25 FPS.
-- No `failed to map buffer` or FastRPC input-import error appeared in the candidate log.
-  This is an inference from log inspection and ring progress, not a hardware trace of
-  every registration, cache operation or DMA completion. Final service metrics recorded
-  `routed=2692`, `failed=0`, `cascade_embeddings=48`, `cascade_failed=0` and
-  `first_error=0`.
-- A 15-second `/proc/<pid>/stat` process sample after warmup was 19.47% of one logical
-  core. At that sample RSS/HWM were 390160 KiB, with 163 FDs and 44 threads. This is not
-  a 30-minute performance run or memory-soak result and misses the 12% CPU target.
-- The candidate and DMA-heap simulator were stopped. The canonical memfd simulator and
-  `/opt/lacai/run_full.sh` service were restored; the restored ring advanced 49 sequences
-  in two seconds. Board-local logs are under `/opt/lacai/out/dsp_adapter_review.dma_*` and
-  `/opt/lacai/out/dsp_adapter_review.final_restored_*`.
-
-The fixture still copies QMMF pixels into DMA-BUF. Released-FW allocator/import,
-cache/fence/completion, golden numerical parity, cold-start peak and sustained CPU/memory
-acceptance remain open. A matching ring cadence alone is not model-quality evidence.
-
-## 2026-09-18 repository-layout candidate on `.98`
-
-The ownership-layout refactor changed implementation and test source paths while preserving
-target names, executable names, symbols, contracts and wire versions. The candidate was built
-only with the approved eSDK. Host CTest passed 134/134 before staging.
-
-The isolated board candidate used `/opt/lacai/tests_layout_candidate` and
-`/opt/lacai/bin/vqec_ai_vision_applications.layout_candidate`; it did not replace the canonical
-service or test directory. The service binary SHA-256 was
-`53c8594e2a04fcf12381554cb4cb32ed79592680c739ba5853da38a9f48e7439`.
-
-- The standard native runner completed `PASS=129 FAIL=0` using the deployed model manifests,
-  a mode-0700 tmpfs Zvec root and a non-tmpfs negative-policy scratch path.
-- The harness service ran the standard smoke deployment/catalog/feature fixtures for 160
-  requested steps and exited zero. It routed both required sources with 42 accepted results,
-  zero denied/failed results and `first_error=0`.
-- The service reported 170 loop steps and routed latency of 20,660–22,967 microseconds
-  (21,521 microseconds average) for this synthetic harness. These values are functional smoke
-  evidence, not production performance targets.
-- The uploaded archive and extraction staging directory were removed after validation. The
-  isolated candidate binaries/configuration were retained for traceability.
-
-This run proves that the physical source/test reorganization did not change the cross-built
-logic/service behavior exercised by the suite. It does not qualify released-FW integration,
-DSP signing/deployment, model quality, CPU, memory, thermal or soak behavior.
-
-## 2026-09-18 FastRPC v1 host-client fixture on `.98`
-
-The approved eSDK build added the host-side v1 QAIC client and one fake-service conformance
-executable. Host CTest passed 135/135. The staged executable SHA-256 was
-`31b9112390965c5b3f61f553d21a713b3f3e45d0d84c3ad1ec694f19607b18c0`; it exited zero
-individually, then the isolated candidate runner completed `PASS=130 FAIL=0`.
-
-The fixture covers capability decode, operation limits, domain generation, host rejection of
-stale/unsupported requests, response validation and uncertain completion after an injected
-transport failure. It links the QAIC-generated v1 client stub but deliberately uses the local
-fake service.
-
-The separately built v68 skeleton was then staged under an isolated candidate directory. Its
-SHA-256 was `a5e7d1c030bb110c6b493be5c9c8349ec68b905443ff93d2c0af96ee67625f5a`;
-the system-client smoke SHA-256 was
-`5faa7f57c6e34126164628d038123b9c9bbc1430bd6ead6e389a97fa73fc2af4`.
-The first live call reported domain generation `933359035`, operation mask `2`, 24 valid output
-bytes, zero truncation and box `15,15,25,25`; it exited zero. A second process also exited zero
-and reported a different nonzero generation, `1079917678`.
-
-This proves isolated unsigned QAIC open/query/execute/close and reopen generation on cDSP for
-the generic dense operation. It does not prove BSP signing/provenance approval, registered
-multi-tensor transport, cache/fence correctness, reset during in-flight work, production
-activation or model golden parity.
+The output contains `capture.mkv`, `metrics.txt` and `overlay_contact_sheet.png`. The video
+is transient test evidence and must not be committed because it may contain personal data.
+
+## Current evidence
+
+The latest retained evidence on 2026-09-18 is:
+
+- approved eSDK/QEMU CTest: **135/135**;
+- isolated native candidate on `.98`: **128/128**;
+- the canonical deployed person + face + fire/smoke service stopped cleanly with
+  `first_error=0`, 66 cascade tasks/embeddings and no cascade failure;
+- the canonical RTSP preview produced 201 packets in 8.000 seconds, or **25.125 FPS**, at
+  H.264 1920x1080. The generated four-frame contact sheet was reviewed: person/face boxes
+  and labels followed the intended objects, orientation and colors were correct, and no
+  stale rectangles were visible;
+- the canonical process 15-second warm sample was
+  `10.59% usr + 15.86% sys = 26.45%` of one logical core, with average RSS about
+  422520 KiB, HWM 423084 KiB, 44 threads and 160 FDs. This misses the plan's `<=12%`
+  sustained-CPU target and is not a soak result;
+- v68 FastRPC v1 skeleton SHA-256
+  `a5e7d1c030bb110c6b493be5c9c8349ec68b905443ff93d2c0af96ee67625f5a`;
+- live v1 client open/query/execute/close: 24 valid output bytes, no truncation, output box
+  `15,15,25,25`; a second process returned a different nonzero domain generation.
+
+The exact clean-build service candidate was staged separately and did not replace the
+canonical service. It correctly rejected the board's stale model catalog marked schema 2;
+an isolated schema-1 copy passed loading, after which production preparation failed closed
+because `libvqec_dsp_skel.so` could not be opened on cDSP (`AEE_EUNABLETOLOAD`). Production
+composition still opens this legacy, model-named ABI before selecting operations and does
+not select the negotiated generic v1 client. Therefore the canonical preview result is not
+exact-candidate service acceptance. The failure is retained as a production-composition
+defect; copying a legacy skeleton is not an accepted workaround.
+
+This evidence does not prove signed DSP deployment, released-FW DMA completion, model
+quality, cold-start CPU, thermal stability or leak freedom.
+
+## Evidence record
+
+Every new board result records:
+
+| Field | Required value |
+|---|---|
+| Source | Git revision and dirty-state declaration |
+| Candidate | SHA-256 for service/tests/DSP artifacts used |
+| Workload | source resolution/FPS, model IDs and cadence, output surfaces/viewers |
+| Runtime | board image, QAIRT/QNN, DSP architecture and relevant plugin versions |
+| Correctness | native result, service exit/error, model/golden result where applicable |
+| Preview | capture duration, packet count, effective FPS, dimensions, contact-sheet reviewer |
+| Resources | sampling interval, CPU convention, RSS/HWM, FDs, threads, temperature |
+| Lifetime | start/stop/restart/drain result and any uncertain hardware completion |
+| Limits | compatibility fixture versus released FW, unrun gates and owner sign-offs |
+
+Board-local logs live under `/opt/lacai/out`; they are not evidence until tied to this
+record and the exact candidate digest. Remove temporary uploads after results are secured.
 
 ## Limits and next work
 
-- Still not qualified on the board: model accuracy (inputs were zero/random), async/shared
-  engine update, live FW camera/DMA completion, hardware encoder/ring, thermal stability and
-  percentile latency.
-- The compatibility camera copies QMMF output into memfd or an explicit DMA-heap fixture.
-  Neither establishes released-FW DMA-BUF interoperability or end-to-end zero-copy.
-- `.99` and `.48` remain prohibited targets; only `.98` is allocated.
+- Make production composition select the negotiated generic DSP v1 operation path and
+  remove unconditional startup dependence on the legacy model-named skeleton.
+- Re-run service, preview capture and visual overlay review from that exact candidate;
+  canonical-deployment evidence cannot be transferred to it.
+- Complete cold-start CPU profiling, the declared sustained workload, memory soak and
+  restart-cycle leak gate.
+- Complete registered multi-tensor DSP transport, cache/fence/completion and reset while
+  work is in flight.
+- Released-FW allocator, camera, RTSP/UI and recording acceptance still require BSP+FW
+  owner evidence.
 
 ## See also
 
+- [Board workspace](board_workspace.md)
+- [QNN validation](qnn_board_validation.md)
 - [FR production validation](face_recognition_production_validation.md)
-- [QNN model and engine board validation](qnn_board_validation.md)
-- [eSDK configuration and evidence matrix](esdk_configuration_matrix.md)
+- [DSP optimization plan](../planning/architecture_improvement/dsp_multiplatform_optimization_plan.md)

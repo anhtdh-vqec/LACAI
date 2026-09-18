@@ -71,7 +71,7 @@ if [[ -e "$output_dir" ]] && [[ -n "$(find "$output_dir" -mindepth 1 -maxdepth 1
 fi
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source_root=$(cd "$script_dir/.." && pwd)
+source_root=$(cd "$script_dir/../.." && pwd)
 adapter_dir="$source_root/src/adapters/qualcomm"
 v1_dir="$adapter_dir/dsp/v1"
 idl="$v1_dir/vqec_vision_dsp_v1.idl"

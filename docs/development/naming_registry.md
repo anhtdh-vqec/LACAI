@@ -4,9 +4,9 @@ Physical source/tool filenames use `vqec_vision_`; logical owners and registered
 function prefixes do not change. Reserved filenames below follow the same rule.
 See code_convention.md section 0 for the finite non-source exceptions.
 
-Native FR validation: `tools/vqec_vision_fr_runtime_dbus_test.py`, file_id `frdbt`,
+Native FR validation: `tools/fixtures/vqec_vision_fr_runtime_dbus_test.py`, file_id `frdbt`,
 prefix `vqec_vision_ai_tools_frdbt_`. Its deployment/biometric fixture stays outside Git.
-Ring-generation regression: `tools/vqec_vision_ring_rtsp_test.py`, file_id `rrtst`,
+Ring-generation regression: `tools/fixtures/vqec_vision_ring_rtsp_test.py`, file_id `rrtst`,
 prefix `vqec_vision_ai_tools_rrtst_`; synthetic file-backed ring only.
 
 This registry is the source of truth; do not invent abbreviations.
@@ -45,9 +45,6 @@ same API counts as one owner. Do not reuse an exported prefix for a different me
 | src/adapters/fw_control | fwctl |
 | src/adapters/storage | stor |
 | src/adapters/fw_output | fwout |
-| src/adapters/rockchip | rchip |
-| src/adapters/mediatek | mtek |
-| src/adapters/novatek | ntek |
 | src/outputs | outpt |
 | src/outputs/media/vqec_vision_overlay_preparation.cpp | ovrpr | vqec_vision_ai_outpt_ovrpr_ |
 | src/features/abnormal_behavior | abnor |
@@ -98,7 +95,7 @@ outside these registered families still require a new `dir_id` before functions 
 | src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.cpp | fcprc | vqec_vision_ai_qcom_fcprc_ |
 | src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp | fcaln | vqec_vision_ai_qcom_fcaln_ (port overrides retain vqec_vision_ai_ports_imaln_) |
 | src/adapters/qualcomm/media/vqec_vision_qtiv_color.cpp | qtcol | vqec_vision_ai_qcom_qtcol_ |
-| tools/vqec_vision_qtiv_color_smoke.cpp | qtcsm | vqec_vision_ai_tools_qtcsm_ |
+| tools/board/vqec_vision_qtiv_color_smoke.cpp | qtcsm | vqec_vision_ai_tools_qtcsm_ |
 | src/adapters/qualcomm/dsp/host/vqec_vision_buffer_manager.cpp | bufmg | vqec_vision_ai_qcom_bufmg_ |
 | src/adapters/qualcomm/qnn/vqec_vision_backend_factory.cpp | bfact | vqec_vision_ai_qcom_bfact_ |
 | src/adapters/qualcomm/qnn/vqec_vision_sdk_loader.cpp | sdkld | vqec_vision_ai_qcom_sdkld_ |
@@ -179,7 +176,7 @@ interface prefix `vqec_vision_ai_ports_ucctl_`. Serialized manager
 prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus v1 adapter
 `src/adapters/fw_control/vqec_vision_usecase_control_dbus.cpp` uses file_id `ucdbs`, prefix
 `vqec_vision_ai_fwctl_ucdbs_`; its private-bus wire test uses file_id `ucdtst`.
-Runtime D-Bus integration tool `tools/vqec_vision_usecase_runtime_dbus_test.py`
+Runtime D-Bus integration tool `tools/fixtures/vqec_vision_usecase_runtime_dbus_test.py`
 uses file_id `ucrtst`, prefix `vqec_vision_ai_tools_ucrtst_`.
 
 Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
@@ -383,15 +380,16 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tests/contract/runtime/vqec_vision_artifact_resolver_test.cpp | arsct | vqec_vision_ai_ctest_arsct_ |
 | tests/unit/runtime/vqec_vision_artifact_digest_test.cpp | adtst | vqec_vision_ai_unit_adtst_ |
 | tests/unit/runtime/vqec_vision_output_manifest_test.cpp | omtst | vqec_vision_ai_unit_omtst_ |
-| tools/vqec_vision_manifest_check.cpp | mnchk | vqec_vision_ai_tools_mnchk_ |
-| tools/vqec_vision_qnn_engine_smoke.cpp | qnsmk | vqec_vision_ai_tools_qnsmk_ |
-| tools/vqec_vision_fastcv_affine_smoke.cpp | fasmy | vqec_vision_ai_tools_fasmy_ |
-| tools/vqec_vision_model_runner.cpp | mdlrun | vqec_vision_ai_tools_mdlrun_ |
-| tools/vqec_vision_board_native_tests.sh | bntst | vqec_vision_ai_tools_bntst_ |
-| tools/vqec_vision_check_docs_layout.sh | dclay | vqec_vision_ai_tools_dclay_ |
-| tools/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
-| tools/vqec_vision_fw_camera_sim_test.py | fwstt | vqec_vision_ai_tools_fwstt_ |
-| tools/vqec_vision_ring_rtsp.py | rrtsp | vqec_vision_ai_tools_rrtsp_ |
+| tools/diagnostics/vqec_vision_manifest_check.cpp | mnchk | vqec_vision_ai_tools_mnchk_ |
+| tools/board/vqec_vision_qnn_engine_smoke.cpp | qnsmk | vqec_vision_ai_tools_qnsmk_ |
+| tools/board/vqec_vision_fastcv_affine_smoke.cpp | fasmy | vqec_vision_ai_tools_fasmy_ |
+| tools/diagnostics/vqec_vision_model_runner.cpp | mdlrun | vqec_vision_ai_tools_mdlrun_ |
+| tools/board/vqec_vision_board_native_tests.sh | bntst | vqec_vision_ai_tools_bntst_ |
+| tools/board/vqec_vision_preview_acceptance.sh | pvacc | no named functions; top-level host acceptance flow |
+| tools/checks/vqec_vision_check_docs_layout.sh | dclay | vqec_vision_ai_tools_dclay_ |
+| tools/fixtures/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
+| tools/fixtures/vqec_vision_fw_camera_sim_test.py | fwstt | vqec_vision_ai_tools_fwstt_ |
+| tools/fixtures/vqec_vision_ring_rtsp.py | rrtsp | vqec_vision_ai_tools_rrtsp_ |
 | tests/unit/core/vqec_vision_tensor_contract_test.cpp | tctst | vqec_vision_ai_unit_tctst_ |
 | src/app/pipeline/vqec_vision_camera_graph_pump.cpp | cgpmp | vqec_vision_ai_appl_cgpmp_ |
 | src/app/pipeline/vqec_vision_multi_model_pump.cpp | mmump | vqec_vision_ai_appl_mmump_ |
@@ -483,17 +481,17 @@ entrypoint exception, approved by the baseline language rule.
 
 ## Exception register
 
-Tool owner: `tools/vqec_vision_check_source_layout.ps1`, file_id `chlay`, prefix
+Tool owner: `tools/checks/vqec_vision_check_source_layout.ps1`, file_id `chlay`, prefix
 `vqec_vision_ai_tools_chlay_` reserved for future named helpers. Current script uses
 only top-level control flow; PowerShell pipeline automatic variables retain shell syntax.
-Portable Linux/CI counterpart `tools/vqec_vision_check_source_layout.sh` shares the same
+Portable Linux/CI counterpart `tools/checks/vqec_vision_check_source_layout.sh` shares the same
 logical owner and performs the same read-only checks. No AST naming enforcement is
 implied by the structural filename checker.
 
-Hexagon build owner: `tools/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
+Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 
-Board-side helper `tools/vqec_vision_qnn_board_smoke.sh` runs `qnn-net-run` for one model
+Board-side helper `tools/board/vqec_vision_qnn_board_smoke.sh` runs `qnn-net-run` for one model
 library against a pinned QAIRT runtime; it writes only the output directory and does not
 modify the repository.
 
@@ -583,7 +581,7 @@ Runtime composition factory registrations (source delivered):
 Zvec integration test: `tests/unit/adapters/zvec/vqec_vision_zvec_embedding_index_test.cpp`,
 file_id `zvitst`, prefix `vqec_vision_ai_unit_zvitst_`.
 
-Zvec dependency bootstrap: `tools/vqec_vision_prepare_zvec.sh`; no named functions.
+Zvec dependency bootstrap: `tools/build/vqec_vision_prepare_zvec.sh`; no named functions.
 Release/version/URL/checksum constants belong to `third_party/zvec/dependency.json`.
 
 Anchor-distance decoder: `src/perception/detection/vqec_vision_anchor_distance_decoder.cpp`,
@@ -615,7 +613,7 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |
 | src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp | d1cli | vqec_vision_ai_qcom_d1cli_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_client_test.cpp | d1clt | vqec_vision_ai_unit_d1clt_ |
-| tools/vqec_vision_dsp_v1_smoke.cpp | d1smk | vqec_vision_ai_tools_d1smk_ |
+| tools/board/vqec_vision_dsp_v1_smoke.cpp | d1smk | vqec_vision_ai_tools_d1smk_ |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_codes.h | dlcod | frozen legacy error codes |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_types.h | dltyp | frozen legacy geometry constants |
 | src/adapters/qualcomm/dsp/legacy/vqec_vision_dsp_legacy_post_common.c | dlpcm | frozen C compatibility functions |

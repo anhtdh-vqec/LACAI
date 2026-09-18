@@ -179,6 +179,11 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 8. Preview/source vẫn có memcpy đáng kể. Phải tách số CPU media path khỏi inference path trước
    khi quy lỗi cho decoder hoặc cDSP.
 9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
+10. Clean candidate ngày 2026-09-18 phát hiện production composition vẫn mở
+    `libvqec_dsp_skel.so` legacy vô điều kiện trước khi chọn operation. Board catalog schema 2
+    cũ bị source v1 từ chối đúng; với catalog v1 cô lập, FastRPC legacy tiếp tục fail-closed
+    bằng `AEE_EUNABLETOLOAD`. V1 skeleton riêng đã open/query/execute thành công, vì vậy đây
+    là khoảng trống composition/deployment, không phải lý do copy lại artifact legacy.
 
 Envelope v1 32 byte đã có codec C và negative tests cho version, length, operation,
 capacity và domain generation. Dense payload 120 byte có canonical encoder, full bounds
@@ -342,8 +347,19 @@ Các lệnh dưới là khung; script chính thức phải validate PID/workload
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake --build build-esdk-full -j4
-ctest --test-dir build-esdk-full --output-on-failure -j4
+lacai_dsp_build="$(mktemp -d /tmp/lacai-esdk-dsp.XXXXXX)"
+cmake -S . -B "$lacai_dsp_build" -DBUILD_TESTING=ON \
+  -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON \
+  -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
+  -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
+  -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
+  -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON \
+  -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
+  -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON \
+  -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON
+cmake --build "$lacai_dsp_build" -j4
+ctest --test-dir "$lacai_dsp_build" --output-on-failure -j4
 
 pidstat -u -r -d -w -p <pid> 1 1800
 pidstat -u -t -p <pid> 1 1800
@@ -374,10 +390,12 @@ Board report phải có:
 - [ ] Qualcomm và reference conformance pass; neutral layer không có vendor type.
 - [ ] AI APP lead, BSP+FW lead và AI Model lead ký đúng phần ownership của mình.
 
-Plan chưa được đóng ở revision hiện tại: candidate fixture gần nhất còn 19.47% CPU và startup đạt
-90–95% trong khoảng năm giây; DMA-BUF production A/B chưa có. Hexagon toolchain/provenance và
-model golden chưa đủ, fire/smoke postprocess vẫn ở ARM, preprocessing semantics chưa được
-chứng minh, startup/soak chưa có acceptance evidence.
+Plan chưa được đóng ở revision hiện tại: canonical deployment gần nhất đạt 25.125 FPS nhưng
+warm sample vẫn dùng 26.45% một core; exact source candidate chưa qua startup vì production
+còn phụ thuộc skeleton legacy vô điều kiện. Startup từng đạt 90–95% trong khoảng năm giây;
+DMA-BUF production A/B chưa có. Hexagon toolchain/provenance và model golden chưa đủ,
+fire/smoke postprocess vẫn ở ARM, preprocessing semantics chưa được chứng minh, startup/soak
+chưa có acceptance evidence.
 
 ## Giới hạn và công việc tiếp theo
 

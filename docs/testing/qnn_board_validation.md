@@ -48,10 +48,10 @@ mismatch must be fixed here before any engine work.
 
 ## Step 2 — model smoke with qnn-net-run
 
-Use [tools/vqec_vision_qnn_board_smoke.sh](../../tools/vqec_vision_qnn_board_smoke.sh):
+Use [tools/board/vqec_vision_qnn_board_smoke.sh](../../tools/board/vqec_vision_qnn_board_smoke.sh):
 
 ```bash
-tools/vqec_vision_qnn_board_smoke.sh \
+tools/board/vqec_vision_qnn_board_smoke.sh \
   --qairt "$QAIRT_ROOT" \
   --model /path/libscrfd_500m_bnkps_w8a16.so \
   --input-list /path/eval_inputs/input_list.txt \
@@ -77,9 +77,10 @@ Cross-build with the eSDK and the engine enabled:
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake -S . -B build-esdk-qnn -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
+lacai_qnn_build="$(mktemp -d /tmp/lacai-esdk-qnn.XXXXXX)"
+cmake -S . -B "$lacai_qnn_build" -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
   -DVQEC_VISION_AI_QAIRT_ROOT=/opt/qcom/aistack/qairt/2.43.0.260128
-cmake --build build-esdk-qnn -j"$(nproc)"
+cmake --build "$lacai_qnn_build" -j"$(nproc)"
 ```
 
 On the board, point the adapter at the image runtime and the copied model library. The owned

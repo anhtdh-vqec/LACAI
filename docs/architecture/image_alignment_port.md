@@ -68,7 +68,7 @@ Port: `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`.
 
 ## FastCV capability evidence (QCS6490, Qualcomm Linux 1.8)
 
-Checked against the board `.48` and the approved eSDK sysroot (qcom-fastcv-binaries 1.8.5):
+Checked against a QCS6490 target and the approved eSDK sysroot (qcom-fastcv-binaries 1.8.5):
 
 - The QTI `qtivtransform` plugin exposes `crop`/`destination` rectangles, resize, flip and
   90° rotate only; it has no arbitrary-angle landmark affine.
@@ -84,9 +84,9 @@ conversion), not the QTI plugin. This is capability evidence only — it does no
 runtime execution, DSP offload, crop/tensor pool ownership or golden crop parity, all of
 which remain M4.
 
-## FastCV affine convention (established on `.48`)
+## FastCV affine convention
 
-A synthetic-image smoke (`tools/vqec_vision_fastcv_affine_smoke.cpp`, run on `.48`) established
+A synthetic-image smoke (`tools/board/vqec_vision_fastcv_affine_smoke.cpp`, run on QCS6490) established
 the convention of `fcvTransformAffineu8_v2(source, W, H, stride, position, affine, patch,
 pw, ph, stride)`:
 
@@ -114,7 +114,7 @@ vendor warp still rejects a valid ROI, the adapter uses a bounded bilinear sampl
 small ROI; it does not convert or warp the full source frame. This is a correctness fallback
 and must be counted separately in future performance telemetry.
 
-Board evidence (`.48`, synthetic NV12 memfd, `vqec_vision_fastcv_affine_smoke`): the identity
+Board evidence (QCS6490, synthetic NV12 memfd, `vqec_vision_fastcv_affine_smoke`): the identity
 warp centered at source (32, 32) produced the expected 8×8 neighborhood with the marker `255`
 exactly at the patch center (`align_rc=0`, `bytes=64`, `complete=1`). This verifies the
 geometry mapping, not color, DSP offload or golden parity.
@@ -147,7 +147,7 @@ Cost control & memory reuse:
 3. **Neon Vectorization**: Utilizing `fcvColorYCbCr420PseudoPlanarToRGB888u8` provides direct
    Qualcomm Neon hardware acceleration for color conversion without per-pixel scalar math.
 
-Board `.48` / `.98` smoke: synthetic BT.601-limited red NV12 aligned to `rgb center=238,14,14`
+Board `192.168.138.98` smoke: synthetic BT.601-limited red NV12 aligned to `rgb center=238,14,14`
 via FastCV Neon conversion (matching `qtivtransform` color output), and the luma path produced
 the expected geometry. This verifies color, stride alignment, and geometry.
 
@@ -157,9 +157,9 @@ Defining this contract does not prove FastCV/QTI affine capability, crop/tensor 
 ownership, cache/fence behavior, device completion, alignment parity against a golden crop
 or any FD→FR correlation. Those require the M4 adapter and board evidence.
 
-## Hardware offload options (board `.48` probe)
+## Hardware offload options (QCS6490 probe)
 
-`gst-inspect-1.0` on `.48` confirms the QTI plugin set relevant to alignment/preprocess:
+`gst-inspect-1.0` on QCS6490 confirms the QTI plugin set relevant to alignment/preprocess:
 
 - `qtivtransform`: `engine` = `gles` (OpenGLES GPU) or `fcv` (FastCV), with `crop` and
   `destination` rectangles, resize, flip and 90/180 rotation. It can offload an axis-aligned
@@ -187,7 +187,7 @@ The exact `engine-param` grammar and whether `qtivtransform`/`qtivcomposer` acce
 arbitrary transform matrix must be verified with a board pipeline before use; no offload
 claim is made here.
 
-Board experiment (`.48`): `gst-launch-1.0 videotestsrc ... ! qtivtransform crop="<100,100,
+Board experiment (QCS6490): `gst-launch-1.0 videotestsrc ... ! qtivtransform crop="<100,100,
 200,200>" destination="<0,0,112,112>" ! video/x-raw,width=112,height=112 ! fakesink` exited
 0 for both `engine=fcv` and `engine=gles` (gles initialises an offscreen EGL display
 headless). An arbitrary `engine-param` string was accepted without error, but the plugin
@@ -200,7 +200,7 @@ residual rotation stays on FastCV until a board pipeline proves an affine-capabl
 
 `src/adapters/qualcomm/media/vqec_vision_qtiv_color.cpp` runs a persistent `appsrc ->
 qtivtransform -> appsink` pipeline (fixed NV12/RGB caps) and converts one tightly packed
-NV12 image to RGB on the plugin backend. On `.48`, `engine=fcv` returned `bytes=12288` for a
+NV12 image to RGB on the plugin backend. On QCS6490, `engine=fcv` returned `bytes=12288` for a
 64x64 frame (rc 0). Two findings constrain integration and need an owner decision:
 
 - Color parity: a synthetic BT.601 red produced `(238,14,14)` from the plugin versus

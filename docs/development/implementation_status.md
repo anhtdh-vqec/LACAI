@@ -1,4 +1,4 @@
-# Implementation status — 2026-09-17
+# Implementation status — 2026-09-18
 
 2026-09-17 subsequent Plan 0 corrective verification (AI APP development: **UNBLOCKED**):
 
@@ -65,7 +65,7 @@ D-Bus 5/5, cascade `embedded=4 cascade_failed=0`.
   `VQEC_VISION_AI_ENABLE_ZVEC=OFF`, so a clean runner no longer hits the Zvec `FATAL_ERROR`
   when the untracked SDK is absent; `esdk-expanded` runs `vqec_vision_prepare_zvec.sh`
   before configure.
-- Added `tools/vqec_vision_board_native_tests.sh`, the reproducible native board runner.
+- Added `tools/board/vqec_vision_board_native_tests.sh`, the reproducible native board runner.
   It supplies the fixtures two device-free tests need: the staged `manifests/models` tree
   for `decoder_package_test`, and a non-tmpfs scratch path plus a current-UID mode-0700
   tmpfs directory for `zvec_embedding_index_test`. The Zvec test now reports its failing
@@ -228,14 +228,18 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: eSDK/QEMU expanded configuration 123/123; board `.98` native 117/117 with
-fixtures via `tools/vqec_vision_board_native_tests.sh`; production smoke H.264 1920x1080 30/1
-with `first_error=0`. The latency metric is `route_latency_*` (steady reservation-to-routing),
-not camera-to-output latency.
+Current evidence: clean eSDK/QEMU expanded configuration 135/135; board `.98` native 128/128
+with fixtures via `tools/board/vqec_vision_board_native_tests.sh`. The canonical deployment
+published H.264 1920x1080 at an effective 25.125 FPS, passed a four-frame visual overlay
+review and stopped with `first_error=0`. The exact source candidate is not service-accepted:
+after rejecting a stale schema-2 board catalog, it failed closed while loading the
+unconditional legacy DSP skeleton. The latency metric is `route_latency_*` (steady
+reservation-to-routing), not camera-to-output latency.
 
-Measured limits: sustained hot-board 20.8-24.6 FPS for FD+FR and 36-65% of one core in the
-compatibility setup; the 25-30 FPS and thermal acceptance gate is open and the 15-25% CPU
-target is not met on the FR path.
+Measured limits: the latest canonical warm sample was 26.45% of one logical core for
+person + face + fire/smoke. It is a 15-second smoke sample, not the 30-minute acceptance
+window, and misses the current-workload `<=12%` CPU target. Exact-candidate, cold-start,
+thermal and memory-soak gates remain open.
 
 Open release gates (not delivered): released-FW camera/ring/RTSP conformance, hardware DMA
 completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
@@ -370,16 +374,16 @@ decode (exit 0). FastCV preprocessing selection is still a direct adapter constr
   D-Bus, GStreamer bridge, Qualcomm graph, FW ring SDK, JSON loaders, Zvec and artifact digest.
 - JSON loaders require nlohmann_json 3.12.0; digest requires OpenSSL 3.0; FW ring requires an
   existing version-pinned SDK target; Zvec is on by default and its pinned SDK is acquired by
-  `tools/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
+  `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The current expanded eSDK configuration passes 126/126 CTest tests under SDK QEMU
-  (2026-09-17). The pre-audit cross-built native suite passed 118/118 on `.98` via
-  `tools/vqec_vision_board_native_tests.sh`; no post-fix board run is recorded.
+- The current clean expanded eSDK configuration passes 135/135 CTest tests under SDK QEMU
+  (2026-09-18). The cross-built native suite passes 128/128 on `.98` via
+  `tools/board/vqec_vision_board_native_tests.sh`.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
   scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.
-- `tools/vqec_vision_check_source_layout.sh` checks physical filenames, quoted includes and
+- `tools/checks/vqec_vision_check_source_layout.sh` checks physical filenames, quoted includes and
   CMake source paths only; it is not an AST naming, ABI or ownership checker.
 
 ## Not delivered and next integration work
@@ -407,4 +411,4 @@ Delivered component details live in the architecture and contract docs, not here
 ## See also
 
 - [Capability matrix](capability_matrix.md), [architecture alignment review](architecture_alignment_review.md)
-- [Clean-base plan](../planning/clean_base_plan.md), [QCS6490 target](../testing/qsc6490_board.md)
+- [Architecture improvement plans](../planning/architecture_improvement/README.md), [QCS6490 target](../testing/qsc6490_board.md)

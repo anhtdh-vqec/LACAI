@@ -98,7 +98,7 @@ and sustained thermal soak. Routing latency alone không phải recognition/evid
 3. Qualcomm expanded eSDK build chỉ khi QAIRT/SDK supplied; DSP Hexagon build pin riêng,
    không tải private SDK/model hay fallback host.
 4. Board `.98` workspace `/opt/lacai`: stage manifest, binary, model kit, config, FW harness,
-   run test, collect immutable logs/metrics; `.99`/`.48` không được truy cập.
+   run test, collect immutable logs/metrics; chỉ `192.168.138.98` được phép sử dụng.
 5. Package contains executable/config/schema/adapter dependencies/manifest/SBOM, no secrets,
    model private library or biometric fixtures. Install/reboot/upgrade/rollback checked.
 6. CI skipped runner variables are not pass. Record commit, image, toolchain, profile,

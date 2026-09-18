@@ -38,11 +38,12 @@ results are separate; see [QSC6490 target](qsc6490_board.md).
 
 ```bash
 source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
-cmake -S . -B build-esdk-neutral -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+lacai_neutral_build="$(mktemp -d /tmp/lacai-esdk-neutral.XXXXXX)"
+cmake -S . -B "$lacai_neutral_build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_ZVEC=OFF \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
-cmake --build build-esdk-neutral -j4
-ctest --test-dir build-esdk-neutral --output-on-failure
+cmake --build "$lacai_neutral_build" -j4
+ctest --test-dir "$lacai_neutral_build" --output-on-failure
 ```
 
 The expanded command is in the repository [README](../../README.md#build-và-test).
@@ -51,8 +52,9 @@ The expanded command is in the repository [README](../../README.md#build-và-tes
 
 Dated raw runs are retained verbatim and are not updated retroactively:
 
-- [neutral run 2026-09-09](esdk_neutral_ctest_2026_09_09.txt) (45/47 before fixture fixes).
-- [neutral corrected run 2026-09-09](esdk_neutral_ctest_corrected_2026_09_09.txt) (47/47).
+- The 2026-09-09 neutral run changed from 45/47 to 47/47 after fixture corrections.
+  Raw transient CTest output is not retained in the documentation tree; current counts
+  belong in implementation status and reproducible CI evidence.
 
 ## Limits and next work
 

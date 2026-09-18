@@ -159,7 +159,7 @@ set_target_properties(vqec_vision_ai_runtime_executor PROPERTIES CXX_EXTENSIONS 
 if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_reference AND
    TARGET vqec_vision_ai_detection)
     add_executable(vqec_vision_ai_model_runner
-        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_model_runner.cpp)
+        ${CMAKE_SOURCE_DIR}/tools/diagnostics/vqec_vision_model_runner.cpp)
     target_link_libraries(vqec_vision_ai_model_runner PRIVATE
         vqec_vision_ai_qnn_engine vqec_vision_ai_reference vqec_vision_ai_detection
         nlohmann_json::nlohmann_json)

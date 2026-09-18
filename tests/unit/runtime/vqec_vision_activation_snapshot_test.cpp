@@ -52,7 +52,7 @@ model_catalog_entry vqec_vision_ai_unit_astst_make_model() {
     return model;
 }
 
-void vqec_vision_ai_unit_astst_check_snapshot() {
+void vqec_vision_ai_unit_astst_check_snapshot(const std::string& _profile_path) {
     model_catalog catalog;
     catalog.schema_version_ = 1;
     catalog.revision_ = 8;
@@ -177,16 +177,15 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
 
     // The observed profile admits one source, never the 16-source schema ceiling.
     const std::string candidate_paths[] = {
-        "config/defaults/hardware_admission_profile.qcs6490.example.json",
-        "../config/defaults/hardware_admission_profile.qcs6490.example.json",
-        "../../config/defaults/hardware_admission_profile.qcs6490.example.json",
-        "../config/hardware_admission_profile.qcs6490.example.json",
-        "../config/hardware_admission_profile.json",
+        _profile_path,
         "/opt/lacai/config/hardware_admission_profile.qcs6490.example.json",
-        "/opt/lacai/config/hardware_admission_profile.json"
-    };
+        "/opt/lacai/config/hardware_admission_profile.json"};
     std::ifstream example_file;
     for (const auto& path : candidate_paths) {
+        if (path.empty()) {
+            continue;
+        }
+        example_file.clear();
         example_file.open(path);
         if (example_file.is_open()) {
             break;
@@ -224,9 +223,13 @@ void vqec_vision_ai_unit_astst_check_snapshot() {
 }  // namespace
 }  // namespace vqec::vision::ai
 
-int main() {
+int main(int _argc, char** _argv) {
     try {
-        vqec::vision::ai::vqec_vision_ai_unit_astst_check_snapshot();
+        if (_argc > 2) {
+            throw std::runtime_error("usage: vqec_vision_ai_activation_snapshot_test [profile]");
+        }
+        const std::string profile_path = _argc == 2 ? _argv[1] : "";
+        vqec::vision::ai::vqec_vision_ai_unit_astst_check_snapshot(profile_path);
         std::cout << "vqec_vision_activation_snapshot_test: all tests passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

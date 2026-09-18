@@ -1,4 +1,4 @@
-param([string] $_root = (Split-Path -Parent $PSScriptRoot))
+param([string] $_root = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
 
 # Read-only structural checks, not a C++ parser, compiler or ABI/ownership validator.
 $ErrorActionPreference = 'Stop'

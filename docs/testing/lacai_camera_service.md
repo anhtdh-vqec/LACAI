@@ -6,8 +6,8 @@ never implement AI, overlay, encode or ring production.
 
 **Status:** board-smoke — the mock camera and RTSP ring reader drove recorded board runs
 (see [QCS6490 target](qsc6490_board.md)); the ring regression is native-tested. **Layer:**
-reference. **Source:** `tools/vqec_vision_fw_camera_sim.py`,
-`tools/vqec_vision_ring_rtsp.py`.
+reference. **Source:** `tools/fixtures/vqec_vision_fw_camera_sim.py`,
+`tools/fixtures/vqec_vision_ring_rtsp.py`.
 
 These two board-side services replace the product FW for integration tests only. LACAI
 itself is the production binary `vqec_ai_vision_applications`; the mocks never implement
@@ -30,7 +30,7 @@ least one `--enrollment-image-root` plus `--enrollment-max-image-bytes`,
 policy. The service does not choose a fallback plugin. The requested JPEG must already be
 inside an allowed root on the target filesystem; biometric test files are never committed.
 
-## 1. Mock FW camera (`tools/vqec_vision_fw_camera_sim.py`)
+## 1. Mock FW camera (`tools/fixtures/vqec_vision_fw_camera_sim.py`)
 
 Reproduces the two FW camera responsibilities LACAI depends on, sourcing pixels from the
 real Qualcomm camera through `qtiqmmfsrc`:
@@ -62,9 +62,9 @@ The board fixture selects DMA-BUF backing only when explicitly requested, for ex
 `--dma-heap /dev/dma_heap/qcom,system`. The device node is board-specific and must be
 confirmed with BSP; it is not a product default. `--max-in-flight` sizes the bounded pool,
 and every slot remains unavailable until its matching ACK. The device-free regression is
-`PYTHONDONTWRITEBYTECODE=1 python3 tools/vqec_vision_fw_camera_sim_test.py`.
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/fixtures/vqec_vision_fw_camera_sim_test.py`.
 
-## 2. Mock FW RTSP (`tools/vqec_vision_ring_rtsp.py read`)
+## 2. Mock FW RTSP (`tools/fixtures/vqec_vision_ring_rtsp.py read`)
 
 Reads the released FW shared-memory encoded ring that the AI side produces
 (`/dev/shm/camera_ai_<ring_id>`, version 5 layout) and publishes it as RTSP. This replaces
@@ -82,7 +82,7 @@ sequence is never used as client running time, so a late join does not inherit p
 as startup delay.
 
 ```bash
-python3 tools/vqec_vision_ring_rtsp.py read \
+python3 tools/fixtures/vqec_vision_ring_rtsp.py read \
   --ring-id encoded_ai_detect0_cam0_ch0 \
   --port 8554 --mount /live/ai/detect0 --fps 30
 ```
@@ -103,14 +103,14 @@ RTSP service is therefore the whole output-side FW replacement.
 
 ## Runtime usecase/enrollment acceptance runner
 
-Use `tools/vqec_vision_fr_runtime_dbus_test.py` with a private deployment fixture to retain
+Use `tools/fixtures/vqec_vision_fr_runtime_dbus_test.py` with a private deployment fixture to retain
 one authenticated FW peer while checking live model load/unload, image enrollment,
 idempotency and multi-template removal. See
 [FR validation](face_recognition_production_validation.md)
 for fixture fields, native/QEMU results and outstanding release gates.
 
 Synthetic replacement regression: `PYTHONDONTWRITEBYTECODE=1 python3
-/opt/lacai/tools/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
+/opt/lacai/tools/fixtures/vqec_vision_ring_rtsp_test.py` on the board with GstRtspServer GI.
 The development host lacks that GI namespace; this Python regression is native-tested.
 
 ## Limits and next work

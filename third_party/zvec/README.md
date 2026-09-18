@@ -1,7 +1,7 @@
 # Zvec dependency
 
 Pinned upstream v0.7.0, source commit and SDK checksum in dependency.json.
-Run `bash tools/vqec_vision_prepare_zvec.sh` from a fresh checkout.
+Run `bash tools/build/vqec_vision_prepare_zvec.sh` from a fresh checkout.
 The downloaded SDK lives in sdk/ and is gitignored. LACAI builds the adapter by default;
 VQEC_VISION_AI_ZVEC_ROOT can explicitly select another reviewed installation.
 No dependency download occurs implicitly during CMake configuration.
@@ -14,5 +14,5 @@ copied into LACAI. Bundled dependency notices must be reviewed before redistribu
 this local development acquisition does not establish product license acceptance.
 
 On 2026-09-15 the real C API integration passed under eSDK QEMU and natively on
-QCS6490 .48: synthetic cosine threshold, model revision and delete visibility.
+QCS6490: synthetic cosine threshold, model revision and delete visibility.
 This evidence covers index execution, not camera FD-to-FR integration or restart recovery.

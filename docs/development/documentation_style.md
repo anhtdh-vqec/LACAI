@@ -105,7 +105,7 @@ ADRs keep their conventional sections instead of the template above:
 
 Rule/reference documents (`code_convention.md`, `naming_registry.md`,
 `documentation_style.md`, `review_checklist.md`, `implementation_status.md`,
-`capability_matrix.md`, `architecture_alignment_review.md`, the resolution log and the
+`capability_matrix.md`, `architecture_alignment_review.md` and the
 `docs/planning/` roadmaps) keep their own numbered/domain sections instead of a
 `## Responsibility` section, but still carry the header block and a `## See also` section.
 A plan may use Vietnamese headings.
@@ -145,7 +145,7 @@ source as a completed module.
 
 ## 6. Enforcement
 
-- `tools/vqec_vision_check_docs_layout.sh` verifies: lowercase snake_case filenames (with
+- `tools/checks/vqec_vision_check_docs_layout.sh` verifies: lowercase snake_case filenames (with
   `README.md` and `NNNN_slug.md` exceptions), a single H1, a `Status:` line before the first
   `##`, and resolvable relative links. It does not judge prose quality or status truth.
 - The checker runs in the `structure` CI job and per the review checklist before a commit.

@@ -26,7 +26,6 @@ and [capability matrix](development/capability_matrix.md); this map only routes.
 | [Capability matrix](development/capability_matrix.md) | Per-capability source/native/open state |
 | [Architecture alignment review](development/architecture_alignment_review.md) | Open architecture issues A01–A25 |
 | [Plan 0 production composition review](development/production_composition_foundation_review.md) | Current gate audit and unblock decision |
-| [Clean-base plan](planning/clean_base_plan.md) | Completed clean-base workstreams and residual work |
 
 ## Architecture
 
@@ -84,5 +83,5 @@ upstream facts, not LACAI capability.
 
 ## Checks
 
-- `tools/vqec_vision_check_source_layout.sh` — source/header/tool filenames and includes.
-- `tools/vqec_vision_check_docs_layout.sh` — docs filenames, titles, status lines and links.
+- `tools/checks/vqec_vision_check_source_layout.sh` — source/header/tool filenames and includes.
+- `tools/checks/vqec_vision_check_docs_layout.sh` — docs filenames, titles, status lines and links.

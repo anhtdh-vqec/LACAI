@@ -61,7 +61,7 @@ Board: SDK smoke + buffer lifetime/perf; prerelease fault/soak/update matrix.
 Current source: **unit/contract test source and CTest exist for validators, session,
 cadence, ownership and output helpers; eSDK cross-build passes; eSDK/QEMU currently
 123/123 and the native binary set on QCS6490 `.98` passes 117/117 via
-`tools/vqec_vision_board_native_tests.sh` (see `docs/testing/qsc6490_board.md`);
+`tools/board/vqec_vision_board_native_tests.sh` (see `docs/testing/qsc6490_board.md`);
 the structural/eSDK workflow exists; runner run is not verified and there is no AST
 naming checker**.
 .editorconfig/.clang-format is only configuration, it does not enforce every rule by
@@ -69,4 +69,4 @@ itself.
 
 ## See also
 
-- [Code convention](code_convention.md), [review resolution log](review_codebase_1309_resolution.md)
+- [Code convention](code_convention.md), [implementation status](implementation_status.md)

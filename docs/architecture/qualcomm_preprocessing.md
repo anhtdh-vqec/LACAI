@@ -4,7 +4,7 @@ This document defines the private FastCV preprocessing pipeline that turns a lin
 into the exact model input tensor behind the neutral `image_processor_port`, and records the
 measured board bottleneck progression.
 
-**Status:** board-smoke — source-delivered and measured on the QCS6490 `.48` integration target on
+**Status:** board-smoke — source-delivered and measured on a QCS6490 integration target on
 2026-09-15. **Layer:** adapters. **Source:**
 `src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.{hpp,cpp}`,
 `vqec_vision_qtiv_color.{hpp,cpp}`.

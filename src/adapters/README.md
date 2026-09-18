@@ -23,7 +23,7 @@ device-free reference execution.
 | `qualcomm/` | QCS6490 QNN, GStreamer, media and DSP implementations |
 | `reference/` | Device-free conformance implementations |
 | `storage/`, `zvec/` | Protected persistence and vector-index adapters |
-| `mediatek/`, `novatek/`, `rockchip/` | Explicit platform placeholders; no capability claim |
+| Future vendor adapter | Add only with an owned SDK boundary, neutral port and reviewable source |
 
 ## Limits and next work
 

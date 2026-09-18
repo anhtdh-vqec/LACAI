@@ -7,7 +7,7 @@ current priorities are in [alignment review](../development/architecture_alignme
 Status: proposed backlog to follow. The device-free basecode is frozen at the architecture
 level; this plan adds model packages, not runtime redesign. See
 [capability matrix](../development/capability_matrix.md) and the
-[clean-base plan](clean_base_plan.md).
+[implementation status](../development/implementation_status.md).
 
 First target model: **YOLOv8n-person** from
 `/home/a/Workspace/AI APPLICATIONS/QCS6490/yolov8n_person_qnn_src`. Board evidence already
@@ -34,7 +34,7 @@ Not a reason to touch the scheduler/runtime per model: a new model must be
 | MI-04 | partial | `yolov8_decoder` implemented and tested device-free (channel-first xywh dequant, inverse letterbox, clip, per-class NMS, threshold, bound, missing/mismatch/dtype/NaN negatives). Confirmed box format/space from the model team. Golden decoded parity pending reference detections. `dense_decoder` is not reused (layout differs). |
 | MI-05 | **done** | `vqec_vision_model_runner` (board tool): reads the package io_manifest/preprocess/decoder JSON, opens the owned QNN engine, cross-checks declared input identity against the graph, preprocesses an NV12 fixture, executes, decodes with `yolov8_decoder` and prints/emits a JSON report. Runtime validation on board is MI-06. |
 | MI-06 | partial | Board: runner ran the real package end to end, and raw outputs through the real preprocess path are byte-identical to `qnn-net-run` (2/2). M2 preprocess golden and M4 decoded golden still need the model team reference data; M1 declared-vs-graph identity check is implemented in the runner. |
-| MI-07 | **done (integration smoke)** | Qualcomm production owner composes the catalog-resolved package, owned QNN graph, decoder/tracker and optional renderer; person flow ran on `.48` through compatibility FW services. Released-FW acceptance remains open. |
+| MI-07 | **done (integration smoke)** | Qualcomm production owner composes the catalog-resolved package, owned QNN graph, decoder/tracker and optional renderer; production flow ran on `192.168.138.98` through compatibility FW services. Released-FW acceptance remains open. |
 | MI-08 | **done (device-free)** | `reference_platform` owner (`--platform reference`) wires the real `reference_tracker` and `reference_zone_feature` behind the neutral ports with the shared `fixture_detector`. Integration exposed and fixed two bugs: the reference tracker left detections untracked on a source gap, and the reference feature stamped events with the monotonic step clock instead of the source PTS domain. `service_production_reference_smoke` asserts routing, at least one delivered zone event and a clean stop. See [reference platform](../architecture/reference_platform.md). |
 | MI-09 | partial | Real QMMF camera reached the person flow through the compatibility FW RAW service; released FW camera/DMA ownership acceptance remains open. |
 | MI-10..MI-11 | todo | see commit order |

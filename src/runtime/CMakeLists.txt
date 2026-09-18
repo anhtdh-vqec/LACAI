@@ -48,7 +48,7 @@ if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST)
     set_target_properties(vqec_vision_ai_model_manifest PROPERTIES CXX_EXTENSIONS OFF)
     if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK)
         add_executable(vqec_vision_ai_manifest_check
-            ${CMAKE_SOURCE_DIR}/tools/vqec_vision_manifest_check.cpp)
+            ${CMAKE_SOURCE_DIR}/tools/diagnostics/vqec_vision_manifest_check.cpp)
         target_link_libraries(vqec_vision_ai_manifest_check PRIVATE vqec_vision_ai_model_manifest)
         set_target_properties(vqec_vision_ai_manifest_check PROPERTIES CXX_EXTENSIONS OFF)
     endif()

@@ -288,7 +288,9 @@
     target_link_libraries(vqec_vision_ai_activation_snapshot_test
         PRIVATE vqec_vision_ai_admission)
     set_target_properties(vqec_vision_ai_activation_snapshot_test PROPERTIES CXX_EXTENSIONS OFF)
-    add_test(NAME activation_snapshot_validation COMMAND vqec_vision_ai_activation_snapshot_test)
+    add_test(NAME activation_snapshot_validation
+        COMMAND vqec_vision_ai_activation_snapshot_test
+            ${CMAKE_SOURCE_DIR}/config/defaults/hardware_admission_profile.qcs6490.example.json)
     add_executable(vqec_vision_ai_model_catalog_test
         unit/core/vqec_vision_model_catalog_test.cpp)
     target_link_libraries(vqec_vision_ai_model_catalog_test PRIVATE vqec_vision_ai_core)
@@ -900,7 +902,7 @@
                     COMMAND ${usecase_runtime_session}
                         --config-file=/usr/share/dbus-1/session.conf --
                         ${usecase_runtime_python}
-                        ${CMAKE_SOURCE_DIR}/tools/vqec_vision_usecase_runtime_dbus_test.py
+                        ${CMAKE_SOURCE_DIR}/tools/fixtures/vqec_vision_usecase_runtime_dbus_test.py
                         ${CMAKE_CURRENT_SOURCE_DIR}/golden
                         ${CMAKE_CROSSCOMPILING_EMULATOR}
                         $<TARGET_FILE:vqec_ai_vision_applications>)

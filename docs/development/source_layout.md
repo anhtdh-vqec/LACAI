@@ -3,8 +3,9 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the current tree passed eSDK 135/135, QCS6490 `.98` 130/130
-native executables and the two-source service smoke on 2026-09-18. **Layer:** docs.
+**Status:** board-smoke — the current tree passed eSDK 135/135 and QCS6490 `.98` 128/128
+native executables on 2026-09-18. The canonical deployment passed preview smoke; the exact
+service candidate remains blocked at the legacy DSP loading boundary. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.
 
 ## Responsibility
@@ -29,7 +30,7 @@ native executables and the two-source service smoke on 2026-09-18. **Layer:** do
 | `config/` | Product policy examples and schemas | Policy is validated data, never compiled magic values |
 | `manifests/` | Model/feature integration declarations | Metadata only; artifact authenticity is separate |
 | `tests/` | Verification grouped by evidence type and owner | Unit/contract paths mirror source ownership |
-| `tools/` | Stable developer/CI command entry points | Flat CLI namespace is intentional; behavior is grouped in the README |
+| `tools/` | Developer/CI utilities grouped by execution role | Use `checks`, `build`, `board`, `diagnostics` or `fixtures`; do not add flat tools |
 | `third_party/` | Reviewed external source snapshots | Preserve upstream layout and provenance; never mix project source |
 | `packaging/` | Deployment integration | Must consume built artifacts; no product logic |
 
@@ -53,7 +54,7 @@ src/
     ├── camera  fw_control  fw_output  storage  zvec  reference
     ├── qualcomm/
     │   ├── dsp/host  dsp/v1  dsp/legacy  gstreamer  media  qnn
-    └── mediatek  novatek  rockchip
+    └── <future vendor adapter only after its SDK and contract are in scope>
 ```
 
 `core/perception/` owns neutral perception value validation. `src/perception/` owns
@@ -137,8 +138,8 @@ Before adding a file:
   released-FW, DSP deployment, accuracy, thermal or long-run acceptance.
 - `include/` remains intentionally grouped by public API kind to avoid gratuitous include-path
   breakage. A future split requires an approved compatibility/migration decision.
-- `tools/` remains a flat stable command namespace because scripts are invoked by CI, BSP and
-  board runbooks. Internal helper code may be grouped when it exists; command paths stay stable.
+- Tool filenames remain stable, while role directories make host-only checks, reproducible
+  builds, target probes, optional diagnostics and compatibility fixtures distinguishable.
 - The Qualcomm legacy DSP subtree is isolated but not approved as a production generic ABI.
 
 ## See also
