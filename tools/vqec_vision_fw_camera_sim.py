@@ -373,6 +373,10 @@ class RawFrameProducer:
                     stop.wait(0.001)
                     continue
                 fd, size, slot = got
+                if stop.is_set():
+                    os.close(fd)
+                    self.camera.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
+                    break
                 self.buf_id += 1
                 pts_ns = time.monotonic_ns()
                 header = FRAME_HEADER.pack(

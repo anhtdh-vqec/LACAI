@@ -622,7 +622,9 @@ The same FastRPC candidate binary (SHA-256 prefix `9d78b5cd`) ran without
   sequences over four seconds, or 25 FPS.
 - No `failed to map buffer` or FastRPC input-import error appeared in the candidate log.
   This is an inference from log inspection and ring progress, not a hardware trace of
-  every registration, cache operation or DMA completion.
+  every registration, cache operation or DMA completion. Final service metrics recorded
+  `routed=2692`, `failed=0`, `cascade_embeddings=48`, `cascade_failed=0` and
+  `first_error=0`.
 - A 15-second `/proc/<pid>/stat` process sample after warmup was 19.47% of one logical
   core. At that sample RSS/HWM were 390160 KiB, with 163 FDs and 44 threads. This is not
   a 30-minute performance run or memory-soak result and misses the 12% CPU target.
