@@ -554,6 +554,24 @@ to the Hexagon cDSP via FastRPC:
 - **Cross-Compiled Native Test Suite**:
   - **130/130 tests passed** (100%) under eSDK, including `dsp_preprocessor_unit`.
 
+### Review correction recorded 2026-09-18
+
+The section above is retained as historical evidence from that run, but its interpretation is
+narrower than its original wording:
+
+- `remote_register_buf_attr` plus a mapped DMA-BUF avoids one explicit input copy in the
+  adapter; it does not establish end-to-end zero-copy, cache coherency, asynchronous
+  completion or released-FW interoperability.
+- The legacy wire does not carry color matrix, range or interpolation fields. The cDSP
+  implementation calls fixed `ScaleDownMN` and `ColorYCbCr420PseudoPlanarToRGB888u8`
+  operations. Calling this the model's declared BT.709-limited bilinear transform requires
+  golden tensor evidence, which is not present.
+- Visual boxes establish only a smoke observation. They do not prove numeric decode parity,
+  threshold/tie behavior or model quality.
+- A later independent sample of the same three-model class of workload measured about
+  24.78–26.80% of one logical core and roughly 431 MiB RSS. The product target therefore
+  remains open. A short stable RSS sample cannot establish absence of leaks.
+
 ## Limits and next work
 
 - Still not qualified on the board: model accuracy (inputs were zero/random), async/shared
