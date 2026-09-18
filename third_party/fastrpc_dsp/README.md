@@ -29,11 +29,26 @@ package. Production integration is owned by `src/adapters/qualcomm`.
 
 ## Provenance boundary
 
-The committed `vqec_dsp.h` and `vqec_dsp_stub.c` are byte-identical to QAIC-generated files
-found in the legacy FW application at the time of the 2026-09-18 review. LACAI does not yet
-contain the input IDL, exact QAIC/Hexagon SDK version, regeneration command or per-file
-provenance receipt. The remaining C files are host regression fixtures and custom algorithm
-sources; they are not Qualcomm SDK source merely because this directory is named `third_party`.
+Read-only comparison on 2026-09-18 found the legacy FW IDL at
+`application/ai_app/dsp/inc/vqec_dsp.idl` (SHA-256
+`25ecda0aacc8ed873ebb3803168dc10b6aa269ecda1765153c575171b968762a`). The legacy
+`dsp/build.sh` invokes a Hexagon SDK 5.5.7.0 build and copies generated host files from its
+build output. This is a historical recipe, not an approved LACAI toolchain or a reproduced build.
+The IDL, exact generator executable/version, licensing receipt and per-file author approval are
+still absent from LACAI.
+
+| LACAI file(s) | Read-only comparison with legacy FW `application/ai_app/dsp/` | Disposition |
+|---|---|---|
+| `vqec_dsp.h`, `vqec_dsp_stub.c` | Byte-identical to `generated/`; SHA-256 `bf408bca…`, `f039c9ea…` | QAIC output; retain only for legacy ABI; regenerate from reviewed IDL before release |
+| `vqec_dsp_types.h`, `vqec_dsp_codes.h` | Byte-identical to `inc/`; SHA-256 `4c82a65b…`, `d5b17782…` | Authored wire definitions; license/owner review pending |
+| `post_common.c`, `post_common.h` | Byte-identical to `src/`; SHA-256 `9cd32bce…`, `21304541…` | Authored legacy reference algorithm; license/owner review pending |
+| `post_person_yolov8n.c`, `.h` | Byte-identical to `src/`; SHA-256 `3d3969be…`, `5f53759a…` | Model-specific reference; replace with operation descriptor backend |
+| `post_face_scrfd.c`, `.h` | Byte-identical to `src/`; SHA-256 `f357dfd8…`, `696f1965…` | Model-specific reference; replace with operation descriptor backend |
+| `pre.c`, `pre.h` | Deliberately **not** byte-identical to `src/`; SHA-256 `23f7da04…`, `587c1cb1…` | LACAI host scalar fixture; not the deployed FastCV cDSP kernel |
+
+The abbreviated SHA-256 values identify this snapshot; run `sha256sum` on the individual files
+for full digests before a release receipt. No claim is made that the historical recipe produced
+the deployed skeleton, or that the modified host `pre.c` is numerically equivalent to FastCV.
 
 Do not add model kernels here or copy more files from the sibling repository. The replacement
 must use project-owned, versioned operation descriptors and kernels, with generated artifacts

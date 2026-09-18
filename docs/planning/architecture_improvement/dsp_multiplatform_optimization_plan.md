@@ -148,8 +148,9 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 4. DSP preprocess ABI không mang matrix/range/interpolation/normalization descriptor. Kernel
    dùng `ScaleDownMN` và một FastCV color operation cố định, trong khi manifest hiện khai báo
    bilinear + BT.709 limited. Chưa có golden chứng minh hai semantics tương đương.
-5. Generated QAIC header/stub trùng byte với source ở repo FW cũ; input IDL, generator version,
-   per-file license/provenance và reproducible build chưa nằm trong LACAI.
+5. Generated QAIC header/stub trùng byte với source ở repo FW cũ; đã tìm thấy IDL và recipe
+   lịch sử trong sibling repo bằng kiểm tra read-only. IDL/recipe chưa thuộc LACAI, generator
+   version chính xác, per-file license/provenance và reproducible build vẫn chưa được xác nhận.
 6. Hexagon SDK 5.5.7/toolchain không có trong approved eSDK hiện tại; eSDK chỉ đủ ARM build/test.
    Vì vậy không thể build/verify protocol v2 hoặc skeleton mới trong phiên này.
 7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
@@ -242,7 +243,7 @@ golden, decode golden và quality report. AI APP có thể hoàn thiện adapter
 | ID | Owner | Công việc | Tiêu chí nghiệm thu |
 |---|---|---|---|
 | D00 | AI APP | Giữ các fix lease, fail-closed, exact tensor validation, quant sign và workspace | Full eSDK suite pass; negative tests shape/name/bytes/nonfinite/closed-DSP/FD reuse |
-| D01 | AI APP+BSP | Lập inventory từng file FastRPC/DSP, tách generated và project-owned | Có IDL, generator/version/hash/license cho từng file; file chưa rõ provenance không vào release |
+| D01 | AI APP+BSP | Kiểm toán inventory legacy đã lập trong `third_party/fastrpc_dsp/README.md`; đưa IDL/recipe đã review vào LACAI theo policy, tách generated và authored | Có IDL, generator/version/hash/license cho từng file; file chưa rõ provenance không vào release |
 | D02 | BSP+FW | Cấp approved Hexagon SDK 5.5.7, build container và signing/deploy procedure | Clean build skeleton từ IDL/source; digest reproducible; deploy `.98` không dùng binary copy tay |
 | D03 | AI Model | Bàn giao golden M0–M4 cho bốn model | Fixtures hợp lệ/lỗi; tolerances và quality owner ký |
 
