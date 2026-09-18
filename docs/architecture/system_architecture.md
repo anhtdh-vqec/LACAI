@@ -50,8 +50,8 @@ FW.
 
 The diagrams define intended ownership. Current production person composition uses
 multi_source_supervisor/session/pump, private FastCV preprocessing, owned QNN, decoding,
-reference tracking and QTI preview output. Production pairs FastCV/QNN HTP with QTI
-overlay/encode and ring. The FD -> exact-frame alignment -> EdgeFace -> typed embedding
+reference tracking and Qualcomm preview output. Production pairs FastCV/QNN HTP with cDSP
+overlay compose, V4L2 hardware encode and ring output. The FD -> exact-frame alignment -> EdgeFace -> typed embedding
 flow is connected at source through neutral ports. The app composition root may include
 concrete adapters; orchestration and neutral contracts depend only on ports. The secondary
 cascade is source-composed and logic-tested, while live model/golden evidence remains an
@@ -81,7 +81,7 @@ Create/attach the ring before the first frame so viewer registration can trigger
 Do not gate preview availability on an existing encoded frame. Do not couple video
 cadence to the single outstanding inference job; scheduling separates these demands.
 Ring SDK types stay private in adapters/fw_output; overlay commands and encoded-AU
-ports stay neutral. The QTI production renderer/encoder/ring compatibility flow exists.
+ports stay neutral. The production cDSP-overlay/V4L2-encoder/ring compatibility flow exists.
 General output-port composition and released-FW conformance must be validated separately.
 
 ```text

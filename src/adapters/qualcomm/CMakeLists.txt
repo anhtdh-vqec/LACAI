@@ -90,7 +90,8 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     target_include_directories(vqec_vision_ai_dsp_v1_wire PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     add_library(vqec_vision_ai_dsp_v1_dense STATIC
-        dsp/v1/vqec_vision_dsp_v1_dense.c)
+        dsp/v1/vqec_vision_dsp_v1_dense.c
+        dsp/v1/vqec_vision_dsp_v1_overlay.c)
     target_include_directories(vqec_vision_ai_dsp_v1_dense PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1" "${CMAKE_SOURCE_DIR}/include")
     target_link_libraries(vqec_vision_ai_dsp_v1_dense
@@ -125,7 +126,8 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     target_include_directories(vqec_vision_ai_dsp_v1_smoke PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1")
     target_link_libraries(vqec_vision_ai_dsp_v1_smoke PRIVATE
-        vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_dense)
+        vqec_vision_ai_dsp_v1_client vqec_vision_ai_dsp_v1_dense
+        vqec_vision_ai_qualcomm)
     set_target_properties(vqec_vision_ai_dsp_v1_smoke PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/dsp/legacy" "${vqec_vision_ai_qaic_output}")
@@ -250,19 +252,18 @@ if(VQEC_VISION_AI_ENABLE_FASTCV)
     set_target_properties(vqec_vision_ai_fastcv_affine_smoke PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
-# AI-owned encoded output adapter: qtivoverlay (hardware) + v4l2h264enc -> FW ring.
+# AI-owned encoded output adapter: cDSP NV12 compose + direct-import v4l2h264enc -> FW ring.
 if(VQEC_VISION_AI_ENABLE_QUALCOMM)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(qtiv_renderer_gst REQUIRED IMPORTED_TARGET
-        gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0
-        gstreamer-qcom-oss-allocators-1.0 gstreamer-qcom-oss-video-1.0)
     add_library(vqec_vision_ai_qtiv_renderer STATIC
         media/vqec_vision_qtiv_renderer.cpp)
     target_include_directories(vqec_vision_ai_qtiv_renderer PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/media>)
     target_include_directories(vqec_vision_ai_qtiv_renderer PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/host>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/host>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dsp/v1>)
     target_link_libraries(vqec_vision_ai_qtiv_renderer
-        PUBLIC vqec_vision_ai_core PRIVATE PkgConfig::qtiv_renderer_gst)
+        PUBLIC vqec_vision_ai_core
+        PRIVATE PkgConfig::gstreamer vqec_vision_ai_qualcomm
+                vqec_vision_ai_dsp_v1_dense)
     set_target_properties(vqec_vision_ai_qtiv_renderer PROPERTIES CXX_EXTENSIONS OFF)
 endif()

@@ -1,11 +1,14 @@
 #include "vqec_vision_qtiv_renderer.hpp"
 
 #include <atomic>
+#include <array>
 #include <cerrno>
 #include <cmath>
 #include <cstring>
 #include <ctime>
 #include <limits>
+#include <memory>
+#include <vector>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -13,16 +16,17 @@
 
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
-#include <gst/allocators/gstqtiallocator.h>
+#include <gst/allocators/gstdmabuf.h>
 #include <gst/gst.h>
-#include <gst/video/gstimagepool.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
-#include <gst/video/video-utils.h>
 
 #include "vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
 #include "vqec_vision_dsp_buffer_cache.hpp"
+#include "vqec_vision_dsp_v1_client.hpp"
+#include "vqec_vision_dsp_v1_overlay.h"
+#include "vqec_vision_rpcmem_pool.hpp"
 
 namespace vqec::vision::ai {
 namespace {
@@ -31,44 +35,75 @@ constexpr std::size_t g_nv12_plane_count = 2U;
 constexpr std::size_t g_nv12_chroma_row_divisor = 2U;
 constexpr std::uint32_t g_rgba_alpha_mask = 0xFFU;
 constexpr GstClockTime g_encoder_poll_timeout_ns = 0;
+constexpr std::uint32_t g_venus_stride_alignment = 128U;
+constexpr std::uint32_t g_venus_y_row_alignment = 32U;
+constexpr std::uint32_t g_venus_uv_row_alignment = 16U;
+constexpr std::uint16_t g_overlay_border_thickness = 2U;
+constexpr std::uint16_t g_overlay_font_scale = 2U;
 
-GstBufferPool* vqec_vision_ai_qcom_qtvr_create_output_pool(
-    GstCaps* _caps, guint _surface_count) {
-    GstVideoInfo info{};
-    GstVideoAlignment alignment{};
-    if (_caps == nullptr || !gst_video_info_from_caps(&info, _caps) ||
-        !gst_video_retrieve_gpu_alignment(&info, &alignment)) {
-        return nullptr;
-    }
-    GstBufferPool* pool = gst_image_buffer_pool_new();
-    GstAllocator* allocator = gst_qti_allocator_new(GST_FD_MEMORY_FLAG_KEEP_MAPPED);
-    if (pool == nullptr || allocator == nullptr) {
-        if (pool != nullptr) {
-            gst_object_unref(pool);
-        }
-        if (allocator != nullptr) {
-            gst_object_unref(allocator);
-        }
-        return nullptr;
-    }
-    GstStructure* config = gst_buffer_pool_get_config(pool);
-    gst_buffer_pool_config_set_allocator(config, allocator, nullptr);
-    gst_object_unref(allocator);
-    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_META);
-    gst_buffer_pool_config_add_option(config, GST_IMAGE_BUFFER_POOL_OPTION_KEEP_MAPPED);
-    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT);
-    gst_buffer_pool_config_set_video_alignment(config, &alignment);
-    gst_video_info_align(&info, &alignment);
-    gst_buffer_pool_config_set_params(
-        config, _caps, info.size, _surface_count, _surface_count);
-    if (!gst_buffer_pool_set_config(pool, config) || !gst_buffer_pool_set_active(pool, TRUE)) {
-        gst_object_unref(pool);
-        return nullptr;
-    }
-    return pool;
+struct renderer_surface_layout {
+    std::uint32_t y_stride_{0};
+    std::uint32_t uv_offset_{0};
+    std::uint32_t uv_stride_{0};
+    std::size_t bytes_{0};
+};
+
+struct renderer_surface_state {
+    std::atomic<bool> busy_{false};
+};
+
+std::uint32_t vqec_vision_ai_qcom_qtvr_align_up(std::uint32_t _value,
+                                                 std::uint32_t _alignment) {
+    return (_value + _alignment - 1U) & ~(_alignment - 1U);
 }
 
+renderer_surface_layout vqec_vision_ai_qcom_qtvr_make_surface_layout(
+    std::uint32_t _width, std::uint32_t _height) {
+    renderer_surface_layout layout;
+    layout.y_stride_ = vqec_vision_ai_qcom_qtvr_align_up(
+        _width, g_venus_stride_alignment);
+    const std::uint32_t y_rows = vqec_vision_ai_qcom_qtvr_align_up(
+        _height, g_venus_y_row_alignment);
+    const std::uint32_t uv_rows = vqec_vision_ai_qcom_qtvr_align_up(
+        _height / g_nv12_chroma_row_divisor, g_venus_uv_row_alignment);
+    layout.uv_offset_ = layout.y_stride_ * y_rows;
+    layout.uv_stride_ = layout.y_stride_;
+    layout.bytes_ = static_cast<std::size_t>(layout.uv_offset_) +
+        static_cast<std::size_t>(layout.uv_stride_) * uv_rows;
+    return layout;
+}
 
+std::uint8_t vqec_vision_ai_qcom_qtvr_clamp_yuv(int _value) {
+    if (_value < 0) {
+        return 0U;
+    }
+    if (_value > 255) {
+        return 255U;
+    }
+    return static_cast<std::uint8_t>(_value);
+}
+
+void vqec_vision_ai_qcom_qtvr_rgba_to_bt709_limited(
+    std::uint32_t _rgba, std::uint8_t& _y, std::uint8_t& _u, std::uint8_t& _v) {
+    const int red = static_cast<int>((_rgba >> 24U) & 0xFFU);
+    const int green = static_cast<int>((_rgba >> 16U) & 0xFFU);
+    const int blue = static_cast<int>((_rgba >> 8U) & 0xFFU);
+    _y = vqec_vision_ai_qcom_qtvr_clamp_yuv(
+        16 + ((47 * red + 157 * green + 16 * blue + 128) >> 8));
+    _u = vqec_vision_ai_qcom_qtvr_clamp_yuv(
+        128 + ((-26 * red - 87 * green + 112 * blue + 128) >> 8));
+    _v = vqec_vision_ai_qcom_qtvr_clamp_yuv(
+        128 + ((112 * red - 102 * green - 10 * blue + 128) >> 8));
+}
+
+void vqec_vision_ai_qcom_qtvr_release_surface(gpointer _user_data,
+                                               GstMiniObject* _object) {
+    (void)_object;
+    auto* state = static_cast<renderer_surface_state*>(_user_data);
+    if (state != nullptr) {
+        state->busy_.store(false, std::memory_order_release);
+    }
+}
 
 status vqec_vision_ai_qcom_qtvr_read_pipeline_error(GstElement* _pipeline) {
     GstBus* bus = gst_element_get_bus(_pipeline);
@@ -262,13 +297,29 @@ private:
 }  // namespace
 
 struct qtiv_renderer::implementation {
-    GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(const raw_frame& _frame);
+    GstBuffer* vqec_vision_ai_qcom_qtvr_copy_nv12(
+        const raw_frame& _frame, const overlay_batch& _overlay, bool _draw_overlay,
+        status& _status);
 
     qtiv_renderer_config config_;
     GstElement* pipeline_{nullptr};
     GstElement* appsrc_{nullptr};
     GstElement* appsink_{nullptr};
-    GstBufferPool* output_pool_{nullptr};
+    GstAllocator* dmabuf_allocator_{nullptr};
+    rpcmem_pool surface_pool_;
+    rpcmem_pool staging_pool_;
+    renderer_surface_layout surface_layout_;
+    std::vector<std::shared_ptr<renderer_surface_state>> surface_states_;
+    std::array<vqec_vision_ai_dsp_v1_overlay_box,
+               VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_BOXES> overlay_boxes_{};
+    std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_LABEL_BYTES> labels_{};
+    std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_DESCRIPTOR_BYTES>
+        descriptor_{};
+    std::vector<std::shared_ptr<const void>> quarantined_mappings_;
+    dsp_buffer_cache cpu_buffer_cache_{dsp_buffer_cache_config{32, false}};
+    std::size_t staging_bytes_{0};
+    bool staging_quarantined_{false};
+    bool has_uncertain_completion_{false};
     fw_ring_writer ring_;
     std::uint64_t written_{0};
     // Monotonic push counter for PTS; it must advance on every push even when the encoder
@@ -279,32 +330,67 @@ struct qtiv_renderer::implementation {
     std::uint64_t max_observation_age_ns_{500000000ULL};
     std::shared_ptr<dsp_buffer_cache> buffer_cache_{
         std::make_shared<dsp_buffer_cache>(dsp_buffer_cache_config{32, false})};
+    std::shared_ptr<dsp_v1_client> dsp_client_;
     bool is_open_{false};
 };
 
 qtiv_renderer::qtiv_renderer() : implementation_(std::make_unique<implementation>()) {}
 
-qtiv_renderer::~qtiv_renderer() noexcept { vqec_vision_ai_qcom_qtvr_close(); }
+qtiv_renderer::~qtiv_renderer() noexcept {
+    vqec_vision_ai_qcom_qtvr_close();
+    if (implementation_ != nullptr && implementation_->has_uncertain_completion_) {
+        // Process-lifetime quarantine: timeout/close/destruction is not hardware completion.
+        // The leaked faulted implementation retains every DSP/encoder-visible resource until
+        // BSP process-domain teardown. Reinitialization is forbidden below.
+        (void)implementation_.release();
+    }
+}
 
 status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& _config) {
     if (implementation_ == nullptr) {
         return {status_code::invalid_state, "qtiv renderer is unavailable"};
     }
     auto& impl = *implementation_;
+    if (impl.has_uncertain_completion_) {
+        return {status_code::invalid_state,
+            "qtiv renderer is quarantined after uncertain hardware completion"};
+    }
     if (impl.is_open_) {
         return {status_code::invalid_state, "qtiv renderer is already initialized"};
     }
     if (_config.width_ == 0 || _config.height_ == 0 || _config.fps_ == 0 ||
         _config.bitrate_bps_ == 0 || _config.keyframe_interval_frames_ == 0 ||
-        _config.output_surface_count_ == 0 ||
+        _config.output_surface_count_ == 0U ||
         (_config.box_color_rgba_ & g_rgba_alpha_mask) == 0 ||
         _config.ring_id_.empty() || _config.colorimetry_.empty() ||
-        _config.interlace_mode_.empty()) {
+        _config.interlace_mode_.empty() || _config.buffer_cache_ == nullptr ||
+        _config.dsp_client_ == nullptr ||
+        !_config.dsp_client_->vqec_vision_ai_qcom_d1cli_is_open() ||
+        _config.colorimetry_ != "bt709" || _config.interlace_mode_ != "progressive") {
         return {status_code::invalid_argument, "invalid qtiv renderer configuration"};
     }
     impl.config_ = _config;
-    if (_config.buffer_cache_ != nullptr) {
-        impl.buffer_cache_ = _config.buffer_cache_;
+    impl.buffer_cache_ = _config.buffer_cache_;
+    impl.dsp_client_ = _config.dsp_client_;
+    const auto capabilities = impl.dsp_client_->vqec_vision_ai_qcom_d1cli_capabilities();
+    if ((capabilities.operations_mask &
+         (1U << (VQEC_VISION_AI_DSP_V1_OVERLAY_COMPOSE - 1U))) == 0U) {
+        return {status_code::unsupported, "DSP v1 does not advertise overlay compose"};
+    }
+    impl.surface_layout_ = vqec_vision_ai_qcom_qtvr_make_surface_layout(
+        _config.width_, _config.height_);
+    if (impl.surface_layout_.bytes_ == 0U ||
+        impl.surface_layout_.bytes_ > VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_SURFACE_BYTES) {
+        return {status_code::invalid_argument, "invalid direct-import surface layout"};
+    }
+    const auto allocated = impl.surface_pool_.vqec_vision_ai_qcom_rpcm_allocate(
+        impl.surface_layout_.bytes_, _config.output_surface_count_);
+    if (allocated.code_ != status_code::ok) {
+        return allocated;
+    }
+    impl.surface_states_.reserve(_config.output_surface_count_);
+    for (std::uint32_t index = 0; index < _config.output_surface_count_; ++index) {
+        impl.surface_states_.push_back(std::make_shared<renderer_surface_state>());
     }
     if (!impl.ring_.open(_config.ring_id_)) {
         return {status_code::io_error, "cannot open the FW encoded ring"};
@@ -315,8 +401,10 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         std::to_string(_config.keyframe_interval_frames_);
     const std::string description =
         "appsrc name=src is-live=true format=time"
-        " ! capsfilter name=surfacecaps ! qtivoverlay"
-        " ! v4l2h264enc extra-controls=\"controls,video_bitrate=" + bitrate +
+        " ! capsfilter name=surfacecaps"
+        " ! queue max-size-buffers=2"
+        " ! v4l2h264enc capture-io-mode=dmabuf output-io-mode=dmabuf-import"
+        " extra-controls=\"controls,video_bitrate=" + bitrate +
         ",video_gop_size=" + keyframe_interval + "\""
         // Repeat SPS/PPS on every IDR so a late RTSP reader can start from any retained
         // keyframe in the bounded ring.
@@ -328,7 +416,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
         if (error != nullptr) {
             g_error_free(error);
         }
-        return {status_code::unsupported, "cannot build the qtivoverlay encode pipeline"};
+        return {status_code::unsupported, "cannot build the direct-import encode pipeline"};
     }
     impl.appsrc_ = gst_bin_get_by_name(GST_BIN(impl.pipeline_), "src");
     impl.appsink_ = gst_bin_get_by_name(GST_BIN(impl.pipeline_), "enc");
@@ -338,7 +426,7 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
             gst_object_unref(surface_caps);
         }
         return {status_code::unsupported,
-            "qtivoverlay pipeline is missing appsrc, surface caps, or appsink"};
+            "direct-import pipeline is missing appsrc, surface caps, or appsink"};
     }
     GstCaps* caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12",
         "width", G_TYPE_INT, static_cast<int>(_config.width_), "height", G_TYPE_INT,
@@ -349,25 +437,25 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_init(const qtiv_renderer_config& 
     g_object_set(G_OBJECT(impl.appsrc_), "caps", caps, nullptr);
     // Fix the renderer surface contract to the complete negotiated camera profile.
     g_object_set(G_OBJECT(surface_caps), "caps", caps, nullptr);
-    impl.output_pool_ = vqec_vision_ai_qcom_qtvr_create_output_pool(
-        caps, _config.output_surface_count_);
     gst_object_unref(surface_caps);
     gst_caps_unref(caps);
-    if (impl.output_pool_ == nullptr) {
+    impl.dmabuf_allocator_ = gst_dmabuf_allocator_new();
+    if (impl.dmabuf_allocator_ == nullptr) {
         return {status_code::resource_exhausted,
-            "cannot create the Qualcomm DMA render pool"};
+            "cannot create the DMA-BUF import allocator"};
     }
     impl.is_open_ = true;
     if (gst_element_set_state(impl.pipeline_, GST_STATE_PLAYING) ==
         GST_STATE_CHANGE_FAILURE) {
         vqec_vision_ai_qcom_qtvr_close();
-        return {status_code::io_error, "cannot start the qtivoverlay encode pipeline"};
+        return {status_code::io_error, "cannot start the direct-import encode pipeline"};
     }
     return {};
 }
 
 GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
-    const raw_frame& _frame) {
+    const raw_frame& _frame, const overlay_batch& _overlay, bool _draw_overlay,
+    status& _status) {
     const auto& descriptor = _frame.descriptor_;
     if (_frame.native_handle_ < 0 ||
         _frame.native_handle_ > std::numeric_limits<int>::max() ||
@@ -378,6 +466,7 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
         descriptor.memory_offset_bytes_ > descriptor.allocation_size_bytes_ ||
         descriptor.view_size_bytes_ >
             descriptor.allocation_size_bytes_ - descriptor.memory_offset_bytes_) {
+        _status = {status_code::invalid_argument, "invalid RAW NV12 descriptor"};
         return nullptr;
     }
     const std::size_t width = descriptor.width_;
@@ -389,63 +478,204 @@ GstBuffer* qtiv_renderer::implementation::vqec_vision_ai_qcom_qtvr_copy_nv12(
             descriptor.offsets_[plane] > descriptor.view_size_bytes_ ||
             rows > (descriptor.view_size_bytes_ - descriptor.offsets_[plane]) /
                 static_cast<std::size_t>(descriptor.strides_[plane])) {
+            _status = {status_code::invalid_argument, "RAW NV12 plane exceeds its view"};
             return nullptr;
         }
+    }
+    std::size_t surface_index = surface_states_.size();
+    for (std::size_t index = 0; index < surface_states_.size(); ++index) {
+        bool expected = false;
+        if (surface_states_[index]->busy_.compare_exchange_strong(
+                expected, true, std::memory_order_acq_rel)) {
+            surface_index = index;
+            break;
+        }
+    }
+    if (surface_index == surface_states_.size()) {
+        _status = {status_code::resource_exhausted,
+            "all direct-import preview surfaces are in flight"};
+        return nullptr;
+    }
+    const auto release_surface = [this, surface_index]() {
+        surface_states_[surface_index]->busy_.store(false, std::memory_order_release);
+    };
+    const auto& surface = surface_pool_.vqec_vision_ai_qcom_rpcm_slot(surface_index);
+    if (surface.data_ == nullptr || surface.fd_ < 0 ||
+        surface.size_ < surface_layout_.bytes_) {
+        release_surface();
+        _status = {status_code::invalid_state, "direct-import surface is unavailable"};
+        return nullptr;
     }
     const int frame_fd = static_cast<int>(_frame.native_handle_);
     const std::size_t alloc_size = static_cast<std::size_t>(descriptor.allocation_size_bytes_);
     status map_status;
-    const auto mapped = buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
+    auto mapped = buffer_cache_->vqec_vision_ai_qcom_dspbc_map(
         frame_fd, alloc_size, map_status);
-    if (mapped.data_ == nullptr || map_status.code_ != status_code::ok) {
-        return nullptr;
-    }
-    GstBuffer* buffer = nullptr;
-    if (output_pool_ == nullptr ||
-        gst_buffer_pool_acquire_buffer(output_pool_, &buffer, nullptr) != GST_FLOW_OK) {
-        return nullptr;
-    }
-    GstMapInfo map{};
-    const bool copied = buffer != nullptr && gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-    if (copied) {
-        const auto* base = mapped.data_ + descriptor.memory_offset_bytes_;
-        const GstVideoMeta* output_meta = gst_buffer_get_video_meta(buffer);
-        if (output_meta == nullptr || output_meta->n_planes != g_nv12_plane_count) {
-            gst_buffer_unmap(buffer, &map);
-            gst_buffer_unref(buffer);
+    bool staged_input = false;
+    const std::uint8_t* dsp_input = nullptr;
+    std::size_t dsp_input_bytes = static_cast<std::size_t>(descriptor.view_size_bytes_);
+    if (mapped.data_ != nullptr && map_status.code_ == status_code::ok) {
+        dsp_input = mapped.data_ + descriptor.memory_offset_bytes_;
+    } else if (map_status.code_ == status_code::unsupported) {
+        if (staging_quarantined_) {
+            release_surface();
+            _status = {status_code::invalid_state,
+                "DSP staging input is quarantined after uncertain completion"};
             return nullptr;
         }
-        for (std::size_t plane = 0; plane < g_nv12_plane_count; ++plane) {
-            const std::size_t rows = plane == 0 ? height : chroma_rows;
-            const auto* source = base + descriptor.offsets_[plane];
-            const std::size_t source_stride =
-                static_cast<std::size_t>(descriptor.strides_[plane]);
-            const std::size_t destination_offset = output_meta->offset[plane];
-            const std::size_t destination_stride =
-                static_cast<std::size_t>(output_meta->stride[plane]);
-            if (destination_stride < width || destination_offset > map.size ||
-                rows > (map.size - destination_offset) / destination_stride) {
-                gst_buffer_unmap(buffer, &map);
-                gst_buffer_unref(buffer);
+        status cpu_map_status;
+        mapped = cpu_buffer_cache_.vqec_vision_ai_qcom_dspbc_map(
+            frame_fd, alloc_size, cpu_map_status);
+        if (mapped.data_ == nullptr || cpu_map_status.code_ != status_code::ok) {
+            release_surface();
+            _status = cpu_map_status;
+            return nullptr;
+        }
+        if (staging_pool_.vqec_vision_ai_qcom_rpcm_count() == 0U ||
+            staging_bytes_ < dsp_input_bytes) {
+            const auto allocated = staging_pool_.vqec_vision_ai_qcom_rpcm_allocate(
+                dsp_input_bytes, 1U);
+            if (allocated.code_ != status_code::ok) {
+                release_surface();
+                _status = allocated;
                 return nullptr;
             }
-            if (destination_stride == source_stride && destination_stride == width) {
-                std::memcpy(map.data + destination_offset, source, rows * width);
-            } else {
-                for (std::size_t row = 0; row < rows; ++row) {
-                    std::memcpy(map.data + destination_offset + row * destination_stride,
-                        source + row * source_stride, width);
-                }
-            }
+            staging_bytes_ = staging_pool_.vqec_vision_ai_qcom_rpcm_slot(0U).size_;
         }
-        gst_buffer_unmap(buffer, &map);
+        const auto& staging = staging_pool_.vqec_vision_ai_qcom_rpcm_slot(0U);
+        if (staging.data_ == nullptr || staging.size_ < dsp_input_bytes) {
+            release_surface();
+            _status = {status_code::invalid_state, "DSP staging input is unavailable"};
+            return nullptr;
+        }
+        std::memcpy(staging.data_, mapped.data_ + descriptor.memory_offset_bytes_,
+            dsp_input_bytes);
+        dsp_input = static_cast<const std::uint8_t*>(staging.data_);
+        staged_input = true;
+    } else {
+        release_surface();
+        _status = map_status;
+        return nullptr;
     }
-    if (!copied) {
+    std::uint32_t label_bytes = 0U;
+    std::uint32_t box_count = 0U;
+    if (_draw_overlay) {
+        for (const auto& item : _overlay.boxes_) {
+            if (box_count >= overlay_boxes_.size() ||
+                item.label_.size() > UINT16_MAX ||
+                item.label_.size() > labels_.size() - label_bytes) {
+                release_surface();
+                _status = {status_code::resource_exhausted,
+                    "overlay metadata exceeds negotiated DSP bounds"};
+                return nullptr;
+            }
+            auto& box = overlay_boxes_[box_count];
+            box = {};
+            box.x = static_cast<std::uint32_t>(item.x_);
+            box.y = static_cast<std::uint32_t>(item.y_);
+            box.width = static_cast<std::uint32_t>(item.width_);
+            box.height = static_cast<std::uint32_t>(item.height_);
+            const std::uint32_t rgba =
+                item.rgba_ != 0U && item.rgba_ != 0xffffffffU ?
+                    item.rgba_ : config_.box_color_rgba_;
+            vqec_vision_ai_qcom_qtvr_rgba_to_bt709_limited(
+                rgba, box.color_y, box.color_u, box.color_v);
+            box.label_offset = label_bytes;
+            box.label_bytes = static_cast<std::uint16_t>(item.label_.size());
+            if (!item.label_.empty()) {
+                std::memcpy(labels_.data() + label_bytes, item.label_.data(), item.label_.size());
+                label_bytes += static_cast<std::uint32_t>(item.label_.size());
+            }
+            ++box_count;
+        }
+    }
+    vqec_vision_ai_dsp_v1_overlay_frame frame{};
+    frame.width = descriptor.width_;
+    frame.height = descriptor.height_;
+    frame.source_y_offset = descriptor.offsets_[0];
+    frame.source_y_stride = static_cast<std::uint32_t>(descriptor.strides_[0]);
+    frame.source_uv_offset = descriptor.offsets_[1];
+    frame.source_uv_stride = static_cast<std::uint32_t>(descriptor.strides_[1]);
+    frame.destination_y_offset = 0U;
+    frame.destination_y_stride = surface_layout_.y_stride_;
+    frame.destination_uv_offset = surface_layout_.uv_offset_;
+    frame.destination_uv_stride = surface_layout_.uv_stride_;
+    frame.border_thickness = g_overlay_border_thickness;
+    frame.font_scale = g_overlay_font_scale;
+    std::size_t descriptor_bytes = 0U;
+    const auto capabilities = dsp_client_->vqec_vision_ai_qcom_d1cli_capabilities();
+    const auto encoded = vqec_vision_ai_qcom_d1ovr_encode_descriptor(
+        &capabilities, &frame, overlay_boxes_.data(), box_count, labels_.data(), label_bytes,
+        static_cast<std::uint32_t>(descriptor.view_size_bytes_),
+        static_cast<std::uint32_t>(surface.size_), descriptor_.data(), descriptor_.size(),
+        &descriptor_bytes);
+    if (encoded != vqec_vision_ai_dsp_v1_wire_ok) {
+        release_surface();
+        _status = {status_code::invalid_argument,
+            "cannot encode bounded DSP overlay descriptor"};
+        return nullptr;
+    }
+    const auto call = dsp_client_->vqec_vision_ai_qcom_d1cli_execute(
+        descriptor_.data(), descriptor_bytes,
+        dsp_input, dsp_input_bytes,
+        static_cast<std::uint8_t*>(surface.data_), surface.size_);
+    if (call.completion_ == dsp_v1_completion::uncertain) {
+        has_uncertain_completion_ = true;
+        if (staged_input) {
+            staging_quarantined_ = true;
+        } else {
+            quarantined_mappings_.push_back(mapped.owner_);
+        }
+        _status = call.status_;
+        return nullptr;
+    }
+    if (call.status_.code_ != status_code::ok ||
+        call.output_bytes_ < surface_layout_.uv_offset_ +
+            surface_layout_.uv_stride_ * (descriptor.height_ / g_nv12_chroma_row_divisor)) {
+        release_surface();
+        _status = call.status_.code_ != status_code::ok ? call.status_ :
+            status{status_code::protocol_error, "DSP overlay returned a short surface"};
+        return nullptr;
+    }
+    const int retained_fd = ::fcntl(surface.fd_, F_DUPFD_CLOEXEC, 0);
+    if (retained_fd < 0) {
+        release_surface();
+        _status = {status_code::io_error, "cannot retain the direct-import surface FD"};
+        return nullptr;
+    }
+    GstMemory* memory = gst_dmabuf_allocator_alloc(
+        dmabuf_allocator_, retained_fd, surface.size_);
+    GstBuffer* buffer = gst_buffer_new();
+    if (memory == nullptr || buffer == nullptr) {
+        if (memory != nullptr) {
+            gst_memory_unref(memory);
+        } else {
+            ::close(retained_fd);
+        }
         if (buffer != nullptr) {
             gst_buffer_unref(buffer);
         }
+        release_surface();
+        _status = {status_code::resource_exhausted, "cannot wrap direct-import surface"};
         return nullptr;
     }
+    gst_buffer_append_memory(buffer, memory);
+    gsize offsets[GST_VIDEO_MAX_PLANES] = {0U, surface_layout_.uv_offset_, 0U, 0U};
+    gint strides[GST_VIDEO_MAX_PLANES] = {
+        static_cast<gint>(surface_layout_.y_stride_),
+        static_cast<gint>(surface_layout_.uv_stride_), 0, 0};
+    if (gst_buffer_add_video_meta_full(
+            buffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_FORMAT_NV12,
+            descriptor.width_, descriptor.height_, g_nv12_plane_count, offsets, strides) ==
+        nullptr) {
+        gst_buffer_unref(buffer);
+        release_surface();
+        _status = {status_code::resource_exhausted, "cannot attach NV12 import metadata"};
+        return nullptr;
+    }
+    gst_mini_object_weak_ref(GST_MINI_OBJECT(buffer),
+        vqec_vision_ai_qcom_qtvr_release_surface, surface_states_[surface_index].get());
+    _status = {};
     return buffer;
 }
 
@@ -455,6 +685,10 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         return {status_code::invalid_state, "qtiv renderer is not initialized"};
     }
     auto& impl = *implementation_;
+    if (impl.has_uncertain_completion_) {
+        return {status_code::invalid_state,
+            "qtiv renderer is quarantined after uncertain hardware completion"};
+    }
     if (impl.demand_gating_enabled_ && !impl.has_demand_) {
         return {status_code::pending, "no preview demand"};
     }
@@ -504,10 +738,13 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
         drop_boxes = true;
     }
 
-    GstBuffer* buffer = impl.vqec_vision_ai_qcom_qtvr_copy_nv12(_frame);
+    status compose_status;
+    GstBuffer* buffer = impl.vqec_vision_ai_qcom_qtvr_copy_nv12(
+        _frame, _payload.overlay_, !drop_boxes, compose_status);
     if (buffer == nullptr) {
-        return {status_code::io_error,
-            "cannot copy the NV12 frame into the Qualcomm render surface"};
+        return compose_status.code_ != status_code::ok ? compose_status :
+            status{status_code::io_error,
+                "cannot compose the NV12 frame on the DSP render surface"};
     }
     if (drop_boxes && !_payload.overlay_.boxes_.empty()) {
         static std::uint64_t s_last_renderer_drop_ns = 0;
@@ -515,30 +752,6 @@ status qtiv_renderer::vqec_vision_ai_qcom_qtvr_render(
             std::fprintf(stderr, "qtiv_renderer dropped %zu boxes (epoch/monotonic/pts)\n",
                 _payload.overlay_.boxes_.size());
             s_last_renderer_drop_ns = now_ns;
-        }
-    }
-    if (!drop_boxes) {
-        for (const auto& item : _payload.overlay_.boxes_) {
-            if (!std::isfinite(item.x_) || !std::isfinite(item.y_) ||
-                !std::isfinite(item.width_) || !std::isfinite(item.height_) ||
-                item.x_ < 0 || item.y_ < 0 || item.width_ <= 0 || item.height_ <= 0 ||
-                item.x_ + item.width_ > _frame.descriptor_.width_ ||
-                item.y_ + item.height_ > _frame.descriptor_.height_) {
-                continue;
-            }
-            GstVideoRegionOfInterestMeta* roi = gst_buffer_add_video_region_of_interest_meta(
-                buffer, item.label_.c_str(),
-                static_cast<guint>(item.x_), static_cast<guint>(item.y_),
-                static_cast<guint>(item.width_), static_cast<guint>(item.height_));
-            if (roi == nullptr) {
-                continue;
-            }
-            const guint box_color = (item.rgba_ != 0 && item.rgba_ != 0xffffffffU) ?
-                item.rgba_ : impl.config_.box_color_rgba_;
-            GstStructure* structure = gst_structure_new("ObjectDetection",
-                "confidence", G_TYPE_DOUBLE, static_cast<gdouble>(1.0),
-                "color", G_TYPE_UINT, box_color, nullptr);
-            gst_video_region_of_interest_meta_add_param(roi, structure);
         }
     }
     GST_BUFFER_PTS(buffer) = impl.submitted_ * GST_SECOND / impl.config_.fps_;
@@ -644,10 +857,23 @@ void qtiv_renderer::vqec_vision_ai_qcom_qtvr_close() noexcept {
         gst_object_unref(impl.pipeline_);
         impl.pipeline_ = nullptr;
     }
-    if (impl.output_pool_ != nullptr) {
-        gst_buffer_pool_set_active(impl.output_pool_, FALSE);
-        gst_object_unref(impl.output_pool_);
-        impl.output_pool_ = nullptr;
+    if (impl.dmabuf_allocator_ != nullptr) {
+        gst_object_unref(impl.dmabuf_allocator_);
+        impl.dmabuf_allocator_ = nullptr;
+    }
+    for (const auto& state : impl.surface_states_) {
+        if (state != nullptr && state->busy_.load(std::memory_order_acquire)) {
+            impl.has_uncertain_completion_ = true;
+            break;
+        }
+    }
+    if (!impl.has_uncertain_completion_) {
+        impl.surface_states_.clear();
+        impl.surface_pool_.vqec_vision_ai_qcom_rpcm_release();
+        impl.staging_pool_.vqec_vision_ai_qcom_rpcm_release();
+        impl.staging_bytes_ = 0U;
+        impl.quarantined_mappings_.clear();
+        impl.dsp_client_.reset();
     }
     impl.ring_.close();
     impl.is_open_ = false;

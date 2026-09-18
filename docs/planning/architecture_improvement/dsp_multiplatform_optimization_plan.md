@@ -3,8 +3,9 @@
 Plan này định nghĩa yêu cầu hệ thống, kiến trúc đích, backlog và gate nghiệm thu để giảm ARM
 CPU cho workload camera hiện tại và mở rộng đến 18 usecase mà không hardcode model vào FastRPC.
 
-**Status:** planned — adapter legacy đã được harden và có baseline `.98`; ABI generic,
-golden parity, soak và các mục tiêu CPU vẫn chưa được nghiệm thu. **Layer:** docs.
+**Status:** board-smoke — dense và overlay generic v1 đã chạy trên `.98`; preview person
+đạt 25.125 FPS nhưng golden parity, full-workload, soak và các mục tiêu CPU vẫn chưa được
+nghiệm thu. **Layer:** docs.
 **Source:** `src/adapters/qualcomm`,
 `manifests/models`, `docs/architecture/qualcomm_fastrpc_adapter.md`.
 
@@ -136,6 +137,28 @@ zero-copy, 30 phút CPU hay 8 giờ leak gate. Service/camera chuẩn đã đư�
 ring chuẩn tăng 49 sequence/2 giây sau test. Chi tiết ở
 [board evidence](../../testing/qsc6490_board.md).
 
+### 2.1.2 Candidate cDSP overlay và direct encoder import
+
+Ngày 2026-09-18, output adapter được chuyển từ `qtivoverlay` sang operation generic v1
+`overlay_compose`. Kernel cDSP nhận descriptor NV12/box/label bounded, copy frame vào một trong
+tám rpcmem surface, vẽ overlay rồi chuyển FD thẳng cho `v4l2h264enc` bằng GStreamer DMA-BUF
+allocator chuẩn. Không còn QTI overlay plugin, QTI allocator hoặc cấp phát surface theo frame.
+
+| Mục | Kết quả |
+|---|---|
+| ABI/kernel | Operation mask `18`: `dense_decode` + `overlay_compose`; system-client rpcmem input/output pass trên cDSP |
+| eSDK logic | Full CTest **134/134** pass; overlay codec/kernel có copy, box, label và reserved-byte negative test |
+| Registered DMA-BUF person | 20 giây: `10.04% usr + 3.95% sys = 13.99%` một core; RSS/HWM 246764 KiB, 21 threads |
+| Memfd staging person | 20 giây: `11.10% usr + 5.75% sys = 16.85%` một core |
+| Preview | 201 packet/8 giây = **25.125 FPS**, H.264 1920x1080; contact sheet đã review box/label/orientation/no-stale pass |
+| So với person baseline | 13.99% so với 22.09%: giảm khoảng 36.7%; vẫn chưa đạt ngưỡng 12% |
+| Perf registered path | Hot symbol còn lại chủ yếu là FastCV color conversion và horizontal/vertical scale của model preprocess; không còn `qtivoverlay` |
+
+Kết quả này chứng minh hướng offload overlay và direct encoder import có lợi, nhưng không được
+suy rộng thành acceptance full workload. Fire/smoke trong scene không có detection không tạo
+preview output nên mẫu CPU fire không phải end-to-end encode evidence. Camera fixture DMA-heap
+vẫn không thay thế released-FW cache/fence/completion acceptance.
+
 ### 2.2 Những gì source hiện đã sửa
 
 | Hạng mục | Trạng thái |
@@ -177,8 +200,9 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
    buộc cho ARM C++/CMake/tests.
 7. Neutral `tensor_blob` sở hữu vector bytes. QNN registered output vẫn phải memcpy về result
    owned mỗi frame; loại copy này cần owner/view + completion contract, không được xóa bằng cast.
-8. Preview/source vẫn có memcpy đáng kể. Phải tách số CPU media path khỏi inference path trước
-   khi quy lỗi cho decoder hoặc cDSP.
+8. `qtivoverlay` đã được loại khỏi output hot path. Registered DMA-BUF đi thẳng vào
+   `overlay_compose`; memfd có một staging copy công khai. cDSP vẫn phải copy source sang surface
+   writable của encoder, còn model preprocessing FastCV đang là userspace hotspot lớn nhất.
 9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
 10. Clean candidate ngày 2026-09-18 phát hiện production composition vẫn mở
     `libvqec_dsp_skel.so` legacy vô điều kiện trước khi chọn operation. Board catalog schema 2
@@ -324,7 +348,7 @@ semantics/quality (AI Model), không trì hoãn capture chỉ vì chưa có bộ
 | D16 | AI APP | Neutral borrowed tensor result lease | Owner/view/completion contract; no per-frame result allocation/copy; decoder lifetime tests |
 | D17 | AI APP+BSP | Registered input/output end-to-end | Cache/fence/completion proven; no early reuse; copied-bytes counter giảm đúng |
 | D18 | AI APP | Staged activation và pre-sized bounded pools | Không cold stampede/busy-spin; phase counters; rollback trên partial start |
-| D19 | AI APP+BSP | Source/preview memcpy investigation | Mỗi copy có owner/reason/bytes; loại copy chỉ khi FW DMA contract chứng minh an toàn |
+| D19 | AI APP+BSP | Source/preview memcpy investigation — cDSP overlay/direct encoder import đã board-smoke; released-FW completion còn mở | Mỗi copy có owner/reason/bytes; loại copy chỉ khi FW DMA contract chứng minh an toàn |
 | D20 | AI APP | Leak/reload hardening | SYS-MEM-01..06 đạt qua cycle+soak; fault injection alloc/RPC/reset |
 
 ### P5 — Capacity và acceptance
@@ -391,17 +415,16 @@ Board report phải có:
 - [ ] Qualcomm và reference conformance pass; neutral layer không có vendor type.
 - [ ] AI APP lead, BSP+FW lead và AI Model lead ký đúng phần ownership của mình.
 
-Plan chưa được đóng ở revision hiện tại: canonical deployment gần nhất đạt 25.125 FPS nhưng
-warm sample vẫn dùng 26.45% một core; exact source candidate chưa qua startup vì production
-còn phụ thuộc skeleton legacy vô điều kiện. Startup từng đạt 90–95% trong khoảng năm giây;
-DMA-BUF production A/B chưa có. Hexagon toolchain/provenance và model golden chưa đủ,
-fire/smoke postprocess vẫn ở ARM, preprocessing semantics chưa được chứng minh, startup/soak
-chưa có acceptance evidence.
+Plan chưa được đóng ở revision hiện tại. Exact person candidate đã đạt 25.125 FPS và giảm CPU
+từ baseline 22.09% xuống 13.99% nhờ cDSP overlay + registered input, nhưng vẫn trượt ngưỡng
+12% và chưa phải workload person + face + fire/smoke. Startup QNN preparation vẫn tạo peak cao;
+hotspot tiếp theo là FastCV model preprocessing. SCRFD/ROI/image-transform v1, model golden,
+BSP signing/cache/fence/reset, full 30/60 phút và soak 8 giờ chưa có acceptance evidence.
 
 ## Giới hạn và công việc tiếp theo
 
-- Candidate hardening đã có board fixture smoke; vẫn cần released-FW DMA-BUF A/B vì QAIC-copy
-  memfd không thay board acceptance của registered input.
+- Candidate cDSP overlay đã có board fixture registered-DMA smoke và memfd A/B; vẫn cần
+  released-FW DMA-BUF completion vì fixture không thay acceptance của FW/BSP.
 - Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
   trước khi so số.
 - SDK 5.5.7.0 đã được cấp, QAIC sinh được legacy/v1 draft và host compiler có user-local

@@ -201,7 +201,7 @@ void vqec_vision_ai_unit_astst_check_snapshot(const std::string& _profile_path) 
     }
     if (qcs_profile.profile_id_ != "qcs6490_rb3gen2_single_source_observed" ||
         qcs_profile.target_id_ != "qcs6490" ||
-        qcs_profile.revision_ != 1 || qcs_profile.max_fw_concurrency_slots_ != 1) {
+        qcs_profile.revision_ != 2 || qcs_profile.max_fw_concurrency_slots_ != 1) {
         throw std::runtime_error("QCS6490 example profile fields mismatch");
     }
     activation_snapshot qcs_snapshot;

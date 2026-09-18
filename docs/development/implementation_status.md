@@ -231,15 +231,15 @@ Delivered and current:
 Current evidence: clean eSDK/QEMU expanded configuration 136/136; board `.98` native 128/128
 with fixtures via `tools/board/vqec_vision_board_native_tests.sh`. The canonical deployment
 published H.264 1920x1080 at an effective 25.125 FPS, passed a four-frame visual overlay
-review and stopped with `first_error=0`. The exact source candidate is not service-accepted:
-after rejecting a stale schema-2 board catalog, it failed closed while loading the
-unconditional legacy DSP skeleton. The latency metric is `route_latency_*` (steady
+review and stopped with `first_error=0`. A later exact cDSP-overlay person candidate also
+published 25.125 FPS, passed visual review and removed the unconditional legacy DSP dependency
+from dense-only composition. The latency metric is `route_latency_*` (steady
 reservation-to-routing), not camera-to-output latency.
 
-Measured limits: the latest canonical warm sample was 26.45% of one logical core for
-person + face + fire/smoke. It is a 15-second smoke sample, not the 30-minute acceptance
-window, and misses the current-workload `<=12%` CPU target. Exact-candidate, cold-start,
-thermal and memory-soak gates remain open.
+Measured limits: the exact person registered-input/cDSP-overlay candidate used 13.99% of one
+logical core in a 20-second warm sample, versus the prior 22.09% person baseline. This is not
+the person + face + fire/smoke workload or the 30-minute acceptance window, and still misses
+the `<=12%` gate. Cold-start, full-workload, thermal and memory-soak gates remain open.
 
 Open release gates (not delivered): released-FW camera/ring/RTSP conformance, hardware DMA
 completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
@@ -262,8 +262,8 @@ software ceilings. Actual admission must account for lower backend limits, inclu
 one outstanding job per Qualcomm graph and four slots per graph-retention domain.
 
 AI owns private preview pixels, overlay, H264 encoding and FW ring production. The current
-Qualcomm path uses an AI-owned QTI DMA pool, `qtivoverlay`, `v4l2h264enc` and the released
-ring layout. A bounded latest-wins preview mailbox decouples camera output cadence from
+Qualcomm path uses an AI-owned rpcmem pool, cDSP `overlay_compose`, direct
+`v4l2h264enc` DMA-BUF import and the released ring layout. A bounded latest-wins preview mailbox decouples camera output cadence from
 each model's configured inference cadence. FW owns
 RTSP/UI/recording and persistent evidence/search. Released preview routing remains limited
 to detect0/detect1; multi-source inference does not imply 16 independent preview outputs.
@@ -299,8 +299,8 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/gstreamer/vqec_vision_fastcv_processor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm pipeline using `qtivtransform(engine=fcv)` plus `qtimlvconverter(engine=fcv)`; exact contract validation and UINT8-to-UFIXED16 NEON packing stay private to the adapter | Golden tensor parity, released-FW DMA-BUF evidence, reusable QNN registered input memory and additional dtype/layout semantics |
-| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and QTI DMA/overlay/H.264 ring renderer; the compatibility flow sustained 30 AI results/s and a 30 FPS RTSP stream on `.98`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, direct input/output DMA import, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
-| `src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp`, `vqec_vision_dsp_v1_dense_decoder.cpp` | Private host client opens only the generated v1 QAIC ABI, negotiates capability/limits/domain generation, rejects unsupported or stale requests before RPC and distinguishes completed from uncertain transport return; the descriptor-driven dense adapter serves person and fire/smoke without model-id dispatch; fake-service conformance and isolated live unsigned dense v1 smoke pass on `.98` | Exact production-candidate board run, BSP-signed release skeleton, registered/scatter-gather tensor transport and reset-under-in-flight-work/cache/fence evidence |
+| `src/adapters/qualcomm/` | Private FastCV preprocessing, plugin graph, FD/GstMemory bridge, typed tensor extraction, owned QNN engine and cDSP-overlay/V4L2 H.264 ring output; the exact overlay candidate sustained 25.125 FPS with visually reviewed boxes on `.98`; SCRFD and EdgeFace execute probes pass on HTP | Released-FW camera/ring/RTSP acceptance, registered QNN memory, multi-graph QNN, cascade crop/alignment, thermal qualification and BSP recovery |
+| `src/adapters/qualcomm/dsp/host/vqec_vision_dsp_v1_client.cpp`, `vqec_vision_dsp_v1_dense_decoder.cpp`, `src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_overlay.c` | Private host client opens only the generated v1 QAIC ABI, negotiates capability/limits/domain generation, rejects unsupported or stale requests before RPC and distinguishes completed from uncertain transport return; descriptor-driven dense serves person/fire-smoke and overlay compose serves authorized NV12 output without model-id dispatch or `qtivoverlay`; live unsigned dense, registered-buffer overlay and production person preview pass on `.98` | BSP-signed release skeleton, registered/scatter-gather tensor transport, released-FW completion and reset-under-in-flight-work/cache/fence evidence |
 | `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute, explicit HTP balanced/low-latency policy and an `inference_graph_port` binding; the factory fails closed on unsupported policy | Async/shared-memory/LoRA execution, shared multi-graph domain and sustained thermal qualification |
 | `src/app/pipeline/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |

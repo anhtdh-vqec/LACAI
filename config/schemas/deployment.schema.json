@@ -90,7 +90,7 @@
           "maximum": 268435456
         },
         "max_inflight_frames": { "type": "integer", "minimum": 1, "maximum": 4 },
-        "preview_surface_count": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "preview_surface_count": { "type": "integer", "minimum": 0, "maximum": 8 },
         "max_tensor_bytes": {
           "type": "integer",
           "minimum": 1,

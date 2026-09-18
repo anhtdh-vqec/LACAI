@@ -5,17 +5,18 @@
 #include <stdint.h>
 
 #include "vqec_vision_dsp_v1_dense.h"
+#include "vqec_vision_dsp_v1_overlay.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define VQEC_VISION_AI_DSP_V1_SERVICE_MAX_INPUT_BYTES                                              \
-    ((VQEC_VISION_AI_DSP_V1_DENSE_MAX_PREDICTIONS *                                                \
-      (4U + VQEC_VISION_AI_DSP_V1_DENSE_MAX_CLASSES)) *                                            \
-     ((uint32_t)sizeof(uint16_t)))
-#define VQEC_VISION_AI_DSP_V1_SERVICE_MAX_OUTPUT_BYTES                                             \
-    (VQEC_VISION_AI_DSP_V1_DENSE_MAX_OUTPUTS * VQEC_VISION_AI_DSP_V1_DENSE_RECORD_BYTES)
+#define VQEC_VISION_AI_DSP_V1_SERVICE_MAX_INPUT_BYTES \
+    VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_SURFACE_BYTES
+#define VQEC_VISION_AI_DSP_V1_SERVICE_MAX_OUTPUT_BYTES \
+    VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_SURFACE_BYTES
+#define VQEC_VISION_AI_DSP_V1_SERVICE_MAX_DESCRIPTOR_BYTES \
+    VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_DESCRIPTOR_BYTES
 
 typedef struct vqec_vision_ai_dsp_v1_service {
     vqec_vision_ai_dsp_v1_capabilities capabilities;

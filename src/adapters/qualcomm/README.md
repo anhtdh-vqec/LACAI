@@ -7,7 +7,7 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
   2026-09-18 layout candidate passes natively; async/shared/update remain unqualified
 - **Layer:** adapters
 - **Naming registry:** `qcom` (`plgr`, `ifgr`, `dmbrg`, `tnout`, `frsub`, `qneng`, `qnig`,
-  `bfact`, `sdkld`, `qtvr`, `d1cli`)
+  `bfact`, `sdkld`, `qtvr`, `d1cli`, `d1ovr`)
 - **Depends on:** neutral `inference_graph_port`, core plan/contract validation
 - **Used by:** application composition through `inference_graph_port` only
 
@@ -18,15 +18,16 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 - Extract ordered typed tensors (`INT8..FLOAT32`, quantized-blob ownership) from results.
 - Provide an owned QNN engine: dlopen, backend/device, capability probe, context + model-lib
   compose, typed tensor metadata, synchronous execute and a graph-port binding.
-- Allocate QTI DMA output surfaces, copy NV12 by plane stride, render ROI metadata with
-  `qtivoverlay`, encode H.264 and publish access units to the released FW ring.
+- Allocate bounded rpcmem output surfaces, compose authorized NV12 overlays through the
+  versioned cDSP operation, import them directly into `v4l2h264enc` and publish H.264 access
+  units to the released FW ring without `qtivoverlay`.
 
 ## Contents
 
 | Path | Purpose |
 |---|---|
 | `dsp/host/` | ARM-side legacy/v1 FastRPC sessions, negotiated generic client, rpcmem, mapping cache and neutral port adapters |
-| `dsp/v1/` | LACAI v1 IDL, wire codec, generic dense operation, bounded service and QAIC skeleton |
+| `dsp/v1/` | LACAI v1 IDL, wire codec, generic dense/overlay operations, bounded service and QAIC skeleton |
 | `dsp/legacy/` | Frozen model-specific compatibility ABI and reviewed reference kernels |
 | `gstreamer/` | Plugin graph, DMA-BUF wrapping, submission, tensor extraction and FastCV preprocess |
 | `media/` | Enrollment image source, affine/color conversion and preview/encode renderer |
@@ -40,9 +41,9 @@ graph backend, the optional LACAI-owned QNN engine and the private preview rende
 - Plugin reports FLOAT32 outputs; native multi-dtype/multi-graph QNN and a batch/temporal/ROI scheduler are missing.
 - Owned QNN engine currently executes synchronously with copies; async, shared/registered
   memory and LoRA have contracts but are not wired into execute.
-- The current camera harness supplies memfd, so the renderer performs one CPU plane copy
-  into its writable QTI DMA surface. Direct released-FW DMA import still needs ownership
-  design and measurement; the shared source frame is never modified in place.
+- Registered DMA-BUF input is retained directly through synchronous cDSP compose. A memfd
+  compatibility source uses one explicit bounded rpcmem staging copy; the shared source frame
+  is never modified in place. Released-FW cache/fence/completion still needs owner acceptance.
 - Golden preprocessing, long-run performance and BSP recovery remain unverified.
   Successful graph assembly is not inference qualification.
 

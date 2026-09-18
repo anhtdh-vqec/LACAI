@@ -3,9 +3,10 @@
 This document defines private mapping ownership and the required model-independent DSP
 boundary. It distinguishes the implemented cache from the proposed replacement protocol.
 
-**Status:** board-smoke — mapping leases, SDK-generated legacy/v1 stubs, v1 envelope/dense
-payload, bounded service/skeleton and host negotiation client are implemented; an isolated
-unsigned v1 dense smoke passes on `.98`, while BSP signing and production selection remain open.
+**Status:** board-smoke — mapping leases, SDK-generated legacy/v1 stubs, v1 dense/overlay
+payloads, bounded service/skeleton and host negotiation client are implemented; isolated dense
+and registered-buffer overlay compose plus exact-candidate preview pass on `.98`, while BSP
+signing and released-FW completion remain open.
 **Layer:** adapters. **Source:** `src/adapters/qualcomm`.
 
 ## Responsibility
@@ -114,18 +115,23 @@ emits source/artifact digests. It removes only non-runtime linker command metada
 two clean builds produce the same artifact digest. The resulting binary is not signed, deployed
 or board-accepted by that check.
 
-The v1 source now implements the fixed 32-byte capability/request envelope, 24-byte operation
-response, and one 120-byte `dense_decode` payload. Validation covers exact lengths, generation,
-enum values, arithmetic bounds, tensor packing, finite quantization/transform values and bounded
-output before tensor access. The same allocation-free kernel compiles for eSDK ARM conformance
-and Hexagon and treats person `8400/1` and fire/smoke `2100/2` as descriptor data. A four-session
-DSP pool owns fixed scratch per session, serializes same-session execution and prevents stale
-handle reuse through slot generation.
+The v1 source implements the fixed 32-byte capability/request envelope, 24-byte operation
+response, a 120-byte `dense_decode` payload and a bounded `overlay_compose` payload. Dense
+validation covers exact lengths, generation, enum values, arithmetic bounds, tensor packing,
+finite quantization/transform values and bounded output before tensor access. The same
+allocation-free dense kernel compiles for eSDK ARM conformance and Hexagon and treats person
+`8400/1` and fire/smoke `2100/2` as descriptor data. Overlay validation covers exact NV12 plane
+layout, source/destination capacity, BT.709 limited-range semantics, box/label bounds and
+reserved bytes before any surface access. A four-session DSP pool owns fixed scratch per
+session, serializes same-session execution and prevents stale handle reuse through slot
+generation.
 
-The IDL still carries one packed input sequence. It is not accepted for the multi-tensor hot path
-until registered-buffer or scatter/gather transport proves that it does not add an ARM copy.
-Image-transform, anchor-distance and ROI-align payloads remain unsupported and fail closed. No
-production runtime chooses v1 merely because generated or built files are present.
+The IDL still carries one input and one output sequence. It is not accepted for the multi-tensor
+hot path until registered-buffer or scatter/gather transport proves that it does not add an ARM
+copy. Image-transform, anchor-distance and ROI-align payloads remain unsupported and fail
+closed. `overlay_compose` is supported as a single-source/single-destination operation; both
+pointers must remain valid through synchronous completion. No production runtime chooses v1
+merely because generated or built files are present.
 
 `dsp/host/vqec_vision_dsp_v1_client.cpp` is the first host activation seam. It opens only the
 separate v1 URI, queries and decodes capabilities before any operation, validates every request
@@ -138,9 +144,10 @@ synchronous transport return plus a valid response is `completed`. Any transport
 error faults the session and returns `uncertain`; closing that handle is not proof that borrowed
 input/output storage is reusable. The caller must retain or quarantine the owners until a BSP
 completion/recovery contract resolves them. Production composition selects this negotiated
-client for every validated YOLO-style `dense_decode` package. Person and fire/smoke differ
-only through immutable descriptor data; there is no model-id dispatch. Their preprocessing
-remains behind `image_processor_port` and uses the existing FastCV adapter.
+client for every validated YOLO-style `dense_decode` package and for preview
+`overlay_compose`. Person and fire/smoke differ only through immutable descriptor data; there
+is no model-id dispatch. Their preprocessing remains behind `image_processor_port` and uses
+the existing FastCV adapter.
 
 `anchor_distance`, image transform and ROI align remain explicitly unsupported by v1 until
 their descriptors and kernels pass their own gates; SCRFD therefore keeps a separately
@@ -161,6 +168,15 @@ IDL accepts one packed input sequence. The copy is bounded and a known transport
 it is not zero-copy. Registered multi-buffer transport remains the required hot-path replacement
 before performance acceptance.
 
+The first production v1 overlay adapter uses eight bounded AI-owned rpcmem NV12 surfaces on the
+QCS6490 profile. It invokes cDSP to copy the source frame and burn authorized boxes/labels, then
+imports the completed surface into `v4l2h264enc` with the standard GStreamer DMA-BUF allocator.
+The path has no `qtivoverlay`, QTI allocator or per-frame output-surface allocation. Registered
+DMA-BUF input is mapped and retained directly. A compatibility memfd source uses one bounded
+rpcmem staging copy because FastRPC registration correctly rejects memfd; evidence from that
+fallback must not be labelled zero-copy. Direct encoder import needs at least seven surfaces on
+the measured board, so deployment/admission currently reserves eight.
+
 The transport exposes operation families, not model IDs:
 
 - Image transform: NV12 plane offsets/strides, colour matrix/range, crop/resize,
@@ -170,6 +186,8 @@ The transport exposes operation families, not model IDs:
 - Anchor-distance detection: level grids/strides/anchor multiplicity, role bindings,
   landmark ontology, quantization and inverse transform.
 - ROI alignment: bounded ROI batch, exact affine/template and normalization semantics.
+- Overlay compose: NV12 source/destination layouts, authorised box/label bounds, YUV colour,
+  border/font policy and exact output capacity.
 
 Descriptors come from validated immutable packages at activation. Unknown operations and
 unsupported semantics are rejected before source acquisition. CPU reference is an explicitly

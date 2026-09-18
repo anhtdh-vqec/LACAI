@@ -10,8 +10,9 @@ QNN engine per [ADR 0003](../adr/0003_owned_qnn_engine.md) and
 [execution policy](qualcomm_execution_policy.md)); on 2026-09-14 the owned engine was board-verified
 (SCRFD/YOLOv8n compose, finalize and execute on HTP V68 with output byte-identical to
 `qnn-net-run`, and the service harness plus `--mode production --platform fake` ran natively) and
-the private QTI DMA-pool/`qtivoverlay`/`v4l2h264enc` renderer produced a color-correct person stream
-on `192.168.138.98`. This is integration-smoke evidence, not released-FW acceptance. **Layer:** adapters.
+the private output adapter now uses cDSP `overlay_compose`, rpcmem surfaces and direct
+`v4l2h264enc` DMA-BUF import to produce a colour-correct person stream on `192.168.138.98`
+without `qtivoverlay`. This is integration-smoke evidence, not released-FW acceptance. **Layer:** adapters.
 **Source:** `src/adapters/qualcomm`.
 
 Baseline user-confirmed: QCS6490, Qualcomm Linux 1.8. Sysroot is not required to write code. The

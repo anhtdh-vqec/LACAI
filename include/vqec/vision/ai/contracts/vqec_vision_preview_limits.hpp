@@ -10,7 +10,7 @@ namespace vqec::vision::ai::preview_limits {
 inline constexpr std::uint32_t g_max_dimension_pixels = 8192;
 inline constexpr std::uint64_t g_max_surface_bytes = 64ULL * 1024 * 1024;
 inline constexpr std::uint64_t g_max_pool_bytes = 256ULL * 1024 * 1024;
-inline constexpr std::size_t g_max_surface_slots = 4;
+inline constexpr std::size_t g_max_surface_slots = 8;
 inline constexpr std::size_t g_max_overlay_boxes = 128;
 inline constexpr std::size_t g_max_label_bytes = 96;
 inline constexpr std::size_t g_max_total_label_bytes = 4096;

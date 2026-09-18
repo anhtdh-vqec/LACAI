@@ -67,8 +67,9 @@ The profile identity is `qcs6490_rb3gen2_single_source_observed`, revision 1.
 
 Workload: one 1920x1080 NV12 source at 30 FPS; YOLOv8n person and SCRFD primary graphs,
 exact-frame FastCV alignment and EdgeFace secondary embedding, portable IoU tracking,
-QTI overlay/H.264 ring preview at 4 Mbit/s, two admitted preview surfaces, protected-gallery
-and derived-index configuration. Models and biometric fixtures are not repository assets.
+cDSP overlay/H.264 ring preview at 4 Mbit/s, eight admitted direct-import preview surfaces,
+protected-gallery and derived-index configuration. Models and biometric fixtures are not
+repository assets.
 The final candidate and native results are pinned in the [Plan 0 review](
 ../development/production_composition_foundation_review.md).
 
@@ -91,11 +92,11 @@ use the actual validated workload's declared envelopes, with that limitation exp
 | Total resident | 512 MiB | Actual deployment ceiling, above final sampled 373.2 MiB process HWM; not total system RAM |
 | Frame pool | 8 MiB | Deployment: two admitted frames at a 4 MiB maximum allocation each |
 | Tensor pool | 32 MiB | Actual source `max_tensor_bytes` budget, covering declared model tensors; not a measured QNN allocation trace |
-| Encoder pool | 6220800 bytes | Two packed 1920x1080 NV12 surfaces; GPU padding, ring and vendor internal surfaces are additional overhead |
+| Encoder pool | 25067520 bytes | Eight measured Venus-layout 1920x1080 NV12 rpcmem surfaces at 3133440 bytes each; ring and encoder-internal surfaces are additional overhead |
 | Cascade ROI | 16 MiB | Actual candidate's configured bounded cascade byte budget |
 | DDR estimate | 1200 MiB/s | Startup estimated-load ceiling for the candidate; memcpy is only context and does not prove this limit |
 | FW concurrency | One source | Only one source was exercised; additional sources fail admission |
-| Worker concurrency | Four | One source + two root models + one cascade scheduler slot; not process thread count or measured NPU parallelism |
+| Worker concurrency | Eight | Configured bounded executor ceiling used by the candidate; not process thread count or measured NPU parallelism |
 | Thermal headroom | 20 percent minimum | Conservative policy input; runtime estimate is not live thermal feedback |
 
 Do not multiply this profile for traffic or multi-source workloads. Re-measure with the

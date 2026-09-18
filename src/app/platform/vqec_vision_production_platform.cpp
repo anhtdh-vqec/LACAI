@@ -657,6 +657,12 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             return {status_code::unsupported,
                 "preview ring output requires exactly one deployment source"};
         }
+        const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+            impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
+            impl.dsp_v1_client_);
+        if (dsp_opened.code_ != status_code::ok) {
+            return dsp_opened;
+        }
         impl.renderer_ = std::make_unique<qtiv_renderer>();
         qtiv_renderer_config renderer_config;
         renderer_config.ring_id_ = impl.config_.output_ring_id_;
@@ -674,6 +680,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         renderer_config.colorimetry_ = impl.config_.output_colorimetry_;
         renderer_config.interlace_mode_ = impl.config_.output_interlace_mode_;
         renderer_config.buffer_cache_ = impl.dsp_buffer_cache_;
+        renderer_config.dsp_client_ = impl.dsp_v1_client_;
         const auto rendered = impl.renderer_->vqec_vision_ai_qcom_qtvr_init(renderer_config);
         if (rendered.code_ != status_code::ok) {
             return rendered;

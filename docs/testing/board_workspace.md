@@ -140,7 +140,7 @@ dbus-run-session -- sh -c '
     --camera-socket-dir /run/camera_ai --camera-producer-uid 0 --nv12-format 23 \
     --output-ring-id encoded_ai_detect0_cam0_ch0 \
     --output-bitrate 4000000 --output-keyframe-interval 30 \
-    --output-box-color-rgba 0x00ff00ff --output-surface-count 2 \
+    --output-box-color-rgba 0x00ff00ff --output-surface-count 8 \
     --output-colorimetry bt709 --output-interlace-mode progressive \
     --fr-gallery-path /run/lacai_fr_index/face_protected_1 \
     --fr-protected-directory /opt/lacai/protected_gallery \

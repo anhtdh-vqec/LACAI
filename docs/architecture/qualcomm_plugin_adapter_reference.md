@@ -58,8 +58,8 @@ Preview is a separate branch owned by AI APP:
 
 ```text
 authorized observations + AI-owned surface
-    -> optional qtivoverlay / qtivtransform adapter
-    -> optional v4l2h264enc or qtismartvencbin adapter
+    -> current cDSP overlay_compose or an explicitly accepted plugin adapter
+    -> current v4l2h264enc or an explicitly accepted encoder adapter
     -> encoded_sink / released FW ring
 ```
 
@@ -76,7 +76,7 @@ separately approved product where FW hands that ownership to AI APP.
 | `qtimlpostprocess` | Optional vendor postprocess for a model whose module and output semantics are explicitly accepted | Use only behind a decoder/metadata adapter with a golden equivalence test. Module, labels, settings and stabilization are model data, not universal defaults. A factory existing does not make a YOLO, pose or classifier output compatible. |
 | `qtimlmetaextractor` / `qtimlmetaparser` | Interop with legacy metadata pipelines | Translate at the adapter edge. `GstVideoRegionOfInterestMeta`, landmarks and classification metadata must never appear in neutral contracts or feature code. Preserve source id, PTS and geometry transforms. |
 | `qtivtransform` | Hardware resize/format/crop/rotate for preview or a separately approved preprocessing path | Probe the actual `engine` enum and memory caps. Keep it out of the inference graph unless the model golden proves equivalent results. Do not assume a DMA-BUF is importable or that an engine implies zero-copy. |
-| `qtivoverlay` | Optional overlay rendering | Render only authorized attributes onto a surface owned by AI APP. It is an output capability, not a substitute for observation authorization or FW UI/recording ownership. Preserve the source epoch and transform metadata. |
+| `qtivoverlay` | Optional historical overlay rendering | Not selected by the current LACAI production output adapter. If reintroduced, render only authorized attributes onto an AI-owned surface and preserve source epoch/transform metadata; plugin presence is not an acceptance argument. |
 | `v4l2h264enc` / `qtismartvencbin` | Hardware H.264 output for the AI-owned preview branch | Wrap the installed encoder and negotiate caps at runtime. Sample code uses DMABUF modes, but that is not proof of zero-copy on the product BSP. Measure latency, copies and retention before claiming acceleration. |
 | `qtiqmmfsrc` | Qualcomm camera capture | Not selected by LACAI under the FW release contract. Never reacquire one camera source per model. |
 

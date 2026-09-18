@@ -23,7 +23,9 @@ int main() {
                                                       capability_wire.size(), &capabilities) !=
             vqec_vision_ai_dsp_v1_wire_ok ||
         capabilities.domain_generation != domain_generation ||
-        capabilities.max_descriptor_bytes != VQEC_VISION_AI_DSP_V1_DENSE_DESCRIPTOR_BYTES) {
+        capabilities.max_descriptor_bytes != VQEC_VISION_AI_DSP_V1_SERVICE_MAX_DESCRIPTOR_BYTES ||
+        (capabilities.operations_mask &
+         (1U << (VQEC_VISION_AI_DSP_V1_OVERLAY_COMPOSE - 1U))) == 0U) {
         return 1;
     }
 

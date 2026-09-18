@@ -14,7 +14,7 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Multiple independent models | Session/pump source; dependent model activation | `.98` one-source person + face + secondary embedding corrective smoke | Shared context, concurrent multi-source capacity, sustained workload |
 | Plugin graph lifecycle | Implemented + logic tests | Installed-plugin/lifecycle smoke | Full model/BSP matrix |
 | FastCV preprocessing/alignment | Implemented; production cascade binding | Person preprocess + alignment/color smoke | FR golden parity, pooling, released-FW zero-copy |
-| FastRPC v1 generic host protocol | QAIC client + capability/generation/request/response conformance; production dense adapter for person and fire/smoke uses descriptor data, not model IDs | `.98` isolated live unsigned dense operation and reopen generation; eSDK fake-service adapter test | Exact production-candidate board run, BSP-signed skeleton, registered tensor transport and in-flight reset/cache/fence completion |
+| FastRPC v1 generic host protocol | QAIC client + capability/generation/request/response conformance; production dense and overlay operations use descriptor data, not model IDs | `.98` live unsigned dense/reopen, registered-buffer overlay compose and exact-candidate person preview; eSDK conformance tests | BSP-signed skeleton, registered multi-tensor transport and in-flight reset/cache/fence completion |
 | Camera lease/wire | Implemented + socket fixtures | Compatibility input | Released FW DMA/cache/fence semantics |
 | Worker/pool/QoS helpers | Implemented + logic tests | Scope-specific evidence only | Whole production integration/soak |
 | Portable IoU tracker / reference feature | Distinct production IoU baseline; reference feature is fixture only | Earlier person smoke predates this separation | MOT identity continuity and production feature algorithms/golden |
@@ -23,14 +23,14 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Cascade frame store | Pump/session/executor integration + logic tests | Native synthetic lifetime/ticket test | Dependent hardware completion + epoch recovery |
 | Zvec index | C API adapter, default build, private tmpfs lifecycle | Real library synthetic search/mutation test; `.98` private-storage pass | Capacity/performance/load benchmark |
 | Recognition matching policy | Subject aggregation + configurable threshold/margin; durable encrypted gallery | eSDK logic test; `.98` clean-restart recovery | Calibration, temporal state and attendance events |
-| QTI overlay/H264/ring | Production compatibility path | Person 30 encoded FPS | Released FW conformance and generic output ports |
+| cDSP overlay/H264/ring | Bounded v1 NV12 overlay compose, rpcmem surface pool and direct `v4l2h264enc` DMA-BUF import; no `qtivoverlay` | Exact person candidate at 25.125 FPS with visual box/label review | Released-FW conformance, generic output ports, long-run completion/recovery |
 | Prepared overlay authorization | Prepared-only renderer and scoped source binding, eSDK tests | Pre-audit native helper smoke | FW demand/PTS/revoke and multi-stream output conformance |
 | Event delivery seam | Acceptance/handoff/discard semantics logic-tested | Pre-audit native helper smoke | Durable UDS / outbox transport (Plan 3) |
 | Model artifact resolver | Sealed verified model-byte owner, hostile-artifact tests | Native synthetic tests and corrective live model load `.98` | Signed provenance of digest/package/libraries; maps alone do not prove seals |
 | Hardware admission envelope | Explicit loader, source tensor budget, preview count consistency; one-source profile | `.98` process/thermal observations and declared-workload ceilings; native admission tests | Complete device allocation, sustained DDR/thermal/coexistence and owner review |
 | FD→embedding→attendance | Source-composed through typed embedding | FD→embedding compatibility smoke `.98`; attendance absent | Golden/released-FW cascade, enrollment, matching, recovery, events |
 | Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |
-| Performance target | Canonical `.98` person + face + fire/smoke preview: 25.125 FPS and 26.45% of one logical core in a 15-second warm sample | Visual overlay smoke and `route_latency_*` steady metric | `<=12%` current-workload gate, 30-minute statistics, cold start, thermal and soak |
+| Performance target | Exact `.98` person candidate with registered DMA-BUF input and cDSP overlay: 25.125 FPS and 13.99% of one logical core in a 20-second warm sample; compatibility memfd staging measured 16.85% | Visual overlay smoke; perf attributes the remaining dominant user samples to FastCV model preprocessing | `<=12%` full current-workload gate, 30-minute statistics, generic cDSP image transform, cold start, thermal and soak |
 | Recovery/metrics helpers | Partial source | No release soak | BSP reset, durable control, complete stage metrics |
 | Fuzzing tools | Source exists | No new run in this review | eSDK-compatible instrumentation and recorded runs |
 

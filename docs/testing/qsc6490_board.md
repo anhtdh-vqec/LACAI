@@ -3,9 +3,9 @@
 This document defines the only authorized LACAI development target and retains the latest
 reproducible evidence for that target. It is not a chronological archive of superseded boards.
 
-**Status:** board-smoke — QCS6490 `192.168.138.98` passed the 2026-09-18 native and
-canonical-deployment preview checks described below. The exact source candidate remains
-blocked at the legacy DSP loading boundary. **Layer:** docs.
+**Status:** board-smoke — QCS6490 `192.168.138.98` passed the 2026-09-18 native,
+canonical-deployment and exact cDSP-overlay candidate checks described below. Released-FW
+completion and sustained acceptance remain open. **Layer:** docs.
 **Source:** `tools/board/`, `docs/testing/board_workspace.md`.
 
 ## Responsibility
@@ -107,14 +107,35 @@ The latest retained evidence on 2026-09-18 is:
 - live v1 client open/query/execute/close: 24 valid output bytes, no truncation, output box
   `15,15,25,25`; a second process returned a different nonzero domain generation.
 
-The exact clean-build service candidate was staged separately and did not replace the
-canonical service. It correctly rejected the board's stale model catalog marked schema 2;
-an isolated schema-1 copy passed loading, after which production preparation failed closed
-because `libvqec_dsp_skel.so` could not be opened on cDSP (`AEE_EUNABLETOLOAD`). That candidate's
-production composition opened the legacy, model-named ABI before selecting operations and did
-not select the negotiated generic v1 client. Therefore the canonical preview result is not
-exact-candidate service acceptance. The failure is retained as a production-composition
-defect; copying a legacy skeleton is not an accepted workaround.
+The earlier exact clean-build service candidate correctly rejected the board's stale model
+catalog marked schema 2 and then exposed an unconditional legacy-skeleton composition defect.
+That defect was corrected before the overlay run: dense-only person composition now opens the
+negotiated v1 skeleton without requiring the legacy model-named ABI.
+
+The exact cDSP-overlay candidate was then built with the approved eSDK and Hexagon SDK 5.5.7.0,
+staged separately under `/opt/lacai`, and tested with eight admitted preview surfaces. The v1
+system-client smoke negotiated operation mask `18` (`dense_decode` plus `overlay_compose`) and
+successfully composed registered rpcmem NV12 input/output. The native overlay conformance test
+also passed on the board. The final service SHA-256 was
+`d30aad0fdcaa7e8a890bad8456146a3cd10327ce68ecc0bc066216616fbce36b`; the unsigned
+skeleton SHA-256 was `165aad2caef154a4b3b93a49b7df68642618f0d00c8001928e67a1a9f797fc0a`.
+
+For a 1920x1080@30 person workload with 25 FPS preview, the DMA-heap camera fixture exercised
+registered input without the memfd staging fallback. Host capture received 201 packets in
+8.000 seconds (**25.125 FPS**) at H.264 1920x1080. The contact sheet was reviewed in this run:
+green boxes and `PERSON` labels followed people, remained in frame, retained correct colour and
+orientation, and showed no stale rectangles. A 20-second warm `pidstat` sample measured
+`10.04% usr + 3.95% sys = 13.99%` of one logical core; RSS/HWM was 246764 KiB with 21 threads.
+This is a short board smoke, not the 30-minute `SYS-PERF-01` gate. The final lifetime build
+advanced the ring by 51 frames in two seconds and stopped with `first_error=0`.
+
+The same person path with the memfd compatibility fixture used one explicit rpcmem staging copy
+and measured `11.10% usr + 5.75% sys = 16.85%` over 20 seconds. This A/B confirms that source
+registration matters and that the fallback must not be labelled zero-copy. A 10-second perf
+sample on the registered path attributed the largest resolved userspace samples to
+`fcvColorYCbCr420PseudoPlanarToRGB888u8` and FastCV scale functions in model preprocessing;
+`qtivoverlay` was absent. Moving the remaining image transform behind the generic v1 operation
+is therefore the next measured CPU item.
 
 This evidence does not prove signed DSP deployment, released-FW DMA completion, model
 quality, cold-start CPU, thermal stability or leak freedom.
@@ -140,10 +161,10 @@ record and the exact candidate digest. Remove temporary uploads after results ar
 
 ## Limits and next work
 
-- Production source now selects negotiated generic DSP v1 for dense packages and opens legacy
-  only for operation families not yet implemented in v1; validate this exact candidate on `.98`.
-- Re-run service, preview capture and visual overlay review from that exact candidate;
-  canonical-deployment evidence cannot be transferred to it.
+- Production source selects negotiated DSP v1 for dense packages and cDSP preview composition;
+  legacy remains only for operation families not implemented in v1.
+- Run the full person + face + fire/smoke workload from one exact candidate. The standalone fire
+  run without a fire detection did not exercise preview encode and is not a performance result.
 - Complete cold-start CPU profiling, the declared sustained workload, memory soak and
   restart-cycle leak gate.
 - Complete registered multi-tensor DSP transport, cache/fence/completion and reset while

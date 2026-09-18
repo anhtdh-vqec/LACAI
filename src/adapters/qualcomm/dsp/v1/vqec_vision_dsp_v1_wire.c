@@ -40,7 +40,7 @@ static int vqec_vision_ai_qcom_dvwir_capabilities_valid(
 
 static int vqec_vision_ai_qcom_dvwir_operation_valid(uint16_t _operation) {
     return _operation >= VQEC_VISION_AI_DSP_V1_IMAGE_TRANSFORM &&
-           _operation <= VQEC_VISION_AI_DSP_V1_ROI_ALIGN;
+           _operation <= VQEC_VISION_AI_DSP_V1_OVERLAY_COMPOSE;
 }
 
 static int vqec_vision_ai_qcom_dvwir_status_valid(uint32_t _status) {

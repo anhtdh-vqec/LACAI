@@ -608,6 +608,8 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_wire_test.cpp | dvwrt | vqec_vision_ai_unit_dvwrt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_dense.c | d1dns | vqec_vision_ai_qcom_d1dns_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_dense_test.cpp | d1dst | vqec_vision_ai_unit_d1dst_ |
+| src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_overlay.c | d1ovr | vqec_vision_ai_qcom_d1ovr_ |
+| tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_overlay_test.cpp | d1ovt | vqec_vision_ai_unit_d1ovt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_service.c | d1svc | vqec_vision_ai_qcom_d1svc_ |
 | tests/unit/adapters/qualcomm/vqec_vision_dsp_v1_service_test.cpp | d1svt | vqec_vision_ai_unit_d1svt_ |
 | src/adapters/qualcomm/dsp/v1/vqec_vision_dsp_v1_skeleton.c | d1skl | generated-IDL ABI entry points; internal prefix vqec_vision_ai_qcom_d1skl_ |

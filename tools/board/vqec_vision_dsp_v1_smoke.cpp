@@ -3,11 +3,14 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "vqec_vision_dsp_v1_client.hpp"
+#include "vqec_vision_rpcmem_pool.hpp"
 
 extern "C" {
 #include "vqec_vision_dsp_v1_dense.h"
+#include "vqec_vision_dsp_v1_overlay.h"
 }
 
 namespace {
@@ -20,6 +23,10 @@ constexpr std::uint16_t g_fixture_box_center = 20U;
 constexpr std::uint16_t g_fixture_box_side = 10U;
 constexpr std::uint16_t g_fixture_score = 1U;
 constexpr float g_fixture_threshold = 0.5F;
+constexpr std::uint32_t g_overlay_side = 64U;
+constexpr std::uint32_t g_overlay_y_bytes = g_overlay_side * g_overlay_side;
+constexpr std::uint32_t g_overlay_surface_bytes =
+    g_overlay_y_bytes + g_overlay_y_bytes / 2U;
 
 void vqec_vision_ai_tools_d1smk_write_u16(std::uint8_t* _output, std::uint16_t _value) {
     _output[0] = static_cast<std::uint8_t>(_value);
@@ -111,6 +118,69 @@ int main(int _argc, char** _argv) {
         return g_exit_failure;
     }
 
+    const std::uint32_t overlay_mask =
+        1U << (VQEC_VISION_AI_DSP_V1_OVERLAY_COMPOSE - 1U);
+    if ((capabilities.operations_mask & overlay_mask) == 0U) {
+        std::cerr << "DSP v1 service does not advertise overlay_compose\n";
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+    rpcmem_pool overlay_pool;
+    const auto allocated = overlay_pool.vqec_vision_ai_qcom_rpcm_allocate(
+        std::vector<std::size_t>{g_overlay_surface_bytes, g_overlay_surface_bytes});
+    if (allocated.code_ != status_code::ok) {
+        std::cerr << allocated.message_ << '\n';
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+    const auto& overlay_input = overlay_pool.vqec_vision_ai_qcom_rpcm_slot(0U);
+    const auto& overlay_output = overlay_pool.vqec_vision_ai_qcom_rpcm_slot(1U);
+    std::memset(overlay_input.data_, 128, g_overlay_surface_bytes);
+    std::memset(overlay_output.data_, 0, g_overlay_surface_bytes);
+    vqec_vision_ai_dsp_v1_overlay_frame overlay_frame{};
+    overlay_frame.width = g_overlay_side;
+    overlay_frame.height = g_overlay_side;
+    overlay_frame.source_y_stride = g_overlay_side;
+    overlay_frame.source_uv_offset = g_overlay_y_bytes;
+    overlay_frame.source_uv_stride = g_overlay_side;
+    overlay_frame.destination_y_stride = g_overlay_side;
+    overlay_frame.destination_uv_offset = g_overlay_y_bytes;
+    overlay_frame.destination_uv_stride = g_overlay_side;
+    overlay_frame.border_thickness = 2U;
+    overlay_frame.font_scale = 1U;
+    vqec_vision_ai_dsp_v1_overlay_box overlay_box{};
+    overlay_box.x = 16U;
+    overlay_box.y = 16U;
+    overlay_box.width = 32U;
+    overlay_box.height = 32U;
+    overlay_box.color_y = 145U;
+    overlay_box.color_u = 54U;
+    overlay_box.color_v = 34U;
+    constexpr std::array<std::uint8_t, 6U> overlay_label{'p', 'e', 'r', 's', 'o', 'n'};
+    overlay_box.label_bytes = static_cast<std::uint16_t>(overlay_label.size());
+    std::array<std::uint8_t, VQEC_VISION_AI_DSP_V1_OVERLAY_MAX_DESCRIPTOR_BYTES>
+        overlay_descriptor{};
+    std::size_t overlay_descriptor_bytes = 0U;
+    const auto overlay_encoded = vqec_vision_ai_qcom_d1ovr_encode_descriptor(
+        &capabilities, &overlay_frame, &overlay_box, 1U, overlay_label.data(),
+        overlay_label.size(), g_overlay_surface_bytes, g_overlay_surface_bytes,
+        overlay_descriptor.data(), overlay_descriptor.size(), &overlay_descriptor_bytes);
+    const auto overlay_executed = client.vqec_vision_ai_qcom_d1cli_execute(
+        overlay_descriptor.data(), overlay_descriptor_bytes,
+        static_cast<const std::uint8_t*>(overlay_input.data_), g_overlay_surface_bytes,
+        static_cast<std::uint8_t*>(overlay_output.data_), g_overlay_surface_bytes);
+    const auto* overlay_bytes = static_cast<const std::uint8_t*>(overlay_output.data_);
+    if (overlay_encoded != vqec_vision_ai_dsp_v1_wire_ok ||
+        overlay_executed.status_.code_ != status_code::ok ||
+        overlay_executed.completion_ != dsp_v1_completion::completed ||
+        overlay_bytes[16U * g_overlay_side + 16U] != overlay_box.color_y ||
+        overlay_bytes[32U * g_overlay_side + 32U] != 128U) {
+        std::cerr << "Registered overlay compose failed: "
+                  << overlay_executed.status_.message_ << '\n';
+        client.vqec_vision_ai_qcom_d1cli_close();
+        return g_exit_failure;
+    }
+
     std::cout << "domain_generation=" << capabilities.domain_generation
               << " operations_mask=" << capabilities.operations_mask
               << " output_bytes=" << executed.output_bytes_
@@ -118,7 +188,10 @@ int main(int _argc, char** _argv) {
               << " first_box=" << vqec_vision_ai_tools_d1smk_read_f32(output.data()) << ','
               << vqec_vision_ai_tools_d1smk_read_f32(output.data() + sizeof(float)) << ','
               << vqec_vision_ai_tools_d1smk_read_f32(output.data() + 2U * sizeof(float)) << ','
-              << vqec_vision_ai_tools_d1smk_read_f32(output.data() + 3U * sizeof(float)) << '\n';
+              << vqec_vision_ai_tools_d1smk_read_f32(output.data() + 3U * sizeof(float))
+              << " overlay_bytes=" << overlay_executed.output_bytes_
+              << " overlay_pixel="
+              << static_cast<unsigned>(overlay_bytes[16U * g_overlay_side + 16U]) << '\n';
     client.vqec_vision_ai_qcom_d1cli_close();
     return g_exit_success;
 }

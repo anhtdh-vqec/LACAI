@@ -24,8 +24,9 @@ algorithms or the identity of the deployed skeleton.
   supported enum values, synchronous/asynchronous completion, domain generation and
   memory-registration mode. An absent or incompatible v1 skeleton fails closed;
   compatibility selection is an explicit deployment policy, not an automatic fallback.
-- The v1 operations are `image_transform`, `dense_decode`, `anchor_distance_decode`
-  and `roi_align`. Requests use fixed, versioned, little-endian descriptor fields with
+- The v1 operations are `image_transform`, `dense_decode`, `anchor_distance_decode`,
+  `roi_align` and `overlay_compose`. Requests use fixed, versioned, little-endian descriptor
+  fields with
   checked lengths and offsets. No model name or usecase ID appears in the device ABI.
   Unsupported colour/range/interpolation/quantization/shape is rejected before source
   acquisition; an approximate kernel is not selected.
@@ -92,6 +93,25 @@ Greedy NMS orders candidates by descending score, then ascending class index, th
 prediction index. When the candidate bound is full, a later equal-score candidate never
 replaces an earlier candidate. This makes tie and truncation behavior deterministic across
 the reference and cDSP builds.
+
+The second delivered payload is `overlay_compose`. It is an output operation rather than a
+model operation: no model or usecase identifier appears in its descriptor. The descriptor
+declares exact NV12 source/destination plane offsets and strides, BT.709 limited range,
+bounded boxes, per-box YUV colour, bounded printable labels, border thickness and font scale.
+The cDSP implementation validates the complete descriptor and both surface capacities before
+copying visible NV12 rows or drawing. Version 1 is intentionally limited to progressive NV12,
+BT.709 limited range, 128 boxes, 4096 label bytes and a 64 MiB surface ceiling. Unsupported
+format/range/colour semantics fail closed.
+
+The host output adapter allocates a bounded rpcmem surface pool, composes synchronously, wraps
+each completed surface with the standard GStreamer DMA-BUF allocator and imports it directly
+into `v4l2h264enc`. It does not load `qtivoverlay` or a Qualcomm allocator plugin. A registered
+DMA-BUF source uses the retained source mapping directly. A non-registerable compatibility
+source may use one bounded rpcmem staging buffer; this is an explicit copy path and cannot be
+reported as zero-copy. At least seven encoder surfaces are required by the measured QCS6490
+direct-import path; the current admitted profile uses eight. Uncertain RPC completion
+quarantines the affected source/output resources instead of reusing them.
+
 - QAIC artifacts are generated at build time from project-owned IDL with a pinned
   SDK path/version/command and never hand-edited. Only authored project code and the
   reviewed IDL are committed. DSP builds use the Hexagon toolchain; ARM C++ builds and
