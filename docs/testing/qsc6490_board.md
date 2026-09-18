@@ -572,6 +572,39 @@ narrower than its original wording:
   24.78–26.80% of one logical core and roughly 431 MiB RSS. The product target therefore
   remains open. A short stable RSS sample cannot establish absence of leaks.
 
+## 2026-09-18 FastRPC registration and candidate audit on `.98`
+
+The adapter audit distinguished the two FastRPC host-buffer contracts. The generated QAIC stub
+passes CPU pointers through `remote_handle64_invoke`, so persistent host buffer association uses
+`remote_register_buf_attr2`. `fastrpc_mmap` with `FASTRPC_MAP_FD` is for DSP-side resolution via
+`HAP_mmap_get` and is not interchangeable with QAIC pointer marshalling.
+
+The compatibility camera simulator supplied `/memfd:fwsim_frame_3`, not a DMA-BUF. Registered
+mode did not process frames: the QCS6490 kernel recorded `failed to map buffer` and `-22` for that
+FD. The final source rejects a sealable memfd before registration. An explicit
+`--allow-qaic-copy-input` fixture policy was then used to validate remote execution without
+mislabeling the input as SMMU-imported or zero-copy.
+
+Candidate SHA-256 began with `9d78b5cd`; source was based on `11c8f33` plus the audited changes.
+The source was built with the approved eSDK and the complete expanded suite passed 131/131 under
+QEMU before staging. Board observations were:
+
+- Cold-start process CPU sampled once per second was 90, 95, 95, 92 and 92% for the first five
+  graph-preparation seconds, then 41% before reaching steady processing. The startup-spike
+  requirement remains open.
+- A 30-second steady sample was 6.66% user + 13.63% system = 20.29% of one logical core.
+- The released ring-v5 observer saw `write_sequence` increase by 100 in four seconds: 25 FPS.
+  The sampled slot was 1920x1080 with a non-empty H.264 payload.
+- At 138 seconds RSS was 423464 KiB, PSS was 399326 KiB and the process held 150 FDs. A following
+  30-second sample held RSS at 422876–423004 KiB. Earlier warmup PSS increased, so this is only a
+  memory smoke and does not satisfy the eight-hour leak gate.
+- The canonical `/opt/lacai/run_full.sh` service was restored after the candidate run. Its
+  post-warmup eight-second CPU sample averaged 18.38% of one logical core.
+
+The memfd fixture result proves end-to-end control, remote-kernel and output-ring progress. It is
+not production registered-input performance evidence. A released-FW DMA-BUF run, numeric golden
+parity, longer CPU/thermal sampling and the eight-hour/100-cycle memory gates remain required.
+
 ## Limits and next work
 
 - Still not qualified on the board: model accuracy (inputs were zero/random), async/shared

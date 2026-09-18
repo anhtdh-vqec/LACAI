@@ -104,7 +104,26 @@ Số user cung cấp cũng cho thấy fire standalone khoảng 12%, person stand
 và full khoảng 26.6%. Hai nguồn đo phù hợp về thứ tự lớn. Phần `sys` và memcpy lớn cho thấy
 không thể chỉ tối ưu NMS; cần xử lý result ownership/copy, source/preview path và cold allocation.
 
-### 2.1 Những gì source hiện đã sửa
+### 2.1 Candidate audit sau hardening
+
+Candidate eSDK có SHA-256 bắt đầu bằng `9d78b5cd`, staged riêng trên `.98` ngày 2026-09-18.
+Nguồn test là camera simulator 1920x1080@30 dùng memfd; workload và preview giống baseline.
+
+| Mục | Kết quả |
+|---|---|
+| Production registration mặc định | FastRPC/kernel từ chối import memfd với `-22`; đây là đúng ranh giới capability, không phải bằng chứng DMA-BUF production |
+| Fixture policy rõ ràng | `--allow-qaic-copy-input`; QAIC copy input rồi vẫn chạy remote cDSP kernel; kết quả CPU không đủ điều kiện nghiệm thu zero-copy/production |
+| Cold start 1 giây | `90, 95, 95, 92, 92%`, sau đó `41%` rồi steady; phần lớn nằm trong QNN graph preparation |
+| Steady CPU 30 giây | `6.66% usr + 13.63% sys = 20.29%` một core |
+| Output ring | Ring v5 tăng 100 sequence trong 4 giây, tương ứng 25 FPS; slot 1920x1080 có payload H.264 |
+| Memory smoke | Ở 138 giây: RSS 423464 KiB, PSS 399326 KiB, 150 FD; 30 giây sau RSS 422876–423004 KiB |
+| Kết luận | Pipeline chạy end-to-end nhưng vẫn trượt `SYS-PERF-01`; startup spike, DMA-BUF A/B và soak còn mở |
+
+PSS tăng trong phần warmup ngắn trước khi RSS phẳng trong cửa sổ 30 giây. Đây không phải bằng
+chứng leak và cũng không chứng minh leak-free. D05–D07 vẫn cần đúng thời lượng và nguồn DMA-BUF
+released-FW. Service chuẩn được khôi phục sau test; mẫu 8 giây sau warmup là 18.38% một core.
+
+### 2.2 Những gì source hiện đã sửa
 
 | Hạng mục | Trạng thái |
 |---|---|
@@ -114,11 +133,12 @@ không thể chỉ tối ưu NMS; cần xử lý result ownership/copy, source/p
 | Quantization | Neutral `(q - zero_point) * scale` được đổi đúng sang legacy `offset = -zero_point` |
 | Workspace | Compact decoder result được reuse có khóa; CPU scratch chỉ cấp phát ở reference-test mode |
 | QNN cold allocation | Registered output và heap fallback loại trừ nhau; bỏ zero-fill rpcmem trước execute |
+| FastRPC input | QAIC pointer ABI dùng `remote_register_buf_attr2`; memfd tách khỏi DMA-BUF và chỉ được copy khi bật fixture policy rõ ràng |
 
 Các mục trên là source/logic evidence. Chúng chưa chứng minh DSP binary provenance, golden
 numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
 
-### 2.2 Defect và khoảng trống còn mở
+### 2.3 Defect và khoảng trống còn mở
 
 1. ABI FastRPC hiện có method theo tên person/SCRFD/fire-smoke; đây là dispatch model-specific,
    không phải operation protocol generic.
@@ -316,14 +336,15 @@ Board report phải có:
 - [ ] Qualcomm và reference conformance pass; neutral layer không có vendor type.
 - [ ] AI APP lead, BSP+FW lead và AI Model lead ký đúng phần ownership của mình.
 
-Plan chưa được đóng ở revision hiện tại: CPU current baseline còn 24.78–26.80%, Hexagon
-toolchain/provenance và model golden chưa đủ, fire/smoke postprocess vẫn ở ARM, preprocessing
-semantics chưa được chứng minh, startup/soak chưa có acceptance evidence.
+Plan chưa được đóng ở revision hiện tại: candidate fixture còn 20.29% CPU và startup đạt
+90–95% trong khoảng năm giây; DMA-BUF production A/B chưa có. Hexagon toolchain/provenance và
+model golden chưa đủ, fire/smoke postprocess vẫn ở ARM, preprocessing semantics chưa được
+chứng minh, startup/soak chưa có acceptance evidence.
 
 ## Giới hạn và công việc tiếp theo
 
-- Hai commit hardening/activation-memory mới cần board A/B bằng candidate staged riêng; full
-  eSDK logic pass không thay board acceptance.
+- Candidate hardening đã có board fixture smoke; vẫn cần released-FW DMA-BUF A/B vì QAIC-copy
+  memfd không thay board acceptance của registered input.
 - Mục tiêu `<=12%` và `<=80%` là yêu cầu sản phẩm do AI APP lead đặt; D04 phải đóng workload
   trước khi so số.
 - Không thể hoàn thành P2/P3 cDSP binary khi approved Hexagon SDK/toolchain và AI Model golden
