@@ -173,6 +173,12 @@ numeric parity, CPU target, released-FW DMA completion hay leak-free soak.
    khi quy lỗi cho decoder hoặc cDSP.
 9. Bằng chứng startup peak và soak 8 giờ chưa có. Không được ghi “zero leak” từ một run ngắn.
 
+Envelope v2 32 byte đã có codec C và negative tests cho version, length, operation,
+capacity và domain generation; đây chỉ là D08/D09 ở mức transport, chưa có payload schema,
+kernel, registered-buffer transport hoặc runtime activation. Compiler Hexagon 8.7.06 chạy
+được trong probe với gói Ubuntu `libtinfo5` giải nén riêng ở `/tmp`, không cài vào host;
+probe đó không phải build/signing receipt được BSP phê duyệt.
+
 ## 3. Kiến trúc đích
 
 ```text

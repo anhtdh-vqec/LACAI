@@ -83,6 +83,10 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         vqec_vision_dsp_legacy_post_face.c
         vqec_vision_dsp_legacy_pre.c
         "${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c")
+    add_library(vqec_vision_ai_dsp_v2_wire STATIC
+        vqec_vision_dsp_v2_wire.c)
+    target_include_directories(vqec_vision_ai_dsp_v2_wire PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}")
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}" "${vqec_vision_ai_qaic_output}")
     set_source_files_properties("${vqec_vision_ai_qaic_output}/vqec_dsp_stub.c"

@@ -110,6 +110,9 @@ deploy or open that skeleton. Its single packed input sequence is not yet accept
 multi-tensor hot path: it could require another ARM copy. Capability wire format, bounded
 lengths, registered-buffer/scatter-gather design and kernel implementation remain under
 AI APP/BSP review. No runtime chooses v2 based on the presence of these generated files.
+The shared v2 wire helper validates only the fixed 32-byte transport envelope and
+capability bounds. A successful envelope check is not permission to execute an operation:
+image, dense, anchor and ROI payload schemas and device-side validation are still absent.
 
 The transport exposes operation families, not model IDs:
 

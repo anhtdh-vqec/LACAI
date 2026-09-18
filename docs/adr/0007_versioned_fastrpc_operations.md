@@ -35,6 +35,31 @@ algorithms or the identity of the deployed skeleton.
   maximum sequence lengths and scatter/gather or registered-buffer transport must be
   reviewed and measured before an implementation may call it. Generating a stub and
   skeleton does not establish a usable v2 kernel or permit product activation.
+- The draft envelope is 32 bytes in explicit little-endian encoding, never a C struct
+  cast. A capability reply carries magic `VQ2!`, major/minor, header length, completion
+  flags, operation mask, three byte limits and domain generation. A request carries the
+  same magic/version/header length, operation family, exact descriptor/input lengths,
+  caller output capacity, expected domain generation and zero flags. The host checks
+  the reply before admitting a request; both sides reject unknown versions, flags,
+  operations, lengths and stale generation. This only validates transport bounds:
+  each operation must additionally validate its own descriptor before any kernel read.
+
+Draft envelope offsets (bytes, all integers unsigned little-endian):
+
+| Offset | Capability reply | Request descriptor |
+|---:|---|---|
+| 0 | `VQ2!` magic (4 bytes) | `VQ2!` magic (4 bytes) |
+| 4, 6, 8 | major, minor, header bytes (`uint16` each) | same |
+| 10 | synchronous-completion flag (`uint16`) | operation family (`uint16`) |
+| 12 | supported-operation bitmask (`uint32`) | exact descriptor bytes (`uint32`) |
+| 16 | max descriptor bytes (`uint32`) | exact input bytes (`uint32`) |
+| 20 | max input bytes (`uint32`) | exact output capacity (`uint32`) |
+| 24 | max output bytes (`uint32`) | expected domain generation (`uint32`) |
+| 28 | domain generation (`uint32`) | reserved flags, zero (`uint32`) |
+
+The fixed envelope codec is shared C that can compile for ARM and Hexagon. It performs
+only transport validation; no operation payload, result schema or release capacity is
+approved by this ADR draft.
 - QAIC artifacts are generated at build time from project-owned IDL with a pinned
   SDK path/version/command and never hand-edited. Only authored project code and the
   reviewed IDL are committed. DSP builds use the Hexagon toolchain; ARM C++ builds and
