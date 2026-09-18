@@ -1,137 +1,196 @@
 # Contract và phạm vi ba team
 
-Plan này biến phân tích ownership thành các contract có thể ký, test và bàn giao giữa
-BSP+FW, AI APP và AI Model. Không tạo ABI mới trong plan; mọi thay đổi external boundary
-phải được cập nhật contract/ADR trước source.
+Plan này thiết lập contract authority v1, stable product IDs và quy trình bàn giao bắt buộc
+giữa BSP+FW, AI APP và AI Model. Mục tiêu là hai team producer có thể bắt đầu cung cấp đúng
+artifact/evidence ngay, không chờ AI APP đoán ABI hoặc semantics.
 
-- **Status:** planned — chỉ có thiết kế và checklist, chưa có implementation của plan này.
+- **Status:** accepted — AI APP lead baseline đã được mã hóa thành registry/schema/checker;
+  eSDK và QCS6490 `.98` conformance smoke pass ngày 2026-09-18.
 - **Layer:** docs
-- **Source:** [FW–AI APP contract](../../contracts/fw_ai_app_contract.md),
-  [model integration contract](../../contracts/model_integration.md), `n/a` cho đề xuất mới.
+- **Source:** [three-team integration registry](../../contracts/integration_contract_registry.md),
+  `config/contracts`, `tools/contracts/vqec_vision_check_integration_contract.py`.
 
 ## Trách nhiệm
 
-- AI APP lead sở hữu kiến trúc tích hợp, data/query catalog, runtime semantics và acceptance
-  sản phẩm AI; điều phối nhưng không tự phê duyệt primitive BSP hoặc model quality.
-- BSP+FW sở hữu device/media, RAW lease, allocator/cache/fence/reset, signal/time facts,
-  evidence media, deployment, storage volume và target compatibility.
-- AI Model sở hữu artifact/model kit, ontology, preprocess/decode semantics, golden fixtures,
-  quality report và giới hạn không quan sát được.
-- Mỗi contract có đúng một owner schema; bên nhận phải ký conformance. `Edge data service`
-  và `Kafka exporter` là module thuộc AI APP, không phải team thứ tư.
+- AI APP lead là authority của integration boundary, stable IDs, feature/runtime semantics,
+  authorization, admission và quyết định accept/reject end-to-end.
+- BSP+FW là authority duy nhất của device/media facts, allocator/cache/fence/reset, released-FW
+  transport, deployment và operations evidence.
+- AI Model là authority duy nhất của artifact, exact preprocess/decode semantics, ontology,
+  golden và quality evidence.
+- Một schema có đúng một owner. Consumer không sửa nghĩa field trong adapter; owner không tự ký
+  acceptance thay consumer.
 
-## 1. Ma trận bàn giao
+## 1. Quyết định contract authority
 
-| ID | Bàn giao | Owner | Consumer | Nội dung bắt buộc |
+Thứ tự authority bắt buộc:
+
+1. requirement sản phẩm/security đã duyệt và canonical version registry;
+2. `integration_contract_registry.json` cho ID/version/owner/mandatory fields;
+3. contract chuyên biệt mà registry trỏ tới;
+4. conformance receipt gắn exact artifact/report digest;
+5. implementation note/example.
+
+Tất cả LACAI-owned schema/ABI ở baseline đầu tiên là version `1`. Thay đổi stable ID, required
+field, ownership/completion, authorization hoặc semantics phải có migration ADR. External FW ABI
+và vendor ABI giữ version của owner bên ngoài; không được đổi số để khớp LACAI.
+
+Một receipt bắt buộc chứa contract/version/registry revision, producer, artifact/config digest,
+lệnh và môi trường test, valid/error report, deviation/expiry và consumer disposition. Schema
+receipt kiểm tra producer authority, exact case coverage, digest, expiry và chỉ cho AI APP chốt
+disposition; producer phải gửi ở trạng thái `pending`. Receipt không thay signature verification,
+entitlement hoặc runtime admission.
+
+## 2. Ma trận C01–C10 đã chốt
+
+| ID | Schema owner | Producer bắt buộc | Consumer | Ranh giới không được đổi |
 |---|---|---|---|---|
-| C01 | RAW source | BSP+FW | AI APP | profile/source ID, planes/stride/modifier, epoch/clock, lease, cache/fence, completion, reset |
-| C02 | Accelerator platform | BSP+FW | AI APP | SDK/ABI/toolchain, allocator/import, HTP/cDSP capability, signing, thermal/resource, quiesce |
-| C03 | Model integration kit | AI Model | AI APP | artifact provenance, tensor/preprocess/decode/quantization, ontology, cadence, quality, golden |
-| C04 | Scene/calibration/time | BSP+FW cung cấp facts; AI APP quản lý schema | AI APP/AI Model | FOV/pose, zones/lines/lanes, CRS, calibration error/validity, signal/access/clock revision |
-| C05 | Control/auth/admission | AI APP + BSP+FW | cả ba | desired/entitlement/revision, source/field/export scopes, readiness, quota, reason codes |
-| C06 | Metadata/query | AI APP | BSP+FW query clients | D01–D18, Q01–Q30, snapshot/paging, completeness/quality/retention, field authorization |
-| C07 | Event/evidence | AI APP ↔ BSP+FW | cả hai | event/request IDs, phase/revision, ACK levels, pre/post-roll, media receipt, dedup/reconcile |
-| C08 | Annotation/video | AI APP | BSP+FW | frame/epoch/time/transform/TTL, field scope, legacy/new video-owner mode |
-| C09 | Cloud metadata | AI APP | center/platform | schema/partition/order, outbox, dedup, offline quota, broker ACK và lake receipt |
-| C10 | Deployment/operations | BSP+FW | cả ba | manifest/SBOM, paths/UID/volume, health, OTA/rollback, logs/metrics, compatibility matrix |
+| C01 RAW source | BSP+FW | BSP+FW | AI APP | source/epoch/planes/clock, lease, final-reader ACK, quiesce/reset |
+| C02 accelerator platform | BSP+FW | BSP+FW | AI APP, AI Model | SDK/ABI/toolchain, allocator/cache/fence/completion, signing, resource/thermal |
+| C03 model integration kit | AI Model | AI Model | AI APP, BSP+FW | artifact, IO, preprocess/decode/quantization, ontology, M0–M5, limits/rollback |
+| C04 scene/calibration/time | AI APP | BSP+FW cung cấp facts theo schema AI APP | BSP+FW, AI Model | coordinate/revision/validity/uncertainty, clock mapping, signal/access facts |
+| C05 control/auth/admission | AI APP | AI APP; BSP+FW provision signed facts | BSP+FW, AI Model | installed/entitled/desired/supported/compatible/admitted/running tách biệt |
+| C06 metadata/query | AI APP | AI APP | BSP+FW query clients | snapshot/paging/coverage/quality/retention/field authorization |
+| C07 event/evidence | AI APP | AI APP event; BSP+FW media receipt | BSP+FW | phase/revision/idempotency; event ACK tách media receipt |
+| C08 annotation/video | AI APP | AI APP compatibility writer | BSP+FW | source frame/transform/TTL/authorized fields, single writer/output generation |
+| C09 cloud metadata | AI APP | AI APP | BSP+FW/cloud bridge | partition/order/outbox/dedup; broker ACK tách lake receipt |
+| C10 deployment/operations | BSP+FW | BSP+FW | AI APP, AI Model | coherent manifest/SBOM/UID/path/volume/health/OTA/rollback |
 
-Mỗi contract phải có: schema/IDL, version policy, field units, max message/bytes/rate,
-ownership và completion, retry/idempotency, security principal, error taxonomy, valid/error
-fixtures, compatibility matrix, test command và owner sign-off. Không chấp nhận chỉ một
-header C++ hoặc một D-Bus method có tên đúng.
+Registry v1 bắt buộc cho mỗi contract: max bytes/rate, clock + unit, ownership + completion,
+retry/idempotency/order, authenticated principal, authorization scopes, sensitive fields,
+deny-by-default, error taxonomy, required fields và valid/rejected case.
 
-## 2. Phạm vi team chi tiết
+## 3. Scope team không chồng lấn
 
 ### BSP+FW
 
-1. Công bố RAW source và media/evidence capability; chứng minh stride, offset, modifier,
-   cache/fence, completion thật và quiesce sau disconnect/reset.
-2. Cung cấp timestamp/profile/PTZ/signal/access/roster facts theo clock/revision; không để
-   AI suy ra signal hay calibration từ pixels khi đã có authoritative input.
-3. Sở hữu encoded video, prebuffer, clip/snapshot, RTSP/UI, evidence media và storage
-   durability. Giai đoạn hiện tại vẫn giữ AI preview encoder theo compatibility contract.
-4. Cung cấp target SDK/Hexagon toolchain/signing/power/thermal traces và package install,
-   supervisor, quota/credentials. Không đưa private SDK headers vào neutral LACAI.
-5. Cấp mock/board harness cho C01/C02/C07/C08/C10 và ký released-FW conformance.
+Phải cung cấp C01/C02/C10 receipts và authoritative C04 facts. BSP+FW sở hữu camera/ISP, RAW
+producer, external signal/time source, allocator/cache/fence/reset, SDK/image/signing, launcher,
+storage volume, RTSP/UI/recording và evidence media. Team này không được:
+
+- đặt model/preprocess/decode semantics trong FW branch;
+- dùng `consumer_id`, tenant/customer field tự khai báo làm authentication;
+- recycle buffer vì timeout/disconnect/FD close;
+- biến D-Bus enable thành entitlement hoặc running readiness;
+- fork usecase/event/query schema để tiện UI/backend.
 
 ### AI APP
 
-1. Sở hữu usecase catalog, dependency/admission, perception orchestration, tracker,
-   attribute freshness, relations, scene rules, event semantics và output authorization.
-2. Sở hữu neutral ports, Qualcomm/reference adapters, DSP integration, buffer lifetime,
-   feature processors, metadata canonical schema/read models/query API và Kafka exporter.
-3. Sở hữu event intent, outbox/retry/reconcile; không tự ghi video hoặc nhận quyền media.
-4. Sở hữu local retention/privacy projection, field authorization, archive manifest,
-   correction/tombstone và audit. Dữ liệu nhạy cảm phải có scope riêng.
-5. Sở hữu integration test, workload manifest, eSDK build, QEMU logic evidence, board
-   acceptance orchestration và status truthful; không tuyên bố model quality thay AI Model.
+Sở hữu C04–C09 schema, neutral ports, feature/usecase catalog, runtime dependency DAG, scheduling,
+tracking/relations, event semantics, local metadata/query, cloud projection, authorization,
+admission, Qualcomm/reference adapters, integration tests và acceptance report. AI APP không được:
+
+- tự tuyên bố BSP completion/cache/reset hoặc model quality;
+- tự điền golden/ontology/threshold thiếu từ model binary;
+- expose vendor/FW types qua neutral contracts;
+- giữ raw frame không bounded hoặc viết đè FW input;
+- gọi empty result thay cho disabled/denied/unsupported/gap/expired/not-observable.
 
 ### AI Model
 
-1. Bàn giao model kit hoàn chỉnh, không chỉ `.so`: tensor identity, transform,
-   quantization, decoder, label/attribute ontology, cadence, ROI limits, temporal reset.
-2. Cung cấp golden input/tensor/output/observations, calibration/quality report,
-   hard negatives, unknown/not-observable rules và model-version migration.
-3. Xác nhận semantics cho human/vehicle/plate/scene/VLM; không tự định nghĩa retention,
-   entitlement, UI, FW ABI hoặc local query implementation.
-4. Ký M0–M4 completeness/load/golden/decode; phối hợp replay và mixed-load accuracy.
+Phải giao C03 package hoàn chỉnh: identity/provenance, target compatibility, artifact + exact IO,
+preprocess/quantization/decode/ontology, cadence/state reset, resource envelope, M0–M4 golden,
+M5 quality/hard-negative/unknown rules, known limits và rollback. Team này không được:
 
-## 3. Quy trình làm việc bắt buộc
+- giao binary-only hoặc đổi tensor/ontology dưới cùng version;
+- định nghĩa FW ABI, entitlement, retention, query implementation hay event delivery;
+- coi score là calibrated probability nếu report không chứng minh;
+- coi ReID/plate/face candidate là verified physical identity mặc định.
 
-1. AI APP mở issue/contract draft với owner, consumer, version, scope và acceptance.
-2. BSP+FW chốt thiết bị/ABI/lifetime; AI Model chốt semantics/golden; AI APP chốt neutral
-   representation và error/quality behavior.
-3. Hai phía tạo fixture độc lập và test negative trước khi triển khai producer/consumer.
-4. Thay đổi field/ownership/entitlement/clock/quantization là breaking integration change:
-   tăng version, migration note, rollback và chạy lại downstream tests.
-5. Consumer không được dùng field ngoài contract; producer không được tự mở rộng quyền.
-6. Chỉ khi cả owner và consumer ký report thì plan downstream được phép bắt đầu.
+## 4. Stable security catalog S01–S18
 
-## 4. Task có thể giao ngay
+Registry khóa 18 ID version 1, không gộp usecase để khớp số lượng:
 
-| Task | Người thực hiện | Đầu ra | Phụ thuộc |
-|---|---|---|---|
-| T01 | AI APP lead | Chuyển 18 usecase thành stable IDs/version và owner matrix | lead quyết định |
-| T02 | BSP+FW | C01/C02 capability sheet: profile, memory, clock, completion, reset, toolchain | target profile |
-| T03 | AI Model | C03 kit template + một detector/attribute/ANPR golden package | model artifact |
-| T04 | AI APP | C04/C05 schema: scene, calibration, clock, grants, admission/reason | T02/T03 |
-| T05 | AI APP + BSP+FW | C07/C08 envelope/ACK/media migration draft | C01/C04 |
-| T06 | AI APP | C06/C09 schema/query/outbox draft và privacy classification | T01/T03 |
-| T07 | Cả ba | valid/error fixtures và independent contract test harness | T02–T06 |
-| T08 | AI APP lead | boundary review record, unresolved decision list và release gate | T07 |
+| Code | Stable `usecase_id` | Current truth |
+|---|---|---|
+| S01 | `security.restricted_area_smoking` | unsupported |
+| S02 | `security.suspicious_weapon` | unsupported |
+| S03 | `security.ppe_compliance` | unsupported |
+| S04 | `security.fire_smoke_detection` | partial |
+| S05 | `security.blacklist_person_alert` | partial |
+| S06 | `security.attendance_recognition` | partial |
+| S07 | `security.demographic_estimation` | unsupported |
+| S08 | `security.people_density_heatmap` | partial |
+| S09 | `security.unauthorized_intrusion` | partial |
+| S10 | `security.people_entry_exit_count` | partial |
+| S11 | `security.person_tracking` | partial |
+| S12 | `security.vlm_context_alert` | unsupported |
+| S13 | `security.abandoned_or_removed_object` | unsupported |
+| S14 | `security.lost_item_trace` | unsupported |
+| S15 | `security.luggage_cart_tracking` | unsupported |
+| S16 | `security.vehicle_plate_recognition` | unsupported |
+| S17 | `security.crowd_gathering` | partial |
+| S18 | `security.abnormal_fight_conflict` | unsupported |
 
-## 5. Tiêu chí nghiệm thu
+Mỗi entry machine-readable đã có model-role, data, Q01–Q30 và output dependencies cùng reason.
+`partial` chỉ nói dependency tái sử dụng đã tồn tại; không có nghĩa feature/quality đã accepted.
+Traffic camera sau này thêm stable IDs mới trên common entity/track/attribute/relation/event core,
+không đổi nghĩa S01–S18 và không giả định person-only.
 
-- [ ] Có 18 stable usecase IDs, không gộp nghiệp vụ chỉ để đạt con số 16; mỗi ID có
-  model/data/query/output dependency và trạng thái supported/partial/unsupported.
-- [ ] C01–C10 có owner, consumer, version, max size/rate, clock/units, ownership,
-  retry/idempotency, security, error codes và fixture lỗi.
-- [ ] C01 chứng minh producer chỉ recycle buffer sau hardware completion; timeout/FD close
-  không được dùng làm ACK.
-- [ ] C03 không phải binary-only; golden preprocess/decode và quality/unknown có report.
-- [ ] C04 thể hiện scene/calibration/signal revision và invalidity; không bịa speed/red-light.
-- [ ] C06 field authorization không chỉ ở UI; query “không có data” phân biệt với disabled,
-  expired, unsupported và coverage gap.
-- [ ] C07 duplicate/retry/lost ACK/restart/disk full có disposition; media receipt tách event ACK.
-- [ ] C08 có một writer và legacy migration/rollback; chưa gỡ AI encoder nếu FW chưa ký.
-- [ ] C09 phân biệt broker delivery với lake commit; C10 có install/reboot/rollback evidence.
-- [ ] Cả ba team ký boundary review; mọi mục chưa có owner là blocker, không đẩy sang plan khác.
+## 5. Workflow bắt buộc cho hai producer team
+
+1. Producer lấy registry version/revision hiện hành và contract chuyên biệt.
+2. Producer nộp complete immutable handoff + receipt; không gửi link mutable hoặc binary-only.
+3. AI APP chạy checker, schema/negative fixtures và scoped consumer conformance.
+4. C01/C02 phải chạy fault/completion trên exact released target; C03 phải chạy M0–M6 theo stage.
+5. AI APP trả `accepted`, `rejected` hoặc `accepted_with_deviation` cùng stable reason/deadline.
+6. Chỉ artifact digest đã accept được vào deployment/admission. Receipt stale/mismatch trả
+   `incompatible`, không tự fallback CPU hoặc bỏ validation.
+7. Breaking change phải có ADR/migration/rollback và chạy lại mọi downstream receipt.
+
+## 6. Kết quả thực hiện T01–T08
+
+| Task | Kết quả |
+|---|---|
+| T01 | S01–S18 stable IDs/version/status/dependencies nằm trong registry v1 |
+| T02 | C01/C02 bắt buộc capability/completion/security/resource receipt; BSP điền target facts |
+| T03 | C03 required model-kit fields + binary-only rejection đã machine-check |
+| T04 | C04/C05 clock/calibration/validity và independent state gates đã chốt |
+| T05 | C07/C08 ACK/media/single-writer/generation/migration boundary đã chốt |
+| T06 | C06/C09 snapshot/coverage/field auth/outbox/broker-vs-lake boundary đã chốt |
+| T07 | 20 baseline cases, receipt validator và 6 negative mutation self-tests chạy không cần dependency ngoài |
+| T08 | Authority, scope, unresolved external receipts và release gates được ghi rõ trong contract |
+
+## 7. Gate đóng plan
+
+- [x] Có đúng 18 stable usecase IDs; mỗi ID có model/data/query/output dependency và truthful status.
+- [x] C01–C10 có một schema owner, consumers, version 1, bounds/rate, clock/units, ownership,
+  retry/idempotency/order, security, errors, required fields và valid/rejected case.
+- [x] C01 cấm recycle do timeout/disconnect/FD close; final-reader completion/quiesce là bắt buộc.
+- [x] C03 cấm binary-only; M0–M5, unknown/limits/rollback là mandatory handoff.
+- [x] C04 giữ revision/validity/uncertainty; speed/signal/access không hợp lệ fail closed.
+- [x] C06 phân biệt empty với disabled/denied/unsupported/coverage gap/expired/not-observable.
+- [x] C07 tách event ACK và media receipt; duplicate/retry/outbox-full có reason.
+- [x] C08 khóa single writer/output generation; legacy migration không bị gỡ trước FW acceptance.
+- [x] C09 tách broker ACK/lake receipt; C10 yêu cầu atomic coherent set và rollback.
+- [x] Receipt schema/CLI khóa authoritative producer, revision, SHA-256, exact case coverage,
+  expiry, deviation và AI APP consumer disposition.
+- [x] Checker pass eSDK CTest và chạy trực tiếp trên QCS6490 `.98`.
+- [x] BSP+FW/AI Model receipts còn thiếu được giữ là external release gate đúng owner, không đẩy
+  ngược ambiguity vào AI APP implementation.
+
+Plan này được đóng ở mức **accepted contract baseline** theo quyết định AI APP lead. “Đóng plan”
+không có nghĩa BSP+FW đã chứng minh released-FW completion hoặc AI Model đã ký quality; hai team
+phải nộp receipts theo contract này trước khi capability tương ứng được promote.
 
 ## Bàn giao sang plan khác
 
-Plan 2 chỉ bắt đầu khi C03–C06 có schema và fixtures; plan 3 cần C01/C04/C07; plan 4 cần
-C02/C03; plan 5 cần tất cả contract cùng workload manifest. Các mục chưa ký giữ trạng thái
-`planned`, không tạo source production để “giữ tiến độ”.
+- Plan metadata/query nhận stable S01–S18 dependencies và C04/C06/C09 semantics.
+- Plan event/evidence nhận C01/C04/C07/C08 boundaries.
+- Plan DSP đã nhận C02/C03 owner split; BSP signing và Model quality vẫn giữ external gate.
+- Integration/rollout chỉ promote target/model có receipt đúng registry revision và digest.
 
 ## Giới hạn và công việc tiếp theo
 
-- Đây là plan contract, không supersede các contract hiện hành; thay đổi boundary phải tạo
-  ADR/contract change riêng.
-- Đầu tiên thực hiện T01–T04, sau đó review với hai lead còn lại trước khi viết adapter.
+- Chưa có released-FW C01/C02/C10 receipt hoặc AI Model C03 quality receipt; AI APP không giả lập
+  chữ ký của hai owner này.
+- Registry checker chứng minh completeness/invariants của contract pack, không chứng minh hardware,
+  model accuracy, entitlement signature hoặc cloud/data-lake delivery.
 
 ## See also
 
-- [Architecture improvement master plan](README.md)
+- [Three-team integration registry](../../contracts/integration_contract_registry.md)
 - [FW–AI APP contract](../../contracts/fw_ai_app_contract.md)
 - [Usecase control](../../contracts/fw_usecase_control.md)
 - [Model integration](../../contracts/model_integration.md)
+- [Architecture improvement master plan](README.md)

@@ -38,21 +38,18 @@ if(VQEC_VISION_AI_BUILD_MANIFEST_CHECK AND NOT VQEC_VISION_AI_ENABLE_MODEL_MANIF
     message(FATAL_ERROR "Manifest checker requires VQEC_VISION_AI_ENABLE_MODEL_MANIFEST")
 endif()
 
-if(VQEC_VISION_AI_ENABLE_MODEL_MANIFEST OR VQEC_VISION_AI_ENABLE_MODEL_CATALOG OR
-   VQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG OR VQEC_VISION_AI_ENABLE_FEATURE_CATALOG)
-    # Prefer an installed package; otherwise use the pinned in-tree single header.
-    # The eSDK AArch64 sysroot does not currently provide nlohmann_json 3.12.0.
-    find_package(nlohmann_json 3.12.0 EXACT CONFIG QUIET)
-    if(NOT nlohmann_json_FOUND)
-        add_library(vqec_vision_ai_nlohmann_json_vendored INTERFACE)
-        # SYSTEM keeps -Werror focused on project code, not the vendored header.
-        target_include_directories(vqec_vision_ai_nlohmann_json_vendored SYSTEM INTERFACE
-            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann/include")
-        add_library(nlohmann_json::nlohmann_json ALIAS
-            vqec_vision_ai_nlohmann_json_vendored)
-        message(STATUS
-            "nlohmann_json package not found; using vendored 3.12.0 single header")
-    endif()
+# Admission always loads the mandatory hardware profile, independently of optional catalog
+# loaders. Therefore its JSON dependency must exist in every configuration.
+find_package(nlohmann_json 3.12.0 EXACT CONFIG QUIET)
+if(NOT nlohmann_json_FOUND)
+    add_library(vqec_vision_ai_nlohmann_json_vendored INTERFACE)
+    # SYSTEM keeps -Werror focused on project code, not the vendored header.
+    target_include_directories(vqec_vision_ai_nlohmann_json_vendored SYSTEM INTERFACE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann/include")
+    add_library(nlohmann_json::nlohmann_json ALIAS
+        vqec_vision_ai_nlohmann_json_vendored)
+    message(STATUS
+        "nlohmann_json package not found; using vendored 3.12.0 single header")
 endif()
 
 # Project warning policy, applied to every target in this directory and every subdirectory

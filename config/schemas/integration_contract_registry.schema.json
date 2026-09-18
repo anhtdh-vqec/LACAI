@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.local/schemas/integration_contract_registry.schema.json",
+  "title": "LACAI three-team integration contract registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_id", "revision", "authority_team", "teams", "contracts", "usecases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "registry_id": {"const": "lacai.integration_contract_registry"},
+    "revision": {"type": "integer", "minimum": 1},
+    "authority_team": {"const": "ai_app"},
+    "teams": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/team"}},
+    "contracts": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"$ref": "#/$defs/contract"}},
+    "usecases": {"type": "array", "minItems": 18, "maxItems": 18, "items": {"$ref": "#/$defs/usecase"}}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$"},
+    "string_list": {"type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    "team": {
+      "type": "object", "additionalProperties": false,
+      "required": ["team_id", "owns", "must_not_own"],
+      "properties": {"team_id": {"enum": ["bsp_fw", "ai_app", "ai_model"]}, "owns": {"$ref": "#/$defs/string_list"}, "must_not_own": {"$ref": "#/$defs/string_list"}}
+    },
+    "clock": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domain", "timestamp_unit", "mapping_required"],
+      "properties": {"domain": {"enum": ["none", "monotonic", "source_monotonic", "realtime_utc"]}, "timestamp_unit": {"enum": ["none", "ns", "us", "ms"]}, "mapping_required": {"type": "boolean"}}
+    },
+    "ownership": {
+      "type": "object", "additionalProperties": false,
+      "required": ["producer_retains_until", "consumer_release_signal", "timeout_is_completion", "disconnect_is_completion"],
+      "properties": {"producer_retains_until": {"$ref": "#/$defs/identifier"}, "consumer_release_signal": {"$ref": "#/$defs/identifier"}, "timeout_is_completion": {"const": false}, "disconnect_is_completion": {"const": false}}
+    },
+    "delivery": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reliability", "idempotency_key", "retry_policy", "ordering"],
+      "properties": {"reliability": {"enum": ["bounded_latest", "revisioned_snapshot", "immutable_package", "transactional_snapshot", "snapshot_paged", "at_least_once"]}, "idempotency_key": {"$ref": "#/$defs/identifier"}, "retry_policy": {"$ref": "#/$defs/identifier"}, "ordering": {"$ref": "#/$defs/identifier"}}
+    },
+    "security": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authenticated_principal", "authorization_scopes", "sensitive_data", "deny_by_default"],
+      "properties": {"authenticated_principal": {"$ref": "#/$defs/identifier"}, "authorization_scopes": {"$ref": "#/$defs/string_list"}, "sensitive_data": {"$ref": "#/$defs/string_list"}, "deny_by_default": {"const": true}}
+    },
+    "contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_id", "contract_version", "name", "owner_team", "producer_teams", "consumer_teams", "authority_document", "max_message_bytes", "max_messages_per_second", "clock", "units", "ownership", "delivery", "security", "required_fields", "error_codes"],
+      "properties": {
+        "contract_id": {"type": "string", "pattern": "^C(0[1-9]|10)$"}, "contract_version": {"const": 1}, "name": {"$ref": "#/$defs/identifier"},
+        "owner_team": {"enum": ["bsp_fw", "ai_app", "ai_model"]}, "producer_teams": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["bsp_fw", "ai_app", "ai_model"]}}, "consumer_teams": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["bsp_fw", "ai_app", "ai_model"]}},
+        "authority_document": {"type": "string", "pattern": "^docs/[a-z0-9_./-]+\\.md$"},
+        "max_message_bytes": {"type": "integer", "minimum": 1, "maximum": 16777216}, "max_messages_per_second": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "clock": {"$ref": "#/$defs/clock"}, "units": {"$ref": "#/$defs/string_list"}, "ownership": {"$ref": "#/$defs/ownership"}, "delivery": {"$ref": "#/$defs/delivery"}, "security": {"$ref": "#/$defs/security"}, "required_fields": {"$ref": "#/$defs/string_list"}, "error_codes": {"$ref": "#/$defs/string_list"}
+      }
+    },
+    "usecase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["catalog_code", "usecase_id", "version", "capability_status", "status_reason", "model_dependencies", "data_dependencies", "query_dependencies", "output_dependencies"],
+      "properties": {
+        "catalog_code": {"type": "string", "pattern": "^S(0[1-9]|1[0-8])$"}, "usecase_id": {"type": "string", "pattern": "^security\\.[a-z0-9_]+$"}, "version": {"const": 1},
+        "capability_status": {"enum": ["supported", "partial", "unsupported"]}, "status_reason": {"type": "string", "minLength": 1, "maxLength": 256},
+        "model_dependencies": {"$ref": "#/$defs/string_list"}, "data_dependencies": {"$ref": "#/$defs/string_list"}, "query_dependencies": {"type": "array", "minItems": 1, "maxItems": 30, "uniqueItems": true, "items": {"type": "string", "pattern": "^Q(0[1-9]|[12][0-9]|30)$"}}, "output_dependencies": {"$ref": "#/$defs/string_list"}
+      }
+    }
+  }
+}

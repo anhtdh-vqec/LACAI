@@ -1,5 +1,25 @@
 # Implementation status — 2026-09-18
 
+2026-09-18 three-team contract baseline (Plan 1: **ACCEPTED**):
+
+- A normative machine registry now fixes C01–C10 schema owners, authoritative producers,
+  consumers, v1 bounds, clocks/units, lifetime/completion, delivery, security, required fields
+  and error taxonomy. S01–S18 have stable IDs and truthful dependency/status records.
+- The standard-library checker validates the registry, 20 valid/rejected baseline cases,
+  producer receipt envelopes and six negative mutations. Producer receipts bind exact registry,
+  artifact/report SHA-256, case coverage, expiry/deviation and an AI APP-owned disposition.
+- Approved eSDK/QEMU neutral configuration passes 100/100 CTest. QCS6490 `.98` runs the same
+  registry/self-test checker successfully; this is contract-pack portability evidence, not
+  released-FW, hardware-completion or model-quality acceptance.
+- The clean neutral build also exposed that mandatory hardware admission linked nlohmann JSON
+  while dependency discovery was incorrectly gated by optional catalog loaders. CMake now resolves
+  the pinned installed-or-vendored JSON target in every configuration; no runtime policy changed.
+- BSP+FW C01/C02/C10 target receipts and AI Model C03 golden/quality receipts remain external
+  release gates. AI APP does not fabricate those owners' attestations.
+
+See the [integration registry](../contracts/integration_contract_registry.md) and
+[closed plan](../planning/architecture_improvement/contract_and_team_scope.md).
+
 2026-09-17 subsequent Plan 0 corrective verification (AI APP development: **UNBLOCKED**):
 
 - Corrective source candidate: local commit `5237c18`; exact binary/profile hashes in review.

@@ -16,6 +16,9 @@ Configuration and control validation schemas with bounded fields and version/rev
 | `anchor_distance_decoder.schema.json` | Primary anchor-distance (SCRFD-style) decoder package with landmarks |
 | `usecase_control_snapshot.schema.json` | Trusted startup usecase snapshot (catalog + requests + revisions) |
 | `hardware_admission_profile.schema.json` | Startup hardware admission profile defining platform memory, FW concurrency and thermal limits |
+| `integration_contract_registry.schema.json` | Exact C01–C10 ownership, handoff and S01–S18 dependency registry |
+| `integration_contract_cases.schema.json` | Bounded valid/rejected baseline conformance-case catalog |
+| `integration_contract_receipt.schema.json` | Immutable producer evidence plus AI APP consumer disposition envelope |
 
 ## Limits and next work
 
@@ -28,3 +31,4 @@ Configuration and control validation schemas with bounded fields and version/rev
 
 - [Multi-source configuration](../../docs/architecture/multi_source_configuration.md)
 - [Model catalog](../../docs/architecture/model_catalog.md), [model package registry](../../docs/architecture/model_package_registry.md), [feature catalog](../../docs/architecture/feature_catalog.md)
+- [Three-team integration contract registry](../../docs/contracts/integration_contract_registry.md)

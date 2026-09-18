@@ -44,6 +44,9 @@ For DSP ownership and the generic protocol requirements, see the
 face enrollment/gallery, model integration, FW release compatibility). A proposal is not a
 released protocol; contract changes need owner review before source.
 
+The [three-team integration registry](contracts/integration_contract_registry.md) is the
+normative owner/version/handoff authority for C01–C10 and stable S01–S18 identities.
+
 ## Development
 
 `docs/development/` holds repository rules, the naming registry, the review checklist and

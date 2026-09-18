@@ -12,6 +12,10 @@ pending; not a released protocol. **Layer:** contracts. **Source:** `n/a`.
 Owner: AI APP lead.
 Target: LACAI replacing `application/ai_app` in `vqec_camera_service`.
 
+The normative owner/version/bounds envelope is C01/C02/C10 in the
+[three-team integration registry](integration_contract_registry.md). AI APP owns this requirements
+baseline and integration acceptance; BSP+FW owns producer facts and their conformance receipts.
+
 ## Responsibility
 
 - Fixes the FW/AI APP ownership boundary and the migration compatibility path.
@@ -129,3 +133,4 @@ metadata should use a new versioned endpoint while the migration baseline remain
 
 - [FW camera integration requirements](fw_camera_integration_requirements.md)
 - [FW release compatibility baseline](fw_release_compatibility.md)
+- [Three-team integration contract registry](integration_contract_registry.md)

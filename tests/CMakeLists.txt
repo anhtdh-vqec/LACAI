@@ -12,6 +12,21 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR
         $<$<COMPILE_LANGUAGE:CXX>:-UNDEBUG>)
 endif()
 
+find_program(integration_contract_python NAMES python3 PATHS /usr/bin
+    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+if(integration_contract_python)
+    add_test(NAME integration_contract_registry
+        COMMAND ${integration_contract_python}
+            ${CMAKE_SOURCE_DIR}/tools/contracts/vqec_vision_check_integration_contract.py
+            --registry ${CMAKE_SOURCE_DIR}/config/contracts/integration_contract_registry.json
+            --cases ${CMAKE_SOURCE_DIR}/config/contracts/integration_contract_cases.json
+            --schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_registry.schema.json
+            --cases-schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_cases.schema.json
+            --receipt-schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_receipt.schema.json
+            --version-registry ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h
+            --self-test)
+endif()
+
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_processor_registry_test

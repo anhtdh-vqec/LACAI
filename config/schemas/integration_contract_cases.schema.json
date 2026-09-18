@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.local/schemas/integration_contract_cases.schema.json",
+  "title": "LACAI integration contract baseline cases",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_id", "registry_revision", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "registry_id": {"const": "lacai.integration_contract_registry"},
+    "registry_revision": {"type": "integer", "minimum": 1},
+    "cases": {
+      "type": "array", "minItems": 20, "maxItems": 20,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["case_id", "contract_id", "outcome", "scenario", "expected_reason_code"],
+        "properties": {
+          "case_id": {"type": "string", "pattern": "^C(0[1-9]|10)_[a-z0-9_]+$", "maxLength": 128},
+          "contract_id": {"type": "string", "pattern": "^C(0[1-9]|10)$"},
+          "outcome": {"enum": ["valid", "rejected"]},
+          "scenario": {"type": "string", "minLength": 1, "maxLength": 256},
+          "expected_reason_code": {"type": "string", "pattern": "^[a-z][a-z0-9_]+$", "maxLength": 128}
+        }
+      }
+    }
+  }
+}

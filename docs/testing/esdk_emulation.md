@@ -4,7 +4,7 @@ This document records how LACAI runs AArch64 logic/wiring tests under the approv
 QEMU, the current pass counts and the evidence boundary. It exists so that a missing host
 `qemu-aarch64` is not mistaken for emulation being unavailable.
 
-**Status:** logic-tested — 76/76 neutral and 123/123 expanded under eSDK QEMU; emulation is
+**Status:** logic-tested — 100/100 neutral and 135/135 expanded under eSDK QEMU; emulation is
 logic/wiring evidence only. **Layer:** reference. **Source:** `n/a`.
 
 Configuration/evidence option matrix:
@@ -25,9 +25,10 @@ suggested that emulation was unavailable.
 
 ## Current result
 
-- Neutral configuration (Zvec OFF): 76/76.
+- Neutral configuration (Zvec OFF): 100/100 on 2026-09-18, including the three-team contract
+  registry and receipt self-test.
 - Expanded configuration (camera, GIO D-Bus, GStreamer bridge, Qualcomm, FastCV, QNN engine,
-  JSON loaders, Zvec): 123/123.
+  JSON loaders, Zvec): 135/135 on 2026-09-18.
 
 Both run the SDK AArch64 compiler under SDK QEMU against the target sysroot. This is
 logic/wiring evidence only. It validates neither device DMA completion nor Qualcomm plugins,

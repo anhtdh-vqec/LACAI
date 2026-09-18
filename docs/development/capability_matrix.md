@@ -7,6 +7,7 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 
 | Capability | Source / logic | Native evidence | Not yet accepted |
 |---|---|---|---|
+| Three-team contract authority | C01–C10 registry, producer receipt schema/checker and S01–S18 stable IDs; eSDK/QEMU 100/100 | `.98` registry/self-test smoke | BSP+FW target receipts and AI Model golden/quality receipts |
 | Static single-image catalog/manifest | Implemented, tested | Model-specific probes | Generic model accuracy |
 | Dynamic/multi-input/stateful/batch | Rejected where unsupported | None | Implementation/capacity |
 | Synchronous owned QNN | Implemented, tested | SCRFD/YOLO execution + parity; EdgeFace probe | End-to-end FR accuracy |

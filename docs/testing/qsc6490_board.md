@@ -123,6 +123,13 @@ canonical `/opt/lacai/run_full.sh` path reproduced 29.997 FPS and 13.40% CPU ove
 sanity sample. The workload was intentionally left running for VLC review at
 `rtsp://192.168.138.98:8554/live/ai/detect0`.
 
+The three-team v1 contract pack was also staged transiently and its dependency-free checker ran
+on `.98`: `PASS: 10 contracts, 18 usecases, 20 cases, 0 receipts, schema v1`. Evidence and exact
+artifact hashes are under `/opt/lacai/out/contract_scope/`; the transient input directory was
+removed. This proves parser/invariant portability only. At the time of this check the canonical
+runner reported camera, service and RTSP stopped, so no new live-runtime claim is attached to the
+contract-only smoke.
+
 This accepts the AI APP lead's explicit five-minute, 30 FPS, average-CPU-below-15% gate. The
 508 KiB short-run RSS change is not leak-free proof. Signed DSP deployment, released-FW DMA
 completion, independent model quality, reset-under-load and product thermal/long-soak evidence

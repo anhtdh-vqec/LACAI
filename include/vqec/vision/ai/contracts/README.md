@@ -16,6 +16,8 @@ this directory.
   batches and bounded feature events with source/frame/config/schema/model provenance.
 - Define multi-source deployment/model-catalog contracts and inference execution
   capability/policy/domain/shared-buffer/model-update descriptors.
+- Use the machine-readable three-team registry for external C01–C10 ownership; this directory
+  remains the neutral C++ surface and does not absorb FW/vendor types.
 
 ## Limits and next work
 
@@ -27,3 +29,4 @@ this directory.
 ## See also
 
 - [Ports](../ports/README.md), [naming registry](../../../../../docs/development/naming_registry.md)
+- [Three-team integration registry](../../../../../docs/contracts/integration_contract_registry.md)

@@ -11,6 +11,10 @@ remain unimplemented. **Layer:** contracts. **Source:** `n/a`.
 
 Owner: AI Model; integration + acceptance: AI APP; target compatibility: BSP.
 
+C03 in the [three-team integration registry](integration_contract_registry.md) is the normative
+owner/version/bounds envelope. A package that omits any C03 required field is incompatible before
+artifact load, regardless of whether its binary happens to execute.
+
 ## Responsibility
 
 - Defines the required model package fields, resource envelope and acceptance gates.
@@ -153,3 +157,4 @@ loading an executable .so.
 - [Feature catalog](../architecture/feature_catalog.md)
 - [Model catalog](../architecture/model_catalog.md)
 - [Multi-source configuration](../architecture/multi_source_configuration.md)
+- [Three-team integration contract registry](integration_contract_registry.md)

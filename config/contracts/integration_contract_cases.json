@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "registry_id": "lacai.integration_contract_registry",
+  "registry_revision": 1,
+  "cases": [
+    {"case_id": "C01_valid_bounded_frame_lease", "contract_id": "C01", "outcome": "valid", "scenario": "validated frame descriptor remains retained until final reader ACK", "expected_reason_code": "ok"},
+    {"case_id": "C01_reject_disconnect_as_completion", "contract_id": "C01", "outcome": "rejected", "scenario": "producer attempts recycle after disconnect without quiesce", "expected_reason_code": "recovery_required"},
+    {"case_id": "C02_valid_capability_receipt", "contract_id": "C02", "outcome": "valid", "scenario": "pinned SDK allocator completion reset and thermal envelope receipt", "expected_reason_code": "ok"},
+    {"case_id": "C02_reject_unpinned_sdk", "contract_id": "C02", "outcome": "rejected", "scenario": "runtime library does not match declared SDK ABI", "expected_reason_code": "incompatible"},
+    {"case_id": "C03_valid_complete_model_kit", "contract_id": "C03", "outcome": "valid", "scenario": "artifact IO preprocess decode ontology golden quality and limits are present", "expected_reason_code": "ok"},
+    {"case_id": "C03_reject_binary_only", "contract_id": "C03", "outcome": "rejected", "scenario": "handoff contains only an executable model artifact", "expected_reason_code": "not_qualified"},
+    {"case_id": "C04_valid_revisioned_scene", "contract_id": "C04", "outcome": "valid", "scenario": "scene calibration clock mapping uncertainty and validity share one revision", "expected_reason_code": "ok"},
+    {"case_id": "C04_reject_stale_calibration", "contract_id": "C04", "outcome": "rejected", "scenario": "speed or signal rule uses expired calibration", "expected_reason_code": "expired"},
+    {"case_id": "C05_valid_transactional_plan", "contract_id": "C05", "outcome": "valid", "scenario": "desired snapshot passes entitlement compatibility and admission independently", "expected_reason_code": "ok"},
+    {"case_id": "C05_reject_desired_as_entitlement", "contract_id": "C05", "outcome": "rejected", "scenario": "caller attempts to make desired state grant protected output", "expected_reason_code": "unauthorized"},
+    {"case_id": "C06_valid_authorized_snapshot_page", "contract_id": "C06", "outcome": "valid", "scenario": "query page pins snapshot coverage quality and field projection", "expected_reason_code": "ok"},
+    {"case_id": "C06_reject_empty_for_gap", "contract_id": "C06", "outcome": "rejected", "scenario": "query maps source coverage gap to an empty result", "expected_reason_code": "coverage_gap"},
+    {"case_id": "C07_valid_event_and_media_receipts", "contract_id": "C07", "outcome": "valid", "scenario": "event ACK and evidence media receipt advance independently", "expected_reason_code": "ok"},
+    {"case_id": "C07_reject_duplicate_payload_conflict", "contract_id": "C07", "outcome": "rejected", "scenario": "same event phase revision is reused with another payload", "expected_reason_code": "duplicate"},
+    {"case_id": "C08_valid_single_writer_generation", "contract_id": "C08", "outcome": "valid", "scenario": "authorized overlay and encoded AU preserve frame and output generation", "expected_reason_code": "ok"},
+    {"case_id": "C08_reject_second_writer", "contract_id": "C08", "outcome": "rejected", "scenario": "two writers attempt to own the same preview output generation", "expected_reason_code": "incompatible"},
+    {"case_id": "C09_valid_broker_and_lake_states", "contract_id": "C09", "outcome": "valid", "scenario": "outbox broker ACK and lake receipt are separately recorded", "expected_reason_code": "ok"},
+    {"case_id": "C09_reject_broker_ack_as_lake_commit", "contract_id": "C09", "outcome": "rejected", "scenario": "broker delivery is reported as data lake commit", "expected_reason_code": "invalid_argument"},
+    {"case_id": "C10_valid_atomic_deployment", "contract_id": "C10", "outcome": "valid", "scenario": "signed coherent set stages validates health commits or rolls back", "expected_reason_code": "ok"},
+    {"case_id": "C10_reject_partial_activation", "contract_id": "C10", "outcome": "rejected", "scenario": "model is activated without its compatible runtime and manifest set", "expected_reason_code": "rollback_required"}
+  ]
+}

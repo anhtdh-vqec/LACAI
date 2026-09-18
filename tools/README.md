@@ -42,6 +42,12 @@ stable while their parent directory identifies the owner and execution environme
 | `vqec_vision_manifest_check.cpp` | Optional model metadata diagnostic executable |
 | `vqec_vision_model_runner.cpp` | Explicit preprocess -> QNN -> decoder model runner diagnostic |
 
+### `contracts/` — cross-team handoff validation
+
+| Tool | Purpose |
+|---|---|
+| `vqec_vision_check_integration_contract.py` | Validate C01–C10 ownership/producers, S01–S18 identities, bounds, cases and optional producer receipts |
+
 ### `fixtures/` — FW and control compatibility fixtures
 
 | Tool | Purpose |

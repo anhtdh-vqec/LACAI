@@ -1218,7 +1218,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 | Plan | Chủ trì | Bắt đầu khi | Kết quả chính |
 |---|---|---|---|
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
-| [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | Plan 0 pass | C01–C10, stable IDs, owner/sign-off matrix |
+| [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
@@ -1231,8 +1231,8 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Các plan metadata/event/integration vẫn là đề xuất; Plan 4 đã có source và board acceptance
-  theo gate AI APP riêng, không tự nâng status các plan khác.
+- Các plan metadata/event/integration vẫn là đề xuất; Plan 1 contract baseline và Plan 4 DSP
+  scope đã accepted theo gate riêng, không tự nâng status các plan còn lại.
 - Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
   vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
 - Chưa benchmark SQLite/DuckDB/Parquet/librdkafka trên target; lựa chọn là hướng spike có

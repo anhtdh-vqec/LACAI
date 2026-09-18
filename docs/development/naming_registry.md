@@ -68,6 +68,7 @@ same API counts as one owner. Do not reuse an exported prefix for a different me
 | tests/integration | integ |
 | tests/board | board |
 | tools | tools |
+| tools/contracts | tcont |
 
 Add an ID for a subdirectory containing source before creating functions there.
 Only directories with functions need an ID; documentation/manifest directories do not.
@@ -388,6 +389,7 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tools/board/vqec_vision_preview_acceptance.sh | pvacc | no named functions; top-level host acceptance flow |
 | tools/board/vqec_vision_run_full.sh | rnful | vqec_vision_ai_tools_rnful_ |
 | tools/checks/vqec_vision_check_docs_layout.sh | dclay | vqec_vision_ai_tools_dclay_ |
+| tools/contracts/vqec_vision_check_integration_contract.py | icchk | vqec_vision_ai_tcont_icchk_ |
 | tools/fixtures/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |
 | tools/fixtures/vqec_vision_fw_camera_sim_test.py | fwstt | vqec_vision_ai_tools_fwstt_ |
 | tools/fixtures/vqec_vision_ring_rtsp.py | rrtsp | vqec_vision_ai_tools_rrtsp_ |
