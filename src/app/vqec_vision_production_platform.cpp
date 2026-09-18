@@ -21,6 +21,8 @@
 #include "vqec_vision_anchor_distance_decoder.hpp"
 #include "vqec_vision_dsp_session.hpp"
 #include "vqec_vision_dsp_decoder.hpp"
+#include "vqec_vision_dsp_buffer_cache.hpp"
+#include "vqec_vision_dsp_preprocessor.hpp"
 #include "vqec_vision_decoder_package.hpp"
 #include "vqec_vision_embedding_decoder.hpp"
 #if defined(VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER)
@@ -37,7 +39,7 @@ using nlohmann::json;
 struct model_source_instance {
     std::uint16_t source_slot_{0};
     std::unique_ptr<qnn_backend_bundle> backend_;
-    std::unique_ptr<fastcv_processor> processor_;
+    std::unique_ptr<image_processor_port> processor_;
 };
 
 struct model_slot_owner {
@@ -166,11 +168,12 @@ struct production_platform::implementation {
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
     std::shared_ptr<dsp_session> dsp_session_;
+    std::shared_ptr<dsp_buffer_cache> dsp_buffer_cache_;
 };
 
 struct production_offline_model::implementation {
     std::unique_ptr<qnn_backend_bundle> backend_;
-    std::unique_ptr<fastcv_processor> processor_;
+    std::unique_ptr<image_processor_port> processor_;
     std::unique_ptr<image_alignment_port> aligner_;
     model_decoder_port* decoder_{nullptr};
     embedding_decoder_port* embedding_decoder_{nullptr};
@@ -273,6 +276,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         dsp_cfg.skel_dir_ = (slash != std::string::npos) ?
             impl.config_.model_root_.substr(0, slash) + "/dsp" : "/opt/lacai/dsp";
         (void)impl.dsp_session_->vqec_vision_ai_qcom_dspsn_open(dsp_cfg);
+        impl.dsp_buffer_cache_ = std::make_shared<dsp_buffer_cache>();
     }
 
     for (const auto& model : _catalog.models_) {
@@ -502,9 +506,18 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return created;
             }
             if (owner.decoder_ != nullptr) {
-                instance.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
-                    _deployment.sources_[slot].memory_.max_frame_allocation_bytes_,
-                    impl.config_.preprocess_output_timeout_ns_});
+                if (impl.dsp_session_ != nullptr) {
+                    dsp_preprocessor_config prep_cfg;
+                    prep_cfg.kind_ = (package.stages_.empty()) ?
+                        dsp_preprocessor_kind::yolov8 : dsp_preprocessor_kind::scrfd;
+                    prep_cfg.session_ = impl.dsp_session_;
+                    prep_cfg.buffer_cache_ = impl.dsp_buffer_cache_;
+                    instance.processor_ = std::make_unique<dsp_preprocessor>(std::move(prep_cfg));
+                } else {
+                    instance.processor_ = std::make_unique<fastcv_processor>(fastcv_processor_config{
+                        _deployment.sources_[slot].memory_.max_frame_allocation_bytes_,
+                        impl.config_.preprocess_output_timeout_ns_});
+                }
             }
             owner.instances_.push_back(std::move(instance));
         }

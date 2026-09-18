@@ -91,6 +91,9 @@ tensor_spec vqec_vision_ai_qcom_qneng_make_spec(const Qnn_Tensor_t& _tensor) {
         for (std::uint32_t axis = 0; axis < v2.rank; ++axis) {
             spec.dimensions_.push_back(v2.dimensions[axis]);
         }
+        if (spec.dimensions_.size() == 4 && spec.dimensions_[0] == 1 && spec.dimensions_[3] == 3) {
+            spec.layout_ = tensor_layout::nhwc;
+        }
     }
     if (v2.quantizeParams.encodingDefinition == QNN_DEFINITION_DEFINED &&
         v2.quantizeParams.quantizationEncoding == QNN_QUANTIZATION_ENCODING_SCALE_OFFSET &&

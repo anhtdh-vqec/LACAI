@@ -15,6 +15,7 @@ extern "C" {
 #include <post_common.h>
 #include <post_person_yolov8n.h>
 #include <post_face_scrfd.h>
+#include <pre.h>
 }
 
 #if defined(__has_include)
@@ -38,10 +39,13 @@ constexpr unsigned int g_aee_econnreset = 104U;
 
 int vqec_vision_ai_qcom_dspsn_enable_unsigned_pd() noexcept {
 #if defined(VQEC_VISION_AI_HAVE_CDSP)
-    struct remote_rpc_control_unsigned_module data;
-    data.domain = CDSP_DOMAIN_ID;
-    data.enable = 1;
-    return remote_session_control(DSPRPC_CONTROL_UNSIGNED_MODULE, &data, sizeof(data));
+    remote_rpc_control_unsigned_module req{};
+    req.domain = CDSP_DOMAIN_ID;
+    req.enable = 1;
+    return remote_session_control(
+        DSPRPC_CONTROL_UNSIGNED_MODULE,
+        reinterpret_cast<void*>(&req),
+        sizeof(req));
 #else
     return 0;
 #endif
@@ -58,11 +62,13 @@ public:
 
     // Per-session scratch candidate list for host fallback execution
     CandList host_scratch_{};
+    PreScratch host_pre_scratch_{};
 
     impl() = default;
 
     ~impl() {
         vqec_vision_ai_qcom_dspsn_impl_close();
+        pre_scratch_free(&host_pre_scratch_);
     }
 
     void vqec_vision_ai_qcom_dspsn_impl_close() {
@@ -294,6 +300,78 @@ status dsp_session::vqec_vision_ai_qcom_dspsn_postprocess_face_scrfd(
     _out.count_ = count;
     _out.truncated_ = truncated;
     _out.time_us_ = time_us;
+    return {status_code::ok, ""};
+}
+
+status dsp_session::vqec_vision_ai_qcom_dspsn_preprocess_person_yolov8n(
+    const std::uint8_t* _frame, int _frame_len,
+    const std::int32_t* _geom, int _geom_len,
+    std::uint16_t* _tensor, int _tensor_len,
+    std::uint32_t* _time_us) {
+    if (_frame == nullptr || _geom == nullptr || _tensor == nullptr) {
+        return {status_code::invalid_argument, "Null pointer in preprocess arguments"};
+    }
+    if (_geom_len != VQEC_GEOM_INTS) {
+        return {status_code::invalid_argument, "geom_len must be VQEC_GEOM_INTS"};
+    }
+    std::uint32_t time_us = 0;
+    std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->is_open_ && impl_->handle_ != 0) {
+        const int rc = vqec_dsp_preprocess_person_yolov8n(
+            static_cast<remote_handle64>(impl_->handle_),
+            _frame, _frame_len, _geom, _geom_len,
+            _tensor, _tensor_len, &time_us);
+        if (rc != g_aee_success) {
+            return {status_code::io_error,
+                "cDSP preprocess_person_yolov8n failed: " + vqec_vision_ai_qcom_dspsn_describe(rc)};
+        }
+    } else {
+        const int rc = pre_letterbox_rgb_u16(
+            &impl_->host_pre_scratch_, _frame, _frame_len, _geom, _tensor, _tensor_len);
+        if (rc != 0) {
+            return {status_code::protocol_error, "Host pre_letterbox_rgb_u16 failed: " + std::to_string(rc)};
+        }
+        time_us = 0;
+    }
+    if (_time_us != nullptr) {
+        *_time_us = time_us;
+    }
+    return {status_code::ok, ""};
+}
+
+status dsp_session::vqec_vision_ai_qcom_dspsn_preprocess_face_scrfd(
+    const std::uint8_t* _frame, int _frame_len,
+    const std::int32_t* _geom, int _geom_len,
+    std::uint16_t* _tensor, int _tensor_len,
+    std::uint32_t* _time_us) {
+    if (_frame == nullptr || _geom == nullptr || _tensor == nullptr) {
+        return {status_code::invalid_argument, "Null pointer in preprocess arguments"};
+    }
+    if (_geom_len != VQEC_GEOM_INTS) {
+        return {status_code::invalid_argument, "geom_len must be VQEC_GEOM_INTS"};
+    }
+    std::uint32_t time_us = 0;
+    std::lock_guard<std::mutex> lock(impl_->rpc_mutex_);
+    if (impl_->is_open_ && impl_->handle_ != 0) {
+        const int rc = vqec_dsp_preprocess_face_scrfd(
+            static_cast<remote_handle64>(impl_->handle_),
+            _frame, _frame_len, _geom, _geom_len,
+            _tensor, _tensor_len, &time_us);
+        if (rc != g_aee_success) {
+            return {status_code::io_error,
+                "cDSP preprocess_face_scrfd failed: " + vqec_vision_ai_qcom_dspsn_describe(rc)};
+        }
+    } else {
+        const int rc = pre_letterbox_rgb_u16(
+            &impl_->host_pre_scratch_, _frame, _frame_len, _geom, _tensor, _tensor_len);
+        if (rc != 0) {
+            return {status_code::protocol_error, "Host pre_letterbox_rgb_u16 failed: " + std::to_string(rc)};
+        }
+        time_us = 0;
+    }
+    if (_time_us != nullptr) {
+        *_time_us = time_us;
+    }
     return {status_code::ok, ""};
 }
 

@@ -587,8 +587,11 @@ Plan 4 cDSP FastRPC and rpcmem optimization registrations:
 | src/adapters/qualcomm/vqec_vision_dsp_session.cpp | dspsn | vqec_vision_ai_qcom_dspsn_ |
 | src/adapters/qualcomm/vqec_vision_rpcmem_pool.cpp | rpcm | vqec_vision_ai_qcom_rpcm_ |
 | src/adapters/qualcomm/vqec_vision_dsp_decoder.cpp | dspdc | vqec_vision_ai_qcom_dspdc_ (port overrides retain vqec_vision_ai_cntr_mddec_) |
+| src/adapters/qualcomm/vqec_vision_dsp_buffer_cache.cpp | dspbc | vqec_vision_ai_qcom_dspbc_ |
+| src/adapters/qualcomm/vqec_vision_dsp_preprocessor.cpp | dsppr | vqec_vision_ai_qcom_dsppr_ (port overrides retain vqec_vision_ai_ports_imgpr_) |
 | tests/unit/vqec_vision_rpcmem_pool_test.cpp | rpmpt | vqec_vision_ai_unit_rpmpt_ |
 | tests/unit/vqec_vision_dsp_decoder_test.cpp | dspdt | vqec_vision_ai_unit_dspdt_ |
+| tests/unit/vqec_vision_dsp_preprocessor_test.cpp | dsppt | vqec_vision_ai_unit_dsppt_ |
 
 ## See also
 

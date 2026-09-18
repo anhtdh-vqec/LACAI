@@ -28,6 +28,7 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_common.c
         ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_person_yolov8n.c
         ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/post_face_scrfd.c
+        ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/pre.c
         ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp/vqec_dsp_stub.c)
     target_include_directories(vqec_vision_ai_fastrpc_c PUBLIC
         ${CMAKE_SOURCE_DIR}/third_party/fastrpc_dsp)
@@ -45,7 +46,9 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
         vqec_vision_face_enrollment_image_source.cpp
         vqec_vision_dsp_session.cpp
         vqec_vision_rpcmem_pool.cpp
-        vqec_vision_dsp_decoder.cpp)
+        vqec_vision_dsp_decoder.cpp
+        vqec_vision_dsp_buffer_cache.cpp
+        vqec_vision_dsp_preprocessor.cpp)
     target_compile_features(vqec_vision_ai_qualcomm PUBLIC cxx_std_17)
     target_include_directories(vqec_vision_ai_qualcomm PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

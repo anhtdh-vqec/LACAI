@@ -13,7 +13,7 @@ namespace vqec::vision::ai {
 namespace service_options_limits {
 // Fallback control-loop period when --runtime-step-interval-us is not supplied. A named
 // default, not a per-call literal; the deployment may override it at startup.
-inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 1000000;
+inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 10000000;
 inline constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
 inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
 }  // namespace service_options_limits

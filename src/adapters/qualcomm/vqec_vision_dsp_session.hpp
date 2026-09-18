@@ -64,6 +64,18 @@ public:
         const float* _params, int _params_len,
         dsp_post_result& _out);
 
+    [[nodiscard]] status vqec_vision_ai_qcom_dspsn_preprocess_person_yolov8n(
+        const std::uint8_t* _frame, int _frame_len,
+        const std::int32_t* _geom, int _geom_len,
+        std::uint16_t* _tensor, int _tensor_len,
+        std::uint32_t* _time_us = nullptr);
+
+    [[nodiscard]] status vqec_vision_ai_qcom_dspsn_preprocess_face_scrfd(
+        const std::uint8_t* _frame, int _frame_len,
+        const std::int32_t* _geom, int _geom_len,
+        std::uint16_t* _tensor, int _tensor_len,
+        std::uint32_t* _time_us = nullptr);
+
 private:
     class impl;
     std::unique_ptr<impl> impl_;
