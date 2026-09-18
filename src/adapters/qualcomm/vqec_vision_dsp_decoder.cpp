@@ -180,6 +180,8 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
 
     const float src_w = static_cast<float>(config_.source_width_);
     const float src_h = static_cast<float>(config_.source_height_);
+    const float max_kx = std::nextafter(src_w, 0.0F);
+    const float max_ky = std::nextafter(src_h, 0.0F);
 
     for (std::int32_t i = 0; i < post_out.count_; ++i) {
         const float* b = &post_out.boxes_[static_cast<std::size_t>(i) * VQEC_BOX_FLOATS];
@@ -189,12 +191,18 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
         const float norm_y2 = b[3];
         const float score = b[4];
 
-        const float px1 = std::max(0.0F, std::min(norm_x1 * src_w, src_w - 1.0F));
-        const float py1 = std::max(0.0F, std::min(norm_y1 * src_h, src_h - 1.0F));
-        const float px2 = std::max(0.0F, std::min(norm_x2 * src_w, src_w));
-        const float py2 = std::max(0.0F, std::min(norm_y2 * src_h, src_h));
-        const float width = std::max(0.0F, px2 - px1);
-        const float height = std::max(0.0F, py2 - py1);
+        if (!std::isfinite(norm_x1) || !std::isfinite(norm_y1) ||
+            !std::isfinite(norm_x2) || !std::isfinite(norm_y2) ||
+            !std::isfinite(score)) {
+            continue;
+        }
+
+        const float px1 = std::max(0.0F, std::min(norm_x1 * src_w, max_kx));
+        const float py1 = std::max(0.0F, std::min(norm_y1 * src_h, max_ky));
+        const float px2 = std::max(px1, std::min(norm_x2 * src_w, src_w));
+        const float py2 = std::max(py1, std::min(norm_y2 * src_h, src_h));
+        const float width = std::min(px2 - px1, src_w - px1);
+        const float height = std::min(py2 - py1, src_h - py1);
 
         if (width <= 0.0F || height <= 0.0F) {
             continue;
@@ -214,8 +222,13 @@ status dsp_decoder::vqec_vision_ai_cntr_mddec_decode(
             item.landmarks_.schema_version_ = config_.landmark_schema_version_;
             item.landmarks_.points_.reserve(config_.landmark_count_);
             for (std::size_t p = 0; p < config_.landmark_count_; ++p) {
-                const float kx = kps_base[p * 2];
-                const float ky = kps_base[p * 2 + 1];
+                const float raw_kx = kps_base[p * 2];
+                const float raw_ky = kps_base[p * 2 + 1];
+                if (!std::isfinite(raw_kx) || !std::isfinite(raw_ky)) {
+                    continue;
+                }
+                const float kx = std::max(0.0F, std::min(raw_kx, max_kx));
+                const float ky = std::max(0.0F, std::min(raw_ky, max_ky));
                 item.landmarks_.points_.push_back(landmark_point{kx, ky});
             }
         }
