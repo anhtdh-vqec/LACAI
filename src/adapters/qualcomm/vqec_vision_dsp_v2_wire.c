@@ -3,7 +3,8 @@
 #include <limits.h>
 #include <string.h>
 
-static const uint8_t g_vqec_vision_ai_dsp_v2_magic[4] = {'V', 'Q', '2', '!'};
+static const uint8_t g_vqec_vision_ai_dsp_v2_magic[VQEC_VISION_AI_DSP_V2_MAGIC_BYTES] = {'V', 'Q',
+                                                                                         '2', '!'};
 
 static uint16_t vqec_vision_ai_qcom_dvwir_read_u16(const uint8_t* _bytes) {
     return (uint16_t)((uint16_t)_bytes[0] | ((uint16_t)_bytes[1] << 8));
