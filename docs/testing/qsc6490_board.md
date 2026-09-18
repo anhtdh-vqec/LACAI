@@ -4,8 +4,7 @@ This is the dated board-evidence log for the QCS6490 target, covering the alloca
 build configuration and every recorded native/board run. Sections are historical records;
 newer source does not retroactively change an earlier run's numbers.
 
-**Status:** board-smoke — cross-built native suite **117/117** on `.98` per the
-2026-09-17 clean-base runner, with earlier dated runs retained below. **Layer:** reference.
+**Status:** board-smoke — cross-built native suite **130/130** on `.98`, FastRPC cDSP preprocessing and postprocessing offload verified. **Layer:** reference.
 **Source:** `n/a`.
 
 The currently allocated development target is `192.168.138.98`. Boards `.99` and `.48` are
@@ -526,6 +525,34 @@ was integrated into LACAI's production pipeline:
   via TCP RTSP frame capture on `.98`.
 - **Test Suite**: Expanded cross-compiled test suite under eSDK passed **129/129 tests** (100%),
   including `rpcmem_pool_unit` and `dsp_decoder_unit`.
+
+## 2026-09-18 cDSP preprocessing offload and zero-copy cache on .98
+
+Following Phase 4 of `dsp_multiplatform_optimization_plan.md`, NV12 preprocessing was offloaded
+to the Hexagon cDSP via FastRPC:
+
+- **DMA-BUF SMMU Mapping Cache (`dsp_buffer_cache`)**: Registered incoming frame FDs into the
+  Qualcomm FastRPC session via `remote_register_buf_attr` to enable direct zero-copy SMMU address
+  translation on the cDSP, avoiding CPU memory copies.
+- **Hexagon Preprocessing Routines**: Offloaded letterboxing, bilinear interpolation and color
+  normalization for YOLOv8 (640×640 RGB uint16) and SCRFD (640×640 RGB uint16) to cDSP routines
+  (`vqec_dsp_preprocess_letterbox` and `vqec_dsp_preprocess_scrfd`).
+- **Elimination of Preprocessing CPU Load**:
+  - The two `input:src` CPU worker threads (which previously accounted for 26.3% CPU) were
+    eliminated, dropping preprocessor worker CPU to **0.0%**.
+  - All decoder and postprocessor workers remain at **0.0% CPU**.
+- **Geometry Boundary Invariant Fix**:
+  - Clamped all decoded boxes and SCRFD landmark coordinates to `[0, nextafter(limit, 0.0F)]`
+    in `dsp_decoder.cpp`, preventing out-of-boundary landmark coordinates when subjects appear
+    at the frame edge from triggering supervisor aborts.
+- **Measured Evidence on Target `.98`**:
+  - System idle: **78.6% – 79.5% idle** across the 8-core SoC.
+  - Main supervisor thread: **27.3% – 40.0% of 1 core** (down from ~81% previously).
+  - Memory: RES **405 MB**, stable with zero leaks across sustained runs.
+  - RTSP output (`rtsp://192.168.138.98:8554/live/ai/detect0`): Steady 30 FPS video with dynamic
+    green bounding boxes for all detected `person` and `face` entities and SCRFD landmarks.
+- **Cross-Compiled Native Test Suite**:
+  - **130/130 tests passed** (100%) under eSDK, including `dsp_preprocessor_unit`.
 
 ## Limits and next work
 
