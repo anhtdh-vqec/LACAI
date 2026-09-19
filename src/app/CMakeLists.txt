@@ -10,6 +10,18 @@ target_link_libraries(vqec_vision_ai_app_configuration_registry
 set_target_properties(vqec_vision_ai_app_configuration_registry
     PROPERTIES CXX_EXTENSIONS OFF)
 
+if(TARGET vqec_vision_ai_artifact_digest AND TARGET vqec_vision_ai_app_manifest)
+    add_library(vqec_vision_ai_app_manager STATIC
+        management/vqec_vision_app_manager.cpp)
+    target_include_directories(vqec_vision_ai_app_manager PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/management>)
+    target_link_libraries(vqec_vision_ai_app_manager PUBLIC
+        vqec_vision_ai_app_configuration_registry
+        vqec_vision_ai_app_manifest
+        vqec_vision_ai_artifact_digest)
+    set_target_properties(vqec_vision_ai_app_manager PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # Cold-path startup option parsing, split out of the service main translation unit so it
 # can be unit-tested without building the full executable.
 add_library(vqec_vision_ai_service_options STATIC

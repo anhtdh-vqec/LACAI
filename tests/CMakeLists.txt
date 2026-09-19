@@ -113,6 +113,22 @@ endif()
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME sqlite_app_inventory_recovery
             COMMAND vqec_vision_ai_sqlite_app_inventory_test)
+        if(TARGET vqec_vision_ai_app_manager)
+            add_executable(vqec_vision_ai_app_manager_test
+                unit/application/vqec_vision_app_manager_test.cpp)
+            target_link_libraries(vqec_vision_ai_app_manager_test PRIVATE
+                vqec_vision_ai_app_manager
+                vqec_vision_ai_sqlite_app_inventory
+                vqec_vision_ai_fire_smoke_feature)
+            target_compile_definitions(vqec_vision_ai_app_manager_test PRIVATE
+                VQEC_VISION_AI_APP_MANIFEST_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_manifest.fire_smoke.example.json"
+                VQEC_VISION_AI_APP_MANIFEST_SHA256="82bafde11133220959aa131e5a5c8cb935c6f9a54d411a0d66aa145703b3b2a4"
+                VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/fire_smoke_configuration.example.json")
+            set_target_properties(vqec_vision_ai_app_manager_test
+                PROPERTIES CXX_EXTENSIONS OFF)
+            add_test(NAME app_manager_lifecycle
+                COMMAND vqec_vision_ai_app_manager_test)
+        endif()
     endif()
     add_executable(vqec_vision_ai_feature_catalog_test
         unit/core/vqec_vision_feature_catalog_test.cpp)

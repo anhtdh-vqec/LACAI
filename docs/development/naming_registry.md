@@ -642,6 +642,10 @@ App lifecycle registrations (source delivered):
 | src/app/management/vqec_vision_app_configuration_registry.hpp | apcrg | vqec_vision_ai_appl_apcrg_ |
 | src/app/management/vqec_vision_app_configuration_registry.cpp | apcrg | vqec_vision_ai_appl_apcrg_ |
 | tests/unit/application/vqec_vision_app_configuration_registry_test.cpp | acrtst | vqec_vision_ai_unit_acrtst_ |
+| include/vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp | apver | vqec_vision_ai_ports_apver_ |
+| src/app/management/vqec_vision_app_manager.hpp | appmn | vqec_vision_ai_appl_appmn_ |
+| src/app/management/vqec_vision_app_manager.cpp | appmn | vqec_vision_ai_appl_appmn_ |
+| tests/unit/application/vqec_vision_app_manager_test.cpp | amtest | vqec_vision_ai_unit_amtest_ |
 
 
 | Logical owner path | file_id | Prefix |
