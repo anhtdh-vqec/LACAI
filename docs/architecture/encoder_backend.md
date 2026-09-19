@@ -6,7 +6,7 @@ ownership, the event/drain model and the review obligations for concrete impleme
 
 **Status:** source-delivered — neutral interface source, no concrete encoder implementation
 or executed test. Unit source is unexecuted. **Layer:** contracts. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp`,
+`include/vqec/vision/ai/contracts/media/vqec_vision_encoder_backend.hpp`,
 `src/core/media/vqec_vision_encoder_contract.cpp`,
 `tests/unit/core/vqec_vision_encoder_contract_test.cpp`.
 

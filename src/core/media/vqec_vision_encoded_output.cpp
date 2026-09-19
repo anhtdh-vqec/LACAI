@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_encoded_output.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoded_output.hpp"
 
 #include <new>
 #include <utility>

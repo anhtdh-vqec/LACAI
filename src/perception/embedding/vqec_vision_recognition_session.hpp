@@ -6,10 +6,10 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_recognition.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_embedding_index.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_recognition.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_embedding_index.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_gallery_store.hpp"
 
 namespace vqec::vision::ai {
 

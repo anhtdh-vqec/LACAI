@@ -9,7 +9,7 @@
 #include "vqec_vision_service_generation.hpp"
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_startup.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp"
 #include "vqec_vision_usecase_control_manager.hpp"
 #if defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
 #include "vqec_vision_usecase_control_dbus.hpp"

@@ -11,8 +11,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 namespace {

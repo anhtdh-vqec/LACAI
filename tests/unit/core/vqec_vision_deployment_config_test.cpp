@@ -1,5 +1,5 @@
-#include <vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp>
+#include <vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp>
 
 #include <cstdint>
 #include <iostream>

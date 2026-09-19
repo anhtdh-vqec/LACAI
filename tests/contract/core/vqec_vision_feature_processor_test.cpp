@@ -1,6 +1,6 @@
 #include <cassert>
 
-#include "vqec/vision/ai/ports/vqec_vision_feature_processor.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_processor.hpp"
 
 using namespace vqec::vision::ai;
 

@@ -8,8 +8,8 @@
 #include <limits>
 #include <mutex>
 #include <vector>
-#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_contract.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 

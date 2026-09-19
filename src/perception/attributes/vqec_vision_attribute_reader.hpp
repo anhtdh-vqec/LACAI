@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
 
 namespace vqec::vision::ai {
 

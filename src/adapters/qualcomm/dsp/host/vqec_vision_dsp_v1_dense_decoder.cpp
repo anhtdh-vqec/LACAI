@@ -12,8 +12,8 @@ extern "C" {
 #include "vqec_vision_dsp_v1_dense.h"
 }
 
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {

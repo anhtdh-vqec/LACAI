@@ -74,7 +74,7 @@ Scope: this directory and all descendants. Applies to contributors and coding ag
 16. This is the first LACAI product baseline. Every LACAI-owned schema and wire/ABI
     contract starts at version 1 (ABI 1.0); do not label a replacement for pre-release
     legacy code as version 2. The canonical numeric value is defined once in
-    `include/vqec/vision/ai/contracts/vqec_vision_version_registry.h`; source aliases,
+    `include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h`; source aliases,
     JSON schemas and fixtures must match it. An increment requires an approved migration
     ADR. Externally owned ABI identifiers (for example QNN tensor unions and the released
     FW ring) retain the exact values required by their owners; they are not LACAI versions.

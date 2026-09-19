@@ -1,7 +1,7 @@
 #ifndef VQEC_VISION_AI_FW_OUTPUT_RING_SINK_HPP
 #define VQEC_VISION_AI_FW_OUTPUT_RING_SINK_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoded_sink.hpp"
 
 namespace camera_ai {
 class SharedMemoryFrameRingBuffer;

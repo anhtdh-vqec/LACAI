@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

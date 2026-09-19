@@ -7,7 +7,7 @@
 
 #include "vqec_vision_camera_graph_pump.hpp"
 #include "vqec_vision_source_session.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_model_outputs.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_outputs.hpp"
 
 namespace vqec::vision::ai {
 

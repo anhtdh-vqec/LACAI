@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 #include "vqec_vision_dsp_session.hpp"
 
 namespace vqec::vision::ai {

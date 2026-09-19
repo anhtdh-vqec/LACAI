@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "vqec_vision_camera_protocol.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

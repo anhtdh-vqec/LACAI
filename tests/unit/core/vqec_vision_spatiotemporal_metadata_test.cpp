@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_spatiotemporal_metadata.hpp"
 
 #include <cassert>
 

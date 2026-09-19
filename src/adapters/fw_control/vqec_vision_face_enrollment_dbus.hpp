@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "vqec/vision/ai/ports/vqec_vision_face_enrollment.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_enrollment.hpp"
 
 namespace vqec::vision::ai {
 

@@ -6,7 +6,7 @@
 #include <sstream>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 #include "vqec_vision_app_entitlement.hpp"
 #include "vqec_vision_artifact_digest.hpp"
 

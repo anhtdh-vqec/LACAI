@@ -5,9 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "vqec/vision/ai/contracts/vqec_vision_feature_event.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_feature_event.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_event_sink.hpp"
 
 namespace vqec::vision::ai {
 

@@ -6,7 +6,7 @@
 #include <istream>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp"
 
 namespace vqec::vision::ai {
 

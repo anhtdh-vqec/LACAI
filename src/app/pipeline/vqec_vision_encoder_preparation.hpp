@@ -1,9 +1,9 @@
 #ifndef VQEC_VISION_AI_APP_ENCODER_PREPARATION_HPP
 #define VQEC_VISION_AI_APP_ENCODER_PREPARATION_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoder_window.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_pool.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoder_window.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoder_backend.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_pool.hpp"
 
 namespace vqec::vision::ai {
 

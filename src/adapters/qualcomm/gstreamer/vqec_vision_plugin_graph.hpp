@@ -6,12 +6,12 @@
 #include <string>
 #include <vector>
 
-#include <vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_source_binding.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_status.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_frame_descriptor.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_submission_window.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_source_binding.hpp>
+#include <vqec/vision/ai/contracts/base/vqec_vision_status.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_tensor_result.hpp>
+#include <vqec/vision/ai/contracts/media/vqec_vision_frame_descriptor.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_submission_window.hpp>
 
 namespace vqec::vision::ai {
 

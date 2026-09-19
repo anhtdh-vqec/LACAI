@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_metadata_query.hpp"
 
 struct sqlite3;
 

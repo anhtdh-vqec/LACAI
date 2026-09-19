@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 

@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_source_binding.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_source_binding.hpp"
 
 namespace vqec::vision::ai {
 namespace {

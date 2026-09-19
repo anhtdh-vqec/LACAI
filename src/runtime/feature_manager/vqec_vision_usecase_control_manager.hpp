@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "vqec_vision_usecase_config.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_usecase_control.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_usecase_control.hpp"
 
 namespace vqec::vision::ai {
 

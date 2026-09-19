@@ -6,7 +6,7 @@ spatiotemporal metadata architecture.
 
 **Status:** accepted — the transactional prototype remains the compatibility layer inside the
 accepted P2 spatiotemporal runtime; it is not the complete P2 query surface. **Layer:** adapters.
-**Source:** `include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp`,
+**Source:** `include/vqec/vision/ai/contracts/output/vqec_vision_metadata_query.hpp`,
 `src/core/output/vqec_vision_metadata_query.cpp`,
 `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp`.
 

@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_execution.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_result.hpp"
 
 namespace vqec::vision::ai {
 

@@ -1,8 +1,8 @@
 #include "vqec_vision_plugin_graph.hpp"
 #include "vqec_vision_tensor_output.hpp"
 #include "vqec_vision_frame_submission.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 #include <array>
 #include <memory>

@@ -10,9 +10,9 @@
 
 #include "vqec_vision_model_cadence.hpp"
 #include "vqec_vision_cascade_frame_store.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 

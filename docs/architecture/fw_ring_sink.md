@@ -7,7 +7,7 @@ canonical v5 layout, the production writer, the dated board evidence, and the ob
 **Status:** board-smoke — on 2026-09-16 the eSDK-built production binary wrote the v5 ring on
 `.98` against the compatibility camera simulator and the FW v5 ring reader; released-FW reader
 integration, DMA completion and thermal qualification remain open. **Layer:** adapters.
-**Source:** `include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp`,
+**Source:** `include/vqec/vision/ai/contracts/media/vqec_vision_fw_ring_layout.hpp`,
 `src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp` (`fw_ring_writer`),
 `src/adapters/fw_output/vqec_vision_ring_sink.{hpp,cpp}` (obsolete).
 
@@ -19,7 +19,7 @@ integration, DMA completion and thermal qualification remain open. **Layer:** ad
 - Do not claim released-FW reader integration, DMA completion or thermal qualification.
 
 2026-09-16 ABI decision. The canonical AI-side definition of the released FW encoded ring is
-`include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp`: **version 5, 16 slots, 1 MiB
+`include/vqec/vision/ai/contracts/media/vqec_vision_fw_ring_layout.hpp`: **version 5, 16 slots, 1 MiB
 payload, 4096-byte header, 1232-byte slot header, magic `0x4C414341`**, matching the deployed FW
 RTSP reader (`vqec_vision_ring_rtsp.py`, offsets documented there). Adapters must include this
 header and must not re-declare offsets, sizes or the version. The production writer is

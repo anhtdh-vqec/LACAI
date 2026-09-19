@@ -1,11 +1,11 @@
-#include "vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_face_gallery.hpp"
 
 #include <cmath>
 #include <map>
 #include <new>
 #include <set>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

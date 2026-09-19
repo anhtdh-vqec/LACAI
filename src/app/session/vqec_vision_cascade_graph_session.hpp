@@ -4,11 +4,11 @@
 #include <cstdint>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_source_binding.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_source_binding.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
 
 namespace vqec::vision::ai {
 

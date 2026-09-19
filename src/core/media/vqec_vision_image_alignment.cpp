@@ -1,9 +1,9 @@
-#include "vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp"
 
 #include <cmath>
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

@@ -1,8 +1,8 @@
 #ifndef VQEC_VISION_AI_OUTPT_OVERLAY_PREPARATION_HPP
 #define VQEC_VISION_AI_OUTPT_OVERLAY_PREPARATION_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
 
 namespace vqec::vision::ai {
 

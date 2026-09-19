@@ -4,7 +4,7 @@
 #include <iostream>
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_preprocess_spec.hpp"
 
 using namespace vqec::vision::ai;
 

@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp"
 
 #include "vqec_vision_dsp_buffer_cache.hpp"
 #include "vqec_vision_dsp_v1_client.hpp"

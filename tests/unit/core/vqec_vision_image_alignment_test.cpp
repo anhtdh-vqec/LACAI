@@ -6,7 +6,7 @@
 #include <limits>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp"
 
 using namespace vqec::vision::ai;
 

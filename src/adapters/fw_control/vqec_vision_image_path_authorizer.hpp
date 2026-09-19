@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/ports/vqec_vision_image_path_authorizer.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_image_path_authorizer.hpp"
 
 namespace vqec::vision::ai {
 

@@ -5,9 +5,9 @@
 #include <memory>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_submission_window.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
 
 namespace vqec::vision::ai {
 

@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <functional>
 
-#include "vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_app_lifecycle.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
 
 namespace vqec::vision::ai {
 class usecase_control_manager;

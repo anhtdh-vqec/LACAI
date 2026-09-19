@@ -21,6 +21,21 @@ this directory.
 - Use the machine-readable three-team registry for external C01–C10 ownership; this directory
   remains the neutral C++ surface and does not absorb FW/vendor types.
 
+## Contents
+
+| Path | Purpose |
+|---|---|
+| `base/` | Status, identifier and canonical LACAI version primitives used by every layer. |
+| `lifecycle/` | Application lifecycle, deployment and top-level composition descriptors. |
+| `inference/` | Model, tensor, decoder, execution, submission and source-binding contracts. |
+| `media/` | Frame, preview, color, overlay/encode and FW ring descriptors. |
+| `perception/` | Observation, embedding, recognition and face-gallery value types. |
+| `features/` | Feature catalog, usecase activation and bounded feature-event contracts. |
+| `output/` | Authorization, evidence, metadata, trajectory and output-generation contracts. |
+
+The domain directory is part of the public include path. New contracts are placed in exactly
+one domain; dependencies point toward `base/` and never toward adapters or application owners.
+
 ## Limits and next work
 
 - Decoder output may use zero track IDs; tracked/feature input requires nonzero IDs.

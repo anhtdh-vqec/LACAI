@@ -3,9 +3,9 @@
 
 #include <memory>
 
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_event_sink.hpp"
 #include "vqec_vision_evidence_service.hpp"
 #include "vqec_vision_metadata_runtime.hpp"
 #include "vqec_vision_service_options.hpp"

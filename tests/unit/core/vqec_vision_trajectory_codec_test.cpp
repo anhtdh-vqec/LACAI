@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_trajectory_codec.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_trajectory_codec.hpp"
 
 #include <cassert>
 #include <cstdint>

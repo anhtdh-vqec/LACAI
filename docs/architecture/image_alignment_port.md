@@ -9,8 +9,8 @@ adapter evidence.
 aligner implements it and the cascade coordinator consumes it. This is the boundary
 required by ADR 0005 for secondary (cascade) face crops; golden crop/embedding parity
 remains open. **Layer:** core. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`,
-`include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
+`include/vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp`,
+`include/vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp`,
 `src/core/media/vqec_vision_image_alignment.cpp`,
 `src/adapters/qualcomm/media/vqec_vision_fastcv_aligner.cpp`,
 `tests/unit/core/vqec_vision_image_alignment_test.cpp`.
@@ -31,8 +31,8 @@ remains open. **Layer:** core. **Source:**
 A secondary model (for example a face embedding network) consumes one aligned crop per
 detected face, not the full frame.
 
-Contract: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp`.
-Port: `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`.
+Contract: `include/vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp`.
+Port: `include/vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp`.
 
 ## Types
 

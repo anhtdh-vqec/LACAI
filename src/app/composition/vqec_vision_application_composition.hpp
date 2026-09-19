@@ -1,7 +1,7 @@
 #ifndef VQEC_VISION_AI_APP_APPLICATION_COMPOSITION_HPP
 #define VQEC_VISION_AI_APP_APPLICATION_COMPOSITION_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_application_composition.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_application_composition.hpp"
 #include "vqec_vision_multi_source_supervisor.hpp"
 
 namespace vqec::vision::ai {

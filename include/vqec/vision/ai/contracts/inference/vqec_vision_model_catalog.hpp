@@ -1,0 +1,138 @@
+#ifndef VQEC_VISION_AI_CONTRACTS_MODEL_CATALOG_HPP
+#define VQEC_VISION_AI_CONTRACTS_MODEL_CATALOG_HPP
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_outputs.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_preprocess_spec.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
+
+namespace vqec::vision::ai {
+
+namespace model_catalog_limits {
+// The baseline schema requires an explicit role and dependency declaration.
+inline constexpr std::uint32_t g_schema_version = VQEC_VISION_AI_BASELINE_SCHEMA_VERSION;
+inline constexpr std::size_t g_max_models = 64;
+inline constexpr std::size_t g_max_dependencies = 16;
+inline constexpr std::size_t g_max_identifier_bytes = 128;
+inline constexpr std::uint64_t g_max_model_resident_bytes = 2ULL * 1024 * 1024 * 1024;
+inline constexpr std::uint64_t g_max_catalog_resident_bytes = 8ULL * 1024 * 1024 * 1024;
+}  // namespace model_catalog_limits
+
+// A primary model runs in the full-frame cadence. A secondary model consumes a primary
+// model's result (for example an aligned crop) and never joins the full-frame submit mask.
+enum class model_role { primary, secondary };
+
+// Immutable reference to another catalog model. Matching id + version + target binds the
+// dependency to one catalog identity rather than an arbitrary string.
+struct model_dependency {
+    std::string model_id_;
+    std::string model_version_;
+    std::string target_id_;
+};
+
+struct model_source_constraints {
+    std::uint32_t min_width_{0};
+    std::uint32_t min_height_{0};
+    std::uint32_t max_width_{0};
+    std::uint32_t max_height_{0};
+    std::uint32_t min_fps_numerator_{0};
+    std::uint32_t min_fps_denominator_{0};
+};
+
+struct model_resource_profile {
+    std::uint64_t resident_bytes_{0};
+    std::uint64_t max_tensor_bytes_per_source_{0};
+    std::uint32_t output_queue_buffers_{0};
+    unsigned max_concurrent_sources_{0};
+    bool can_share_context_across_sources_{false};
+};
+
+struct model_catalog_entry {
+    std::string model_id_;
+    std::string model_version_;
+    std::string target_id_;
+    std::string artifact_ref_;
+    std::string artifact_sha256_;
+    std::string output_manifest_ref_;
+    std::string decoder_contract_;
+    std::string preprocess_contract_;
+    std::string graph_name_;
+    // Role is primary by default for legacy/in-memory entries; the strict loader requires an
+    // explicit role in schema version 1. A secondary entry must declare depends_on; a
+    // primary entry must not.
+    model_role role_{model_role::primary};
+    std::vector<model_dependency> depends_on_;
+    std::uint32_t tensor_width_{0};
+    std::uint32_t tensor_height_{0};
+    tensor_element_type input_type_{tensor_element_type::uint8};
+    // Authoritative package preprocessing contract; when valid it overrides the
+    // legacy mean/sigma profile and permits non-float32 quantized inputs.
+    preprocess_spec preprocess_;
+    channel_order channel_order_{channel_order::rgb};
+    image_placement placement_{image_placement::unspecified};
+    std::array<double, 3> mean_{0.0, 0.0, 0.0};
+    std::array<double, 3> sigma_{1.0, 1.0, 1.0};
+    std::uint32_t inference_fps_numerator_{0};
+    std::uint32_t inference_fps_denominator_{0};
+    model_source_constraints source_constraints_;
+    model_resource_profile resources_;
+};
+
+struct model_catalog {
+    std::uint32_t schema_version_{0};
+    std::uint64_t revision_{0};
+    std::string catalog_id_;
+    std::vector<model_catalog_entry> models_;
+};
+
+// Result of a trusted platform resolver. References prevent accidentally binding paths
+// resolved for a different catalog entry. This does not itself authenticate any path.
+struct resolved_model_paths {
+    std::string model_id_;
+    std::string target_id_;
+    std::string artifact_ref_;
+    std::string model_path_;
+    std::string backend_path_;
+    std::string system_path_;
+    // Opaque retained owner for an immutable model artifact. A platform resolver may
+    // leave this empty only when another trusted deployment mechanism guarantees that
+    // model_path_ cannot change through backend load completion.
+    std::shared_ptr<const void> model_artifact_owner_;
+};
+
+// Cold-path pure validators. Output byte counts are transactional.
+[[nodiscard]] status vqec_vision_ai_core_mdcat_validate_catalog(
+    const model_catalog& _catalog, std::uint64_t& _declared_resident_bytes);
+[[nodiscard]] status vqec_vision_ai_core_mdcat_validate_deployment_models(
+    const deployment_config& _deployment, const model_catalog& _catalog,
+    std::uint64_t& _required_model_resident_bytes);
+
+// True when a source directly assigns a primary model, or assigns every immutable primary
+// dependency of a secondary model. This is the single activation rule shared by admission
+// and platform composition; it never adds a secondary model to the full-frame submit mask.
+[[nodiscard]] bool vqec_vision_ai_core_mdcat_source_activates_model(
+    const source_deployment_config& _source, const model_catalog_entry& _model) noexcept;
+[[nodiscard]] status vqec_vision_ai_core_mdcat_validate_model_outputs(
+    const model_catalog_entry& _model, const std::string& _resolved_manifest_ref,
+    const model_outputs& _outputs, std::uint64_t& _required_output_bytes);
+
+// Builds the current single-image Qualcomm plan from three distinct authorities:
+// source profile/budget, Model-team catalog entry, and trusted platform path resolver.
+// A secondary model is eligible when the source activates all of its dependencies.
+// Failure preserves _plan.
+[[nodiscard]] status vqec_vision_ai_core_mdcat_compose_inference_plan(
+    const source_deployment_config& _source, const model_catalog_entry& _model,
+    const resolved_model_paths& _paths, inference_plan& _plan);
+
+}  // namespace vqec::vision::ai
+
+#endif  // VQEC_VISION_AI_CONTRACTS_MODEL_CATALOG_HPP

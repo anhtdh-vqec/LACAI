@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_tracker.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_tracker.hpp"
 
 namespace vqec::vision::ai {
 

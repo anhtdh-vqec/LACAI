@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <deque>
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoder_backend.hpp"
 
 namespace vqec::vision::ai {
 

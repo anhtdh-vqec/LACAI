@@ -6,7 +6,7 @@
 
 #include "vqec_vision_source_session.hpp"
 #include "vqec_vision_source_session_worker.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
 
 namespace vqec::vision::ai {
 

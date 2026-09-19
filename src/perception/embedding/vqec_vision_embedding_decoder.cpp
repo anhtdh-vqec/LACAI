@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "vqec_vision_tensor_reader.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {

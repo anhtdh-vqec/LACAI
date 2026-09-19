@@ -1,8 +1,8 @@
 #ifndef VQEC_VISION_AI_FIRES_FIRE_SMOKE_FACTORY_HPP
 #define VQEC_VISION_AI_FIRES_FIRE_SMOKE_FACTORY_HPP
 
-#include "vqec/vision/ai/ports/vqec_vision_feature_processor_factory.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_app_configuration.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_processor_factory.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_configuration.hpp"
 #include "vqec_vision_fire_smoke_alarm.hpp"
 
 namespace vqec::vision::ai {

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "vqec/vision/ai/ports/vqec_vision_face_enrollment_image.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_enrollment_image.hpp"
 
 namespace vqec::vision::ai {
 

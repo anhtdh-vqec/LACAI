@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_recognition.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_recognition.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

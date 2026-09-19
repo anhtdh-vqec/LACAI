@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/ports/vqec_vision_embedding_index.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_embedding_index.hpp"
 
 struct zvec_collection_t;
 

@@ -25,8 +25,8 @@
 #if defined(VQEC_VISION_AI_HAS_ARTIFACT_RESOLVER)
 #include "vqec_vision_artifact_resolver.hpp"
 #endif
-#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {

@@ -2,7 +2,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_preview_surface.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_surface.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

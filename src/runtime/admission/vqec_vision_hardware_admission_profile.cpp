@@ -10,7 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 namespace {

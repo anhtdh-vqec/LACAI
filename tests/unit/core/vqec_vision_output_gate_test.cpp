@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

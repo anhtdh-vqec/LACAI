@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_feature_processor.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_processor.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 
 namespace vqec::vision::ai {
 

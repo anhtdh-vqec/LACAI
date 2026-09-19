@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_evidence_transport.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_evidence_transport.hpp"
 
 using namespace vqec::vision::ai;
 

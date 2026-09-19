@@ -4,8 +4,8 @@
 #include <cstddef>
 #include <istream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_decoder_package.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_decoder_package.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 

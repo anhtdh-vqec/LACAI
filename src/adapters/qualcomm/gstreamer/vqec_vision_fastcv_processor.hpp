@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp"
 
 namespace vqec::vision::ai {
 

@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp"
 
 #include <cassert>
 #include <utility>

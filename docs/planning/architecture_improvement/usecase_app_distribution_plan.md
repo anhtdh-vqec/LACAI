@@ -8,7 +8,7 @@ accelerator.
 
 **Status:** planned — AI APP ownership đã được lead quyết định; chưa có App Manager, D-Bus v1,
 signed entitlement verifier hay install inventory production. **Layer:** docs. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp`,
+`include/vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp`,
 `config/schemas/usecase_control_snapshot.schema.json`.
 

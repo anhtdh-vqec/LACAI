@@ -2,7 +2,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_output_generation.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_generation.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

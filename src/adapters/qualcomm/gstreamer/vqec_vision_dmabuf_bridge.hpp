@@ -6,10 +6,10 @@
 
 #include <gst/gst.h>
 
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_frame_descriptor.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_frame_descriptor.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_submission_window.hpp"
 
 namespace vqec::vision::ai {
 

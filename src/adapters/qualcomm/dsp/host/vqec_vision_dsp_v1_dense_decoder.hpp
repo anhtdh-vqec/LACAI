@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp"
 #include "vqec_vision_dsp_v1_client.hpp"
 
 extern "C" {

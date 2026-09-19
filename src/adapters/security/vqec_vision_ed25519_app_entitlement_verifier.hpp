@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_entitlement_verifier.hpp"
 #include "vqec_vision_ed25519_verifier.hpp"
 
 namespace vqec::vision::ai {

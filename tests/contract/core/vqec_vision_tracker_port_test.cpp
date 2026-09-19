@@ -1,6 +1,6 @@
 #include <cassert>
 
-#include "vqec/vision/ai/ports/vqec_vision_tracker.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_tracker.hpp"
 
 using namespace vqec::vision::ai;
 

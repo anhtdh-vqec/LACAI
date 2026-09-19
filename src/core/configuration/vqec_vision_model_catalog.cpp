@@ -1,15 +1,15 @@
-#include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_catalog.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_result.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_preprocess_spec.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_result.hpp"
 
 namespace vqec::vision::ai {
 namespace {

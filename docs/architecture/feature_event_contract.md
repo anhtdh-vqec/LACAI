@@ -6,8 +6,8 @@ the portable `feature_processor_port` algorithm boundary.
 
 **Status:** source-delivered — the neutral contract and port exist with unit tests.
 **Layer:** contracts. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_feature_event.hpp`,
-`include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp`,
+`include/vqec/vision/ai/contracts/features/vqec_vision_feature_event.hpp`,
+`include/vqec/vision/ai/ports/features/vqec_vision_feature_processor.hpp`,
 `src/core/features/vqec_vision_feature_event.cpp`, `tests/unit/core/vqec_vision_feature_event_test.cpp`.
 
 ## Responsibility

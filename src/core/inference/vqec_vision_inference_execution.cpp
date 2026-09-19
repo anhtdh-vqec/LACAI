@@ -1,8 +1,8 @@
-#include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_execution.hpp"
 
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

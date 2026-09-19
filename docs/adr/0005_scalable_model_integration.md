@@ -56,7 +56,7 @@ full-frame submit mask and derives the cascade-root slot from exact catalog iden
 
 ## 2. `image_alignment_port` contract
 
-Delivered: `include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp` and
+Delivered: `include/vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp` and
 `ports/vqec_vision_image_alignment.hpp`, with pure validators and the
 `image_alignment_contract` unit test. The contract specifies:
 

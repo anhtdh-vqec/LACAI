@@ -6,7 +6,7 @@
 
 #include "vqec_vision_camera_control.hpp"
 #include "vqec_vision_frame_source.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 

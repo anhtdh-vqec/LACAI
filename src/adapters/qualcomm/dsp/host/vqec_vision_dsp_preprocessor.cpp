@@ -7,8 +7,8 @@
 #include <limits>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_color.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 #include "vqec_vision_dsp_v1_image.h"
 #include "vqec_vision_rpcmem_pool.hpp"
 

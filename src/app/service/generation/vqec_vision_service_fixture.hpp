@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "vqec/vision/ai/contracts/vqec_vision_recognition.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_recognition.hpp"
 
 namespace vqec::vision::ai::service_harness {
 

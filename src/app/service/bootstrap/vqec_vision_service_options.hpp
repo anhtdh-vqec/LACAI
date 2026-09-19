@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_execution.hpp"
 
 namespace vqec::vision::ai {
 

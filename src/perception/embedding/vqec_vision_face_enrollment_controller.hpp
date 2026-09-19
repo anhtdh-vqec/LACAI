@@ -2,7 +2,7 @@
 #define VQEC_VISION_AI_EMBED_FACE_ENROLLMENT_CONTROLLER_HPP
 
 #include "vqec_vision_recognition_session.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_enrollment.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_enrollment.hpp"
 
 namespace vqec::vision::ai {
 

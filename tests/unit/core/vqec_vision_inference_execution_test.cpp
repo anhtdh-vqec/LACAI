@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_execution.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

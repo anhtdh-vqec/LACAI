@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_fw_ring_layout.hpp"
 
 namespace ring = vqec::vision::ai::fw_ring_layout;
 

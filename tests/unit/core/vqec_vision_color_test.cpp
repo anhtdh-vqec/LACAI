@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_color.hpp"
 
 using namespace vqec::vision::ai;
 

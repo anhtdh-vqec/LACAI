@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 
 #ifdef __cplusplus
 extern "C" {

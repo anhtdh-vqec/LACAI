@@ -8,7 +8,7 @@ deliberately does not cover.
 **Status:** source-delivered — interface and Camera compatibility implementation delivered;
 multi-platform implementations and live Camera/board verification are pending. Linux
 socket/FD fixtures pass natively on the QCS6490 target. **Layer:** contracts. **Source:**
-`include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp`,
+`include/vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp`,
 `src/adapters/camera/vqec_vision_source_lifecycle.cpp`.
 
 ## Responsibility

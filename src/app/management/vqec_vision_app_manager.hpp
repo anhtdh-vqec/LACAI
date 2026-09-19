@@ -6,10 +6,10 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/ports/vqec_vision_app_inventory.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_app_manager.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_manager.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_entitlement_verifier.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_package_verifier.hpp"
 #include "vqec_vision_app_configuration_registry.hpp"
 
 namespace vqec::vision::ai {

@@ -1,10 +1,10 @@
 #ifndef VQEC_VISION_AI_OUTPUTS_ENCODED_DISPATCH_HPP
 #define VQEC_VISION_AI_OUTPUTS_ENCODED_DISPATCH_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoded_output.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_encoder_window.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoded_output.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoded_sink.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoder_window.hpp"
 
 namespace vqec::vision::ai {
 

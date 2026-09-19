@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_embedding_decoder.hpp"
 
 namespace vqec::vision::ai {
 

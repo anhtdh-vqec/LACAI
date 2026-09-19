@@ -1,8 +1,8 @@
 #include <iostream>
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_contract.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp"
 
 // Independent released output boundary, not a fixture derived from production limits.
 static_assert(vqec::vision::ai::preview_limits::g_encoded_ring_slots == 16);

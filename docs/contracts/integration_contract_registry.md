@@ -106,7 +106,7 @@ python3 tools/contracts/vqec_vision_check_integration_contract.py \
   --schema config/schemas/integration_contract_registry.schema.json \
   --cases-schema config/schemas/integration_contract_cases.schema.json \
   --receipt-schema config/schemas/integration_contract_receipt.schema.json \
-  --version-registry include/vqec/vision/ai/contracts/vqec_vision_version_registry.h \
+  --version-registry include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h \
   --self-test
 ```
 

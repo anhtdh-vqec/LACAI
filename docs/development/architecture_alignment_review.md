@@ -97,7 +97,7 @@ or acceptance date.
 ### Source anchors
 
 - A01–A03: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`,
-  `include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp`,
+  `include/vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp`,
   `src/app/cascade/vqec_vision_cascade_coordinator.cpp`, `vqec_vision_cascade_graph_session.cpp`,
   `vqec_vision_runtime_executor.cpp` and `vqec_vision_multi_model_session.cpp`.
 - A04/A16: `src/adapters/zvec/vqec_vision_zvec_embedding_index.cpp` (fresh collection,

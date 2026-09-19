@@ -14,7 +14,7 @@
 #include <QnnInterface.h>  // private QAIRT SDK header, not a project include
 
 #include "vqec_vision_sdk_loader.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {

@@ -1,10 +1,10 @@
-#include "vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_spatiotemporal_metadata.hpp"
 
 #include <algorithm>
 #include <limits>
 #include <unordered_set>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

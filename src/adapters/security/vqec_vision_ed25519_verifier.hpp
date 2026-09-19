@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 

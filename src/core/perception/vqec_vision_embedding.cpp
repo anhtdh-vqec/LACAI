@@ -1,9 +1,9 @@
-#include "vqec/vision/ai/contracts/vqec_vision_embedding.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_embedding.hpp"
 
 #include <cmath>
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 

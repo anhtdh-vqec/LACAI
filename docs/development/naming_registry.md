@@ -109,7 +109,7 @@ outside these registered families still require a new `dir_id` before functions 
 | src/runtime/scheduler/vqec_vision_job_scheduler.cpp | jobsc | vqec_vision_ai_sched_jobsc_ |
 | src/runtime/feature_manager/vqec_vision_feature_manager.cpp | ftmgr | vqec_vision_ai_ftmgr_ftmgr_ |
 | include/vqec/vision/ai/contracts/vqec_vision_frame_source.hpp | frsrc | vqec_vision_ai_cntr_frsrc_ |
-| include/vqec/vision/ai/contracts/vqec_vision_version_registry.h | vreg | constants only; canonical LACAI baseline version |
+| include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h | vreg | constants only; canonical LACAI baseline version |
 | include/vqec/vision/ai/contracts/vqec_vision_image_processor.hpp | imgpr | vqec_vision_ai_cntr_imgpr_ |
 | include/vqec/vision/ai/contracts/vqec_vision_inference_engine.hpp | infer | vqec_vision_ai_cntr_infer_ |
 | include/vqec/vision/ai/contracts/vqec_vision_buffer_manager.hpp | bufmg | vqec_vision_ai_cntr_bufmg_ |
@@ -124,7 +124,7 @@ Changing a public owner needs an ADR and a compatibility plan.
 ## Implementation additions (2026-09-06)
 
 Multi-source deployment contract:
-`include/vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp`, file_id `dpcfg`;
+`include/vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp`, file_id `dpcfg`;
 validation implementation `src/core/configuration/vqec_vision_deployment_config.cpp`, file_id `dpval`,
 prefix `vqec_vision_ai_core_dpval_`. JSON loader owner
 `src/runtime/lifecycle/vqec_vision_deployment_config.cpp`, file_id `dpcfg`, prefix
@@ -133,7 +133,7 @@ prefix `vqec_vision_ai_unit_dptst_`; the JSON loader test uses file_id `dltst`,
 prefix `vqec_vision_ai_unit_dltst_`. Test entrypoints retain the language exception.
 
 Model catalog contract/validation:
-`include/vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp` and
+`include/vqec/vision/ai/contracts/inference/vqec_vision_model_catalog.hpp` and
 `src/core/configuration/vqec_vision_model_catalog.cpp`, file_id `mdcat`, prefix
 `vqec_vision_ai_core_mdcat_`. Test `tests/unit/core/vqec_vision_model_catalog_test.cpp`
 uses file_id `mctst`, prefix `vqec_vision_ai_unit_mctst_`; main retains the language
@@ -160,7 +160,7 @@ retain the `vqec_vision_ai_ports_trker_` names declared by `tracker_port`. Test
 `vqec_vision_ai_unit_iotst_`; `main` retains the language exception.
 
 Pre-load usecase activation contract:
-`include/vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp` and
+`include/vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp` and
 `src/core/features/vqec_vision_usecase_activation.cpp`, file_id `ucact`, prefix
 `vqec_vision_ai_core_ucact_`. Test
 `tests/unit/core/vqec_vision_usecase_activation_test.cpp` uses file_id `ucatst`, prefix
@@ -173,7 +173,7 @@ Strict startup usecase snapshot loader
 `vqec_vision_ai_unit_ucftst_`; `main` retains the language exception.
 
 Usecase-control port
-`include/vqec/vision/ai/ports/vqec_vision_usecase_control.hpp` uses file_id `ucctl` and
+`include/vqec/vision/ai/ports/management/vqec_vision_usecase_control.hpp` uses file_id `ucctl` and
 interface prefix `vqec_vision_ai_ports_ucctl_`. Serialized manager
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp` uses file_id `ucmgr`,
 prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus v1 adapter
@@ -182,25 +182,25 @@ prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus
 Runtime D-Bus integration tool `tools/fixtures/vqec_vision_usecase_runtime_dbus_test.py`
 uses file_id `ucrtst`, prefix `vqec_vision_ai_tools_ucrtst_`.
 
-Observation contract: `include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
+Observation contract: `include/vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp`,
 file_id `obser`, prefix `vqec_vision_ai_cntr_obser_`; validation implementation
 `src/core/perception/vqec_vision_observation.cpp`, file_id `obval`, prefix `vqec_vision_ai_core_obval_`.
 Test `tests/unit/core/vqec_vision_observation_test.cpp`, file_id `ovtst`, prefix
 `vqec_vision_ai_unit_ovtst_`; main retains language exception.
 
-Embedding contract: `include/vqec/vision/ai/contracts/vqec_vision_embedding.hpp` and
+Embedding contract: `include/vqec/vision/ai/contracts/perception/vqec_vision_embedding.hpp` and
 `src/core/perception/vqec_vision_embedding.cpp`, file_id `embct`, prefix
 `vqec_vision_ai_core_embct_`. Test `tests/unit/core/vqec_vision_embedding_test.cpp`, file_id
 `embtst`; main retains the language exception.
 
 Authoritative face-gallery contract
-`include/vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp` and validator
+`include/vqec/vision/ai/contracts/perception/vqec_vision_face_gallery.hpp` and validator
 `src/core/perception/vqec_vision_face_gallery.cpp` use file_id `fgalr`, prefix
 `vqec_vision_ai_core_fgalr_`. Protected-store port
-`include/vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp` uses file_id `fgstr`,
+`include/vqec/vision/ai/ports/perception/vqec_vision_face_gallery_store.hpp` uses file_id `fgstr`,
 prefix `vqec_vision_ai_ports_fgstr_`. Validator test uses file_id `fgalt`.
 
-Embedding index port: `include/vqec/vision/ai/ports/vqec_vision_embedding_index.hpp`
+Embedding index port: `include/vqec/vision/ai/ports/perception/vqec_vision_embedding_index.hpp`
 declares interface prefix `vqec_vision_ai_ports_emidx_`. Exact backend
 `src/perception/embedding/vqec_vision_exact_embedding_index.cpp` uses file_id `exidx`,
 prefix `vqec_vision_ai_embed_exidx_`. Test
@@ -211,7 +211,7 @@ file_id `zvidx`, prefix `vqec_vision_ai_zvec_zvidx_`.
 
 Qualcomm enrollment image source `src/adapters/qualcomm/media/vqec_vision_face_enrollment_image_source.cpp`
 uses file_id `feimg`, prefix `vqec_vision_ai_qcom_feimg_`; its neutral port is
-`include/vqec/vision/ai/ports/vqec_vision_face_enrollment_image.hpp`, file_id `feimg`.
+`include/vqec/vision/ai/ports/perception/vqec_vision_face_enrollment_image.hpp`, file_id `feimg`.
 Contract test `tests/contract/adapters/qualcomm/vqec_vision_face_enrollment_image_source_test.cpp` uses
 file_id `feitst`; `main` retains the language entrypoint spelling.
 
@@ -224,14 +224,14 @@ Enrollment image pipeline `src/app/cascade/vqec_vision_face_enrollment_image_pip
 file_id `feipl`, prefix `vqec_vision_ai_appl_feipl_`. Its test uses file_id `fiptst`;
 port overrides retain interface names and `main` retains language spelling.
 Image path authorization port
-`include/vqec/vision/ai/ports/vqec_vision_image_path_authorizer.hpp` uses file_id `ipath`
+`include/vqec/vision/ai/ports/perception/vqec_vision_image_path_authorizer.hpp` uses file_id `ipath`
 and interface prefix `vqec_vision_ai_ports_ipath_`. Face image detector/cascade interfaces
 use prefixes `vqec_vision_ai_ports_fidet_` and `vqec_vision_ai_ports_ficas_`.
 POSIX enrollment image authorizer
 `src/adapters/fw_control/vqec_vision_image_path_authorizer.cpp` uses file_id `ipath`,
 prefix `vqec_vision_ai_fwctl_ipath_`; its test uses file_id `ipatst`.
 
-Recognition policy contract: `include/vqec/vision/ai/contracts/vqec_vision_recognition.hpp`.
+Recognition policy contract: `include/vqec/vision/ai/contracts/perception/vqec_vision_recognition.hpp`.
 Implementation `src/perception/embedding/vqec_vision_recognition_policy.cpp` uses file_id
 `rcpol`, prefix `vqec_vision_ai_embed_rcpol_`. Test
 `tests/unit/perception/vqec_vision_recognition_policy_test.cpp` uses file_id `rcptst`, prefix
@@ -243,7 +243,7 @@ template metadata, revision-CAS mutations and recognition label correlation whil
 remaining independent of Zvec. Test `tests/unit/perception/vqec_vision_recognition_session_test.cpp`
 uses file_id `rcstst`; `main` retains the language exception.
 
-Enrollment port `include/vqec/vision/ai/ports/vqec_vision_face_enrollment.hpp` uses
+Enrollment port `include/vqec/vision/ai/ports/perception/vqec_vision_face_enrollment.hpp` uses
 file_id `fenrl` and interface prefix `vqec_vision_ai_ports_fenrl_`. Its in-process
 controller `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp` uses
 file_id `fenrc`, prefix `vqec_vision_ai_embed_fenrc_`; DBus adapters must remain behind
@@ -254,7 +254,7 @@ DBus server `src/adapters/fw_control/vqec_vision_face_enrollment_dbus.cpp` uses 
 `tests/unit/adapters/fw_control/vqec_vision_face_enrollment_dbus_test.cpp` uses file_id `fdbst`, prefix
 `vqec_vision_ai_unit_fdbst_`; GIO callback signatures and `main` retain external spelling.
 
-Embedding decoder port: `include/vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp`
+Embedding decoder port: `include/vqec/vision/ai/ports/perception/vqec_vision_embedding_decoder.hpp`
 declares interface prefix `vqec_vision_ai_ports_embdc_`. Generic implementation
 `src/perception/embedding/vqec_vision_embedding_decoder.cpp` uses file_id `embdd`, prefix
 `vqec_vision_ai_embed_embdd_`. Test `tests/unit/perception/vqec_vision_embedding_decoder_test.cpp` uses
@@ -265,7 +265,7 @@ prefix `vqec_vision_ai_core_encct_`; declarations in encoder_backend contract he
 Test `tests/unit/core/vqec_vision_encoder_contract_test.cpp`, file_id `ectst`, prefix
 `vqec_vision_ai_unit_ectst_`; main uses the language exception.
 
-Encoder backend port: `include/vqec/vision/ai/contracts/vqec_vision_encoder_backend.hpp`,
+Encoder backend port: `include/vqec/vision/ai/contracts/media/vqec_vision_encoder_backend.hpp`,
 file_id `encbk`, prefix `vqec_vision_ai_cntr_encbk_`. All backend overrides retain
 these declaring-interface names. Internal C++ interface, not an exported binary ABI.
 
@@ -277,16 +277,16 @@ Test `tests/unit/core/vqec_vision_output_generation_test.cpp`, file_id `ogent`, 
 Camera protocol constants: `src/adapters/camera/vqec_vision_camera_protocol.hpp`,
 file_id `cmpro`, owner `camer`; constants only, no functions.
 
-Header-only `include/vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp`:
+Header-only `include/vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp`:
 file_id `pvlim`, owner `cntr`; constants only, no named functions.
 
-Header-only `include/vqec/vision/ai/contracts/vqec_vision_identifier.hpp`:
+Header-only `include/vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp`:
 file_id `ident`, owner `cntr`, prefix `vqec_vision_ai_cntr_ident_`. Shared bounded
 ASCII identifier check; callers keep their own per-contract byte ceiling. This is the
 single source of truth for the accepted character set so validators cannot diverge.
 It also owns the shared lowercase SHA-256 hex check (`..._is_sha256_hex`).
 
-Header-only `include/vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp`:
+Header-only `include/vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp`:
 file_id `nvgeo`, owner `cntr`, prefix `vqec_vision_ai_cntr_nvgeo_`. Shared packed-NV12
 even-dimension rule and byte formula, so color, preview, encoder, deployment and inference
 modules do not re-derive it.
@@ -306,7 +306,7 @@ Test `tests/contract/outputs/vqec_vision_encoded_dispatch_test.cpp`, file_id `ed
 
 Encoded output ownership: `src/core/media/vqec_vision_encoded_output.cpp`, file_id `encot`,
 prefix `vqec_vision_ai_core_encot_`; paired public contracts header uses the same stem.
-Header-only `include/vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp` owns
+Header-only `include/vqec/vision/ai/contracts/media/vqec_vision_encoded_sink.hpp` owns
 file_id `encsk`, prefix `vqec_vision_ai_cntr_encsk_` (overrides retain these names).
 Test `tests/unit/core/vqec_vision_encoded_output_test.cpp`, file_id `eotst`, prefix
 `vqec_vision_ai_unit_eotst_`; main retains the language exception.
@@ -333,7 +333,7 @@ Test owner `tests/unit/core/vqec_vision_preview_surface_test.cpp`, file_id `psts
 
 Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` uses file_id
 `pvctr`, prefix `vqec_vision_ai_core_pvctr_`; paired public header is
-`include/vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp`.
+`include/vqec/vision/ai/contracts/media/vqec_vision_preview_contract.hpp`.
 `tests/unit/core/vqec_vision_preview_contract_test.cpp` uses file_id `pvtst`, prefix
 `vqec_vision_ai_unit_pvtst_` (main retains the language exception).
 
@@ -345,21 +345,21 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | src/core/inference/vqec_vision_tensor_contract.cpp | tnctr | vqec_vision_ai_core_tnctr_ |
 | src/core/inference/vqec_vision_inference_execution.cpp | inexe | vqec_vision_ai_core_inexe_ |
 | src/core/memory/vqec_vision_tensor_pool.cpp | tnpl | vqec_vision_ai_core_tnpl_ |
-| include/vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
+| include/vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp | imaln | (contract data only; no functions) |
 | src/core/media/vqec_vision_image_alignment.cpp | imaln | vqec_vision_ai_core_imaln_ |
-| include/vqec/vision/ai/contracts/vqec_vision_color.hpp | color | (contract declaration; implemented in core) |
-| include/vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp | fwrly | (contract data + inline path helper; mirrors released FW ring v5) |
+| include/vqec/vision/ai/contracts/media/vqec_vision_color.hpp | color | (contract declaration; implemented in core) |
+| include/vqec/vision/ai/contracts/media/vqec_vision_fw_ring_layout.hpp | fwrly | (contract data + inline path helper; mirrors released FW ring v5) |
 | tests/unit/adapters/fw_output/vqec_vision_fw_ring_layout_test.cpp | frlt | (main exception only) |
 | src/core/media/vqec_vision_color.cpp | color | vqec_vision_ai_core_color_ |
 | tests/unit/core/vqec_vision_color_test.cpp | coltst | vqec_vision_ai_unit_coltst_ |
-| include/vqec/vision/ai/ports/vqec_vision_image_alignment.hpp | imaln | vqec_vision_ai_ports_imaln_ |
+| include/vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp | imaln | vqec_vision_ai_ports_imaln_ |
 | tests/unit/core/vqec_vision_image_alignment_test.cpp | imtst | vqec_vision_ai_unit_imtst_ |
 | src/core/inference/vqec_vision_preprocess_spec.cpp | ppspc | vqec_vision_ai_core_ppspc_ |
 | src/core/inference/vqec_vision_model_io_manifest.cpp | ioman | vqec_vision_ai_core_ioman_ |
 | src/core/inference/vqec_vision_model_package.cpp | mpkg | vqec_vision_ai_core_mpkg_ |
 | src/core/inference/vqec_vision_model_package_registry.cpp | mprgy | vqec_vision_ai_core_mprgy_ |
 | src/runtime/model_registry/vqec_vision_model_package_registry.cpp | mprld | vqec_vision_ai_mreg_mprld_ |
-| include/vqec/vision/ai/contracts/vqec_vision_decoder_package.hpp | dcpkg | (contract data only; no functions) |
+| include/vqec/vision/ai/contracts/inference/vqec_vision_decoder_package.hpp | dcpkg | (contract data only; no functions) |
 | src/runtime/model_registry/vqec_vision_decoder_package.cpp | dcpkg | vqec_vision_ai_mreg_dcpkg_ |
 | tests/unit/runtime/vqec_vision_decoder_package_test.cpp | dctst | vqec_vision_ai_unit_dctst_ |
 | tests/unit/core/vqec_vision_preprocess_spec_test.cpp | ppst | vqec_vision_ai_unit_ppst_ |
@@ -375,11 +375,11 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tests/unit/core/vqec_vision_feature_catalog_test.cpp | fctst | vqec_vision_ai_unit_fctst_ |
 | src/outputs/events/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
 | src/outputs/events/vqec_vision_event_delivery_seam.cpp | evdsm | vqec_vision_ai_outpt_evdsm_ |
-| include/vqec/vision/ai/contracts/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_core_evtrn_ |
+| include/vqec/vision/ai/contracts/output/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_core_evtrn_ |
 | src/core/output/vqec_vision_evidence_transport.cpp | evtrn | vqec_vision_ai_core_evtrn_ |
-| include/vqec/vision/ai/ports/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_ports_evtrn_ |
+| include/vqec/vision/ai/ports/output/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_ports_evtrn_ |
 | tests/unit/core/vqec_vision_evidence_transport_test.cpp | evtst | vqec_vision_ai_unit_evtst_ |
-| include/vqec/vision/ai/ports/vqec_vision_evidence_outbox.hpp | evobx | vqec_vision_ai_ports_evobx_ |
+| include/vqec/vision/ai/ports/output/vqec_vision_evidence_outbox.hpp | evobx | vqec_vision_ai_ports_evobx_ |
 | src/adapters/storage/vqec_vision_sqlite_evidence_outbox.hpp | evobx | overrides retain ports prefix |
 | src/adapters/storage/vqec_vision_sqlite_evidence_outbox.cpp | evobx | vqec_vision_ai_stor_evobx_ |
 | tests/unit/adapters/storage/vqec_vision_sqlite_evidence_outbox_test.cpp | seotst | vqec_vision_ai_unit_seotst_ |
@@ -460,8 +460,8 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | src/runtime/feature_manager/vqec_vision_feature_stage.cpp | ftstg | vqec_vision_ai_ftmgr_ftstg_ |
 | src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp | famgr | vqec_vision_ai_ftmgr_famgr_ |
 | tests/unit/core/vqec_vision_inference_plan_test.cpp | iptst | vqec_vision_ai_unit_iptst_ |
-| include/vqec/vision/ai/contracts/vqec_vision_application_composition.hpp | acomp | vqec_vision_ai_cntr_acomp_ |
-| include/vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp | mddec | vqec_vision_ai_cntr_mddec_ |
+| include/vqec/vision/ai/contracts/lifecycle/vqec_vision_application_composition.hpp | acomp | vqec_vision_ai_cntr_acomp_ |
+| include/vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp | mddec | vqec_vision_ai_cntr_mddec_ |
 | tests/contract/core/vqec_vision_model_decoder_test.cpp | mdtst | vqec_vision_ai_ctest_mdtst_ |
 | tests/contract/perception/vqec_vision_model_decode_stage_test.cpp | mdsct | vqec_vision_ai_ctest_mdsct_ |
 | tests/contract/perception/vqec_vision_model_decoder_registry_test.cpp | mdrct | vqec_vision_ai_ctest_mdrct_ |
@@ -472,11 +472,11 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tests/contract/runtime/vqec_vision_feature_activation_manager_test.cpp | famct | vqec_vision_ai_ctest_famct_ |
 | tests/contract/perception/vqec_vision_attribute_reader_test.cpp | atrct | vqec_vision_ai_ctest_atrct_ |
 | tests/unit/core/vqec_vision_feature_event_test.cpp | fetst | vqec_vision_ai_unit_fetst_ |
-| include/vqec/vision/ai/ports/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |
-| include/vqec/vision/ai/ports/vqec_vision_feature_processor_factory.hpp | ftfac | vqec_vision_ai_ports_ftfac_ |
+| include/vqec/vision/ai/ports/features/vqec_vision_feature_processor.hpp | ftpro | vqec_vision_ai_ports_ftpro_ |
+| include/vqec/vision/ai/ports/features/vqec_vision_feature_processor_factory.hpp | ftfac | vqec_vision_ai_ports_ftfac_ |
 | src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp | ftreg | vqec_vision_ai_ftmgr_ftreg_ |
 | src/runtime/feature_manager/vqec_vision_feature_catalog.cpp | ftcat | vqec_vision_ai_ftmgr_ftcat_ |
-| include/vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp | fesnk | vqec_vision_ai_ports_fesnk_ |
+| include/vqec/vision/ai/ports/features/vqec_vision_feature_event_sink.hpp | fesnk | vqec_vision_ai_ports_fesnk_ |
 | tests/contract/core/vqec_vision_feature_processor_test.cpp | fpct | vqec_vision_ai_ctest_fpct_ |
 | tests/contract/runtime/vqec_vision_feature_processor_registry_test.cpp | fprct | vqec_vision_ai_ctest_fprct_ |
 | tests/unit/runtime/vqec_vision_feature_catalog_loader_test.cpp | fclt | vqec_vision_ai_unit_fclt_ |
@@ -515,7 +515,7 @@ Metadata/query catalog checker `tools/contracts/vqec_vision_check_metadata_query
 entrypoint exception.
 
 Metadata/query neutral contract
-`include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp` and validator
+`include/vqec/vision/ai/contracts/output/vqec_vision_metadata_query.hpp` and validator
 `src/core/output/vqec_vision_metadata_query.cpp` use file_id `mdqry`, with declaration prefix
 `vqec_vision_ai_cntr_mdqry_` retained by the implementation.
 
@@ -527,14 +527,14 @@ The non-CTest board benchmark `tests/board/vqec_vision_metadata_store_benchmark.
 `mdben`, prefix `vqec_vision_ai_board_mdben_`; `main` retains the language entrypoint spelling.
 
 Spatiotemporal metadata contract
-`include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp` and validator
+`include/vqec/vision/ai/contracts/output/vqec_vision_spatiotemporal_metadata.hpp` and validator
 `src/core/output/vqec_vision_spatiotemporal_metadata.cpp` use file_id `stmet`, with declaration
 prefix `vqec_vision_ai_cntr_stmet_` retained by the implementation. Its unit test
 `tests/unit/core/vqec_vision_spatiotemporal_metadata_test.cpp` uses file_id `smtst`, prefix
 `vqec_vision_ai_unit_smtst_`; `main` retains the language entrypoint spelling.
 
 Packed trajectory codec
-`include/vqec/vision/ai/contracts/vqec_vision_trajectory_codec.hpp` and
+`include/vqec/vision/ai/contracts/output/vqec_vision_trajectory_codec.hpp` and
 `src/core/output/vqec_vision_trajectory_codec.cpp` use file_id `trcod`, with declaration prefix
 `vqec_vision_ai_cntr_trcod_` retained by the implementation. Its unit test
 `tests/unit/core/vqec_vision_trajectory_codec_test.cpp` uses file_id `tctst`, prefix
@@ -594,10 +594,10 @@ modify the repository.
 | src/adapters/reference/vqec_vision_reference_encoder.cpp | renc | vqec_vision_ai_refer_renc_ |
 | src/adapters/reference/vqec_vision_reference_ring_sink.cpp | rring | vqec_vision_ai_refer_rring_ |
 | tests/unit/adapters/reference/vqec_vision_reference_output_test.cpp | routt | vqec_vision_ai_unit_routt_ |
-| include/vqec/vision/ai/ports/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
-| include/vqec/vision/ai/ports/vqec_vision_cascade_frame_lease.hpp | cflse | vqec_vision_ai_ports_cflse_ |
-| include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
-| include/vqec/vision/ai/ports/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
+| include/vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp | rawsr | vqec_vision_ai_ports_rawsr_ |
+| include/vqec/vision/ai/ports/media/vqec_vision_cascade_frame_lease.hpp | cflse | vqec_vision_ai_ports_cflse_ |
+| include/vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp | infgr | vqec_vision_ai_ports_infgr_ |
+| include/vqec/vision/ai/ports/perception/vqec_vision_tracker.hpp | trker | vqec_vision_ai_ports_trker_ |
 | src/adapters/qualcomm/gstreamer/vqec_vision_inference_graph.cpp | ifgr | vqec_vision_ai_qcom_ifgr_ |
 | src/adapters/qualcomm/gstreamer/vqec_vision_dmabuf_bridge.cpp | dmbrg | vqec_vision_ai_qcom_dmbrg_ |
 | src/adapters/qualcomm/gstreamer/vqec_vision_tensor_output.cpp | tnout | vqec_vision_ai_qcom_tnout_ |
@@ -648,20 +648,20 @@ App lifecycle registrations (source delivered):
 
 | Logical owner path | file_id | Prefix |
 |---|---|---|
-| include/vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp | applc | vqec_vision_ai_core_applc_ |
+| include/vqec/vision/ai/contracts/lifecycle/vqec_vision_app_lifecycle.hpp | applc | vqec_vision_ai_core_applc_ |
 | src/core/configuration/vqec_vision_app_lifecycle.cpp | applc | vqec_vision_ai_core_applc_ |
 | src/runtime/lifecycle/vqec_vision_app_manifest.hpp | apmft | vqec_vision_ai_lifec_apmft_ |
 | src/runtime/lifecycle/vqec_vision_app_manifest.cpp | apmft | vqec_vision_ai_lifec_apmft_ |
 | tests/unit/runtime/vqec_vision_app_manifest_test.cpp | apmtst | vqec_vision_ai_unit_apmtst_ |
-| include/vqec/vision/ai/ports/vqec_vision_app_inventory.hpp | apinv | vqec_vision_ai_ports_apinv_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp | apinv | vqec_vision_ai_ports_apinv_ |
 | src/adapters/storage/vqec_vision_sqlite_app_inventory.hpp | apinv | overrides retain ports prefix |
 | src/adapters/storage/vqec_vision_sqlite_app_inventory.cpp | apinv | vqec_vision_ai_stor_apinv_ |
 | tests/unit/adapters/storage/vqec_vision_sqlite_app_inventory_test.cpp | saitst | vqec_vision_ai_unit_saitst_ |
-| include/vqec/vision/ai/ports/vqec_vision_app_configuration.hpp | apcfg | vqec_vision_ai_ports_apcfg_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_configuration.hpp | apcfg | vqec_vision_ai_ports_apcfg_ |
 | src/app/management/vqec_vision_app_configuration_registry.hpp | apcrg | vqec_vision_ai_appl_apcrg_ |
 | src/app/management/vqec_vision_app_configuration_registry.cpp | apcrg | vqec_vision_ai_appl_apcrg_ |
 | tests/unit/application/vqec_vision_app_configuration_registry_test.cpp | acrtst | vqec_vision_ai_unit_acrtst_ |
-| include/vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp | apver | vqec_vision_ai_ports_apver_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_package_verifier.hpp | apver | vqec_vision_ai_ports_apver_ |
 | src/app/management/vqec_vision_app_manager.hpp | appmn | vqec_vision_ai_appl_appmn_ |
 | src/app/management/vqec_vision_app_manager.cpp | appmn | vqec_vision_ai_appl_appmn_ |
 | tests/unit/application/vqec_vision_app_manager_test.cpp | amtest | vqec_vision_ai_unit_amtest_ |
@@ -671,7 +671,7 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.hpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.cpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | tests/unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp | rcstst | vqec_vision_ai_unit_rcstst_ |
-| include/vqec/vision/ai/ports/vqec_vision_app_manager.hpp | apmgr | vqec_vision_ai_ports_apmgr_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_manager.hpp | apmgr | vqec_vision_ai_ports_apmgr_ |
 | src/adapters/fw_control/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | src/adapters/fw_control/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | tests/unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp | amdtst | vqec_vision_ai_unit_amdtst_ |
@@ -680,7 +680,7 @@ App lifecycle registrations (source delivered):
 | tests/unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp | edvtst | vqec_vision_ai_unit_edvtst_ |
 | src/adapters/security/vqec_vision_ed25519_verifier.hpp | edsig | vqec_vision_ai_secad_edsig_ |
 | src/adapters/security/vqec_vision_ed25519_verifier.cpp | edsig | vqec_vision_ai_secad_edsig_ |
-| include/vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp | entvr | vqec_vision_ai_ports_entvr_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_entitlement_verifier.hpp | entvr | vqec_vision_ai_ports_entvr_ |
 | src/runtime/lifecycle/vqec_vision_app_entitlement.hpp | apent | vqec_vision_ai_lifec_apent_ |
 | src/runtime/lifecycle/vqec_vision_app_entitlement.cpp | apent | vqec_vision_ai_lifec_apent_ |
 | src/adapters/security/vqec_vision_ed25519_app_entitlement_verifier.hpp | edent | vqec_vision_ai_secad_edent_ |

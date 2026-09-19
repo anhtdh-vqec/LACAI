@@ -23,7 +23,7 @@ if(integration_contract_python)
             --schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_registry.schema.json
             --cases-schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_cases.schema.json
             --receipt-schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_receipt.schema.json
-            --version-registry ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h
+            --version-registry ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h
             --self-test)
     add_test(NAME metadata_query_catalog
         COMMAND ${integration_contract_python}
@@ -33,7 +33,7 @@ if(integration_contract_python)
             --integration-registry
                 ${CMAKE_SOURCE_DIR}/config/contracts/integration_contract_registry.json
             --version-registry
-                ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h
+                ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h
             --self-test)
 endif()
 

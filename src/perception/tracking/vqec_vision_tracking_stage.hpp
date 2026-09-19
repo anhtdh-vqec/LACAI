@@ -1,7 +1,7 @@
 #ifndef VQEC_VISION_AI_TRACK_TRACKING_STAGE_HPP
 #define VQEC_VISION_AI_TRACK_TRACKING_STAGE_HPP
 
-#include "vqec/vision/ai/ports/vqec_vision_tracker.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_tracker.hpp"
 
 namespace vqec::vision::ai {
 

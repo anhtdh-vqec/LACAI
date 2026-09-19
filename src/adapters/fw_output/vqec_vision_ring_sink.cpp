@@ -1,5 +1,5 @@
 #include "vqec_vision_ring_sink.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp"
 
 #include <new>
 #include <utility>

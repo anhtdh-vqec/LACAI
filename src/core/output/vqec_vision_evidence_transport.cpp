@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_evidence_transport.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_evidence_transport.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <new>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

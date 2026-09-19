@@ -19,8 +19,8 @@
 
 #include "vqec_vision_dmabuf_bridge.hpp"
 #include "vqec_vision_tensor_output.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_color.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 
 namespace vqec::vision::ai {
 namespace {

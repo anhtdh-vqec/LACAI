@@ -7,7 +7,7 @@ the schema, its validation and its separation from deployment and output-manifes
 **Status:** source-delivered — neutral contract, pure validation, bounded JSON loader and
 source tests delivered; artifact authentication/resolution and live graph composition are
 pending. **Layer:** core. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp`,
+`include/vqec/vision/ai/contracts/inference/vqec_vision_model_catalog.hpp`,
 `src/core/configuration/vqec_vision_model_catalog.cpp`,
 `tests/unit/core/vqec_vision_model_catalog_test.cpp`,
 `tests/unit/runtime/vqec_vision_model_catalog_loader_test.cpp`.

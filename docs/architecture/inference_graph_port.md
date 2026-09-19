@@ -10,8 +10,8 @@ migration delivered; multi-model fan-out/session integration is also source-deli
 Neutral execution capability/policy contracts and the port capability/policy query are
 source-delivered (A1/A3); the owned QNN engine is board-qualified for SCRFD/YOLOv8n on HTP.
 **Layer:** contracts. **Source:**
-`include/vqec/vision/ai/ports/vqec_vision_inference_graph.hpp`,
-`include/vqec/vision/ai/contracts/vqec_vision_inference_execution.hpp`,
+`include/vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp`,
+`include/vqec/vision/ai/contracts/inference/vqec_vision_inference_execution.hpp`,
 `src/adapters/qualcomm/gstreamer/vqec_vision_inference_graph.cpp`,
 `src/adapters/qualcomm/qnn/vqec_vision_qnn_inference_graph.cpp`.
 

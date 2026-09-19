@@ -11,7 +11,7 @@ hardware-completion evidence remains open. External baseline:
 [FW release compatibility](../contracts/fw_release_compatibility.md).
 **Layer:** contracts. **Source:**
 `src/core/media/vqec_vision_preview_contract.cpp`,
-`include/vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp`,
+`include/vqec/vision/ai/contracts/media/vqec_vision_preview_contract.hpp`,
 `tests/unit/core/vqec_vision_preview_contract_test.cpp`.
 
 ## Responsibility

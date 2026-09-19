@@ -5,10 +5,10 @@
 #include <memory>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_contract.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_contract.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 

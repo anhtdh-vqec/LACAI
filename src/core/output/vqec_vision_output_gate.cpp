@@ -1,10 +1,10 @@
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
 
 #include <algorithm>
 #include <mutex>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

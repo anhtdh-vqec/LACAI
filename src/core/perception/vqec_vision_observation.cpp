@@ -1,7 +1,7 @@
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp"
 
 #include <cmath>
 

@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_image_inference.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_image_inference.hpp"
 
 namespace vqec::vision::ai {
 

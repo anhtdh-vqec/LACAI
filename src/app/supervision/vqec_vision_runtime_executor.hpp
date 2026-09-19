@@ -9,8 +9,8 @@
 #include "vqec_vision_cascade_execution_worker.hpp"
 #include "vqec_vision_application_composition.hpp"
 #include "vqec_vision_multi_model_feature_pipeline.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_event_sink.hpp"
 
 namespace vqec::vision::ai {
 

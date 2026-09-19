@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_raw_source.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_raw_source.hpp"
 
 namespace vqec::vision::ai {
 

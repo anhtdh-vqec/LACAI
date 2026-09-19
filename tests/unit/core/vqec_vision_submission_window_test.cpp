@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_submission_window.hpp"
 
 int main() {
     using vqec::vision::ai::status_code;

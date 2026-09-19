@@ -1,6 +1,6 @@
-#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_color.hpp"
 
-#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp"
 
 #include <algorithm>
 #include <cmath>

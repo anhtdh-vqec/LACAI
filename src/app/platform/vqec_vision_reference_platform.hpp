@@ -5,8 +5,8 @@
 #include <memory>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_version_registry.h"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_version_registry.h"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"

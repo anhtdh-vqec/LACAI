@@ -1,11 +1,11 @@
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
 
 #include <limits>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp"
 
 namespace vqec::vision::ai {
 namespace {

@@ -5,7 +5,7 @@
 #include <mutex>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_evidence_outbox.hpp"
+#include "vqec/vision/ai/ports/output/vqec_vision_evidence_outbox.hpp"
 
 struct sqlite3;
 

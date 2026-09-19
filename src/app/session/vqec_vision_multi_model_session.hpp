@@ -9,7 +9,7 @@
 #include "vqec_vision_cascade_frame_store.hpp"
 #include "vqec_vision_multi_model_pump.hpp"
 #include "vqec_vision_source_session.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_cascade_frame_lease.hpp"
+#include "vqec/vision/ai/ports/media/vqec_vision_cascade_frame_lease.hpp"
 
 namespace vqec::vision::ai {
 

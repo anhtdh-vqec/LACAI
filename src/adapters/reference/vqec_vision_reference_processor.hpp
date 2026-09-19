@@ -1,7 +1,7 @@
 #ifndef VQEC_VISION_AI_REFER_REFERENCE_PROCESSOR_HPP
 #define VQEC_VISION_AI_REFER_REFERENCE_PROCESSOR_HPP
 
-#include "vqec/vision/ai/ports/vqec_vision_image_processor.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp"
 
 namespace vqec::vision::ai {
 

@@ -9,7 +9,7 @@
 
 #include <unistd.h>
 
-#include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_output_gate.hpp"
 #include "vqec_vision_evidence_service.hpp"
 #include "vqec_vision_evidence_uds_client.hpp"
 #include "vqec_vision_sqlite_evidence_outbox.hpp"

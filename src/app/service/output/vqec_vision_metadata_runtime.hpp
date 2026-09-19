@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_deployment_config.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_feature_event_sink.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_deployment_config.hpp"
+#include "vqec/vision/ai/ports/features/vqec_vision_feature_event_sink.hpp"
 #include "vqec_vision_metadata_service.hpp"
 
 namespace vqec::vision::ai {

@@ -10,8 +10,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 namespace {

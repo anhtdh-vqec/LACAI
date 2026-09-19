@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_face_gallery.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_face_gallery.hpp"
 
 #include <stdexcept>
 

@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_status.hpp"
 
 extern "C" {
 #include "vqec_vision_dsp_v1_wire.h"

@@ -2,7 +2,7 @@
 #include <memory>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_preview_pool.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_pool.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

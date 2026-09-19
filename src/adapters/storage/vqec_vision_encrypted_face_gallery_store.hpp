@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_face_gallery_store.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_gallery_store.hpp"
 
 namespace vqec::vision::ai {
 

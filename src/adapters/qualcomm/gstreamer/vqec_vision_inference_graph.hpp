@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "vqec_vision_plugin_graph.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
 
 namespace vqec::vision::ai {
 

@@ -1,8 +1,8 @@
-#include "vqec/vision/ai/contracts/vqec_vision_feature_event.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_feature_event.hpp"
 
 #include <cmath>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

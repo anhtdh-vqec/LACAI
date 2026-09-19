@@ -3,7 +3,7 @@
 
 #include <istream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_app_lifecycle.hpp"
 
 namespace vqec::vision::ai {
 

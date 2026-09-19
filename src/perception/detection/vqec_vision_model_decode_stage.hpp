@@ -1,7 +1,7 @@
 #ifndef VQEC_VISION_AI_DETEC_MODEL_DECODE_STAGE_HPP
 #define VQEC_VISION_AI_DETEC_MODEL_DECODE_STAGE_HPP
 
-#include "vqec/vision/ai/contracts/vqec_vision_model_decoder.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_decoder.hpp"
 
 namespace vqec::vision::ai {
 

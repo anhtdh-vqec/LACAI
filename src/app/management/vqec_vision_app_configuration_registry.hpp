@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_app_configuration.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_app_lifecycle.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_configuration.hpp"
 
 namespace vqec::vision::ai {
 

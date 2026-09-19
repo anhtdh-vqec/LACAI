@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_image_enums.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preprocess_spec.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_image_alignment.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_image_enums.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_preprocess_spec.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp"
 
 namespace vqec::vision::ai {
 

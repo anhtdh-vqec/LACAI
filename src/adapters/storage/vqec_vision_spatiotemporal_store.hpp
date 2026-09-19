@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_spatiotemporal_metadata.hpp"
 
 struct sqlite3;
 

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <istream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_model_package_registry.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_package_registry.hpp"
 
 namespace vqec::vision::ai {
 

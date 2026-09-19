@@ -1,9 +1,9 @@
-#include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp"
 
 #include <algorithm>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 
 namespace vqec::vision::ai {
 namespace {

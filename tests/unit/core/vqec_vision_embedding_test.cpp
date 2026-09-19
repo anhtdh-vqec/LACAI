@@ -2,7 +2,7 @@
 #include <iostream>
 #include <limits>
 
-#include "vqec/vision/ai/contracts/vqec_vision_embedding.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_embedding.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoder_window.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoder_window.hpp"
 
 int main() {
     using namespace vqec::vision::ai;

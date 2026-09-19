@@ -5,7 +5,7 @@
 #include <string>
 
 #include "vqec_vision_artifact_digest.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_model_catalog.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_model_catalog.hpp"
 
 namespace vqec::vision::ai {
 

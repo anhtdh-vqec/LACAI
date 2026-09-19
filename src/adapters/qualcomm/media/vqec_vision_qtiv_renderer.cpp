@@ -21,8 +21,8 @@
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
 
-#include "vqec/vision/ai/contracts/vqec_vision_fw_ring_layout.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_fw_ring_layout.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp"
 #include "vqec_vision_dsp_buffer_cache.hpp"
 #include "vqec_vision_dsp_v1_client.hpp"
 #include "vqec_vision_dsp_v1_overlay.h"

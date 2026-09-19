@@ -136,7 +136,7 @@ receipt="$work_dir/vqec_vision_dsp_v1_build_receipt.txt"
     echo "link_flags=-m$dsp_arch -shared -Wl,-no-threads"
     echo "canonicalization=remove .note.llvm.cgmdinfo and .comment"
     for source in "$script_dir/vqec_vision_build_dsp_v1.sh" \
-        "$source_root/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h" \
+        "$source_root/include/vqec/vision/ai/contracts/base/vqec_vision_version_registry.h" \
         "$idl" "$v1_dir/vqec_vision_dsp_v1_skeleton.c" \
         "$v1_dir/vqec_vision_dsp_v1_service.c" \
         "$v1_dir/vqec_vision_dsp_v1_service.h" \

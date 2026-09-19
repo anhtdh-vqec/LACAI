@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp"
 
 // Independent expectations for the shared helpers. If either rule changes, this test must
 // be updated deliberately rather than silently drifting with a caller.

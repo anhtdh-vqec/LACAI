@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "vqec/vision/ai/ports/vqec_vision_app_inventory.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp"
 
 struct sqlite3;
 

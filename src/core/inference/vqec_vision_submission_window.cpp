@@ -1,4 +1,4 @@
-#include "vqec/vision/ai/contracts/vqec_vision_submission_window.hpp"
+#include "vqec/vision/ai/contracts/inference/vqec_vision_submission_window.hpp"
 
 namespace vqec::vision::ai {
 

@@ -8,7 +8,7 @@
 #include <new>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_color.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_color.hpp"
 
 namespace vqec::vision::ai {
 namespace {

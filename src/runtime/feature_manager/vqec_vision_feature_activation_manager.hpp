@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp"
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_feature_stage.hpp"
 

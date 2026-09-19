@@ -10,7 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "vqec/vision/ai/contracts/vqec_vision_feature_catalog.hpp"
+#include "vqec/vision/ai/contracts/features/vqec_vision_feature_catalog.hpp"
 
 namespace vqec::vision::ai {
 namespace {

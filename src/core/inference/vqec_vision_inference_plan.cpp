@@ -1,8 +1,8 @@
-#include <vqec/vision/ai/contracts/vqec_vision_inference_plan.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_inference_plan.hpp>
 
-#include <vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp>
-#include <vqec/vision/ai/contracts/vqec_vision_tensor_contract.hpp>
+#include <vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp>
+#include <vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp>
+#include <vqec/vision/ai/contracts/inference/vqec_vision_tensor_contract.hpp>
 
 #include <algorithm>
 #include <cctype>

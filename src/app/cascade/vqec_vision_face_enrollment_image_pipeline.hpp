@@ -1,10 +1,10 @@
 #ifndef VQEC_VISION_AI_APPL_FACE_ENROLLMENT_IMAGE_PIPELINE_HPP
 #define VQEC_VISION_AI_APPL_FACE_ENROLLMENT_IMAGE_PIPELINE_HPP
 
-#include "vqec/vision/ai/ports/vqec_vision_face_enrollment.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_enrollment_image.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_image_path_authorizer.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_image_inference.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_enrollment.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_enrollment_image.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_image_path_authorizer.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_image_inference.hpp"
 
 namespace vqec::vision::ai {
 

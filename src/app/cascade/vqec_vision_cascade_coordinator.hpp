@@ -7,14 +7,14 @@
 #include <unordered_map>
 #include <vector>
 
-#include "vqec/vision/ai/contracts/vqec_vision_embedding.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_image_alignment.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_cascade_frame_lease.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_embedding_decoder.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_image_alignment.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_inference_graph.hpp"
-#include "vqec/vision/ai/ports/vqec_vision_face_image_inference.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_embedding.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_image_alignment.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/ports/media/vqec_vision_cascade_frame_lease.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_embedding_decoder.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_image_alignment.hpp"
+#include "vqec/vision/ai/ports/inference/vqec_vision_inference_graph.hpp"
+#include "vqec/vision/ai/ports/perception/vqec_vision_face_image_inference.hpp"
 
 namespace vqec::vision::ai {
 

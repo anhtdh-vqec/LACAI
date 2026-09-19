@@ -7,7 +7,7 @@ that the detection and tracked forms apply.
 
 **Status:** source-delivered — the neutral contract and its detection/tracked validators
 exist in the tree. **Layer:** contracts. **Source:**
-`include/vqec/vision/ai/contracts/vqec_vision_observation.hpp`,
+`include/vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp`,
 `src/core/perception/vqec_vision_observation.cpp`,
 `tests/unit/core/vqec_vision_observation_test.cpp`.
 

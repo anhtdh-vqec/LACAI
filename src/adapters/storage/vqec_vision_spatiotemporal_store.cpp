@@ -11,8 +11,8 @@
 #include <sstream>
 #include <utility>
 
-#include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_trajectory_codec.hpp"
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
+#include "vqec/vision/ai/contracts/output/vqec_vision_trajectory_codec.hpp"
 
 namespace vqec::vision::ai {
 namespace {

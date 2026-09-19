@@ -13,7 +13,7 @@
 
 #include <vqec_vision_dsp_legacy_types.h>
 #include "vqec_vision_dsp_session.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_observation.hpp"
+#include "vqec/vision/ai/contracts/perception/vqec_vision_observation.hpp"
 
 namespace vqec::vision::ai {
 

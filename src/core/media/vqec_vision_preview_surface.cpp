@@ -1,7 +1,7 @@
-#include "vqec/vision/ai/contracts/vqec_vision_preview_surface.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_surface.hpp"
 
-#include "vqec/vision/ai/contracts/vqec_vision_nv12_geometry.hpp"
-#include "vqec/vision/ai/contracts/vqec_vision_preview_limits.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_nv12_geometry.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_preview_limits.hpp"
 
 #include <limits>
 #include <new>

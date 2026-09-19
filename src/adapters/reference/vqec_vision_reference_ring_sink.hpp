@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "vqec/vision/ai/contracts/vqec_vision_encoded_sink.hpp"
+#include "vqec/vision/ai/contracts/media/vqec_vision_encoded_sink.hpp"
 
 namespace vqec::vision::ai {
 
