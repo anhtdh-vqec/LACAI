@@ -172,6 +172,11 @@ int main() {
         observation_quality::high}};
     event.episode_revision_ = 1U;
     event.episode_begin_ns_ = event.occurred_at_ns_;
+    auto unsupported_event = event;
+    unsupported_event.feature_id_ = "not_installed";
+    assert(runtime.vqec_vision_ai_ports_fesnk_deliver_event(unsupported_event).code_ ==
+           status_code::unsupported);
+    assert(sink.deliveries_ == 0U);
     assert(runtime.vqec_vision_ai_ports_fesnk_deliver_event(event).code_ ==
            status_code::ok);
     assert(sink.deliveries_ == 1U && sink.last_event_id_ == event.event_id_);

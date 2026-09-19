@@ -571,6 +571,11 @@ private:
             result = work->is_cancelled_.load(std::memory_order_acquire)
                 ? status{status_code::timeout, "metadata query was cancelled before execution"}
                 : store_.vqec_vision_ai_stor_stsql_query(work->query_, page);
+            if (work->is_cancelled_.load(std::memory_order_acquire)) {
+                result = {status_code::timeout, "metadata query was cancelled"};
+                page.completeness_ =
+                    spatiotemporal_result_completeness::budget_exceeded;
+            }
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 active_query_.reset();

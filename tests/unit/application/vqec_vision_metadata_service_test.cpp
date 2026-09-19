@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <thread>
 #include <string>
 #include <unistd.h>
 
@@ -145,8 +146,28 @@ int main() {
     spatiotemporal_query_page page;
     assert(service.vqec_vision_ai_appl_mdsvc_query(query, page).code_ == status_code::ok);
     assert(page.trajectory_chunks_.size() == 3U);
+    auto cancelled_query = query;
+    cancelled_query.request_id_ = "query.cancelled";
+    cancelled_query.budget_.deadline_ns_ =
+        vqec_vision_ai_unit_mdsvt_get_deadline_ns() + 1000000000U;
+    status cancelled_result{status_code::pending, "not started"};
+    std::thread query_thread([&service, &cancelled_query, &cancelled_result]() {
+        spatiotemporal_query_page cancelled_page;
+        cancelled_result = service.vqec_vision_ai_appl_mdsvc_query(
+            cancelled_query, cancelled_page);
+    });
+    status cancel_result{status_code::invalid_argument, "not found"};
+    for (unsigned attempt = 0U; attempt < 10000U &&
+         cancel_result.code_ != status_code::ok; ++attempt) {
+        cancel_result = service.vqec_vision_ai_appl_mdsvc_cancel_query(
+            cancelled_query.request_id_);
+        std::this_thread::yield();
+    }
+    query_thread.join();
+    assert(cancel_result.code_ == status_code::ok);
+    assert(cancelled_result.code_ == status_code::timeout);
     const auto stats = service.vqec_vision_ai_appl_mdsvc_get_stats();
-    assert(stats.accepted_records_ == 4U);
+    assert(stats.accepted_records_ == 5U);
     assert(stats.committed_records_ == 3U);
     assert(stats.completed_queries_ == 1U);
     assert(stats.live_track_count_ == 1U);
