@@ -25,6 +25,15 @@ if(integration_contract_python)
             --receipt-schema ${CMAKE_SOURCE_DIR}/config/schemas/integration_contract_receipt.schema.json
             --version-registry ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h
             --self-test)
+    add_test(NAME metadata_query_catalog
+        COMMAND ${integration_contract_python}
+            ${CMAKE_SOURCE_DIR}/tools/contracts/vqec_vision_check_metadata_query.py
+            --catalog ${CMAKE_SOURCE_DIR}/config/contracts/metadata_query_catalog.json
+            --integration-registry
+                ${CMAKE_SOURCE_DIR}/config/contracts/integration_contract_registry.json
+            --version-registry
+                ${CMAKE_SOURCE_DIR}/include/vqec/vision/ai/contracts/vqec_vision_version_registry.h
+            --self-test)
 endif()
 
     add_executable(vqec_vision_ai_feature_processor_registry_test
