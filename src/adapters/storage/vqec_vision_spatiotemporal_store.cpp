@@ -138,6 +138,26 @@ CREATE TABLE IF NOT EXISTS aggregate_contribution_revisions (
 CREATE INDEX IF NOT EXISTS aggregate_definition_time_idx
     ON aggregate_contribution_revisions(
         aggregate_definition_id,bucket_begin_ns,bucket_end_ns,global_sequence);
+CREATE TABLE IF NOT EXISTS aggregate_rollups (
+    aggregate_definition_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    scene_revision TEXT NOT NULL,
+    definition_revision TEXT NOT NULL,
+    bucket_begin_ns INTEGER NOT NULL,
+    bucket_end_ns INTEGER NOT NULL,
+    required_access_mask INTEGER NOT NULL,
+    dimensions BLOB NOT NULL,
+    numerator_microunits INTEGER NOT NULL,
+    denominator_microunits INTEGER NOT NULL,
+    observed_duration_ns INTEGER NOT NULL,
+    expected_duration_ns INTEGER NOT NULL,
+    contribution_count INTEGER NOT NULL,
+    updated_sequence INTEGER NOT NULL,
+    PRIMARY KEY(aggregate_definition_id,source_id,scene_revision,definition_revision,
+        bucket_begin_ns,bucket_end_ns,required_access_mask,dimensions)
+);
+CREATE INDEX IF NOT EXISTS aggregate_rollup_time_idx
+    ON aggregate_rollups(aggregate_definition_id,bucket_begin_ns,bucket_end_ns);
 CREATE TABLE IF NOT EXISTS metadata_outbox (
     sink_id TEXT NOT NULL,
     record_family TEXT NOT NULL,

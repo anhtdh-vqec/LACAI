@@ -412,6 +412,331 @@ bool vqec_vision_ai_stor_stsql_checked_add_u64(
     return true;
 }
 
+status vqec_vision_ai_stor_stsql_load_contribution_revision(
+    sqlite3* _catalog, const std::string& _contribution_id, std::uint64_t _revision,
+    aggregate_contribution_revision& _contribution,
+    std::vector<std::uint8_t>& _dimensions) {
+    projection_statement statement;
+    auto result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
+        "SELECT episode_id,source_id,aggregate_definition_id,scene_revision,"
+        "definition_revision,bucket_begin_ns,bucket_end_ns,recorded_ns,operation,"
+        "numerator_microunits,denominator_microunits,observed_duration_ns,"
+        "expected_duration_ns,required_access_mask,dimensions FROM "
+        "aggregate_contribution_revisions WHERE contribution_id=?1 AND revision=?2;",
+        statement);
+    auto* query = statement.vqec_vision_ai_stor_stsql_get();
+    if (result.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_stsql_bind_projection_text(query, 1, _contribution_id) ||
+        sqlite3_bind_int64(query, 2, static_cast<sqlite3_int64>(_revision)) != SQLITE_OK ||
+        sqlite3_step(query) != SQLITE_ROW) {
+        return result.code_ == status_code::ok
+            ? status{status_code::io_error,
+                  "aggregate superseded contribution is unavailable"}
+            : result;
+    }
+    _contribution = {};
+    _contribution.contribution_id_ = _contribution_id;
+    _contribution.revision_ = _revision;
+    _contribution.episode_id_ = vqec_vision_ai_stor_stsql_read_projection_text(query, 0);
+    _contribution.source_id_ = vqec_vision_ai_stor_stsql_read_projection_text(query, 1);
+    _contribution.aggregate_definition_id_ =
+        vqec_vision_ai_stor_stsql_read_projection_text(query, 2);
+    _contribution.scene_revision_ = vqec_vision_ai_stor_stsql_read_projection_text(query, 3);
+    _contribution.definition_revision_ =
+        vqec_vision_ai_stor_stsql_read_projection_text(query, 4);
+    _contribution.bucket_begin_ns_ = sqlite3_column_int64(query, 5);
+    _contribution.bucket_end_ns_ = sqlite3_column_int64(query, 6);
+    _contribution.recorded_ns_ = sqlite3_column_int64(query, 7);
+    _contribution.operation_ = static_cast<aggregate_contribution_operation>(
+        sqlite3_column_int(query, 8));
+    _contribution.numerator_microunits_ = sqlite3_column_int64(query, 9);
+    _contribution.denominator_microunits_ = sqlite3_column_int64(query, 10);
+    _contribution.observed_duration_ns_ =
+        static_cast<std::uint64_t>(sqlite3_column_int64(query, 11));
+    _contribution.expected_duration_ns_ =
+        static_cast<std::uint64_t>(sqlite3_column_int64(query, 12));
+    _contribution.required_access_domain_mask_ =
+        static_cast<std::uint32_t>(sqlite3_column_int64(query, 13));
+    _dimensions = vqec_vision_ai_stor_stsql_read_projection_blob(query, 14);
+    return {};
+}
+
+status vqec_vision_ai_stor_stsql_apply_rollup_delta(
+    sqlite3* _catalog, const aggregate_contribution_revision& _contribution,
+    const std::vector<std::uint8_t>& _dimensions, std::int32_t _sign,
+    std::uint64_t _sequence) {
+    if (_sign != 1 && _sign != -1) {
+        return {status_code::invalid_argument, "aggregate rollup delta sign is invalid"};
+    }
+    projection_statement select_statement;
+    auto result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
+        "SELECT numerator_microunits,denominator_microunits,observed_duration_ns,"
+        "expected_duration_ns,contribution_count FROM aggregate_rollups WHERE "
+        "aggregate_definition_id=?1 AND source_id=?2 AND scene_revision=?3 AND "
+        "definition_revision=?4 AND bucket_begin_ns=?5 AND bucket_end_ns=?6 AND "
+        "required_access_mask=?7 AND dimensions=?8;", select_statement);
+    auto* select = select_statement.vqec_vision_ai_stor_stsql_get();
+    const bool select_bound = result.code_ == status_code::ok &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(
+            select, 1, _contribution.aggregate_definition_id_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(select, 2, _contribution.source_id_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(select, 3, _contribution.scene_revision_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(
+            select, 4, _contribution.definition_revision_) &&
+        sqlite3_bind_int64(select, 5, _contribution.bucket_begin_ns_) == SQLITE_OK &&
+        sqlite3_bind_int64(select, 6, _contribution.bucket_end_ns_) == SQLITE_OK &&
+        sqlite3_bind_int64(select, 7, _contribution.required_access_domain_mask_) == SQLITE_OK &&
+        vqec_vision_ai_stor_stsql_bind_projection_blob(select, 8, _dimensions);
+    if (!select_bound) {
+        return result.code_ == status_code::ok
+            ? vqec_vision_ai_stor_stsql_make_projection_error(
+                  _catalog, "bind aggregate rollup lookup")
+            : result;
+    }
+    const auto step = sqlite3_step(select);
+    if (step != SQLITE_ROW) {
+        if (_sign < 0) {
+            return {status_code::io_error, "aggregate rollup source bucket is unavailable"};
+        }
+        projection_statement insert_statement;
+        result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
+            "INSERT INTO aggregate_rollups(aggregate_definition_id,source_id,"
+            "scene_revision,definition_revision,bucket_begin_ns,bucket_end_ns,"
+            "required_access_mask,dimensions,numerator_microunits,denominator_microunits,"
+            "observed_duration_ns,expected_duration_ns,contribution_count,updated_sequence) "
+            "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,1,?13);",
+            insert_statement);
+        auto* insert = insert_statement.vqec_vision_ai_stor_stsql_get();
+        const bool insert_bound = result.code_ == status_code::ok &&
+            vqec_vision_ai_stor_stsql_bind_projection_text(
+                insert, 1, _contribution.aggregate_definition_id_) &&
+            vqec_vision_ai_stor_stsql_bind_projection_text(
+                insert, 2, _contribution.source_id_) &&
+            vqec_vision_ai_stor_stsql_bind_projection_text(
+                insert, 3, _contribution.scene_revision_) &&
+            vqec_vision_ai_stor_stsql_bind_projection_text(
+                insert, 4, _contribution.definition_revision_) &&
+            sqlite3_bind_int64(insert, 5, _contribution.bucket_begin_ns_) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 6, _contribution.bucket_end_ns_) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 7, _contribution.required_access_domain_mask_) == SQLITE_OK &&
+            vqec_vision_ai_stor_stsql_bind_projection_blob(insert, 8, _dimensions) &&
+            sqlite3_bind_int64(insert, 9, _contribution.numerator_microunits_) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 10, _contribution.denominator_microunits_) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 11, static_cast<sqlite3_int64>(
+                _contribution.observed_duration_ns_)) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 12, static_cast<sqlite3_int64>(
+                _contribution.expected_duration_ns_)) == SQLITE_OK &&
+            sqlite3_bind_int64(insert, 13, static_cast<sqlite3_int64>(_sequence)) == SQLITE_OK;
+        if (!insert_bound || sqlite3_step(insert) != SQLITE_DONE) {
+            return result.code_ == status_code::ok
+                ? vqec_vision_ai_stor_stsql_make_projection_error(
+                      _catalog, "insert aggregate rollup")
+                : result;
+        }
+        return {};
+    }
+    const auto old_count = sqlite3_column_int64(select, 4);
+    if (old_count <= 0 || (_sign < 0 && old_count == 1)) {
+        if (_sign > 0 && old_count > 0) {
+            // Continue to the checked update below.
+        } else if (_sign < 0 && old_count == 1) {
+            projection_statement delete_statement;
+            result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
+                "DELETE FROM aggregate_rollups WHERE aggregate_definition_id=?1 AND "
+                "source_id=?2 AND scene_revision=?3 AND definition_revision=?4 AND "
+                "bucket_begin_ns=?5 AND bucket_end_ns=?6 AND required_access_mask=?7 AND "
+                "dimensions=?8;", delete_statement);
+            auto* remove = delete_statement.vqec_vision_ai_stor_stsql_get();
+            const bool delete_bound = result.code_ == status_code::ok &&
+                vqec_vision_ai_stor_stsql_bind_projection_text(
+                    remove, 1, _contribution.aggregate_definition_id_) &&
+                vqec_vision_ai_stor_stsql_bind_projection_text(
+                    remove, 2, _contribution.source_id_) &&
+                vqec_vision_ai_stor_stsql_bind_projection_text(
+                    remove, 3, _contribution.scene_revision_) &&
+                vqec_vision_ai_stor_stsql_bind_projection_text(
+                    remove, 4, _contribution.definition_revision_) &&
+                sqlite3_bind_int64(remove, 5, _contribution.bucket_begin_ns_) == SQLITE_OK &&
+                sqlite3_bind_int64(remove, 6, _contribution.bucket_end_ns_) == SQLITE_OK &&
+                sqlite3_bind_int64(remove, 7, _contribution.required_access_domain_mask_) == SQLITE_OK &&
+                vqec_vision_ai_stor_stsql_bind_projection_blob(remove, 8, _dimensions);
+            if (!delete_bound || sqlite3_step(remove) != SQLITE_DONE) {
+                return result.code_ == status_code::ok
+                    ? vqec_vision_ai_stor_stsql_make_projection_error(
+                          _catalog, "delete empty aggregate rollup")
+                    : result;
+            }
+            return {};
+        } else {
+            return {status_code::io_error, "aggregate rollup count is corrupt"};
+        }
+    }
+    const auto sign_i64 = static_cast<std::int64_t>(_sign);
+    if (_sign < 0 && (_contribution.numerator_microunits_ ==
+            std::numeric_limits<std::int64_t>::min() ||
+            _contribution.denominator_microunits_ ==
+                std::numeric_limits<std::int64_t>::min())) {
+        return {status_code::resource_exhausted, "aggregate rollup delta overflows"};
+    }
+    std::int64_t numerator = 0;
+    std::int64_t denominator = 0;
+    std::int64_t observed = 0;
+    std::int64_t expected = 0;
+    const auto observed_delta = static_cast<std::int64_t>(
+        _contribution.observed_duration_ns_) * sign_i64;
+    const auto expected_delta = static_cast<std::int64_t>(
+        _contribution.expected_duration_ns_) * sign_i64;
+    if (!vqec_vision_ai_stor_stsql_checked_add_i64(sqlite3_column_int64(select, 0),
+            _contribution.numerator_microunits_ * sign_i64, numerator) ||
+        !vqec_vision_ai_stor_stsql_checked_add_i64(sqlite3_column_int64(select, 1),
+            _contribution.denominator_microunits_ * sign_i64, denominator) ||
+        !vqec_vision_ai_stor_stsql_checked_add_i64(
+            sqlite3_column_int64(select, 2), observed_delta, observed) ||
+        !vqec_vision_ai_stor_stsql_checked_add_i64(
+            sqlite3_column_int64(select, 3), expected_delta, expected)) {
+        return {status_code::resource_exhausted, "aggregate rollup value overflows"};
+    }
+    projection_statement update_statement;
+    result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
+        "UPDATE aggregate_rollups SET numerator_microunits=?1,denominator_microunits=?2,"
+        "observed_duration_ns=?3,expected_duration_ns=?4,contribution_count=?5,"
+        "updated_sequence=?6 WHERE aggregate_definition_id=?7 AND source_id=?8 AND "
+        "scene_revision=?9 AND definition_revision=?10 AND bucket_begin_ns=?11 AND "
+        "bucket_end_ns=?12 AND required_access_mask=?13 AND dimensions=?14;",
+        update_statement);
+    auto* update = update_statement.vqec_vision_ai_stor_stsql_get();
+    const bool update_bound = result.code_ == status_code::ok &&
+        sqlite3_bind_int64(update, 1, numerator) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 2, denominator) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 3, observed) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 4, expected) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 5, old_count + _sign) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 6, static_cast<sqlite3_int64>(_sequence)) == SQLITE_OK &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(
+            update, 7, _contribution.aggregate_definition_id_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(update, 8, _contribution.source_id_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(update, 9, _contribution.scene_revision_) &&
+        vqec_vision_ai_stor_stsql_bind_projection_text(
+            update, 10, _contribution.definition_revision_) &&
+        sqlite3_bind_int64(update, 11, _contribution.bucket_begin_ns_) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 12, _contribution.bucket_end_ns_) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 13, _contribution.required_access_domain_mask_) == SQLITE_OK &&
+        vqec_vision_ai_stor_stsql_bind_projection_blob(update, 14, _dimensions);
+    if (!update_bound || sqlite3_step(update) != SQLITE_DONE) {
+        return result.code_ == status_code::ok
+            ? vqec_vision_ai_stor_stsql_make_projection_error(
+                  _catalog, "update aggregate rollup")
+            : result;
+    }
+    return {};
+}
+
+status vqec_vision_ai_stor_stsql_query_materialized_rollups(
+    sqlite3* _catalog, const spatiotemporal_query& _query,
+    std::uint64_t _snapshot_sequence, std::size_t _maximum_store_results,
+    spatiotemporal_query_page& _page) {
+    std::ostringstream sql;
+    sql << "SELECT aggregate_definition_id,source_id,scene_revision,definition_revision,"
+           "bucket_begin_ns,bucket_end_ns,numerator_microunits,denominator_microunits,"
+           "observed_duration_ns,expected_duration_ns,contribution_count,dimensions,"
+           "updated_sequence FROM aggregate_rollups WHERE bucket_begin_ns<?1 AND "
+           "bucket_end_ns>?2 AND updated_sequence<=?3 AND "
+           "(required_access_mask & ?4)=required_access_mask AND source_id IN (";
+    int bind_index = 5;
+    for (std::size_t index = 0U; index < _query.source_ids_.size(); ++index) {
+        if (index != 0U) {
+            sql << ',';
+        }
+        sql << '?' << bind_index++;
+    }
+    sql << ')';
+    const auto semantic_index = _query.semantic_type_.empty() ? 0 : bind_index++;
+    if (semantic_index != 0) {
+        sql << " AND aggregate_definition_id=?" << semantic_index;
+    }
+    sql << " ORDER BY aggregate_definition_id,source_id,scene_revision,definition_revision,"
+           "bucket_begin_ns,bucket_end_ns,dimensions;";
+    projection_statement statement;
+    auto result = vqec_vision_ai_stor_stsql_prepare_projection(
+        _catalog, sql.str(), statement);
+    auto* query = statement.vqec_vision_ai_stor_stsql_get();
+    if (result.code_ != status_code::ok ||
+        sqlite3_bind_int64(query, 1, _query.end_ns_) != SQLITE_OK ||
+        sqlite3_bind_int64(query, 2, _query.begin_ns_) != SQLITE_OK ||
+        sqlite3_bind_int64(query, 3, static_cast<sqlite3_int64>(_snapshot_sequence)) != SQLITE_OK ||
+        sqlite3_bind_int64(query, 4, _query.allowed_access_domain_mask_) != SQLITE_OK) {
+        return result.code_ == status_code::ok
+            ? vqec_vision_ai_stor_stsql_make_projection_error(
+                  _catalog, "bind materialized rollup query")
+            : result;
+    }
+    int value_index = 5;
+    for (const auto& source : _query.source_ids_) {
+        if (!vqec_vision_ai_stor_stsql_bind_projection_text(query, value_index++, source)) {
+            return vqec_vision_ai_stor_stsql_make_projection_error(
+                _catalog, "bind materialized rollup source");
+        }
+    }
+    if (semantic_index != 0 &&
+        !vqec_vision_ai_stor_stsql_bind_projection_text(
+            query, value_index, _query.semantic_type_)) {
+        return vqec_vision_ai_stor_stsql_make_projection_error(
+            _catalog, "bind materialized rollup semantic type");
+    }
+    const auto result_limit = std::min(
+        _query.budget_.maximum_results_, _maximum_store_results);
+    while (sqlite3_step(query) == SQLITE_ROW) {
+        if (vqec_vision_ai_stor_stsql_get_projection_now_ns() >=
+                _query.budget_.deadline_ns_) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {};
+        }
+        if (_page.aggregate_buckets_.size() == result_limit) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {};
+        }
+        const auto dimensions =
+            vqec_vision_ai_stor_stsql_read_projection_blob(query, 11);
+        const auto row_bytes = static_cast<std::uint64_t>(dimensions.size() + 128U);
+        if (row_bytes > _query.budget_.maximum_scan_bytes_ -
+                std::min(_query.budget_.maximum_scan_bytes_, _page.scanned_bytes_) ||
+            row_bytes > _query.budget_.maximum_result_bytes_ -
+                std::min(_query.budget_.maximum_result_bytes_, _page.result_bytes_)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {};
+        }
+        aggregate_bucket bucket;
+        bucket.aggregate_definition_id_ =
+            vqec_vision_ai_stor_stsql_read_projection_text(query, 0);
+        bucket.source_id_ = vqec_vision_ai_stor_stsql_read_projection_text(query, 1);
+        bucket.scene_revision_ = vqec_vision_ai_stor_stsql_read_projection_text(query, 2);
+        bucket.definition_revision_ =
+            vqec_vision_ai_stor_stsql_read_projection_text(query, 3);
+        bucket.bucket_begin_ns_ = sqlite3_column_int64(query, 4);
+        bucket.bucket_end_ns_ = sqlite3_column_int64(query, 5);
+        bucket.numerator_microunits_ = sqlite3_column_int64(query, 6);
+        bucket.denominator_microunits_ = sqlite3_column_int64(query, 7);
+        bucket.observed_duration_ns_ =
+            static_cast<std::uint64_t>(sqlite3_column_int64(query, 8));
+        bucket.expected_duration_ns_ =
+            static_cast<std::uint64_t>(sqlite3_column_int64(query, 9));
+        bucket.contribution_count_ =
+            static_cast<std::uint64_t>(sqlite3_column_int64(query, 10));
+        if (!vqec_vision_ai_stor_stsql_decode_dimensions(
+                dimensions, bucket.dimensions_)) {
+            return {status_code::io_error, "materialized rollup dimensions are corrupt"};
+        }
+        _page.next_cursor_sequence_ = std::max(_page.next_cursor_sequence_,
+            static_cast<std::uint64_t>(sqlite3_column_int64(query, 12)));
+        _page.scanned_bytes_ += row_bytes;
+        _page.result_bytes_ += row_bytes;
+        _page.aggregate_buckets_.push_back(std::move(bucket));
+    }
+    _page.delivered_resolution_ = trajectory_resolution::aggregate;
+    _page.completeness_ = spatiotemporal_result_completeness::complete;
+    return {};
+}
+
 }  // namespace
 
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_episode(
@@ -568,6 +893,23 @@ vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
     result = vqec_vision_ai_stor_stsql_insert_projection_outbox(catalog_, _outbox_sinks,
         g_spatiotemporal_aggregate_family, _contribution.contribution_id_,
         _contribution.revision_);
+    if (result.code_ == status_code::ok && _contribution.supersedes_revision_ != 0U) {
+        aggregate_contribution_revision previous;
+        std::vector<std::uint8_t> previous_dimensions;
+        result = vqec_vision_ai_stor_stsql_load_contribution_revision(catalog_,
+            _contribution.contribution_id_, _contribution.supersedes_revision_,
+            previous, previous_dimensions);
+        if (result.code_ == status_code::ok &&
+            previous.operation_ == aggregate_contribution_operation::add) {
+            result = vqec_vision_ai_stor_stsql_apply_rollup_delta(
+                catalog_, previous, previous_dimensions, -1, sequence);
+        }
+    }
+    if (result.code_ == status_code::ok &&
+        _contribution.operation_ == aggregate_contribution_operation::add) {
+        result = vqec_vision_ai_stor_stsql_apply_rollup_delta(
+            catalog_, _contribution, dimensions, 1, sequence);
+    }
     if (result.code_ == status_code::ok) {
         if (owns_transaction) {
             result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
@@ -641,6 +983,12 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query_projection(
                    : spatiotemporal_access_domain::aggregate);
     if ((_query.allowed_access_domain_mask_ & required_domain) == 0U) {
         return {status_code::unauthorized, "metadata projection access is denied"};
+    }
+    if (!is_episode &&
+        _query.revision_view_ == spatiotemporal_revision_view::latest_corrected &&
+        _query.cursor_sequence_ == 0U) {
+        return vqec_vision_ai_stor_stsql_query_materialized_rollups(
+            catalog_, _query, _snapshot_sequence, config_.maximum_query_results_, _page);
     }
     std::ostringstream sql;
     if (is_episode) {
