@@ -37,7 +37,9 @@ status vqec_vision_ai_outpt_ftdsp_dispatch_event(
         return authorized;
     }
     try {
-        return _sink.vqec_vision_ai_ports_fesnk_deliver_event(event);
+        auto authorized_event = event;
+        authorized_event.policy_revision_ = _policy_revision;
+        return _sink.vqec_vision_ai_ports_fesnk_deliver_event(authorized_event);
     } catch (...) {
         return {status_code::io_error, "feature event sink raised an exception"};
     }

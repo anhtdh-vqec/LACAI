@@ -375,6 +375,20 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tests/unit/core/vqec_vision_feature_catalog_test.cpp | fctst | vqec_vision_ai_unit_fctst_ |
 | src/outputs/events/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
 | src/outputs/events/vqec_vision_event_delivery_seam.cpp | evdsm | vqec_vision_ai_outpt_evdsm_ |
+| include/vqec/vision/ai/contracts/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_core_evtrn_ |
+| src/core/output/vqec_vision_evidence_transport.cpp | evtrn | vqec_vision_ai_core_evtrn_ |
+| include/vqec/vision/ai/ports/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_ports_evtrn_ |
+| tests/unit/core/vqec_vision_evidence_transport_test.cpp | evtst | vqec_vision_ai_unit_evtst_ |
+| include/vqec/vision/ai/ports/vqec_vision_evidence_outbox.hpp | evobx | vqec_vision_ai_ports_evobx_ |
+| src/adapters/storage/vqec_vision_sqlite_evidence_outbox.hpp | evobx | overrides retain ports prefix |
+| src/adapters/storage/vqec_vision_sqlite_evidence_outbox.cpp | evobx | vqec_vision_ai_stor_evobx_ |
+| tests/unit/adapters/storage/vqec_vision_sqlite_evidence_outbox_test.cpp | seotst | vqec_vision_ai_unit_seotst_ |
+| src/adapters/fw_output/vqec_vision_evidence_uds_client.hpp | evuds | vqec_vision_ai_fwout_evuds_ |
+| src/adapters/fw_output/vqec_vision_evidence_uds_client.cpp | evuds | vqec_vision_ai_fwout_evuds_ (port override retains `vqec_vision_ai_ports_evtrn_`) |
+| tests/unit/adapters/fw_output/vqec_vision_evidence_uds_client_test.cpp | euctst | vqec_vision_ai_unit_euctst_ |
+| src/app/service/vqec_vision_evidence_service.hpp | evsvc | vqec_vision_ai_appl_evsvc_ |
+| src/app/service/vqec_vision_evidence_service.cpp | evsvc | vqec_vision_ai_appl_evsvc_ (sink override retains `vqec_vision_ai_ports_fesnk_`) |
+| tests/unit/application/vqec_vision_evidence_service_test.cpp | evstst | vqec_vision_ai_unit_evstst_ |
 | tests/contract/outputs/vqec_vision_event_delivery_seam_test.cpp | edsct | vqec_vision_ai_ctest_edsct_ |
 | tests/unit/core/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
 | src/runtime/model_registry/vqec_vision_output_manifest.cpp | otman | vqec_vision_ai_mreg_otman_ |
@@ -674,6 +688,7 @@ App lifecycle registrations (source delivered):
 | tests/unit/application/vqec_vision_app_manager_options_test.cpp | amotst | vqec_vision_ai_unit_amotst_ |
 | tools/diagnostics/vqec_vision_app_manager_control.cpp | amctl | vqec_vision_ai_tools_amctl_ (`main` entrypoint exception) |
 | tools/fixtures/vqec_vision_sign_app_fixture.py | apsig | vqec_vision_ai_tools_apsig_ |
+| tools/fixtures/vqec_vision_evidence_receiver.py | evrcv | vqec_vision_ai_tools_evrcv_ |
 
 
 | Logical owner path | file_id | Prefix |

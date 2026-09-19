@@ -1,6 +1,7 @@
 #include "vqec/vision/ai/contracts/vqec_vision_output_gate.hpp"
 
 #include <algorithm>
+#include <mutex>
 #include <utility>
 
 #include "vqec/vision/ai/contracts/vqec_vision_identifier.hpp"
@@ -34,6 +35,7 @@ bool vqec_vision_ai_core_otgat_are_attributes_valid(const std::vector<std::strin
 
 status output_gate::vqec_vision_ai_core_otgat_apply_policy(
     const output_policy& _policy, std::uint64_t _expected_revision) {
+    std::lock_guard<std::mutex> guard(mutex_);
     if (_expected_revision != policy_.revision_ || _policy.revision_ <= policy_.revision_) {
         return {status_code::invalid_state, "stale entitlement update or revision conflict"};
     }
@@ -64,6 +66,7 @@ status output_gate::vqec_vision_ai_core_otgat_apply_policy(
 
 status output_gate::vqec_vision_ai_core_otgat_authorize(
     const output_authorization& _request, std::uint64_t _steady_now_ns) {
+    std::lock_guard<std::mutex> guard(mutex_);
     if (_steady_now_ns == UINT64_MAX || _steady_now_ns < last_now_ns_) {
         is_active_ = false;
         return {status_code::unauthorized, "invalid/backward clock invalidated output policy"};
@@ -94,10 +97,12 @@ status output_gate::vqec_vision_ai_core_otgat_authorize(
 }
 
 void output_gate::vqec_vision_ai_core_otgat_invalidate() noexcept {
+    std::lock_guard<std::mutex> guard(mutex_);
     is_active_ = false;
 }
 
 std::uint64_t output_gate::vqec_vision_ai_core_otgat_get_revision() const noexcept {
+    std::lock_guard<std::mutex> guard(mutex_);
     return policy_.revision_;
 }
 

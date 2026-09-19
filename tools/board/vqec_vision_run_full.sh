@@ -31,6 +31,20 @@ g_feature_catalog=${LACAI_FEATURE_CATALOG:-$g_root/config/feature_catalog.json}
 g_usecase_snapshot=${LACAI_USECASE_SNAPSHOT:-$g_root/config/usecase_control_snapshot_full.json}
 g_hardware_profile=${LACAI_HARDWARE_PROFILE:-$g_root/config/hardware_admission_profile.json}
 g_metadata_profile=${LACAI_METADATA_PROFILE:-$g_root/config/metadata_runtime_profile.json}
+g_evidence_socket=${LACAI_EVIDENCE_SOCKET:-$g_run_dir/evidence.sock}
+g_evidence_state_dir=${LACAI_EVIDENCE_STATE_DIR:-$g_root/data/evidence}
+g_evidence_outbox=${LACAI_EVIDENCE_OUTBOX:-$g_evidence_state_dir/outbox.db}
+g_evidence_receiver_database=${LACAI_EVIDENCE_RECEIVER_DATABASE:-$g_evidence_state_dir/reference_inbox.db}
+g_evidence_reference_receiver=${LACAI_EVIDENCE_REFERENCE_RECEIVER:-1}
+g_evidence_peer_uid=${LACAI_EVIDENCE_PEER_UID:-0}
+g_evidence_io_timeout_ms=${LACAI_EVIDENCE_IO_TIMEOUT_MS:-500}
+g_evidence_busy_timeout_ms=${LACAI_EVIDENCE_BUSY_TIMEOUT_MS:-1000}
+g_evidence_outbox_max_bytes=${LACAI_EVIDENCE_OUTBOX_MAX_BYTES:-67108864}
+g_evidence_initial_retry_ms=${LACAI_EVIDENCE_INITIAL_RETRY_MS:-100}
+g_evidence_maximum_retry_ms=${LACAI_EVIDENCE_MAXIMUM_RETRY_MS:-10000}
+g_evidence_idle_poll_ms=${LACAI_EVIDENCE_IDLE_POLL_MS:-50}
+g_evidence_stop_drain_ms=${LACAI_EVIDENCE_STOP_DRAIN_MS:-2000}
+g_evidence_maximum_attempts=${LACAI_EVIDENCE_MAXIMUM_ATTEMPTS:-12}
 g_app_state_dir=${LACAI_APP_STATE_DIR:-$g_root/data/app_manager}
 g_app_database=${LACAI_APP_DATABASE:-$g_app_state_dir/apps.db}
 g_app_public_key=${LACAI_APP_PUBLIC_KEY:-$g_root/config/trust/app_manager_public.pem}
@@ -58,7 +72,11 @@ g_action=${1:-start}
 for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
     "$g_output_surface_count" "$g_start_timeout_seconds" \
     "$g_preview_ready_timeout_seconds" "$g_stop_timeout_seconds" \
-    "$g_runtime_step_interval_us"; do
+    "$g_runtime_step_interval_us" "$g_evidence_io_timeout_ms" \
+    "$g_evidence_busy_timeout_ms" "$g_evidence_outbox_max_bytes" \
+    "$g_evidence_initial_retry_ms" "$g_evidence_maximum_retry_ms" \
+    "$g_evidence_idle_poll_ms" "$g_evidence_stop_drain_ms" \
+    "$g_evidence_maximum_attempts"; do
     case "$numeric_value" in
         ''|0|*[!0-9]*)
             echo "runtime numeric settings must be positive integers" >&2
@@ -66,6 +84,13 @@ for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
             ;;
     esac
 done
+case "$g_evidence_reference_receiver" in
+    0|1) ;;
+    *) echo "LACAI_EVIDENCE_REFERENCE_RECEIVER must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$g_evidence_peer_uid" in
+    ''|*[!0-9]*) echo "evidence peer UID must be a non-negative integer" >&2; exit 2 ;;
+esac
 for numeric_value in "$g_toggle_interval_seconds" "$g_toggle_cycles"; do
     case "$numeric_value" in
         ''|0|*[!0-9]*)
@@ -113,13 +138,16 @@ vqec_vision_ai_tools_rnful_stop_all() {
         vqec_vision_ring_rtsp.py
     vqec_vision_ai_tools_rnful_stop_component "$g_run_dir/service.pid" \
         vqec_ai_vision_applications
+    vqec_vision_ai_tools_rnful_stop_component "$g_run_dir/evidence_receiver.pid" \
+        vqec_vision_evidence_receiver.py
     vqec_vision_ai_tools_rnful_stop_component "$g_run_dir/app_manager.pid" \
         vqec_vision_app_manager
     vqec_vision_ai_tools_rnful_stop_component "$g_run_dir/camera.pid" \
         vqec_vision_fw_camera_sim.py
     vqec_vision_ai_tools_rnful_stop_component "$g_run_dir/app_bus.pid" \
         dbus-daemon
-    rm -f "$g_camera_socket" "$g_ring_path" "$g_run_dir/app_bus.address"
+    rm -f "$g_camera_socket" "$g_ring_path" "$g_evidence_socket" \
+        "$g_run_dir/app_bus.address"
 }
 
 vqec_vision_ai_tools_rnful_require_file() {
@@ -145,6 +173,17 @@ vqec_vision_ai_tools_rnful_report_status() {
             result=1
         fi
     done
+    if [ "$g_evidence_reference_receiver" -eq 1 ]; then
+        pid=$(sed -n '1p' "$g_run_dir/evidence_receiver.pid" 2>/dev/null || true)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "evidence_receiver=running pid=$pid"
+        else
+            echo "evidence_receiver=stopped"
+            result=1
+        fi
+    else
+        echo "evidence_receiver=external"
+    fi
     echo "vlc=rtsp://$g_board_address:$g_rtsp_port$g_rtsp_mount"
     return "$result"
 }
@@ -230,6 +269,13 @@ vqec_vision_ai_tools_rnful_stress_toggle() {
             return 1
         fi
     done
+    if [ "$g_evidence_reference_receiver" -eq 1 ]; then
+        pid=$(sed -n '1p' "$g_run_dir/evidence_receiver.pid" 2>/dev/null || true)
+        if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+            echo "cannot stress a stopped component: evidence_receiver" >&2
+            return 1
+        fi
+    fi
     service_pid=$(sed -n '1p' "$g_run_dir/service.pid")
     baseline_fds=$(vqec_vision_ai_tools_rnful_process_metric "$service_pid" fd)
     baseline_rss_kib=$(vqec_vision_ai_tools_rnful_process_metric "$service_pid" rss)
@@ -271,6 +317,13 @@ vqec_vision_ai_tools_rnful_stress_toggle() {
                 return 1
             fi
         done
+        if [ "$g_evidence_reference_receiver" -eq 1 ]; then
+            pid=$(sed -n '1p' "$g_run_dir/evidence_receiver.pid")
+            if ! kill -0 "$pid" 2>/dev/null; then
+                echo "evidence_receiver stopped at stress cycle $cycle" >&2
+                return 1
+            fi
+        fi
         current_fds=$(vqec_vision_ai_tools_rnful_process_metric "$service_pid" fd)
         current_rss_kib=$(vqec_vision_ai_tools_rnful_process_metric "$service_pid" rss)
         echo "toggle_cycle=$cycle desired=true ring_before=$before ring_after=$after "\
@@ -304,7 +357,8 @@ case "$g_action" in
         ;;
     logs)
         tail -n 80 "$g_root/out/camera.log" "$g_root/out/service.log" \
-            "$g_root/out/app_manager.log" "$g_root/out/rtsp.log"
+            "$g_root/out/app_manager.log" "$g_root/out/evidence_receiver.log" \
+            "$g_root/out/rtsp.log"
         exit 0
         ;;
     stress)
@@ -344,6 +398,10 @@ for required_file in \
     "$g_hardware_profile"; do
     vqec_vision_ai_tools_rnful_require_file "$required_file"
 done
+if [ "$g_evidence_reference_receiver" -eq 1 ]; then
+    vqec_vision_ai_tools_rnful_require_file \
+        "$g_root/tools/fixtures/vqec_vision_evidence_receiver.py"
+fi
 vqec_vision_ai_tools_rnful_require_file "$g_metadata_profile"
 for app_file in "$g_app_public_key" "$g_app_manifest" "$g_app_configuration" \
     "$g_app_package_signature" "$g_app_entitlement" \
@@ -356,6 +414,7 @@ if [ ! -c "$g_dma_heap" ]; then
 fi
 if [ -f "$g_run_dir/app_bus.pid" ] || [ -f "$g_run_dir/camera.pid" ] ||
    [ -f "$g_run_dir/service.pid" ] ||
+   [ -f "$g_run_dir/evidence_receiver.pid" ] ||
    [ -f "$g_run_dir/app_manager.pid" ] ||
    [ -f "$g_run_dir/rtsp.pid" ]; then
     echo "managed state already exists; run '$0 stop' first" >&2
@@ -363,9 +422,10 @@ if [ -f "$g_run_dir/app_bus.pid" ] || [ -f "$g_run_dir/camera.pid" ] ||
 fi
 
 mkdir -p "$g_run_dir" "$g_camera_socket_dir" "$g_root/out" \
-    /run/lacai_fr_index "$g_app_state_dir"
-chmod 0700 "$g_run_dir" /run/lacai_fr_index "$g_app_state_dir"
-rm -f "$g_camera_socket" "$g_ring_path"
+    /run/lacai_fr_index "$g_app_state_dir" "$g_evidence_state_dir"
+chmod 0700 "$g_run_dir" /run/lacai_fr_index "$g_app_state_dir" \
+    "$g_evidence_state_dir"
+rm -f "$g_camera_socket" "$g_ring_path" "$g_evidence_socket"
 
 g_bus_details=$(dbus-daemon --session --fork --print-address=1 --print-pid=1)
 DBUS_SESSION_BUS_ADDRESS=$(printf '%s\n' "$g_bus_details" | sed -n '1p')
@@ -422,6 +482,17 @@ setsid env \
     --dsp-enable-unsigned-pd \
     --hardware-profile "$g_hardware_profile" \
     --metadata-profile "$g_metadata_profile" \
+    --evidence-socket "$g_evidence_socket" \
+    --evidence-outbox "$g_evidence_outbox" \
+    --evidence-peer-uid "$g_evidence_peer_uid" \
+    --evidence-io-timeout-ms "$g_evidence_io_timeout_ms" \
+    --evidence-outbox-busy-timeout-ms "$g_evidence_busy_timeout_ms" \
+    --evidence-outbox-max-bytes "$g_evidence_outbox_max_bytes" \
+    --evidence-initial-retry-ms "$g_evidence_initial_retry_ms" \
+    --evidence-maximum-retry-ms "$g_evidence_maximum_retry_ms" \
+    --evidence-idle-poll-ms "$g_evidence_idle_poll_ms" \
+    --evidence-stop-drain-ms "$g_evidence_stop_drain_ms" \
+    --evidence-maximum-attempts "$g_evidence_maximum_attempts" \
     --app-manager-dbus-session \
     --app-manager-service-name "$g_app_service_name" \
     --app-manager-client-name "$g_app_runtime_name" \
@@ -457,6 +528,30 @@ if ! kill -0 "$g_service_pid" 2>/dev/null; then
     tail -n 80 "$g_root/out/service.log" >&2 || true
     vqec_vision_ai_tools_rnful_stop_all
     exit 1
+fi
+
+# The service intentionally starts first. A missing receiver leaves durable work in the
+# outbox and must not affect camera/model startup. The reference receiver is AI-owned test
+# infrastructure; set LACAI_EVIDENCE_REFERENCE_RECEIVER=0 for a released external receiver.
+if [ "$g_evidence_reference_receiver" -eq 1 ]; then
+    setsid python3 "$g_root/tools/fixtures/vqec_vision_evidence_receiver.py" \
+        --socket "$g_evidence_socket" --database "$g_evidence_receiver_database" \
+        --expected-uid "$g_evidence_peer_uid" \
+        >"$g_root/out/evidence_receiver.log" 2>&1 </dev/null &
+    g_evidence_receiver_pid=$!
+    echo "$g_evidence_receiver_pid" >"$g_run_dir/evidence_receiver.pid"
+    g_wait_count=0
+    while [ ! -S "$g_evidence_socket" ] &&
+          kill -0 "$g_evidence_receiver_pid" 2>/dev/null &&
+          [ "$g_wait_count" -lt "$g_wait_limit" ]; do
+        sleep 0.1
+        g_wait_count=$((g_wait_count + 1))
+    done
+    if [ ! -S "$g_evidence_socket" ]; then
+        echo "evidence reference receiver did not become ready" >&2
+        vqec_vision_ai_tools_rnful_stop_all
+        exit 1
+    fi
 fi
 
 setsid "$g_app_manager" \
@@ -540,6 +635,12 @@ if ! kill -0 "$g_camera_pid" 2>/dev/null ||
     echo "one or more full-workload components stopped during startup" >&2
     tail -n 80 "$g_root/out/camera.log" "$g_root/out/service.log" \
         "$g_root/out/rtsp.log" >&2 || true
+    vqec_vision_ai_tools_rnful_stop_all
+    exit 1
+fi
+if [ "$g_evidence_reference_receiver" -eq 1 ] &&
+   ! kill -0 "$g_evidence_receiver_pid" 2>/dev/null; then
+    echo "evidence reference receiver stopped during startup" >&2
     vqec_vision_ai_tools_rnful_stop_all
     exit 1
 fi

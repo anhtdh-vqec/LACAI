@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -56,6 +57,7 @@ public:
     [[nodiscard]] std::uint64_t vqec_vision_ai_core_otgat_get_revision() const noexcept;
 
 private:
+    mutable std::mutex mutex_;
     output_policy policy_;
     std::uint64_t last_now_ns_{0};
     bool is_active_{false};

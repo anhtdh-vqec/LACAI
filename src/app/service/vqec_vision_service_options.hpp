@@ -17,6 +17,8 @@ inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 10000000;
 inline constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
 inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
 inline constexpr std::uint32_t g_max_app_manager_poll_interval_ms = 60000;
+inline constexpr std::uint32_t g_max_evidence_interval_ms = 60000;
+inline constexpr std::uint64_t g_max_evidence_outbox_bytes = 256ULL * 1024ULL * 1024ULL;
 }  // namespace service_options_limits
 
 // Parsed process arguments. This is the cold-path startup contract between main() and the
@@ -67,6 +69,18 @@ struct parsed_arguments {
     bool dsp_enable_unsigned_pd{false};
     std::string hardware_profile_path;
     std::string metadata_profile_path;
+    std::string evidence_socket_path;
+    std::string evidence_outbox_path;
+    std::uint32_t evidence_peer_uid{0};
+    bool evidence_peer_uid_set{false};
+    int evidence_io_timeout_ms{0};
+    int evidence_outbox_busy_timeout_ms{0};
+    std::uint64_t evidence_outbox_max_bytes{0};
+    std::uint32_t evidence_initial_retry_ms{0};
+    std::uint32_t evidence_maximum_retry_ms{0};
+    std::uint32_t evidence_idle_poll_ms{0};
+    std::uint32_t evidence_stop_drain_ms{0};
+    std::size_t evidence_maximum_attempts{0};
     std::uint64_t max_artifact_bytes{0};
     std::string camera_socket_dir;
     std::uint32_t camera_producer_uid{0};

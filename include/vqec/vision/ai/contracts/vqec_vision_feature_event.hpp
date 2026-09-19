@@ -48,6 +48,9 @@ struct feature_event {
     std::uint64_t episode_revision_{1};
     std::uint64_t supersedes_episode_revision_{0};
     std::uint64_t episode_begin_ns_{0};
+    // Set only by the final output authorization boundary. Feature processors leave
+    // this zero; durable delivery retries must revalidate this exact revision.
+    std::uint64_t policy_revision_{0};
 };
 
 struct feature_event_batch {

@@ -141,6 +141,38 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.hardware_profile_path = _argv[++index];
         } else if (option == "--metadata-profile" && has_value) {
             _args.metadata_profile_path = _argv[++index];
+        } else if (option == "--evidence-socket" && has_value) {
+            _args.evidence_socket_path = _argv[++index];
+        } else if (option == "--evidence-outbox" && has_value) {
+            _args.evidence_outbox_path = _argv[++index];
+        } else if (option == "--evidence-peer-uid" && has_value) {
+            _args.evidence_peer_uid = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+            _args.evidence_peer_uid_set = true;
+        } else if (option == "--evidence-io-timeout-ms" && has_value) {
+            _args.evidence_io_timeout_ms = static_cast<int>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-outbox-busy-timeout-ms" && has_value) {
+            _args.evidence_outbox_busy_timeout_ms = static_cast<int>(
+                std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-outbox-max-bytes" && has_value) {
+            _args.evidence_outbox_max_bytes = static_cast<std::uint64_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-initial-retry-ms" && has_value) {
+            _args.evidence_initial_retry_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-maximum-retry-ms" && has_value) {
+            _args.evidence_maximum_retry_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-idle-poll-ms" && has_value) {
+            _args.evidence_idle_poll_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-stop-drain-ms" && has_value) {
+            _args.evidence_stop_drain_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
+        } else if (option == "--evidence-maximum-attempts" && has_value) {
+            _args.evidence_maximum_attempts = static_cast<std::size_t>(
+                std::strtoull(_argv[++index], nullptr, 10));
         } else if (option == "--max-artifact-bytes" && has_value) {
             _args.max_artifact_bytes = static_cast<std::uint64_t>(
                 std::strtoull(_argv[++index], nullptr, 10));

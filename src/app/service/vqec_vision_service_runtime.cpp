@@ -74,7 +74,10 @@
 #include "vqec_vision_app_manager_dbus.hpp"
 #endif
 #include "vqec_vision_event_delivery_seam.hpp"
+#include "vqec_vision_evidence_service.hpp"
+#include "vqec_vision_evidence_uds_client.hpp"
 #include "vqec_vision_metadata_runtime.hpp"
+#include "vqec_vision_sqlite_evidence_outbox.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -90,6 +93,7 @@ constexpr int g_recovery_required_exit_code = 5;
 constexpr std::size_t g_max_active_track_labels = 256;
 constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
 constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
+constexpr std::uint64_t g_nanoseconds_per_millisecond = 1000000ULL;
 constexpr std::uint64_t g_stop_drain_final_observation_steps = 1U;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
@@ -473,6 +477,37 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             "--enrollment-transform-engine <engine>]]\n");
         return 2;
     }
+    const bool evidence_configured = !args.evidence_socket_path.empty() ||
+        !args.evidence_outbox_path.empty() || args.evidence_peer_uid_set ||
+        args.evidence_io_timeout_ms != 0 ||
+        args.evidence_outbox_busy_timeout_ms != 0 ||
+        args.evidence_outbox_max_bytes != 0U || args.evidence_initial_retry_ms != 0U ||
+        args.evidence_maximum_retry_ms != 0U || args.evidence_idle_poll_ms != 0U ||
+        args.evidence_stop_drain_ms != 0U || args.evidence_maximum_attempts != 0U;
+    if (evidence_configured &&
+        (!args.production_mode || args.evidence_socket_path.empty() ||
+         args.evidence_outbox_path.empty() || !args.evidence_peer_uid_set ||
+         args.evidence_io_timeout_ms <= 0 ||
+         args.evidence_outbox_busy_timeout_ms <= 0 ||
+         args.evidence_outbox_max_bytes == 0U ||
+         args.evidence_outbox_max_bytes >
+             service_options_limits::g_max_evidence_outbox_bytes ||
+         args.evidence_initial_retry_ms == 0U ||
+         args.evidence_maximum_retry_ms < args.evidence_initial_retry_ms ||
+         args.evidence_maximum_retry_ms >
+             service_options_limits::g_max_evidence_interval_ms ||
+         args.evidence_idle_poll_ms == 0U ||
+         args.evidence_idle_poll_ms >
+             service_options_limits::g_max_evidence_interval_ms ||
+         args.evidence_stop_drain_ms == 0U ||
+         args.evidence_stop_drain_ms >
+             service_options_limits::g_max_evidence_interval_ms ||
+         args.evidence_maximum_attempts == 0U ||
+         args.evidence_maximum_attempts > evidence_transport_limits::g_max_attempts)) {
+        std::fprintf(stderr,
+            "evidence transport requires a complete bounded production configuration\n");
+        return 2;
+    }
     std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
     std::signal(SIGTERM, vqec_vision_ai_appl_svcmn_on_signal);
 
@@ -659,8 +694,33 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     output_gate output_policy_gate;
     reference_event_sink reference_sink;
     event_delivery_seam production_seam;
+    std::unique_ptr<sqlite_evidence_outbox> evidence_outbox;
+    std::unique_ptr<evidence_uds_client> evidence_transport;
+    std::unique_ptr<evidence_service> evidence;
+    if (evidence_configured) {
+        evidence_outbox = std::make_unique<sqlite_evidence_outbox>(
+            sqlite_evidence_outbox_config{args.evidence_outbox_path,
+                args.evidence_outbox_max_bytes,
+                args.evidence_outbox_busy_timeout_ms});
+        evidence_transport = std::make_unique<evidence_uds_client>(
+            evidence_uds_client_config{args.evidence_socket_path,
+                args.evidence_peer_uid, args.evidence_io_timeout_ms});
+        evidence = std::make_unique<evidence_service>(evidence_service_config{
+            static_cast<std::uint64_t>(args.evidence_initial_retry_ms) *
+                g_nanoseconds_per_millisecond,
+            static_cast<std::uint64_t>(args.evidence_maximum_retry_ms) *
+                g_nanoseconds_per_millisecond,
+            static_cast<std::uint64_t>(args.evidence_idle_poll_ms) *
+                g_nanoseconds_per_millisecond,
+            static_cast<std::uint64_t>(args.evidence_stop_drain_ms) *
+                g_nanoseconds_per_millisecond,
+            args.evidence_maximum_attempts},
+            *evidence_outbox, *evidence_transport, output_policy_gate);
+    }
     feature_event_sink_port& downstream_event_sink =
-        use_production_platform
+        evidence != nullptr
+            ? static_cast<feature_event_sink_port&>(*evidence)
+            : use_production_platform
             ? static_cast<feature_event_sink_port&>(production_seam)
             : static_cast<feature_event_sink_port&>(reference_sink);
     std::unique_ptr<metadata_runtime> metadata;
@@ -982,6 +1042,16 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             return 1;
         }
         output_policy_applied = true;
+    }
+
+    if (evidence != nullptr) {
+        const auto evidence_started = evidence->vqec_vision_ai_appl_evsvc_start();
+        if (evidence_started.code_ != status_code::ok) {
+            std::fprintf(stderr, "evidence service start failed (%d): %s\n",
+                static_cast<int>(evidence_started.code_),
+                evidence_started.message_.c_str());
+            return 1;
+        }
     }
 
 
@@ -1823,6 +1893,23 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             static_cast<unsigned long long>(metadata_stats.committed_records_),
             static_cast<unsigned long long>(metadata_stats.rejected_records_),
             static_cast<unsigned long long>(metadata_stats.failed_records_));
+    }
+    if (evidence != nullptr) {
+        const auto evidence_stopped = evidence->vqec_vision_ai_appl_evsvc_stop(true);
+        if (evidence_stopped.code_ != status_code::ok &&
+            first_error_code == status_code::ok) {
+            first_error_code = evidence_stopped.code_;
+        }
+        const auto evidence_stats = evidence->vqec_vision_ai_appl_evsvc_get_stats();
+        std::printf("evidence durable=%llu retried=%llu completed=%llu rejected=%llu "
+            "exhausted=%llu transport_failures=%llu\n",
+            static_cast<unsigned long long>(evidence_stats.commands_durable_),
+            static_cast<unsigned long long>(evidence_stats.commands_retried_),
+            static_cast<unsigned long long>(evidence_stats.commands_completed_),
+            static_cast<unsigned long long>(
+                evidence_stats.commands_rejected_by_policy_),
+            static_cast<unsigned long long>(evidence_stats.commands_exhausted_),
+            static_cast<unsigned long long>(evidence_stats.transport_failures_));
     }
     if (use_production_platform) {
         production_seam.vqec_vision_ai_outpt_evdsm_request_stop();

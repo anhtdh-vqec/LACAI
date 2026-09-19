@@ -31,6 +31,7 @@ prototype, version 1 sharded spatiotemporal store and application inventory.
 | `vqec_vision_encrypted_face_gallery_store.cpp` | OpenSSL AES-256-GCM store, key lifecycle, lock/CAS and atomic replacement |
 | `vqec_vision_encrypted_face_gallery_store.hpp` | Adapter-private configuration and neutral store implementation |
 | `vqec_vision_sqlite_metadata_store.cpp` | SQLite WAL record/outbox transaction and authorized query facade |
+| `vqec_vision_sqlite_evidence_outbox.cpp` | Durable deduplicated evidence command and receipt journal |
 | `vqec_vision_sqlite_metadata_store.hpp` | Adapter configuration and blocking storage API |
 | `vqec_vision_spatiotemporal_store.cpp` | SQLite catalog, packed detail shards, association revisions, recovery and bounded queries |
 | `vqec_vision_spatiotemporal_store.hpp` | Store configuration, quota, stats and blocking storage API |

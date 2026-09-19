@@ -37,3 +37,12 @@ target_link_libraries(vqec_vision_ai_sqlite_app_inventory
     PUBLIC vqec_vision_ai_core PRIVATE SQLite::SQLite3)
 set_target_properties(vqec_vision_ai_sqlite_app_inventory
     PROPERTIES CXX_EXTENSIONS OFF)
+
+add_library(vqec_vision_ai_sqlite_evidence_outbox STATIC
+    vqec_vision_sqlite_evidence_outbox.cpp)
+target_include_directories(vqec_vision_ai_sqlite_evidence_outbox PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_sqlite_evidence_outbox
+    PUBLIC vqec_vision_ai_core PRIVATE SQLite::SQLite3)
+set_target_properties(vqec_vision_ai_sqlite_evidence_outbox
+    PROPERTIES CXX_EXTENSIONS OFF)

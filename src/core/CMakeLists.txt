@@ -32,6 +32,7 @@ add_library(vqec_vision_ai_core STATIC
     output/vqec_vision_metadata_query.cpp
     output/vqec_vision_spatiotemporal_metadata.cpp
     output/vqec_vision_trajectory_codec.cpp
+    output/vqec_vision_evidence_transport.cpp
     configuration/vqec_vision_deployment_config.cpp
     configuration/vqec_vision_app_lifecycle.cpp
     configuration/vqec_vision_model_catalog.cpp)

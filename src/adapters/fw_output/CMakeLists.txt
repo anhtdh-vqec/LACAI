@@ -1,6 +1,13 @@
 # Optional FW shared-memory ring adapter. Target name is unchanged from the former root
 # definition. Requires an externally supplied pinned SDK target.
 
+add_library(vqec_vision_ai_evidence_uds_client STATIC
+    vqec_vision_evidence_uds_client.cpp)
+target_include_directories(vqec_vision_ai_evidence_uds_client PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(vqec_vision_ai_evidence_uds_client PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_evidence_uds_client PROPERTIES CXX_EXTENSIONS OFF)
+
 if(VQEC_VISION_AI_ENABLE_FW_RING)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message(FATAL_ERROR "Released FW ring SDK requires Linux")

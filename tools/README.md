@@ -58,6 +58,7 @@ stable while their parent directory identifies the owner and execution environme
 | `vqec_vision_ring_rtsp_test.py` | Synthetic file-backed ring-generation regression |
 | `vqec_vision_fr_runtime_dbus_test.py`, `vqec_vision_usecase_runtime_dbus_test.py` | Session-bus integration peers for FR and usecase control |
 | `vqec_vision_sign_app_fixture.py` | Build exact package/entitlement Ed25519 signing frames for acceptance fixtures; private keys remain external |
+| `vqec_vision_evidence_receiver.py` | AI-owned persistent SOCK_SEQPACKET receiver for evidence retry/dedup conformance; not released FW acceptance |
 
 ## Limits and next work
 

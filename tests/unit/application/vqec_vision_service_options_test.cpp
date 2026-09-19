@@ -116,6 +116,16 @@ int main() {
                       "--dsp-legacy-latency-us", "100", "--dsp-enable-unsigned-pd",
                       "--hardware-profile", "/opt/lacai/config/hardware_profile.json",
                       "--metadata-profile", "/opt/lacai/config/metadata_runtime_profile.json",
+                      "--evidence-socket", "/run/lacai/evidence.sock",
+                      "--evidence-outbox", "/opt/lacai/data/evidence/outbox.db",
+                      "--evidence-peer-uid", "0", "--evidence-io-timeout-ms", "500",
+                      "--evidence-outbox-busy-timeout-ms", "1000",
+                      "--evidence-outbox-max-bytes", "67108864",
+                      "--evidence-initial-retry-ms", "100",
+                      "--evidence-maximum-retry-ms", "10000",
+                      "--evidence-idle-poll-ms", "50",
+                      "--evidence-stop-drain-ms", "2000",
+                      "--evidence-maximum-attempts", "12",
                       "--max-artifact-bytes", "134217728"},
                   args),
             "model root and max artifact bytes parse");
@@ -131,6 +141,19 @@ int main() {
         check(args.metadata_profile_path ==
                 "/opt/lacai/config/metadata_runtime_profile.json",
             "metadata profile path captured");
+        check(args.evidence_socket_path == "/run/lacai/evidence.sock" &&
+                args.evidence_outbox_path == "/opt/lacai/data/evidence/outbox.db" &&
+                args.evidence_peer_uid_set && args.evidence_peer_uid == 0U,
+            "evidence endpoints captured");
+        check(args.evidence_io_timeout_ms == 500 &&
+                args.evidence_outbox_busy_timeout_ms == 1000 &&
+                args.evidence_outbox_max_bytes == 67108864ULL &&
+                args.evidence_initial_retry_ms == 100U &&
+                args.evidence_maximum_retry_ms == 10000U &&
+                args.evidence_idle_poll_ms == 50U &&
+                args.evidence_stop_drain_ms == 2000U &&
+                args.evidence_maximum_attempts == 12U,
+            "evidence retry and storage policy captured");
         check(args.max_artifact_bytes == 134217728ULL, "max_artifact_bytes captured");
     }
 

@@ -19,6 +19,7 @@ Architecture decisions with context, alternatives, consequences, owner and statu
 | [0008](0008_transactional_metadata_store.md) | Transactional metadata store baseline |
 | [0009](0009_spatiotemporal_metadata_tiering.md) | Spatiotemporal metadata tiering (accepted) |
 | [0010](0010_ai_app_manager_lifecycle.md) | AI-owned usecase application lifecycle (proposed) |
+| [0011](0011_durable_evidence_transport.md) | Durable evidence transport (proposed) |
 
 New decisions follow the same template; a decision that changes a public boundary must be
 approved by the affected owner before implementation.

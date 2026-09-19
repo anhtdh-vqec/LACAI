@@ -1,7 +1,7 @@
 # fw_output
 
-Private adapter for the released FW shared-memory encoded AI ring SDK. Implements the
-neutral `encoded_sink` contract over an already-open borrowed ring buffer.
+Private adapters for FW output boundaries: the released encoded AI ring and the version-1
+evidence `SOCK_SEQPACKET` client behind neutral ports.
 
 - **Status:** source-delivered, optional — not built or tested; closed-ring guard test source only
 - **Layer:** adapters
@@ -21,6 +21,7 @@ neutral `encoded_sink` contract over an already-open borrowed ring buffer.
 | Path | Purpose |
 |---|---|
 | `vqec_vision_ring_sink.cpp` | `encoded_sink` over an already-open borrowed FW `SharedMemoryFrameRingBuffer` |
+| `vqec_vision_evidence_uds_client.cpp` | Bounded request/receipt exchange with peer credential validation |
 
 ## Limits and next work
 

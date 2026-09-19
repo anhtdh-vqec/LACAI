@@ -289,6 +289,11 @@ add_test(NAME app_manager_options
         unit/core/vqec_vision_feature_event_test.cpp)
     target_link_libraries(vqec_vision_ai_feature_event_test PRIVATE vqec_vision_ai_core)
     set_target_properties(vqec_vision_ai_feature_event_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_executable(vqec_vision_ai_evidence_transport_test
+        unit/core/vqec_vision_evidence_transport_test.cpp)
+    target_link_libraries(vqec_vision_ai_evidence_transport_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_evidence_transport_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME evidence_transport_wire COMMAND vqec_vision_ai_evidence_transport_test)
     add_test(NAME feature_event_contract COMMAND vqec_vision_ai_feature_event_test)
     add_executable(vqec_vision_ai_attribute_reader_test
         contract/perception/vqec_vision_attribute_reader_test.cpp)
@@ -640,6 +645,22 @@ add_test(NAME app_manager_options
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME spatiotemporal_store
         COMMAND vqec_vision_ai_spatiotemporal_store_test)
+    add_executable(vqec_vision_ai_sqlite_evidence_outbox_test
+        unit/adapters/storage/vqec_vision_sqlite_evidence_outbox_test.cpp)
+    target_link_libraries(vqec_vision_ai_sqlite_evidence_outbox_test PRIVATE
+        vqec_vision_ai_sqlite_evidence_outbox)
+    set_target_properties(vqec_vision_ai_sqlite_evidence_outbox_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME sqlite_evidence_outbox_recovery
+        COMMAND vqec_vision_ai_sqlite_evidence_outbox_test)
+    add_executable(vqec_vision_ai_evidence_uds_client_test
+        unit/adapters/fw_output/vqec_vision_evidence_uds_client_test.cpp)
+    target_link_libraries(vqec_vision_ai_evidence_uds_client_test PRIVATE
+        vqec_vision_ai_evidence_uds_client Threads::Threads)
+    set_target_properties(vqec_vision_ai_evidence_uds_client_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME evidence_uds_client_wire
+        COMMAND vqec_vision_ai_evidence_uds_client_test)
     add_executable(vqec_vision_ai_metadata_service_test
         unit/application/vqec_vision_metadata_service_test.cpp)
     target_link_libraries(vqec_vision_ai_metadata_service_test
@@ -648,6 +669,16 @@ add_test(NAME app_manager_options
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME metadata_service
         COMMAND vqec_vision_ai_metadata_service_test)
+    add_executable(vqec_vision_ai_evidence_service_test
+        unit/application/vqec_vision_evidence_service_test.cpp)
+    target_include_directories(vqec_vision_ai_evidence_service_test PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
+    target_link_libraries(vqec_vision_ai_evidence_service_test PRIVATE
+        vqec_vision_ai_evidence_service vqec_vision_ai_sqlite_evidence_outbox)
+    set_target_properties(vqec_vision_ai_evidence_service_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME evidence_service_retry_and_revoke
+        COMMAND vqec_vision_ai_evidence_service_test)
     add_executable(vqec_vision_ai_metadata_runtime_test
         unit/application/vqec_vision_metadata_runtime_test.cpp)
     target_link_libraries(vqec_vision_ai_metadata_runtime_test

@@ -106,6 +106,14 @@ target_link_libraries(vqec_vision_ai_metadata_runtime PUBLIC
     vqec_vision_ai_metadata_service nlohmann_json::nlohmann_json)
 set_target_properties(vqec_vision_ai_metadata_runtime PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_evidence_service STATIC
+    service/vqec_vision_evidence_service.cpp)
+target_include_directories(vqec_vision_ai_evidence_service PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>)
+target_link_libraries(vqec_vision_ai_evidence_service PUBLIC
+    vqec_vision_ai_core Threads::Threads)
+set_target_properties(vqec_vision_ai_evidence_service PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     pipeline/vqec_vision_camera_graph_pump.cpp
     session/vqec_vision_camera_session.cpp)
@@ -349,6 +357,9 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_service_startup
         vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_metadata_runtime
+        vqec_vision_ai_evidence_service
+        vqec_vision_ai_sqlite_evidence_outbox
+        vqec_vision_ai_evidence_uds_client
         vqec_vision_ai_admission
         vqec_vision_ai_production_platform
         vqec_vision_ai_cascade_graph_session
@@ -372,7 +383,9 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/events>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/media>)
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/media>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_output>)
     if(TARGET vqec_vision_ai_usecase_control_dbus)
         target_link_libraries(vqec_ai_vision_applications PRIVATE
             vqec_vision_ai_usecase_control_dbus)
