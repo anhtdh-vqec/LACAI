@@ -22,6 +22,24 @@ constexpr std::size_t g_fixture_maximum_encoded_bytes = 65536U;
 constexpr std::size_t g_fixture_maximum_results = 32U;
 constexpr std::uint32_t g_fixture_busy_timeout_ms = 1000U;
 constexpr std::uint32_t g_fixture_checkpoint_pages = 32U;
+constexpr std::uint32_t g_fixture_reopen_cycles = 8U;
+
+std::size_t vqec_vision_ai_unit_ststst_count_root_descriptors(
+    const std::filesystem::path& _root) {
+    std::error_code error;
+    const auto root_prefix = _root.string() + "/";
+    std::size_t count = 0U;
+    for (std::filesystem::directory_iterator iterator("/proc/self/fd", error), end;
+         !error && iterator != end; iterator.increment(error)) {
+        std::error_code link_error;
+        const auto target = std::filesystem::read_symlink(iterator->path(), link_error).string();
+        if (!link_error && target.compare(0U, root_prefix.size(), root_prefix) == 0) {
+            ++count;
+        }
+    }
+    assert(!error);
+    return count;
+}
 
 std::uint64_t vqec_vision_ai_unit_ststst_get_deadline_ns() {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -419,6 +437,14 @@ int main() {
     assert(page.completeness_ == spatiotemporal_result_completeness::budget_exceeded);
     assert(page.has_more_);
     assert(recovered.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+    assert(vqec_vision_ai_unit_ststst_count_root_descriptors(root) == 0U);
+
+    for (std::uint32_t cycle = 0U; cycle < g_fixture_reopen_cycles; ++cycle) {
+        sqlite_spatiotemporal_store restarted(config);
+        assert(restarted.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+        assert(restarted.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+        assert(vqec_vision_ai_unit_ststst_count_root_descriptors(root) == 0U);
+    }
 
     assert(std::filesystem::remove(root / "detail_0_1.db"));
     sqlite_spatiotemporal_store missing_shard(config);

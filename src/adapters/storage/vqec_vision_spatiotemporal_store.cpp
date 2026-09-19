@@ -1997,55 +1997,74 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_recover_index() {
             }
             continue;
         }
-        sqlite_statement chunk_statement;
-        result = vqec_vision_ai_stor_stsql_prepare(detail,
-            "SELECT chunk_id,global_sequence,source_id,subject_ref,entity_category,first_pts_ns,"
-            "last_pts_ns,resolution,required_access_mask,bounds_left,bounds_top,bounds_right,"
-            "bounds_bottom,length(encoded_points),checksum_crc32 FROM trajectory_chunks;",
-            chunk_statement);
-        if (result.code_ != status_code::ok) {
-            sqlite3_close(detail);
-            return result;
-        }
-        while (sqlite3_step(chunk_statement.vqec_vision_ai_stor_stsql_get()) == SQLITE_ROW) {
-            sqlite_statement insert_statement;
-            result = vqec_vision_ai_stor_stsql_prepare(catalog_,
-                "INSERT OR IGNORE INTO chunk_index(chunk_id,global_sequence,shard_id,source_id,"
-                "subject_ref,entity_category,begin_ns,end_ns,resolution,required_access_mask,"
-                "bounds_left,bounds_top,bounds_right,bounds_bottom,encoded_bytes,checksum_crc32)"
-                " VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16);",
-                insert_statement);
-            auto* insert = insert_statement.vqec_vision_ai_stor_stsql_get();
-            auto* row = chunk_statement.vqec_vision_ai_stor_stsql_get();
-            const bool is_bound = result.code_ == status_code::ok &&
-                vqec_vision_ai_stor_stsql_bind_text(insert, 1,
-                    vqec_vision_ai_stor_stsql_read_text(row, 0)) &&
-                sqlite3_bind_int64(insert, 2, sqlite3_column_int64(row, 1)) == SQLITE_OK &&
-                vqec_vision_ai_stor_stsql_bind_text(insert, 3, shard_id) &&
-                vqec_vision_ai_stor_stsql_bind_text(insert, 4,
-                    vqec_vision_ai_stor_stsql_read_text(row, 2)) &&
-                vqec_vision_ai_stor_stsql_bind_text(insert, 5,
-                    vqec_vision_ai_stor_stsql_read_text(row, 3)) &&
-                vqec_vision_ai_stor_stsql_bind_text(insert, 6,
-                    vqec_vision_ai_stor_stsql_read_text(row, 4));
-            for (int column = 5; is_bound && column < 15; ++column) {
-                if (sqlite3_bind_int64(insert, column + 2,
-                        sqlite3_column_int64(row, column)) != SQLITE_OK) {
-                    sqlite3_close(detail);
-                    return vqec_vision_ai_stor_stsql_make_error(catalog_, "bind recovered index");
+        // The read statement must be finalized before closing `detail`. sqlite3_close()
+        // leaves a connection open when a prepared statement is still live; dropping the
+        // pointer after SQLITE_BUSY leaked one shard connection on every store restart.
+        int chunk_step = SQLITE_DONE;
+        {
+            sqlite_statement chunk_statement;
+            result = vqec_vision_ai_stor_stsql_prepare(detail,
+                "SELECT chunk_id,global_sequence,source_id,subject_ref,entity_category,"
+                "first_pts_ns,last_pts_ns,resolution,required_access_mask,bounds_left,bounds_top,"
+                "bounds_right,bounds_bottom,length(encoded_points),checksum_crc32 "
+                "FROM trajectory_chunks;",
+                chunk_statement);
+            if (result.code_ == status_code::ok) {
+                auto* row = chunk_statement.vqec_vision_ai_stor_stsql_get();
+                while ((chunk_step = sqlite3_step(row)) == SQLITE_ROW) {
+                    sqlite_statement insert_statement;
+                    result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+                        "INSERT OR IGNORE INTO chunk_index(chunk_id,global_sequence,shard_id,"
+                        "source_id,subject_ref,entity_category,begin_ns,end_ns,resolution,"
+                        "required_access_mask,bounds_left,bounds_top,bounds_right,bounds_bottom,"
+                        "encoded_bytes,checksum_crc32) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,"
+                        "?11,?12,?13,?14,?15,?16);",
+                        insert_statement);
+                    auto* insert = insert_statement.vqec_vision_ai_stor_stsql_get();
+                    const bool is_bound = result.code_ == status_code::ok &&
+                        vqec_vision_ai_stor_stsql_bind_text(insert, 1,
+                            vqec_vision_ai_stor_stsql_read_text(row, 0)) &&
+                        sqlite3_bind_int64(insert, 2, sqlite3_column_int64(row, 1)) == SQLITE_OK &&
+                        vqec_vision_ai_stor_stsql_bind_text(insert, 3, shard_id) &&
+                        vqec_vision_ai_stor_stsql_bind_text(insert, 4,
+                            vqec_vision_ai_stor_stsql_read_text(row, 2)) &&
+                        vqec_vision_ai_stor_stsql_bind_text(insert, 5,
+                            vqec_vision_ai_stor_stsql_read_text(row, 3)) &&
+                        vqec_vision_ai_stor_stsql_bind_text(insert, 6,
+                            vqec_vision_ai_stor_stsql_read_text(row, 4));
+                    for (int column = 5; is_bound && column < 15; ++column) {
+                        if (sqlite3_bind_int64(insert, column + 2,
+                                sqlite3_column_int64(row, column)) != SQLITE_OK) {
+                            result = vqec_vision_ai_stor_stsql_make_error(
+                                catalog_, "bind recovered index");
+                            break;
+                        }
+                    }
+                    if (result.code_ != status_code::ok) {
+                        break;
+                    }
+                    if (!is_bound || sqlite3_step(insert) != SQLITE_DONE) {
+                        result = vqec_vision_ai_stor_stsql_make_error(
+                            catalog_, "recover chunk index");
+                        break;
+                    }
+                    if (sqlite3_changes(catalog_) != 0) {
+                        ++stats_.orphan_chunks_recovered_;
+                    }
+                }
+                if (result.code_ == status_code::ok && chunk_step != SQLITE_DONE) {
+                    result = vqec_vision_ai_stor_stsql_make_error(
+                        detail, "scan trajectory detail shard");
                 }
             }
-            if (!is_bound || sqlite3_step(insert) != SQLITE_DONE) {
-                sqlite3_close(detail);
-                return result.code_ == status_code::ok
-                           ? vqec_vision_ai_stor_stsql_make_error(catalog_, "recover chunk index")
-                           : result;
-            }
-            if (sqlite3_changes(catalog_) != 0) {
-                ++stats_.orphan_chunks_recovered_;
-            }
         }
-        sqlite3_close(detail);
+        const int close_result = sqlite3_close(detail);
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        if (close_result != SQLITE_OK) {
+            return {status_code::io_error, "close recovered trajectory shard failed"};
+        }
     }
     return {};
 }
