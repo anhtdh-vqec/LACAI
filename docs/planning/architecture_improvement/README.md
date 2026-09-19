@@ -39,7 +39,7 @@ README này chứa toàn bộ phân tích; không cần đọc thêm một báo 
 | 11 | Phương pháp benchmark và kiểm chứng |
 | 12 | Lộ trình, đầu ra và checklist review tiếp |
 | 13 | Plan 0 bắt buộc: đóng production composition trước |
-| 14 | Năm execution plan có task và acceptance để giao agent |
+| 14 | Các execution plan có task và acceptance để giao agent |
 
 ## 1. Kết luận
 
@@ -1208,10 +1208,11 @@ dependency neutral → port, adapter → SDK; không cho perception include Kafk
 - [ ] Có acceptance released-FW thay vì chỉ harness; rollback và observability đủ.
 - [ ] Chạy naming/layout/docs checks; docs phản ánh đúng source wiring và bằng chứng.
 
-### 12.5. Năm execution plan có thể giao ngay
+### 12.5. Các execution plan có thể giao ngay
 
-Năm file dưới đây là các kế hoạch thực thi sau Plan 0. Agent phải hoàn thành Plan 0 trước;
-chỉ sau khi P0-09 là UNBLOCKED và bốn gate P0-A…P0-D pass mới mở Plan 1. Sau đó Plan 2/3/4
+Các file dưới đây là kế hoạch thực thi sau Plan 0. Agent phải hoàn thành Plan 0 trước; chỉ sau
+khi P0-09 là UNBLOCKED và bốn gate P0-A…P0-D pass mới mở Plan 1. Plan 1A khóa package,
+entitlement và install authority cho mô hình mỗi usecase là một application. Sau đó Plan 2/3/4
 có thể bắt đầu theo dependency, còn Plan 5 tích hợp cuối cùng. Mỗi plan có owner, task ID,
 output và acceptance riêng; status của một plan không tự nâng status các plan khác.
 
@@ -1219,10 +1220,11 @@ output và acceptance riêng; status của một plan không tự nâng status c
 |---|---|---|---|
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
+| [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead + BSP/FW | Plan 1 accepted | App-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
-| [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1–4 pass | Profiles, board/release acceptance |
+| [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1/1A–4 pass | Profiles, board/release acceptance |
 
 Quy tắc giao agent: ghi plan/task ID trong issue; không sửa sibling repository; không đổi
 contract hiện hành mà không ADR/review; commit chỉ chứa task-owned files; báo rõ test chưa

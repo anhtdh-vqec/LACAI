@@ -61,6 +61,8 @@ unfinished work and do not carry current-capability claims.
   source-based assessment, three-team ownership/handoff contracts, security/traffic data and
   query catalogs, storage options, Kafka, FW evidence IPC, video ownership migration and
   portable DSP offload with validation gates.
+- [Usecase app distribution plan](planning/architecture_improvement/usecase_app_distribution_plan.md):
+  app-as-SKU/shared-runtime packaging, entitlement-gated download and atomic install lifecycle.
 
 ## Testing
 
