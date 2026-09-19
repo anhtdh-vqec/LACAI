@@ -1,11 +1,12 @@
 # Storage adapters
 
 Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata
-prototype and version 1 sharded spatiotemporal store.
+prototype, version 1 sharded spatiotemporal store and application inventory.
 
-- **Status:** accepted — metadata v1 retention/fault/composed gates pass; gallery keeps its own release gates
+- **Status:** source-delivered — metadata v1 is accepted; gallery and application inventory keep
+  their own release gates
 - **Layer:** adapters
-- **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`)
+- **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`, `apinv`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
 - **Used by:** recognition composition and the source-delivered bounded metadata service
 
@@ -33,6 +34,7 @@ prototype and version 1 sharded spatiotemporal store.
 | `vqec_vision_sqlite_metadata_store.hpp` | Adapter configuration and blocking storage API |
 | `vqec_vision_spatiotemporal_store.cpp` | SQLite catalog, packed detail shards, association revisions, recovery and bounded queries |
 | `vqec_vision_spatiotemporal_store.hpp` | Store configuration, quota, stats and blocking storage API |
+| `vqec_vision_sqlite_app_inventory.*` | Transactional app/config/authority/desired inventory and runtime snapshot |
 
 ## Key and file layout
 

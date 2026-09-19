@@ -634,6 +634,10 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_app_manifest.hpp | apmft | vqec_vision_ai_lifec_apmft_ |
 | src/runtime/lifecycle/vqec_vision_app_manifest.cpp | apmft | vqec_vision_ai_lifec_apmft_ |
 | tests/unit/runtime/vqec_vision_app_manifest_test.cpp | apmtst | vqec_vision_ai_unit_apmtst_ |
+| include/vqec/vision/ai/ports/vqec_vision_app_inventory.hpp | apinv | vqec_vision_ai_ports_apinv_ |
+| src/adapters/storage/vqec_vision_sqlite_app_inventory.hpp | apinv | overrides retain ports prefix |
+| src/adapters/storage/vqec_vision_sqlite_app_inventory.cpp | apinv | vqec_vision_ai_stor_apinv_ |
+| tests/unit/adapters/storage/vqec_vision_sqlite_app_inventory_test.cpp | saitst | vqec_vision_ai_unit_saitst_ |
 
 
 | Logical owner path | file_id | Prefix |
