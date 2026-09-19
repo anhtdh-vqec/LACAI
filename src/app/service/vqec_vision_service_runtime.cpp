@@ -762,6 +762,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             feature_activation_limits::g_max_associations> requests{};
         std::array<std::pair<std::uint16_t, std::uint16_t>,
             feature_activation_limits::g_max_associations> request_slots{};
+        std::array<std::vector<std::string>,
+            feature_activation_limits::g_max_associations> authorized_output_scopes{};
         std::uint16_t request_count = 0;
         for (std::uint16_t source_slot = 0; source_slot < activation.source_count_; ++source_slot) {
             const auto& source = deployment.sources_[source_slot];
@@ -805,11 +807,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     service_harness::g_config_revision;
                 if (startup.has_runtime_control && request.desired_enabled_ &&
                     request.entitlement_granted_ && request.resource_admitted_) {
-                    std::vector<std::string> output_scopes;
                     const auto resolved =
                         vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
                             startup, source.source_id_, feature,
-                            request.configuration_, output_scopes);
+                            request.configuration_, authorized_output_scopes[request_count]);
                     if (resolved.code_ != status_code::ok) {
                         std::fprintf(stderr,
                             "runtime feature configuration rejected (%d): %s\n",
@@ -817,7 +818,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                             resolved.message_.c_str());
                         return 1;
                     }
-                    request.association_.attribute_scopes_ = std::move(output_scopes);
+                    request.association_.config_revision_ =
+                        request.configuration_.revision_;
                 }
                 request_slots[request_count] = {source_slot, slot};
                 ++request_count;
@@ -846,7 +848,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     rule.source_id_ = record->source_id_;
                     rule.feature_id_ = record->feature_id_;
                     if (startup.has_usecase_control) {
-                        rule.attributes_ = record->association_.attribute_scopes_;
+                        rule.attributes_ = startup.has_runtime_control
+                            ? authorized_output_scopes[index]
+                            : record->association_.attribute_scopes_;
                     } else {
                         rule.attributes_.push_back(attribute_schema_id);
                     }

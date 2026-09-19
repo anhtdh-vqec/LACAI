@@ -18,9 +18,11 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 | `usecase_control_snapshot.person_face.example.json` | Example trusted startup snapshot enabling person detection and FR |
 | `hardware_admission_profile.qcs6490.example.json` | Measured QCS6490 admission profile example with memory, DDR, FW concurrency and thermal limits |
 | `metadata_runtime_profile.qcs6490.example.json` | P2 metadata lifecycle, storage, retention, source revision and per-feature access-domain example |
+| `metadata_runtime_profile.fire_smoke.example.json` | S04 event/region trajectory projection without requiring an unrelated person model |
 | `deployment.fire_smoke.example.json` | One-source S04 fire/smoke model assignment |
 | `usecase_control_snapshot.fire_smoke.example.json` | Transitional S04 startup authority fixture using canonical product identity |
 | `fire_smoke_configuration.example.json` | Strict revision-1 S04 behavior/evidence/metadata configuration |
+| `feature_catalog.fire_smoke.example.json` | S04 processor dependency and bounded feature resource contract |
 | `usecase_app_manifest.fire_smoke.example.json` | Declarative S04 application package manifest |
 | `usecase_app_entitlement.fire_smoke.example.json` | Example S04 entitlement signing input; filesystem presence grants no authority |
 

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "device_id": "qcs6490_camera_01",
+  "required": true,
+  "aggregate_bucket_ns": 3600000000000,
+  "hotspot_grid_columns": 16,
+  "hotspot_grid_rows": 9,
+  "service": {
+    "queue_capacity": 1024,
+    "maximum_live_tracks": 256,
+    "maximum_live_deltas": 2048,
+    "maximum_batch_records": 128,
+    "outbox_sinks": [],
+    "store": {
+      "root_directory": "/opt/lacai/data/metadata",
+      "shard_duration_ns": 300000000000,
+      "maximum_shard_bytes": 268435456,
+      "maximum_store_bytes": 2147483648,
+      "reserve_free_bytes": 268435456,
+      "maximum_encoded_chunk_bytes": 1048576,
+      "maximum_query_results": 1024,
+      "busy_timeout_ms": 1000,
+      "wal_autocheckpoint_pages": 1000,
+      "full_sync": true
+    }
+  },
+  "trajectory": {
+    "maximum_points_per_chunk": 256,
+    "maximum_chunk_duration_ns": 1000000000,
+    "minimum_sample_interval_ns": 100000000,
+    "stale_track_ns": 2000000000
+  },
+  "retention": {
+    "maintenance_interval_ns": 60000000000,
+    "trajectory_ns": 3600000000000,
+    "episode_ns": 2592000000000000,
+    "contribution_ns": 2592000000000000,
+    "rollup_ns": 31536000000000000
+  },
+  "sources": [
+    {
+      "source_id": "camera_front",
+      "scene_revision": "camera_front_scene_1",
+      "coordinate_revision": "camera_front_pixels_1",
+      "clock_mapping_revision": "camera_front_pts_1",
+      "trajectory_model_id": "yolo11n_fire_smoke",
+      "trajectory_authorization_feature_id": "preview",
+      "trajectory_authorization_attribute_id": "overlay",
+      "event_access_rules": [
+        {
+          "feature_id": "fire_smoke_alarm",
+          "access_domains": ["object", "visual_attribute", "media"]
+        }
+      ]
+    }
+  ]
+}

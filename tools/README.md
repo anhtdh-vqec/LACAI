@@ -57,6 +57,7 @@ stable while their parent directory identifies the owner and execution environme
 | `vqec_vision_ring_rtsp.py` | Mock FW RTSP service reading the v5 encoded ring |
 | `vqec_vision_ring_rtsp_test.py` | Synthetic file-backed ring-generation regression |
 | `vqec_vision_fr_runtime_dbus_test.py`, `vqec_vision_usecase_runtime_dbus_test.py` | Session-bus integration peers for FR and usecase control |
+| `vqec_vision_sign_app_fixture.py` | Build exact package/entitlement Ed25519 signing frames for acceptance fixtures; private keys remain external |
 
 ## Limits and next work
 
