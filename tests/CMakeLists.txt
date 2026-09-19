@@ -47,6 +47,19 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME fire_smoke_alarm_lifecycle
         COMMAND vqec_vision_ai_fire_smoke_alarm_test)
+    add_executable(vqec_vision_ai_app_configuration_registry_test
+        unit/application/vqec_vision_app_configuration_registry_test.cpp)
+    target_link_libraries(vqec_vision_ai_app_configuration_registry_test PRIVATE
+        vqec_vision_ai_app_configuration_registry
+        vqec_vision_ai_fire_smoke_feature
+        vqec_vision_ai_app_manifest)
+    target_compile_definitions(vqec_vision_ai_app_configuration_registry_test PRIVATE
+        VQEC_VISION_AI_APP_MANIFEST_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_manifest.fire_smoke.example.json"
+        VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/fire_smoke_configuration.example.json")
+    set_target_properties(vqec_vision_ai_app_configuration_registry_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME app_configuration_registry
+        COMMAND vqec_vision_ai_app_configuration_registry_test)
     target_link_libraries(vqec_vision_ai_feature_processor_registry_test
         PRIVATE vqec_vision_ai_feature_runtime)
     set_target_properties(vqec_vision_ai_feature_processor_registry_test

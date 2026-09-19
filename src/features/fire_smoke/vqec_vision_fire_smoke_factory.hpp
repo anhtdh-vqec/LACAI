@@ -2,12 +2,17 @@
 #define VQEC_VISION_AI_FIRES_FIRE_SMOKE_FACTORY_HPP
 
 #include "vqec/vision/ai/ports/vqec_vision_feature_processor_factory.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_app_configuration.hpp"
 #include "vqec_vision_fire_smoke_alarm.hpp"
 
 namespace vqec::vision::ai {
 
-class fire_smoke_factory final : public feature_processor_factory_port {
+class fire_smoke_factory final : public feature_processor_factory_port,
+                                 public app_configuration_validator_port {
 public:
+    [[nodiscard]] status vqec_vision_ai_ports_apcfg_validate(
+        const std::string& _schema_id, std::uint64_t _revision,
+        const std::vector<std::uint8_t>& _payload) const override;
     [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
         const feature_catalog_entry& _feature,
         const feature_processor_config& _processor_config,
@@ -25,4 +30,3 @@ public:
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_FIRES_FIRE_SMOKE_FACTORY_HPP
-

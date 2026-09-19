@@ -89,6 +89,17 @@ bool vqec_vision_ai_fires_fsfac_is_aggregation_dimension(
 
 }  // namespace
 
+status fire_smoke_factory::vqec_vision_ai_ports_apcfg_validate(
+    const std::string& _schema_id, std::uint64_t _revision,
+    const std::vector<std::uint8_t>& _payload) const {
+    feature_configuration configuration;
+    configuration.schema_id_ = _schema_id;
+    configuration.revision_ = _revision;
+    configuration.payload_ = _payload;
+    fire_smoke_alarm_config config;
+    return vqec_vision_ai_fires_fsfac_parse_configuration(configuration, config);
+}
+
 status vqec_vision_ai_fires_fsfac_parse_configuration(
     const feature_configuration& _configuration, fire_smoke_alarm_config& _config) {
     if (_configuration.schema_id_ != g_configuration_schema ||

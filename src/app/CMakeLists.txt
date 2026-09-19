@@ -1,6 +1,15 @@
 # Application orchestration targets and the service executable. Target names are
 # unchanged from the former root definitions.
 
+add_library(vqec_vision_ai_app_configuration_registry STATIC
+    management/vqec_vision_app_configuration_registry.cpp)
+target_include_directories(vqec_vision_ai_app_configuration_registry PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/management>)
+target_link_libraries(vqec_vision_ai_app_configuration_registry
+    PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_app_configuration_registry
+    PROPERTIES CXX_EXTENSIONS OFF)
+
 # Cold-path startup option parsing, split out of the service main translation unit so it
 # can be unit-tested without building the full executable.
 add_library(vqec_vision_ai_service_options STATIC

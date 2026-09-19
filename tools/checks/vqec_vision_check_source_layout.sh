@@ -9,7 +9,7 @@ source_roots=(src include tests tools)
 source_extensions='\.(c|cc|cpp|cxx|h|hh|hpp|hxx|ps1|py|sh)$'
 include_root_list=(include src
     src/app/cascade src/app/composition src/app/pipeline src/app/platform
-    src/app/service src/app/session src/app/supervision
+    src/app/management src/app/service src/app/session src/app/supervision
     src/outputs/events src/outputs/media src/core/memory
     src/adapters/camera src/adapters/qualcomm/dsp/host
     src/adapters/qualcomm/dsp/legacy src/adapters/qualcomm/dsp/v1
