@@ -17,7 +17,7 @@
     "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "association": {
       "type": "object", "additionalProperties": false,
-      "required": ["app_id", "source_id", "installed", "entitled", "desired", "supported", "compatible", "admitted", "configuration_revision", "configuration_sha256", "output_scopes"],
+      "required": ["app_id", "source_id", "installed", "entitled", "desired", "supported", "compatible", "admitted", "configuration_revision", "configuration_sha256", "configuration_schema_id", "configuration_payload", "output_scopes"],
       "properties": {
         "app_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "source_id": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -29,6 +29,8 @@
         "admitted": {"type": "boolean"},
         "configuration_revision": {"type": "integer", "minimum": 1},
         "configuration_sha256": {"$ref": "#/$defs/digest"},
+        "configuration_schema_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "configuration_payload": {"type": "object"},
         "output_scopes": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
         "reason_code": {"type": "string", "maxLength": 64},
         "entitlement_expires_utc_ns": {"type": "integer", "minimum": 1}
@@ -36,4 +38,3 @@
     }
   }
 }
-

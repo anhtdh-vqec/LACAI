@@ -625,6 +625,16 @@ Fire/smoke feature registrations (source delivered):
 | src/features/fire_smoke/vqec_vision_fire_smoke_factory.cpp | fsfac | vqec_vision_ai_fires_fsfac_ |
 | tests/unit/features/vqec_vision_fire_smoke_alarm_test.cpp | fsatst | vqec_vision_ai_unit_fsatst_ |
 
+App lifecycle registrations (source delivered):
+
+| Logical owner path | file_id | Prefix |
+|---|---|---|
+| include/vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp | applc | vqec_vision_ai_core_applc_ |
+| src/core/configuration/vqec_vision_app_lifecycle.cpp | applc | vqec_vision_ai_core_applc_ |
+| src/runtime/lifecycle/vqec_vision_app_manifest.hpp | apmft | vqec_vision_ai_lifec_apmft_ |
+| src/runtime/lifecycle/vqec_vision_app_manifest.cpp | apmft | vqec_vision_ai_lifec_apmft_ |
+| tests/unit/runtime/vqec_vision_app_manifest_test.cpp | apmtst | vqec_vision_ai_unit_apmtst_ |
+
 
 | Logical owner path | file_id | Prefix |
 |---|---|---|
