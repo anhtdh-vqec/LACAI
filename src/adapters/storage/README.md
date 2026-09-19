@@ -1,11 +1,11 @@
 # Storage adapters
 
-Implements AI APP-owned durable adapters for the protected face gallery and the version 1
-transactional metadata/query baseline.
+Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata
+prototype and version 1 sharded spatiotemporal store.
 
 - **Status:** board-smoke — gallery and metadata native boundary tests pass on QCS6490
 - **Layer:** adapters
-- **Naming registry:** `stor` (`eglry`, `mdsql`)
+- **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
 - **Used by:** recognition composition and the planned metadata output service
 
@@ -19,6 +19,8 @@ transactional metadata/query baseline.
   or group/other-accessible paths.
 - Commit each metadata revision and its bounded delivery-outbox rows atomically, then serve
   authorized prepared queries through stable snapshot/keyset paging.
+- Persist high-rate trajectory points as checked packed chunks in time shards, with a small
+  catalog index, explicit shard manifests, stable sequences and exact path verification.
 - Keep metadata I/O outside frame, inference, DSP and renderer workers.
 
 ## Contents
@@ -29,6 +31,8 @@ transactional metadata/query baseline.
 | `vqec_vision_encrypted_face_gallery_store.hpp` | Adapter-private configuration and neutral store implementation |
 | `vqec_vision_sqlite_metadata_store.cpp` | SQLite WAL record/outbox transaction and authorized query facade |
 | `vqec_vision_sqlite_metadata_store.hpp` | Adapter configuration and blocking storage API |
+| `vqec_vision_spatiotemporal_store.cpp` | SQLite catalog, packed detail shards, association revisions, recovery and bounded queries |
+| `vqec_vision_spatiotemporal_store.hpp` | Store configuration, quota, stats and blocking storage API |
 
 ## Key and file layout
 
@@ -51,8 +55,12 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - Key rotation is not implemented.
 - The metadata adapter is not wired into the service output path. Retention/purge workers,
   Kafka delivery and a possible cold columnar tier remain separate capabilities.
+- Spatiotemporal shards currently use source PTS partitions and blocking calls. The bounded
+  asynchronous service, episode/aggregate projections, purge and concurrent board benchmark
+  remain P2 work.
 
 ## See also
 
-- [Metadata query foundation](../../../docs/architecture/metadata_query.md)
+- [Spatiotemporal metadata](../../../docs/architecture/spatiotemporal_metadata.md)
+- [Metadata transactional prototype](../../../docs/architecture/metadata_query.md)
 - [Face recognition validation](../../../docs/testing/face_recognition_production_validation.md)

@@ -17,6 +17,7 @@ inline constexpr std::size_t g_spatiotemporal_max_identifier_bytes = 128U;
 inline constexpr std::size_t g_spatiotemporal_max_points_per_chunk = 4096U;
 inline constexpr std::size_t g_spatiotemporal_max_query_sources = 16U;
 inline constexpr std::size_t g_spatiotemporal_max_query_dimensions = 16U;
+inline constexpr std::size_t g_spatiotemporal_max_outbox_sinks = 8U;
 inline constexpr std::uint32_t g_spatiotemporal_score_scale_ppm = 1000000U;
 
 enum class spatiotemporal_coordinate_space : std::uint8_t {
@@ -59,6 +60,21 @@ enum class trajectory_point_flag : std::uint32_t {
     split_merge_boundary = 1U << 9U,
     has_box = 1U << 10U
 };
+
+enum class spatiotemporal_access_domain : std::uint32_t {
+    aggregate = 1U << 0U,
+    object = 1U << 1U,
+    visual_attribute = 1U << 2U,
+    trajectory = 1U << 3U,
+    plate = 1U << 4U,
+    identity = 1U << 5U,
+    vector = 1U << 6U,
+    media = 1U << 7U,
+    operational = 1U << 8U,
+    audit = 1U << 9U
+};
+
+inline constexpr std::uint32_t g_spatiotemporal_all_access_domains = (1U << 10U) - 1U;
 
 inline constexpr std::uint32_t g_trajectory_point_known_flags =
     (1U << 11U) - 1U;
@@ -108,6 +124,8 @@ struct trajectory_chunk {
     std::uint32_t schema_version_{g_spatiotemporal_metadata_schema_version};
     std::string chunk_id_;
     spatiotemporal_track_key track_;
+    std::string subject_ref_;
+    std::string entity_category_;
     std::uint64_t chunk_sequence_{0};
     spatiotemporal_frame_locator first_frame_;
     spatiotemporal_frame_locator last_frame_;
@@ -118,6 +136,7 @@ struct trajectory_chunk {
     trajectory_sample_mode sample_mode_{trajectory_sample_mode::exact};
     std::uint32_t max_spatial_error_units_{0};
     std::uint64_t max_time_error_ns_{0};
+    std::uint32_t required_access_domain_mask_{0};
     std::int32_t bounds_left_{0};
     std::int32_t bounds_top_{0};
     std::int32_t bounds_right_{0};
@@ -220,6 +239,33 @@ struct spatiotemporal_query {
     std::uint64_t cursor_sequence_{0};
     spatiotemporal_query_budget budget_;
 };
+
+enum class spatiotemporal_result_completeness : std::uint8_t {
+    complete = 1,
+    partial,
+    approximate,
+    unsupported,
+    budget_exceeded
+};
+
+struct spatiotemporal_query_page {
+    spatiotemporal_result_completeness completeness_{
+        spatiotemporal_result_completeness::partial};
+    trajectory_resolution delivered_resolution_{trajectory_resolution::trajectory_bounded};
+    std::uint64_t snapshot_sequence_{0};
+    std::uint64_t next_cursor_sequence_{0};
+    std::uint64_t scanned_bytes_{0};
+    std::uint64_t result_bytes_{0};
+    std::vector<trajectory_chunk> trajectory_chunks_;
+    std::vector<track_association_revision> associations_;
+    bool has_more_{false};
+    bool has_coverage_gap_{false};
+};
+
+[[nodiscard]] constexpr std::uint32_t vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+    spatiotemporal_access_domain _domain) noexcept {
+    return static_cast<std::uint32_t>(_domain);
+}
 
 [[nodiscard]] status vqec_vision_ai_cntr_stmet_validate_frame_locator(
     const spatiotemporal_frame_locator& _locator);

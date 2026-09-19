@@ -38,6 +38,8 @@ trajectory_chunk vqec_vision_ai_unit_smtst_make_chunk() {
     chunk.track_.boot_id_ = g_fixture_boot_id;
     chunk.track_.source_epoch_ = 1U;
     chunk.track_.local_track_id_ = 7U;
+    chunk.subject_ref_ = "person.7";
+    chunk.entity_category_ = "person";
     chunk.chunk_sequence_ = 1U;
     chunk.first_frame_ = vqec_vision_ai_unit_smtst_make_locator(10U, 1000U);
     chunk.last_frame_ = vqec_vision_ai_unit_smtst_make_locator(12U, 3000U);
@@ -45,6 +47,9 @@ trajectory_chunk vqec_vision_ai_unit_smtst_make_chunk() {
     chunk.bounds_top_ = 0;
     chunk.bounds_right_ = 1920;
     chunk.bounds_bottom_ = 1080;
+    chunk.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::trajectory);
     trajectory_point first;
     first.frame_id_ = 10U;
     first.source_pts_ns_ = 1000U;

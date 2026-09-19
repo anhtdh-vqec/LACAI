@@ -6,6 +6,10 @@
   association-revision and composable-query contracts. The bounded delta/varint trajectory codec
   rejects corrupt checksums, trailing data, overflow and fabricated endpoints. Approved eSDK/QEMU
   contract and codec tests pass; no storage/service or board claim follows from this step.
+- P2 M03 now has an eSDK-tested SQLite catalog plus time-sharded packed trajectory detail,
+  stable snapshot sequence, quota rejection, outbox rows colocated with the chunk, shard sealing,
+  startup index repair, exact gap-aware path intersection and append-only cross-camera association
+  revisions. It is a blocking adapter and is not yet production-service wiring or board evidence.
 - Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
   mappings, nine traffic extension profiles and five outcome classes per query. The checker
   cross-validates the stable usecase identities against the three-team registry.

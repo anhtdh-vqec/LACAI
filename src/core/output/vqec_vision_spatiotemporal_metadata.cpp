@@ -52,7 +52,14 @@ status vqec_vision_ai_cntr_stmet_validate_frame_locator(
         return {status_code::invalid_argument, "frame locator identity is invalid"};
     }
     if (_locator.source_epoch_ == 0U || _locator.frame_id_ == 0U ||
-        _locator.source_pts_ns_ == std::numeric_limits<std::uint64_t>::max() ||
+        _locator.source_epoch_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _locator.frame_id_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _locator.source_pts_ns_ >=
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _locator.clock_uncertainty_ns_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         (_locator.has_capture_utc_ && _locator.capture_utc_ns_ < 0) ||
         (!_locator.has_capture_utc_ && _locator.capture_utc_ns_ != 0)) {
         return {status_code::invalid_argument, "frame locator time is invalid"};
@@ -68,7 +75,11 @@ status vqec_vision_ai_cntr_stmet_validate_track_key(
             _track.source_id_, g_spatiotemporal_max_identifier_bytes) ||
         !vqec_vision_ai_cntr_ident_is_valid(
             _track.boot_id_, g_spatiotemporal_max_identifier_bytes) ||
-        _track.source_epoch_ == 0U || _track.local_track_id_ == 0U) {
+        _track.source_epoch_ == 0U || _track.local_track_id_ == 0U ||
+        _track.source_epoch_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _track.local_track_id_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
         return {status_code::invalid_argument, "track key is invalid"};
     }
     return {};
@@ -79,6 +90,10 @@ status vqec_vision_ai_cntr_stmet_validate_trajectory_chunk(
     if (_chunk.schema_version_ != g_spatiotemporal_metadata_schema_version ||
         !vqec_vision_ai_cntr_ident_is_valid(
             _chunk.chunk_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _chunk.subject_ref_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _chunk.entity_category_, g_spatiotemporal_max_identifier_bytes) ||
         _chunk.chunk_sequence_ == 0U || _chunk.points_.empty() ||
         _chunk.points_.size() > g_spatiotemporal_max_points_per_chunk ||
         !vqec_vision_ai_core_stmet_is_bounds_valid(_chunk.bounds_left_, _chunk.bounds_top_,
@@ -103,6 +118,8 @@ status vqec_vision_ai_cntr_stmet_validate_trajectory_chunk(
     const auto sample_mode = static_cast<unsigned int>(_chunk.sample_mode_);
     if (coordinate_space == 0U || coordinate_space > 3U || anchor == 0U || anchor > 4U ||
         resolution == 0U || resolution > 2U || sample_mode == 0U || sample_mode > 4U ||
+        _chunk.required_access_domain_mask_ == 0U ||
+        (_chunk.required_access_domain_mask_ & ~g_spatiotemporal_all_access_domains) != 0U ||
         (_chunk.resolution_ == trajectory_resolution::observation_exact &&
             (_chunk.sample_mode_ != trajectory_sample_mode::exact ||
                 _chunk.max_spatial_error_units_ != 0U || _chunk.max_time_error_ns_ != 0U))) {
@@ -180,6 +197,12 @@ status vqec_vision_ai_cntr_stmet_validate_association_revision(
             _association.supersedes_revision_ != _association.revision_ - 1U) ||
         _association.score_ppm_ > g_spatiotemporal_score_scale_ppm ||
         _association.maximum_travel_ns_ < _association.minimum_travel_ns_ ||
+        _association.revision_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _association.maximum_travel_ns_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _association.clock_uncertainty_ns_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         review_state == 0U || review_state > 4U || _association.recorded_ns_ < 0) {
         return {status_code::invalid_argument, "association revision is invalid"};
     }

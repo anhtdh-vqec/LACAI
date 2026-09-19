@@ -521,6 +521,12 @@ Packed trajectory codec
 `tests/unit/core/vqec_vision_trajectory_codec_test.cpp` uses file_id `tctst`, prefix
 `vqec_vision_ai_unit_tctst_`; `main` retains the language entrypoint spelling.
 
+SQLite spatiotemporal catalog/detail store
+`src/adapters/storage/vqec_vision_spatiotemporal_store.cpp` uses file_id `stsql`, prefix
+`vqec_vision_ai_stor_stsql_`; its paired private header has the same owner. Unit test
+`tests/unit/adapters/storage/vqec_vision_spatiotemporal_store_test.cpp` uses file_id `ststst`,
+prefix `vqec_vision_ai_unit_ststst_`; `main` retains the language entrypoint spelling.
+
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 

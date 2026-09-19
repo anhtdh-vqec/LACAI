@@ -17,6 +17,8 @@ trajectory_chunk vqec_vision_ai_unit_tctst_make_chunk() {
     chunk.track_.boot_id_ = "boot.fixture";
     chunk.track_.source_epoch_ = 2U;
     chunk.track_.local_track_id_ = 9U;
+    chunk.subject_ref_ = "person.9";
+    chunk.entity_category_ = "person";
     chunk.chunk_sequence_ = 1U;
     for (auto* locator : {&chunk.first_frame_, &chunk.last_frame_}) {
         locator->device_id_ = chunk.track_.device_id_;
@@ -37,6 +39,9 @@ trajectory_chunk vqec_vision_ai_unit_tctst_make_chunk() {
     chunk.bounds_top_ = -100;
     chunk.bounds_right_ = 1000;
     chunk.bounds_bottom_ = 1000;
+    chunk.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::trajectory);
     for (std::uint64_t index = 0U; index < 3U; ++index) {
         trajectory_point point;
         point.frame_id_ = 100U + index;

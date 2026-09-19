@@ -510,6 +510,14 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME trajectory_codec
         COMMAND vqec_vision_ai_trajectory_codec_test)
+    add_executable(vqec_vision_ai_spatiotemporal_store_test
+        unit/adapters/storage/vqec_vision_spatiotemporal_store_test.cpp)
+    target_link_libraries(vqec_vision_ai_spatiotemporal_store_test
+        PRIVATE vqec_vision_ai_spatiotemporal_store)
+    set_target_properties(vqec_vision_ai_spatiotemporal_store_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME spatiotemporal_store
+        COMMAND vqec_vision_ai_spatiotemporal_store_test)
     add_executable(vqec_vision_ai_metadata_store_benchmark
         board/vqec_vision_metadata_store_benchmark.cpp)
     target_link_libraries(vqec_vision_ai_metadata_store_benchmark
