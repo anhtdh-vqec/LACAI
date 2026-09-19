@@ -175,8 +175,17 @@ activation.
 - Attribute has schema id/version, value/confidence, quality, timestamp/expiry,
   model version and known/unknown/not_observable; do not force a label when quality is
   poor.
-- FR/embedding is sensitive; do not put it in live output without rights.
+- FR/embedding is ordinary metadata under current product storage policy, but live/query/export
+  output still requires its access-domain entitlement.
 - Coordinates always record frame/space/unit; do not mix normalized box with pixels.
+
+The proposed P2 metadata subsystem is one AI APP-owned service with bounded live state, a
+transactional catalog/outbox, time/source detail shards, correction-aware rollups and an optional
+manifest-published cold tier. It does not place every detection in one ever-growing database.
+Footprints use frame-correlated local tracklets plus revisioned cross-camera associations and
+report their retained resolution, gaps and error bounds. See
+[spatiotemporal metadata](spatiotemporal_metadata.md); this proposal remains unaccepted until
+ADR 0009 and its target workload gates pass.
 
 ## Thread model and lifecycle
 

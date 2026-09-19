@@ -8,7 +8,7 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Capability | Source / logic | Native evidence | Not yet accepted |
 |---|---|---|---|
 | Three-team contract authority | C01–C10 registry, producer receipt schema/checker and S01–S18 stable IDs; eSDK/QEMU 100/100 | `.98` registry/self-test smoke | BSP+FW target receipts and AI Model golden/quality receipts |
-| Metadata/query foundation | D01–D18/Q01–Q30 catalog, neutral v1 contract, SQLite WAL record+outbox transaction, authorized projection and snapshot/keyset query | QCS6490 native contract/recovery test; 20k fixture: ~15k writes/s, Q08 p99 16.731 ms, 7,040 KiB max RSS | Service composition, protected/encrypted at-rest storage, product retention/SLO, producer goldens, purge/export workers and cold tier decision |
+| Metadata/query prototype | D01–D18/Q01–Q30 catalog, neutral v1 prototype, SQLite WAL record+outbox transaction, authorized projection and snapshot/keyset query | QCS6490 native contract/recovery test; 20k fixture: ~15k writes/s, Q08 p99 16.731 ms, 7,040 KiB max RSS | Frame locator, live footprint, packed/sharded detail, cross-camera association, rollups, representative concurrent benchmark, service composition, retention/SLO, purge/export and cold-tier decision |
 | Static single-image catalog/manifest | Implemented, tested | Model-specific probes | Generic model accuracy |
 | Dynamic/multi-input/stateful/batch | Rejected where unsupported | None | Implementation/capacity |
 | Synchronous owned QNN | Implemented, tested | SCRFD/YOLO execution + parity; EdgeFace probe | End-to-end FR accuracy |

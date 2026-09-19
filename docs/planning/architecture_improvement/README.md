@@ -419,8 +419,10 @@ Tham khảo [ONVIF Profile M](https://www.onvif.org/profiles/profile-m/).
 ### 6.4. Data catalog: cần lưu gì, ai tạo và giữ đến mức nào
 
 Quy ước: **D** là bản ghi quyết định/fact đã chấp nhận cần bền vững; **H** là chi tiết
-sampling có hạn; **P** là read model/index/aggregate dẫn xuất, có version; **X** là dữ liệu
-nhạy cảm chỉ lưu khi bật quyền/policy riêng. Đây là lớp dữ liệu, không phải số ngày retention.
+sampling có hạn; **P** là read model/index/aggregate dẫn xuất, có version. Identity,
+embedding và biển số là metadata thông thường theo policy sản phẩm hiện tại; access domain
+vẫn kiểm entitlement/output nhưng không tạo lớp storage nhạy cảm riêng. Đây là lớp dữ liệu,
+không phải số ngày retention.
 Một fact do AI suy ra vẫn có uncertainty; chữ “fact” không biến nó thành ground truth.
 
 | ID / record family | Trường cần thiết ngoài envelope chung | Nguồn/owner semantic | Lớp và mục đích |
@@ -429,18 +431,18 @@ Một fact do AI suy ra vẫn có uncertainty; chữ “fact” không biến n�
 | D02 `observation_sample` | Entity category/class candidates, bbox/mask ref/keypoints cần thiết, score/quality, observed/predicted, frame/ticket | AI APP từ model kit AI Model | H; trace/recompute có giới hạn; không mọi frame mặc định |
 | D03 `track_segment` | Local track key, segment start/end, close reason, gaps, representative observation refs, spatial bounds | AI APP tracker | D; continuous local identity, không identity con người |
 | D04 `trajectory_chunk` | Time-ordered anchors/coordinates, sample mode, uncertainty, coordinate revision, observed/predicted và gap markers | AI APP | H/D theo usecase; đường đi và geometry query |
-| D05 `attribute_assertion` | Subject ref, typed schema/value/candidates, confidence/quality, observed/valid interval, freshness, fusion/model provenance | AI APP; AI Model chốt ontology/quality | D hoặc H, X cho field nhạy cảm; không chỉ latest value |
+| D05 `attribute_assertion` | Subject ref, typed schema/value/candidates, confidence/quality, observed/valid interval, freshness, fusion/model provenance | AI APP; AI Model chốt ontology/quality | D hoặc H; access domain theo field; không chỉ latest value |
 | D06 `relation_interval` | Subject/object refs, relation type, valid interval, confidence, evidence refs, method | AI APP; model có thể cấp association candidates | D; carries/near/person-face/vehicle-plate/group-member; không ép thành ownership |
 | D07 `passage` / `presence_interval` | Subject ref, scene primitive/revision, enter/cross/exit/direction, begin/end, crossing evidence, open/closed/uncertain | AI APP geometric/temporal rules | D; dùng chung gate, lane, intrusion, dwell và counting |
 | D08 `measurement_sample` | Quantity, value/unit, method/version, time/window, calibration ref, uncertainty/validity | AI APP từ platform/model facts | H/D; speed, distance, density, queue length; không số float vô nghĩa |
 | D09 `external_state_interval` | Signal/access/roster/schedule revision, value, source authority, effective time, receive time, TTL và quality | BSP+FW bàn giao; AI APP lưu bản cần cho quyết định | D; query/giải thích theo trạng thái tại thời điểm xảy ra |
 | D10 `event_episode` | Feature/rule/type, lifecycle, participants/region, onset/end, severity, claims/decision/evidence refs | AI APP | D; có thể scene-only, không bắt buộc track |
-| D11 `recognition_encounter` / `attendance_decision` | Identity candidate, gallery/roster revision, score/threshold/quality, session, confirmation/correction actor/reason | AI APP; BSP+FW nhận quyết định người vận hành qua API | D+X; tách match, visit/encounter và attendance decision |
-| D12 `plate_read` / `plate_consensus` | Raw OCR, normalized text + normalization revision, alphabet/region candidates, per-read quality, vehicle relation và passage ref | AI APP từ ANPR kit | D+X; giữ alternatives khi cần, không biến OCR thành đăng ký xe |
+| D11 `recognition_encounter` / `attendance_decision` | Identity candidate, gallery/roster revision, score/threshold/quality, session, confirmation/correction actor/reason | AI APP; BSP+FW nhận quyết định người vận hành qua API | D; metadata thông thường, tách match, visit/encounter và attendance decision |
+| D12 `plate_read` / `plate_consensus` | Raw OCR, normalized text + normalization revision, alphabet/region candidates, per-read quality, vehicle relation và passage ref | AI APP từ ANPR kit | D; metadata thông thường, giữ alternatives, không biến OCR thành đăng ký xe |
 | D13 `context_assessment` | VLM model/prompt/rule/context revisions, bounded structured claims, supporting frames, verifier/review status | AI APP; AI Model cấp output/quality contract | D; raw free text debug chỉ opt-in có quota/quyền |
 | D14 `aggregate_bucket` | Dimensions/revisions, time interval, count/sum/histogram/sketch, contribution version, coverage denominator và completeness | AI APP | P; density/count/traffic stats; phân biệt exact/approximate |
 | D15 `evidence_reference` | FW request/media IDs, lifecycle, actual interval/gaps, source/frame mapping, retention/availability và digest khi có | BSP+FW owns media; AI APP owns link | D; clip/crop bytes không vào DB metadata chung |
-| D16 `association_hypothesis` | Track/entity links, camera pair/domain, candidate score/method, validity, accepted/rejected/review revision | AI APP | D+X khi identity; cross-camera không sửa mất track gốc |
+| D16 `association_hypothesis` | Track/entity links, camera pair/domain, candidate score/method, validity, accepted/rejected/review revision | AI APP | D; access domain theo output, cross-camera không sửa mất track gốc |
 | D17 `coverage_health_interval` | Feature enabled/running, source loss, model fault, dropped/sample rates, clock/calibration health, storage/export gaps | AI APP + BSP+FW health facts | D; phân biệt “không có kết quả” và “không có dữ liệu” |
 | D18 `delivery_archive_audit` | Per-sink outbox, receipt, file manifest/checksum/coverage, schema migration, access/correction/deletion audit | AI APP; BSP+FW cấp volume/security context | D/P; vận hành, replay, purge và provenance |
 
@@ -488,7 +490,7 @@ Trường không áp dụng phải được biểu diễn rõ, không nhét ID g
 | Detail history | Samples/trajectory/selected model details | Theo time hoặc distance/error-bound; budget từng source/usecase; retain boundary points |
 | Search facts | Segments, attributes/relations, passages, decisions/events | Ghi khi thay đổi/đóng interval; snapshot định kỳ cho interval dài; đủ cho query chính |
 | Aggregates | Count/dwell/flow/density/speed buckets | Retention riêng, có coverage/revision và rebuild limit |
-| Evidence/biometrics | Media FW, protected gallery/index AI | Quyền/retention riêng, không copy mặc định sang data lake metadata |
+| Evidence/identity vectors | Media FW; gallery/index và embedding metadata AI | Retention/quota riêng theo workload; export theo entitlement, không copy model tensor/gallery snapshot |
 | Debug/quality fixtures | Tensors, crops, pose sequences, VLM context chi tiết | Opt-in, bounded, access-controlled; không bật production vĩnh viễn |
 
 Đặc biệt với traffic: sampling 1 Hz đủ minh họa đường đi chưa chắc đủ speed/stop-line/
@@ -520,7 +522,7 @@ calibration/quyền; **F** là federation/center cho nhiều thiết bị. Ký h
 | Q09 Nhận diện/watchlist | Identity candidate xuất hiện lúc nào, thuộc list nào khi đó | D11 + gallery/watchlist revision; confidence, review, quyền nhận diện | C |
 | Q10 Điểm danh | Theo roster/session/ca: có mặt/vắng/chưa đủ dữ liệu, first/last, correction | D09/D11/D17; encounter dedup, schedule timezone, identity decision và coverage | C |
 | Q11 Vật thiếu/thất lạc | Last seen, stationary/removed interval, ai ở gần trước/sau | D03–D07/D10; missing vs occluded vs out-of-view; reported-loss input | C |
-| Q12 Tìm biển số | Exact/normalized/prefix hoặc pattern được hỗ trợ, time/source/class/color filters | D12/D05/D07; raw vs consensus, pattern cost limit và sensitive authorization | C |
+| Q12 Tìm biển số | Exact/normalized/prefix hoặc pattern được hỗ trợ, time/source/class/color filters | D12/D05/D07; raw vs consensus, pattern cost limit và access-domain authorization | C |
 | Q13 Fuzzy OCR/plate history | Tìm gần giống, alternatives, đọc lại từng lần để xác minh | D12; normalization/alphabet/version, candidate scoring; fuzzy không exact match | C |
 | Q14 Thống kê flow/heatmap | Lượt/unique track, in-out, density/dwell/occupancy theo bucket/zone/class | D07/D14/D17; unit/counting basis, baseline, coverage, exact/approximate | E+C |
 | Q15 So sánh/xu hướng | Các khung giờ/ngày/zone, demographic/PPE/event rate, histogram | D14 + definitions/version/denominator; không so raw count trên coverage khác nhau | E+C |
@@ -553,7 +555,7 @@ mode, quality threshold policy, projection, sort, page/cursor, deadline và prin
 Response phải có:
 
 - record/entity/event refs phù hợp, snapshot/query ID và next cursor ổn định;
-- dữ liệu đã ẩn theo quyền; không lộ sensitive field qua count/filter/sort hay autocomplete;
+- dữ liệu đã ẩn theo quyền; không lộ field ngoài access domain qua count/filter/sort hay autocomplete;
 - coverage/watermark, gaps, retention boundary, quality/unknown và result mode
   `complete`, `partial`, `approximate`, `unsupported` hoặc `budget_exceeded` theo contract;
 - model/ontology/calibration/rule revisions quan trọng và scope `local`/`federated`;
@@ -676,21 +678,22 @@ Tham khảo [SQLite WAL](https://www.sqlite.org/wal.html).
 - Query scene hiện tại trên dữ liệu scene cũ là chế độ explicit, có transform hợp lệ; mặc
   định dùng historical revision. Không retroactively đổi lane của toàn bộ passage.
 
-### 6.13. Privacy, quyền và retention là một phần data contract
+### 6.13. Quyền, retention và policy là một phần data contract
 
-Phân lớp quyền ít nhất: anonymous aggregates; object/trajectory; visual attributes;
-plate/face/identity; biometrics; media; operational audit. AI APP kiểm quyền ingest,
-search/filter/projection/export/retry; BSP+FW cấp principal/grant và quản lý media access.
-Tuổi/gender, blacklist, attendance và plate không mặc định được cloud-export vì feature bật.
+Identity, embedding và biển số được lưu như metadata thông thường trong thư mục metadata
+được cấu hình; P2 không yêu cầu encryption-at-rest hoặc protected directory riêng để activate.
+Phân lớp access domain ít nhất: aggregate, object/trajectory, visual attributes, identity,
+plate, vector, media và operational audit. Đây là phạm vi entitlement/output, không phải
+phân loại nhạy cảm. AI APP kiểm quyền ingest, search/filter/projection/export/retry; BSP+FW
+cấp principal/grant và quản lý media access.
 
-Không coi hash thường của plate/identity là anonymization: miền giá trị có thể đoán được.
-Nếu cần protected equality index phải có threat model, keyed-token/key rotation và chính
-sách query; fuzzy search trên dữ liệu bảo vệ cần quyết định riêng. Encryption-at-rest không
-ngăn client có quyền đọc quá rộng; UID/ACL/query authorization vẫn bắt buộc.
+Cloud export vẫn là capability riêng: feature được bật không tự cấp quyền xuất. Deployment
+có thể bổ sung ACL/encryption/key policy nghiêm ngặt hơn, nhưng đó là policy cấu hình và không
+được hardcode làm điều kiện chung của metadata architecture.
 
 Purge đi qua hot rows, cold files/compaction, derived/vector indexes, caches, outbox và center
 receipts theo policy. Media delete do BSP+FW thực thi, AI APP cập nhật reference. Không nói
-“đã xóa” chỉ vì xóa một SQLite row; không giữ raw sensitive payload vô hạn trong audit.
+“đã xóa” chỉ vì xóa một SQLite row; audit chỉ giữ bounded facts cần cho lifecycle.
 Xóa/revoke và các yêu cầu giữ dữ liệu được giải quyết bằng policy được cấp quyền, có state
 và reason; không tự quyết theo feature code. Retention từng loại phải được cấu hình rõ.
 
@@ -729,7 +732,7 @@ và coverage counters. Không vừa bounded storage vừa bảo đảm lịch s�
 
 | Bước | AI APP phải giao | BSP+FW phải giao | AI Model phải giao |
 |---|---|---|---|
-| M1 Catalog và contract | Map 18 mục → stable usecase IDs; D01–D18/Q01–Q30 registry, field units/null/quality/privacy, C04/C06/C09 drafts | Source/time/volume/auth/media facts và giới hạn thiết bị; review wire/API | Ontology/schema/quality/unsupported của từng producer; package/golden availability |
+| M1 Catalog và contract | Map 18 mục → stable usecase IDs; D01–D18/Q01–Q30 registry, field units/null/quality/access-domain, C04/C06/C09 drafts | Source/time/volume/auth/media facts và giới hạn thiết bị; review wire/API | Ontology/schema/quality/unsupported của từng producer; package/golden availability |
 | M2 Nền dùng chung | Envelope/identity/interval/revision/coverage validators; bounded ingest, query facade và synthetic fixtures person/vehicle/scene | Fault-capable mock RAW/time/evidence/control + quota/clock failure fixtures | Golden observations/attributes/plate candidates; không cần chờ đủ 18 model để test storage |
 | M3 Vertical security + traffic | Person attribute-at-passage/timeline/count và vehicle/plate passage dùng cùng core schema; local facts/index/outbox | Query UI/client skeleton, evidence receipt/replay; không SQL direct | Color/person/ANPR kit nào sẵn thì qualify; chưa có dùng fixture và ghi rõ logic-only |
 | M4 Storage decision | A/B baseline vs hybrid với query catalog, ADR lựa chọn, retention/correction/purge tests | Flash/RAM/CPU/thermal quota và power-cut qualification | Review sampling/retention có giữ đủ dữ liệu cho accuracy/trace requirements |
@@ -1222,7 +1225,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
 | [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | Plan 1 accepted | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control; backend là peer theo contract AI APP |
-| [2. Metadata và query](metadata_query_plan.md) | AI APP | **Accepted 2026-09-19**; producer/capacity receipts theo từng app | D01–D18, Q01–Q30, SQLite transactional baseline và measured storage decision |
+| [2. Metadata và query](metadata_query_plan.md) | AI APP | **Reopened 2026-09-19**; ADR 0009 proposed | Spatiotemporal service, live footprint, packed detail shards, rollups và measured cold-tier decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
 | [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1/1A–4 pass | Profiles, board/release acceptance |
@@ -1234,12 +1237,12 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Plan 1, Plan 2 và scope Plan 4 đã accepted theo gate riêng; event/integration vẫn là đề xuất
-  và không tự được nâng status theo các plan đã đóng.
+- Plan 1 và scope Plan 4 đã accepted theo gate riêng. Plan 2 được mở lại vì prototype chưa bao
+  phủ trajectory/footprint/analytics; event/integration vẫn là đề xuất.
 - Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
   vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
-- SQLite `FULL` đã có benchmark fixture QCS6490; DuckDB/Parquet/librdkafka chưa qua dependency
-  và target gate nên vẫn là spike có điều kiện, không được mô tả là production capability.
+- SQLite `FULL` đã có benchmark fixture giao dịch QCS6490 nhưng chưa phải workload metadata đích;
+  DuckDB/Parquet/librdkafka chưa qua dependency và target gate nên vẫn là spike có điều kiện.
 - Chưa có sizing/SLO sản phẩm cuối cùng. Mọi queue, timeout, cadence, quota và retention
   phải từ cấu hình được validate; số minh họa trong tài liệu không thành default runtime.
 - Ưu tiên review R0/R1 và dựng benchmark R2; sau đó làm R3 và R4 thành hai vertical có

@@ -18,7 +18,7 @@ exist in the tree. **Layer:** contracts. **Source:**
   tracked batch (every observation nonzero track ID).
 - Carries optional attributes and typed landmarks without widening the envelope.
 - Must not equate track IDs with face identity or cross-camera person identity.
-- Must not make sensitive values automatically drawable or publishable.
+- Must not make non-renderable or entitlement-scoped values automatically drawable or publishable.
 
 ## Batch and observation fields
 
@@ -32,9 +32,10 @@ person identity.
 An observation contains a model class, pixel-space box, confidence, quality and optional
 attributes. Attribute schema ID/version identify meaning; value is opaque text at this
 boundary so age, gender, clothing, PPE, face-recognition status, plate text and future
-traffic properties can be added without changing the envelope. Sensitive values such as
-embeddings or face identity require a separate reviewed storage/output contract and are
-not automatically drawable or publishable.
+traffic properties can be added without changing the envelope. Embeddings and identity require
+separate typed contracts because their shape, model-space, provenance and output semantics
+differ from text attributes. Current product policy treats them as ordinary metadata; they are
+still not automatically drawable or publishable without the corresponding output entitlement.
 
 ## Landmarks and embeddings
 
@@ -73,7 +74,8 @@ and golden/replay evidence before usecase rollout.
   continuity, entitlement or dataset quality.
 - Model integration must provide authenticity checks and golden/replay evidence before
   usecase rollout.
-- Sensitive values such as embeddings require a separate reviewed storage/output contract.
+- Embeddings require a separate reviewed storage/output contract for model-space and provenance
+  semantics, not because the baseline assigns them a special at-rest storage class.
 
 ## See also
 

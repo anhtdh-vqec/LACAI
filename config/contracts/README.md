@@ -2,7 +2,8 @@
 
 Machine-readable version 1 integration and metadata/query catalogs with conformance cases.
 
-- **Status:** accepted — integration and metadata catalogs pass repository and eSDK checks
+- **Status:** source-delivered — integration registry is accepted; metadata revision 2 passes
+  structural checks while the P2 storage/query architecture is reopened
 - **Naming registry:** `tcont` (`icchk`, `mdqck` checker owners)
 - **Depends on:** canonical version registry and scoped contract documents
 - **Used by:** three-team handoff review and target/model conformance reports
@@ -20,7 +21,7 @@ Machine-readable version 1 integration and metadata/query catalogs with conforma
 |---|---|
 | `integration_contract_registry.json` | Normative owners, limits, semantics and usecase dependencies |
 | `integration_contract_cases.json` | One valid and one rejected baseline case per contract |
-| `metadata_query_catalog.json` | Record, query, usecase and traffic-extension authority |
+| `metadata_query_catalog.json` | Record, query, usecase and traffic-extension authority; its legacy `sensitivity` field names access domains, not at-rest sensitivity |
 | `metadata_query_cases.json` | Required outcome-class matrix for every Q01–Q30 identity |
 
 ## Limits and next work
@@ -30,6 +31,8 @@ Machine-readable version 1 integration and metadata/query catalogs with conforma
 - Product receipts are external controlled artifacts and must not contain credentials, model
   binaries, biometric data or private SDK libraries in Git.
 - Metadata outcome rows are contract coverage, not product/model-quality golden data.
+- Metadata revision 2 classifies identity, embedding-derived association and plate records as
+  ordinary durable metadata. Access domains and export entitlement remain mandatory.
 - Receipts use `config/schemas/integration_contract_receipt.schema.json`; producers leave the
   AI APP-owned consumer disposition at `pending` when submitting a handoff.
 

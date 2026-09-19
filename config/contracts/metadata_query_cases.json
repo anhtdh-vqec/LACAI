@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "catalog_id": "lacai.metadata_query_catalog",
-  "catalog_revision": 1,
+  "catalog_revision": 2,
   "cases": [
     {"query_id":"Q01","outcomes":["positive","negative","unknown","unsupported","expired"]},
     {"query_id":"Q02","outcomes":["positive","negative","unknown","unsupported","expired"]},

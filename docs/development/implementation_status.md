@@ -1,6 +1,6 @@
 # Implementation status — 2026-09-19
 
-2026-09-19 metadata/query foundation (Plan 2: **ACCEPTED**):
+2026-09-19 metadata/query transactional prototype (Plan 2: **REOPENED**):
 
 - Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
   mappings, nine traffic extension profiles and five outcome classes per query. The checker
@@ -13,10 +13,11 @@
   contract test passes through the user-authorized `lacai-home` target. A 20,000-record,
   500-query `FULL`-sync fixture measured 15,048 inserts/s, Q08 p99 16.731 ms, 7,040 KiB
   maximum RSS and 6,651,904 database bytes.
-- SQLite is the accepted hot transactional baseline. Hybrid Parquet/DuckDB remains conditional:
-  the eSDK has no reviewed dependency and there is no representative product workload proving
-  that the added tier is required. This acceptance does not claim service wiring, model quality,
-  18-usecase sizing, Kafka delivery or physical purge execution.
+- SQLite is accepted as transaction/outbox evidence and remains the catalog/detail-shard baseline
+  candidate. The current generic table and flat query request do not cover live footprint,
+  packed trajectories, cross-camera association, concurrent history scans or correction-aware
+  long-range rollups. ADR 0009 and the redesigned P2 plan must qualify the physical tier using a
+  representative workload before P2 can close. Parquet/DuckDB remain unqualified candidates.
 
 2026-09-18 three-team contract baseline (Plan 1: **ACCEPTED**):
 

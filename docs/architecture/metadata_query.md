@@ -1,9 +1,10 @@
-# Metadata query foundation
+# Metadata transactional prototype
 
-This document defines the AI APP-owned version 1 metadata envelope, transactional local
-store and authorized query boundary shared by security and future traffic applications.
+This document records the implemented AI APP-owned version 1 transactional prototype and its
+measured boundary. The target security/traffic metadata subsystem is defined by the
+spatiotemporal metadata architecture.
 
-**Status:** board-smoke — eSDK tests and QCS6490 native test passed on 2026-09-19. **Layer:** adapters. **Source:** `include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp`, `src/core/output/vqec_vision_metadata_query.cpp`, `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp`.
+**Status:** board-smoke — isolated prototype passed eSDK and QCS6490 native tests on 2026-09-19; it is not the accepted P2 target. **Layer:** adapters. **Source:** `include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp`, `src/core/output/vqec_vision_metadata_query.cpp`, `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp`.
 
 ## Responsibility
 
@@ -13,8 +14,9 @@ store and authorized query boundary shared by security and future traffic applic
   file or exposes SQL to clients.
 - The store is a blocking cold/output-path component. It must never execute on a frame,
   inference, DSP completion or renderer worker.
-- Evidence media bytes, tensors, raw frames, face embeddings and model binaries do not enter
-  this database. Records carry bounded facts and references only.
+- Evidence media bytes, tensors, raw frames and model binaries do not enter this prototype
+  database. Typed identity, plate and embedding-derived records may enter the target metadata
+  system as ordinary metadata when their schema and capacity profiles are admitted.
 
 ## Contract model
 
@@ -23,8 +25,10 @@ authority for all 18 record families, 30 query identities, 18 security usecases 
 traffic extension profiles. Every project-owned schema value is baseline version 1.
 
 Each record has an immutable `record_id` and append-only `revision`, source epoch, valid and
-recorded time, provenance revision, explicit value state, one sensitivity scope and a bounded
-payload. A later revision names the immediately preceding revision. A tombstone is a later
+recorded time, provenance revision, explicit value state, one access-domain scope and a bounded
+payload. The current C++ member retains the pre-redesign `sensitivity_scope_` name; it is treated
+as an authorization domain, not an at-rest privacy classification, until the replacement version
+1 contract is approved. A later revision names the immediately preceding revision. A tombstone is a later
 revision; an initial tombstone is rejected. Unknown, not observable, unsupported and expired
 are distinct states and must not be converted to false or an empty result.
 
@@ -87,11 +91,11 @@ The non-CTest benchmark uses `synchronous=FULL`, one transaction per record and 
 | 2,000 / 200 | 15,121 | 1.625 ms | 2.018 ms | 2.093 ms | 5,248 KiB | 663,552 |
 | 20,000 / 500 | 15,048 | 14.855 ms | 16.303 ms | 16.731 ms | 7,040 KiB | 6,651,904 |
 
-SQLite remains the version 1 hot transactional baseline. The approved eSDK contains SQLite
-but no reviewed DuckDB, Arrow or Parquet library, so a hybrid backend does not pass the
-dependency/package gate and was not compared as if it existed. Columnar history is added only
-after a representative workload exceeds an approved SQLite capacity/SLO and an equivalent
-eSDK/board benchmark proves the benefit.
+SQLite remains a valid version 1 catalog/outbox and first detail-shard candidate. The approved
+eSDK contains SQLite but no reviewed DuckDB, Arrow or Parquet library, so a hybrid backend was
+not compared as if it existed. The numbers above do not validate high-rate trajectories,
+cross-camera footprints, concurrent readers/compaction or month/year analytics. ADR 0009 must
+select the physical tier after a representative eSDK/board benchmark.
 
 ## Limits and next work
 
@@ -99,18 +103,23 @@ eSDK/board benchmark proves the benefit.
   qualifies the isolated native boundary, not live inference FPS impact.
 - Query cases define all five required outcome classes for Q01–Q30, but model-quality golden
   data and producer-specific calibration remain activation gates for each usecase.
-- Retention quotas, physical purge orchestration, Kafka delivery, archive manifests and
-  asynchronous long-query jobs are later operational components. Q28/Q29 only expose the
-  stable read/audit foundation delivered here.
-- The SQLite adapter does not yet enforce a private parent directory or encrypt database,
-  WAL and shared-memory files. Plate/identity metadata must remain non-admitted until the
-  deployment supplies and verifies protected storage plus the approved at-rest key policy.
+- The prototype has no frame locator contract, packed trajectory chunks, detail shard lifecycle,
+  live snapshot/delta, query planner, association revisions, correction-aware rollups, archive
+  manifests or asynchronous long-query jobs.
+- Identity, embedding and plate are ordinary metadata under current product policy and may use
+  the normal configured metadata directory. Access checks still apply to every query/output;
+  encryption is not a baseline activation gate.
 - The benchmark is not a sizing profile for 18 simultaneous usecases. A deployment must
   provide measured cardinality, retention and latency budgets before admission.
+- The current flat Q01–Q30 request cannot express geometry, sequence, aggregation, revision and
+  resolution composition. It must not be frozen as the released target ABI.
 
 ## See also
 
 - [Transactional metadata store ADR](../adr/0008_transactional_metadata_store.md)
+- [Spatiotemporal metadata architecture](spatiotemporal_metadata.md)
+- [Spatiotemporal tiering ADR](../adr/0009_spatiotemporal_metadata_tiering.md)
+- [Storage source review](../research/metadata_storage_source_review.md)
 - [Metadata and query plan](../planning/architecture_improvement/metadata_query_plan.md)
 - [Observation contract](observation_contract.md)
 - [Three-team integration registry](../contracts/integration_contract_registry.md)

@@ -37,8 +37,10 @@ For production resource input, see the
 [hardware admission profile](architecture/hardware_admission_profile.md).
 For DSP ownership and the generic protocol requirements, see the
 [Qualcomm FastRPC adapter](architecture/qualcomm_fastrpc_adapter.md).
-For D01–D18 persistence, Q01–Q30 capability semantics and target measurements, see the
-[metadata query foundation](architecture/metadata_query.md).
+For the target footprint, trajectory, cross-camera, event and aggregate design, see the
+[spatiotemporal metadata architecture](architecture/spatiotemporal_metadata.md). The existing
+[metadata transactional prototype](architecture/metadata_query.md) records narrower SQLite
+transaction/outbox measurements.
 
 ## Contracts
 
@@ -76,14 +78,16 @@ are retained and never retroactively updated.
 ## Research
 
 `docs/research/` is a dated reference inventory of vendor/source behavior. It documents
-upstream facts, not LACAI capability.
+upstream facts, not LACAI capability. The
+[metadata storage source review](research/metadata_storage_source_review.md) compares the
+transactional, columnar and moving-feature sources used by the P2 redesign.
 
 ## ADRs
 
 `docs/adr/` records decisions in numeric order; ADR 0001 baseline, 0002 plugin backend,
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
 0006 unwired execution infrastructure, proposed 0007 versioned FastRPC operations, and
-0008 transactional metadata store baseline.
+0008 transactional metadata store baseline, and proposed 0009 spatiotemporal metadata tiering.
 
 ## Operations
 
