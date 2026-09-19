@@ -108,9 +108,12 @@ status vqec_vision_ai_fwctl_amdbs_make_payload_fd(
 }
 
 status vqec_vision_ai_fwctl_amdbs_take_revision(
-    GVariant* _reply, std::uint64_t& _snapshot_revision) {
+    GVariant* _reply, const GError* _error,
+    std::uint64_t& _snapshot_revision) {
     if (_reply == nullptr) {
-        return {status_code::io_error, "App Manager mutation call failed"};
+        return {status_code::io_error,
+            _error == nullptr || _error->message == nullptr ?
+                "App Manager mutation call failed" : _error->message};
     }
     guint64 revision = 0;
     g_variant_get(_reply, "(t)", &revision);
@@ -683,7 +686,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_commit_package(
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
         descriptors, nullptr, nullptr, &error.value_);
     g_object_unref(descriptors);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_rollback(
@@ -711,7 +715,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_rollback(
             static_cast<guint64>(_expected_inventory_revision)),
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE,
         _config.rpc_timeout_ms_, nullptr, &error.value_);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_entitlement(
@@ -755,7 +760,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_entitlement(
         G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_, descriptors, nullptr,
         nullptr, &error.value_);
     g_object_unref(descriptors);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_configuration(
@@ -796,7 +802,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_configuration(
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
         descriptors, nullptr, nullptr, &error.value_);
     g_object_unref(descriptors);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_set_desired(
@@ -818,7 +825,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_set_desired(
             static_cast<guint64>(_update.expected_desired_revision_),
             _update.desired_ ? TRUE : FALSE), G_VARIANT_TYPE("(t)"),
         G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_, nullptr, &error.value_);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_uninstall(
@@ -841,7 +849,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_uninstall(
             static_cast<guint64>(_expected_inventory_revision)),
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE,
         _config.rpc_timeout_ms_, nullptr, &error.value_);
-    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(
+        reply, error.value_, _snapshot_revision);
 }
 
 struct app_manager_dbus_server::implementation : dbus_binding {

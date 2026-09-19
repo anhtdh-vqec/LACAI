@@ -481,6 +481,20 @@ bool vqec_vision_ai_stor_apinv_is_subset(
     return true;
 }
 
+const char* vqec_vision_ai_stor_apinv_effective_reason(
+    bool _supported, bool _compatible, bool _admitted) noexcept {
+    if (!_supported) {
+        return "unsupported";
+    }
+    if (!_compatible) {
+        return "incompatible";
+    }
+    if (!_admitted) {
+        return "resource_limited";
+    }
+    return "verified";
+}
+
 bool vqec_vision_ai_stor_apinv_are_unique_scopes(
     const std::vector<std::string>& _scopes) noexcept {
     if (_scopes.size() > app_lifecycle_limits::g_max_scopes) {
@@ -814,7 +828,9 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
             !vqec_vision_ai_stor_apinv_bind_uint64(
                 handle, 7, grant.expires_utc_ns_) ||
             !vqec_vision_ai_stor_apinv_bind_text(handle, 8, scopes) ||
-            !vqec_vision_ai_stor_apinv_bind_text(handle, 9, grant.reason_code_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 9,
+                vqec_vision_ai_stor_apinv_effective_reason(_request.supported_,
+                    _request.compatible_, _request.admitted_)) ||
             (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
                 status_code::ok) {
             vqec_vision_ai_stor_apinv_rollback(database_);
@@ -1278,15 +1294,19 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
     }
     sqlite_statement update_sources;
     current = vqec_vision_ai_stor_apinv_prepare(database_,
-        "UPDATE app_sources SET supported=?,compatible=?,admitted=? WHERE app_id=?",
+        "UPDATE app_sources SET supported=?,compatible=?,admitted=?,reason_code=? "
+        "WHERE app_id=?",
         update_sources);
     auto* source_handle = update_sources.vqec_vision_ai_stor_apinv_get();
     if (current.code_ != status_code::ok ||
         sqlite3_bind_int(source_handle, 1, _request.supported_ ? 1 : 0) != SQLITE_OK ||
         sqlite3_bind_int(source_handle, 2, _request.compatible_ ? 1 : 0) != SQLITE_OK ||
         sqlite3_bind_int(source_handle, 3, _request.admitted_ ? 1 : 0) != SQLITE_OK ||
+        !vqec_vision_ai_stor_apinv_bind_text(source_handle, 4,
+            vqec_vision_ai_stor_apinv_effective_reason(_request.supported_,
+                _request.compatible_, _request.admitted_)) ||
         !vqec_vision_ai_stor_apinv_bind_text(
-            source_handle, 4, _request.manifest_.app_id_) ||
+            source_handle, 5, _request.manifest_.app_id_) ||
         (current = vqec_vision_ai_stor_apinv_step_done(
             database_, source_handle)).code_ != status_code::ok) {
         vqec_vision_ai_stor_apinv_rollback(database_);
