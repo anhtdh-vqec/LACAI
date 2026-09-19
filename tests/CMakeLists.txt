@@ -435,7 +435,7 @@ add_test(NAME app_manager_options
     add_executable(vqec_vision_ai_cascade_graph_session_test
         unit/application/vqec_vision_cascade_graph_session_test.cpp)
     target_link_libraries(vqec_vision_ai_cascade_graph_session_test
-        PRIVATE vqec_vision_ai_cascade_graph_session vqec_vision_ai_reference)
+        PRIVATE vqec_vision_ai_service_cascade_runtime vqec_vision_ai_reference)
     set_target_properties(vqec_vision_ai_cascade_graph_session_test
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME cascade_graph_lifecycle

@@ -378,15 +378,6 @@ int vqec_vision_ai_appl_svgen_run_generation(
                 cascade_prepared.message_.c_str());
             return 1;
         }
-        const auto cascade_started =
-            vqec_vision_ai_appl_svcsc_start_graphs(cascade_owners);
-        if (cascade_started.code_ != status_code::ok) {
-            std::fprintf(stderr, "cascade graph startup failed (%d): %s\n",
-                static_cast<int>(cascade_started.code_),
-                cascade_started.message_.c_str());
-            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
-            return 1;
-        }
         for (std::uint16_t source_slot = 0; source_slot < deployment.sources_.size();
              ++source_slot) {
             auto& owner = cascade_owners[source_slot];
@@ -717,6 +708,34 @@ int vqec_vision_ai_appl_svgen_run_generation(
         const auto clock_now = vqec_vision_ai_appl_svgen_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now :
             now_ns + args.runtime_step_interval_ns;
+        if (use_production_platform) {
+            std::array<bool, deployment_limits::g_max_sources> cascade_source_ready{};
+            for (std::uint16_t source_slot = 0;
+                 source_slot < deployment.sources_.size(); ++source_slot) {
+                const auto* session =
+                    bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
+                if (session == nullptr) {
+                    continue;
+                }
+                const auto state = session->vqec_vision_ai_appl_mmses_get_snapshot().session_state_;
+                cascade_source_ready[source_slot] =
+                    state == multi_model_session_state::configuring ||
+                    state == multi_model_session_state::loading ||
+                    state == multi_model_session_state::binding ||
+                    state == multi_model_session_state::starting ||
+                    state == multi_model_session_state::running;
+            }
+            const auto cascades_started =
+                vqec_vision_ai_appl_svcsc_start_ready_graphs(
+                    cascade_owners, cascade_source_ready);
+            if (cascades_started.code_ != status_code::ok) {
+                first_error_code = cascades_started.code_;
+                std::fprintf(stderr, "cascade graph startup failed (%d): %s\n",
+                    static_cast<int>(cascades_started.code_),
+                    cascades_started.message_.c_str());
+                break;
+            }
+        }
         runtime_executor_report report;
         const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
         // In threaded source mode an OK step consumed the worker completion and did not

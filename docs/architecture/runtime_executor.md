@@ -93,8 +93,10 @@ are device-free owners, `qualcomm` selects the wired Camera/QNN production owner
 unwired platform name exits non-zero instead of substituting the fixture package set.
 
 For a dependency-activated secondary model, the Qualcomm production service resolves the
-neutral cascade binding, starts its graph before primary activation, configures the
-coordinator from package/graph metadata and binds it to the catalog-derived primary slot.
+neutral cascade binding, configures the coordinator from package/graph metadata and binds
+it to the catalog-derived primary slot before the first executor step. Its graph remains
+idle until the corresponding source session crosses the first-frame gate, and is then
+started before that primary graph can produce schedulable results.
 Shutdown drains the primary composition and retained tasks before the secondary graph is
 drained and unloaded. Startup or stop failure remains visible as a non-zero service result.
 

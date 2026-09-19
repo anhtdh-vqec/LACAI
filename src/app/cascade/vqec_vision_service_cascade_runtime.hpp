@@ -37,8 +37,11 @@ struct service_cascade_owner {
     const deployment_config& _deployment, const model_catalog& _catalog,
     production_platform& _platform,
     std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners);
-[[nodiscard]] status vqec_vision_ai_appl_svcsc_start_graphs(
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners);
+// Starts only sources that have crossed the primary session first-frame gate. A false slot
+// is a hard prohibition on secondary graph configure/load/QNN/HTP activation.
+[[nodiscard]] status vqec_vision_ai_appl_svcsc_start_ready_graphs(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    const std::array<bool, deployment_limits::g_max_sources>& _source_ready);
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_stop_graphs(
     std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners);
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_drain_workers(

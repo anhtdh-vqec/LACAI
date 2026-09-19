@@ -3,6 +3,7 @@
 
 #include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_reference_graph.hpp"
+#include "vqec_vision_service_cascade_runtime.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -10,6 +11,7 @@ namespace {
 
 constexpr std::uint64_t g_startup_timeout_ns = 1000;
 constexpr std::uint64_t g_stop_timeout_ns = 1000;
+constexpr std::uint64_t g_gated_startup_timeout_ns = 1000000000ULL;
 
 cascade_graph_session_config vqec_vision_ai_unit_cgsts_make_config(
     inference_graph_port& _graph) {
@@ -116,10 +118,46 @@ void vqec_vision_ai_unit_cgsts_check_guards() {
         "decreasing steady time was accepted");
 }
 
+void vqec_vision_ai_unit_cgsts_check_source_gate() {
+    reference_inference_graph graph;
+    std::array<service_cascade_owner, deployment_limits::g_max_sources> owners;
+    auto gated_config = vqec_vision_ai_unit_cgsts_make_config(graph);
+    gated_config.startup_timeout_ns_ = g_gated_startup_timeout_ns;
+    gated_config.stop_timeout_ns_ = g_gated_startup_timeout_ns;
+    owners[0].graph_session_ = std::make_unique<cascade_graph_session>(
+        std::move(gated_config));
+    std::array<bool, deployment_limits::g_max_sources> source_ready{};
+
+    vqec_vision_ai_unit_cgsts_require(
+        vqec_vision_ai_appl_svcsc_start_ready_graphs(owners, source_ready).code_ ==
+                status_code::ok &&
+            owners[0].graph_session_->vqec_vision_ai_appl_cgses_get_state() ==
+                cascade_graph_session_state::idle &&
+            graph.vqec_vision_ai_ports_infgr_get_state() == inference_graph_state::empty,
+        "cascade graph crossed a closed first-frame gate");
+
+    source_ready[0] = true;
+    vqec_vision_ai_unit_cgsts_require(
+        vqec_vision_ai_appl_svcsc_start_ready_graphs(owners, source_ready).code_ ==
+            status_code::ok,
+        "ready cascade graph startup failed");
+    vqec_vision_ai_unit_cgsts_require(
+        owners[0].graph_session_->vqec_vision_ai_appl_cgses_get_state() ==
+            cascade_graph_session_state::running,
+        "cascade session did not run after the first-frame gate opened");
+    vqec_vision_ai_unit_cgsts_require(
+        graph.vqec_vision_ai_ports_infgr_get_state() == inference_graph_state::running,
+        "cascade backend did not run after the first-frame gate opened");
+    vqec_vision_ai_unit_cgsts_require(
+        vqec_vision_ai_appl_svcsc_stop_graphs(owners).code_ == status_code::ok,
+        "gated cascade graph did not stop");
+}
+
 }  // namespace
 
 int main() {
     vqec_vision_ai_unit_cgsts_check_lifecycle();
     vqec_vision_ai_unit_cgsts_check_guards();
+    vqec_vision_ai_unit_cgsts_check_source_gate();
     return 0;
 }

@@ -22,8 +22,13 @@ app. **Source:** `src/app/session/vqec_vision_cascade_graph_session.cpp`,
 
 Secondary models consume tensors produced from admitted primary results, so they must not
 be inserted into the full-frame cadence or RAW fan-out owned by `multi_model_session`. A
-graph reaches `running` before the primary source is activated. The cascade coordinator
-owns epoch arming and tensor submission after that point.
+graph is prepared and bound to the executor before the first executor step, but it stays
+`idle` while its primary source is acquiring or waiting for the first frame. The service
+may advance the secondary graph only after the corresponding `multi_model_session` has
+received, validated and released its probe frame. The cascade coordinator owns epoch
+arming and tensor submission after that point. This prevents Qualcomm QNN/HTP activation
+while FW is absent or has not produced media, without introducing a process startup-order
+dependency.
 
 Stop closes new cascade invocation at the caller, requests graph drain, consumes any
 completed result needed to reconcile the graph's submission window, waits for outstanding
@@ -43,8 +48,9 @@ adapters implement the same graph port; no vendor type enters this owner.
 ## Ownership order
 
 1. Platform graph/alignment/decoder owners are prepared.
-2. `cascade_graph_session` starts the secondary graph to `running`.
-3. The primary source composition starts and retains cascade-root frames.
+2. The primary source composition acquires the source and crosses its first-frame gate.
+3. `cascade_graph_session` starts the secondary graph to `running` before primary model
+   results can schedule secondary work.
 4. The serialized coordinator aligns, submits, polls, decodes and completes each retained
    frame ticket.
 5. Primary admission stops and all retained frame tickets drain.

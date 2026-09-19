@@ -216,19 +216,21 @@ status vqec_vision_ai_appl_svcsc_prepare_owners(
     return {};
 }
 
-status vqec_vision_ai_appl_svcsc_start_graphs(
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
-    bool all_running = false;
-    while (!all_running) {
-        all_running = true;
+status vqec_vision_ai_appl_svcsc_start_ready_graphs(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    const std::array<bool, deployment_limits::g_max_sources>& _source_ready) {
+    bool all_ready_graphs_running = false;
+    while (!all_ready_graphs_running) {
+        all_ready_graphs_running = true;
         const auto now_ns = vqec_vision_ai_appl_svcsc_monotonic_ns();
-        for (auto& owner : _owners) {
-            if (owner.graph_session_ == nullptr ||
+        for (std::size_t slot = 0; slot < _owners.size(); ++slot) {
+            auto& owner = _owners[slot];
+            if (!_source_ready[slot] || owner.graph_session_ == nullptr ||
                 owner.graph_session_->vqec_vision_ai_appl_cgses_get_state() ==
                     cascade_graph_session_state::running) {
                 continue;
             }
-            all_running = false;
+            all_ready_graphs_running = false;
             const auto stepped =
                 owner.graph_session_->vqec_vision_ai_appl_cgses_step(now_ns);
             if (stepped.code_ != status_code::ok &&
@@ -236,7 +238,7 @@ status vqec_vision_ai_appl_svcsc_start_graphs(
                 return stepped;
             }
         }
-        if (!all_running) {
+        if (!all_ready_graphs_running) {
             vqec_vision_ai_appl_svcsc_wait_step();
         }
     }
