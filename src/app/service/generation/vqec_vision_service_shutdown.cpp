@@ -108,7 +108,11 @@ int vqec_vision_ai_appl_svshd_stop_and_report(
 
     std::printf("stopping after %llu steps\n",
         static_cast<unsigned long long>(_context.steps_));
-    (void)executor.vqec_vision_ai_appl_rtexe_request_stop(steady_now_ns);
+    bool stopped = executor.vqec_vision_ai_appl_rtexe_get_snapshot().state_ ==
+        application_composition_state::stopped;
+    if (!stopped) {
+        (void)executor.vqec_vision_ai_appl_rtexe_request_stop(steady_now_ns);
+    }
     const auto workers_drained =
         vqec_vision_ai_appl_svcsc_drain_workers(cascade_owners, steady_now_ns);
     if (workers_drained.code_ != status_code::ok &&
@@ -116,7 +120,6 @@ int vqec_vision_ai_appl_svshd_stop_and_report(
         first_error_code = workers_drained.code_;
     }
 
-    bool stopped = false;
     const auto stop_drain_steps =
         service_harness::g_default_stop_timeout_ns / arguments.runtime_step_interval_ns +
         (service_harness::g_default_stop_timeout_ns % arguments.runtime_step_interval_ns != 0U

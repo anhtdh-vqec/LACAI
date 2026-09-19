@@ -15,6 +15,8 @@ namespace service_options_limits {
 // default, not a per-call literal; the deployment may override it at startup.
 inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 10000000;
 inline constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
+inline constexpr std::uint32_t g_default_source_recovery_backoff_ms = 1000;
+inline constexpr std::uint32_t g_max_source_recovery_backoff_ms = 60000;
 inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
 inline constexpr std::uint32_t g_max_app_manager_poll_interval_ms = 60000;
 inline constexpr std::uint32_t g_max_evidence_interval_ms = 60000;
@@ -54,6 +56,8 @@ struct parsed_arguments {
     bool use_model_workers{false};
     std::uint64_t runtime_step_interval_ns{
         service_options_limits::g_default_runtime_step_interval_ns};
+    std::uint32_t source_recovery_backoff_ms{
+        service_options_limits::g_default_source_recovery_backoff_ms};
     std::string model_package_registry_path;
     std::string model_package;
     std::string model_library;

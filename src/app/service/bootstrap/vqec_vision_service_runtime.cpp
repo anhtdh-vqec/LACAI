@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <functional>
+#include <thread>
 #include <utility>
 
 #include "vqec_vision_service_generation.hpp"
@@ -129,9 +130,17 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
             const int outcome = vqec_vision_ai_appl_svgen_run_generation(
                 _argc, _argv, nullptr, &runtime_control, nullptr, poll_control,
                 is_reconcile_requested, generation, 0);
-            if (outcome == g_reconcile_generation_exit_code && reconcile &&
+            if (outcome == g_reconcile_generation_exit_code &&
                 generation != UINT64_MAX) {
-                runtime_control = std::move(pending);
+                if (reconcile) {
+                    runtime_control = std::move(pending);
+                } else {
+                    std::fprintf(stderr,
+                        "\nretrying source generation after %u ms backoff\n",
+                        args.source_recovery_backoff_ms);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(
+                        args.source_recovery_backoff_ms));
+                }
                 ++generation;
                 continue;
             }

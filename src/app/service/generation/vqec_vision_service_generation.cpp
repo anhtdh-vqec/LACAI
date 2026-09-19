@@ -96,6 +96,7 @@ int vqec_vision_ai_appl_svgen_run_generation(
             "--app-manager-service-name <name> --app-manager-client-name <name> "
             "--app-manager-object-path <path> "
             "--app-manager-rpc-timeout-ms <ms> --app-manager-poll-interval-ms <ms>] "
+            "[--source-recovery-backoff-ms <ms>] "
             "[--usecase-dbus|--usecase-dbus-session "
             "--usecase-service-name <name> --usecase-object-path <path> "
             "--usecase-peer-name <name> --usecase-rpc-timeout-ms <ms> "
@@ -454,6 +455,6 @@ int vqec_vision_ai_appl_svgen_run_generation(
     shutdown.recognition_enabled_ = recognition_enabled;
     shutdown.production_platform_ = use_production_platform;
     shutdown.generation_published_ = execution_result.generation_published_;
-    shutdown.reconcile_requested_ = execution_result.reconcile_requested_;
+    shutdown.reconcile_requested_ = execution_result.replacement_requested_;
     return vqec_vision_ai_appl_svshd_stop_and_report(shutdown);
 }

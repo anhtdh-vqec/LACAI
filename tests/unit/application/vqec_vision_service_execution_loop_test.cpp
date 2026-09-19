@@ -34,6 +34,13 @@ int main() {
         30, 30, phase, initialized));
     assert(!initialized);
 
+    assert(vqec_vision_ai_appl_svxlp_is_source_replacement(
+        status_code::invalid_state, true, status_code::source_lost));
+    assert(!vqec_vision_ai_appl_svxlp_is_source_replacement(
+        status_code::invalid_state, true, status_code::timeout));
+    assert(!vqec_vision_ai_appl_svxlp_is_source_replacement(
+        status_code::source_lost, false, status_code::source_lost));
+
     service_execution_context incomplete;
     service_execution_result result;
     const auto rejected =

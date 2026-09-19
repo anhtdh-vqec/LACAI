@@ -117,6 +117,14 @@ bool vqec_vision_ai_appl_svxlp_select_preview(
     return true;
 }
 
+bool vqec_vision_ai_appl_svxlp_is_source_replacement(
+    status_code _step_code, bool _composition_stopped,
+    status_code _first_error_code) noexcept {
+    return _step_code == status_code::invalid_state &&
+        _composition_stopped &&
+        _first_error_code == status_code::source_lost;
+}
+
 status vqec_vision_ai_appl_svxlp_run(
     const service_execution_context& _context,
     service_execution_result& _result) {
@@ -153,7 +161,7 @@ status vqec_vision_ai_appl_svxlp_run(
     std::uint64_t steps = 0;
     std::uint32_t routed_source_mask = 0;
     status_code first_error_code = status_code::ok;
-    bool reconcile_requested = false;
+    bool replacement_requested = false;
     bool generation_published = _context.control_manager_ == nullptr;
 
     while (!_context.stop_requested_() &&
@@ -162,12 +170,12 @@ status vqec_vision_ai_appl_svxlp_run(
             _context.poll_control_();
         }
         if (_context.reconcile_requested_ && _context.reconcile_requested_()) {
-            reconcile_requested = true;
+            replacement_requested = true;
             break;
         }
         if (_context.control_manager_ != nullptr && generation_published &&
             _context.control_manager_->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
-            reconcile_requested = true;
+            replacement_requested = true;
             break;
         }
         const auto clock_now = vqec_vision_ai_appl_svxlp_monotonic_ns();
@@ -204,6 +212,17 @@ status vqec_vision_ai_appl_svxlp_run(
 
         runtime_executor_report report;
         const auto stepped = executor.vqec_vision_ai_appl_rtexe_step(now_ns, report);
+        const auto composition_snapshot =
+            executor.vqec_vision_ai_appl_rtexe_get_snapshot();
+        if (vqec_vision_ai_appl_svxlp_is_source_replacement(
+                stepped.code_, composition_snapshot.state_ ==
+                    application_composition_state::stopped,
+                composition_snapshot.first_error_code_)) {
+            std::fprintf(stderr,
+                "source lost after complete drain; replacing runtime generation\n");
+            replacement_requested = true;
+            break;
+        }
         const bool source_session_quiescent =
             stepped.code_ == status_code::ok && !report.has_cascade_;
         if (report.first_error_code_ != status_code::ok &&
@@ -606,7 +625,7 @@ status vqec_vision_ai_appl_svxlp_run(
     _result.routed_source_mask_ = routed_source_mask;
     _result.first_error_code_ = first_error_code;
     _result.generation_published_ = generation_published;
-    _result.reconcile_requested_ = reconcile_requested;
+    _result.replacement_requested_ = replacement_requested;
     return {};
 }
 

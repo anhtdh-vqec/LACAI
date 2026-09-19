@@ -35,6 +35,9 @@ int main() {
     check(parsed_arguments{}.runtime_step_interval_ns ==
               service_options_limits::g_default_runtime_step_interval_ns,
         "default step interval");
+    check(parsed_arguments{}.source_recovery_backoff_ms ==
+              service_options_limits::g_default_source_recovery_backoff_ms,
+        "default source recovery backoff");
 
     {
         parsed_arguments args;
@@ -76,12 +79,28 @@ int main() {
             "step interval parse");
         check(args.runtime_step_interval_ns == 15000000ULL, "step interval converted to ns");
 
+        parsed_arguments recovery;
+        check(vqec_vision_ai_unit_sotst_parse(
+                  {"app", "--deployment", "d", "--model-catalog", "c",
+                      "--source-recovery-backoff-ms", "250"},
+                  recovery),
+            "source recovery backoff parse");
+        check(recovery.source_recovery_backoff_ms == 250,
+            "source recovery backoff captured");
+
         parsed_arguments zero;
         check(!vqec_vision_ai_unit_sotst_parse(
                   {"app", "--deployment", "d", "--model-catalog", "c",
                       "--runtime-step-interval-us", "0"},
                   zero),
             "zero step interval rejected");
+
+        parsed_arguments zero_recovery;
+        check(!vqec_vision_ai_unit_sotst_parse(
+                  {"app", "--deployment", "d", "--model-catalog", "c",
+                      "--source-recovery-backoff-ms", "0"},
+                  zero_recovery),
+            "zero source recovery backoff rejected");
     }
     {
         parsed_arguments args;

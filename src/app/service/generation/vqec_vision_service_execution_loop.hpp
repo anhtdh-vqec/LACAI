@@ -56,8 +56,14 @@ struct service_execution_result {
     std::uint32_t routed_source_mask_{0};
     status_code first_error_code_{status_code::ok};
     bool generation_published_{false};
-    bool reconcile_requested_{false};
+    bool replacement_requested_{false};
 };
+
+// A fully drained source-loss generation is safe to replace with fresh owners. Other
+// stopped/faulted states remain fatal so QNN or ownership failures cannot enter a retry loop.
+[[nodiscard]] bool vqec_vision_ai_appl_svxlp_is_source_replacement(
+    status_code _step_code, bool _composition_stopped,
+    status_code _first_error_code) noexcept;
 
 // Fixed-capacity rational preview cadence. The phase is generation-owned and must not be
 // shared across sources or survive a generation replacement.

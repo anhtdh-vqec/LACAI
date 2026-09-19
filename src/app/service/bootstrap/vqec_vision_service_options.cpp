@@ -54,6 +54,15 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             }
             _args.runtime_step_interval_ns =
                 interval_us * service_options_limits::g_nanoseconds_per_microsecond;
+        } else if (option == "--source-recovery-backoff-ms" && has_value) {
+            const auto backoff_ms = std::strtoul(_argv[++index], nullptr, 10);
+            if (backoff_ms == 0 ||
+                backoff_ms > service_options_limits::g_max_source_recovery_backoff_ms) {
+                std::fprintf(stderr, "invalid source recovery backoff\n");
+                return false;
+            }
+            _args.source_recovery_backoff_ms =
+                static_cast<std::uint32_t>(backoff_ms);
         } else if (option == "--model-catalog" && has_value) {
             _args.catalog_path = _argv[++index];
         } else if (option == "--feature-catalog" && has_value) {

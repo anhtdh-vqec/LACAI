@@ -21,6 +21,7 @@ g_camera_start_delay_seconds=${LACAI_CAMERA_START_DELAY_SECONDS:-5}
 g_preview_ready_timeout_seconds=${LACAI_PREVIEW_READY_TIMEOUT_SECONDS:-120}
 g_stop_timeout_seconds=${LACAI_STOP_TIMEOUT_SECONDS:-30}
 g_runtime_step_interval_us=${LACAI_RUNTIME_STEP_INTERVAL_US:-8000}
+g_source_recovery_backoff_ms=${LACAI_SOURCE_RECOVERY_BACKOFF_MS:-1000}
 g_service=${LACAI_SERVICE:-$g_root/bin/vqec_ai_vision_applications}
 g_app_manager=${LACAI_APP_MANAGER:-$g_root/bin/vqec_vision_app_manager}
 g_app_control=${LACAI_APP_CONTROL:-$g_root/bin/vqec_vision_app_manager_control}
@@ -88,6 +89,7 @@ for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
     "$g_camera_start_delay_seconds" \
     "$g_preview_ready_timeout_seconds" "$g_stop_timeout_seconds" \
     "$g_runtime_step_interval_us" "$g_evidence_io_timeout_ms" \
+    "$g_source_recovery_backoff_ms" \
     "$g_evidence_busy_timeout_ms" "$g_evidence_outbox_max_bytes" \
     "$g_evidence_initial_retry_ms" "$g_evidence_maximum_retry_ms" \
     "$g_evidence_idle_poll_ms" "$g_evidence_stop_drain_ms" \
@@ -606,6 +608,7 @@ setsid env \
     --mode production --platform qualcomm \
     --model-execution parallel \
     --runtime-step-interval-us "$g_runtime_step_interval_us" \
+    --source-recovery-backoff-ms "$g_source_recovery_backoff_ms" \
     --deployment "$g_deployment" \
     --model-catalog "$g_model_catalog" \
     --feature-catalog "$g_feature_catalog" \
