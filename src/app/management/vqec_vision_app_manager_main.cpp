@@ -1,8 +1,10 @@
 #include <chrono>
 #include <csignal>
 #include <cstdio>
+#include <fstream>
 #include <thread>
 
+#include "vqec_vision_app_catalog.hpp"
 #include "vqec_vision_app_configuration_registry.hpp"
 #include "vqec_vision_app_manager.hpp"
 #include "vqec_vision_app_manager_dbus.hpp"
@@ -22,15 +24,24 @@ int main(int argc, char** argv) {
             vqec_vision_ai_appl_amopt_usage());
         return 2;
     }
+    std::ifstream catalog_stream(options.app_catalog_path_, std::ios::binary);
+    usecase_app_catalog catalog;
+    auto current = catalog_stream ?
+        vqec_vision_ai_lifec_apcat_load(catalog_stream, catalog) :
+        status{status_code::io_error, "cannot open App Manager catalog"};
+    if (current.code_ != status_code::ok) {
+        std::fprintf(stderr, "App Manager catalog failed: %s\n", current.message_.c_str());
+        return 3;
+    }
     app_configuration_registry registry;
     fire_smoke_factory fire_smoke;
-    auto current = registry.vqec_vision_ai_appl_apcrg_register(
+    current = registry.vqec_vision_ai_appl_apcrg_register(
         fire_smoke_app_contract::g_app_id,
         fire_smoke_app_contract::g_configuration_schema_id,
         fire_smoke_app_contract::g_processor_contract, fire_smoke);
     if (current.code_ != status_code::ok) {
         std::fprintf(stderr, "App Manager registry failed: %s\n", current.message_.c_str());
-        return 3;
+        return 4;
     }
     sqlite_app_inventory inventory({options.database_path_,
         options.max_database_bytes_, options.busy_timeout_ms_});
@@ -41,12 +52,12 @@ int main(int argc, char** argv) {
     ed25519_app_entitlement_verifier entitlement_verifier(
         {options.public_key_path_, options.key_id_});
     app_manager manager({options.target_id_, options.device_id_, options.capacity_},
-        verifier, entitlement_verifier, registry, content_store, inventory);
+        verifier, entitlement_verifier, registry, catalog, content_store, inventory);
     runtime_control_snapshot snapshot;
     current = manager.vqec_vision_ai_appl_appmn_open(snapshot);
     if (current.code_ != status_code::ok) {
         std::fprintf(stderr, "App Manager inventory failed: %s\n", current.message_.c_str());
-        return 4;
+        return 5;
     }
     app_manager_dbus_server server;
     current = server.vqec_vision_ai_fwctl_amdbs_open(manager,
@@ -56,7 +67,7 @@ int main(int argc, char** argv) {
             options.max_callbacks_per_poll_, options.use_session_bus_});
     if (current.code_ != status_code::ok) {
         std::fprintf(stderr, "App Manager D-Bus failed: %s\n", current.message_.c_str());
-        return 5;
+        return 6;
     }
     static volatile std::sig_atomic_t stop_requested = 0;
     const auto stop = +[](int) { stop_requested = 1; };

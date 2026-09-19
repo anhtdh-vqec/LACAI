@@ -14,6 +14,7 @@ struct app_manager_options {
     std::string target_id_;
     std::string device_id_;
     app_resource_envelope capacity_;
+    std::string app_catalog_path_;
     std::string database_path_;
     std::uint64_t max_database_bytes_{0};
     std::string content_store_directory_;

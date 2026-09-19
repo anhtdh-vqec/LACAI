@@ -118,6 +118,23 @@ public:
         vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
         return {};
     }
+    status vqec_vision_ai_ports_apmgr_list_applications(
+        const std::string& _source_id,
+        std::vector<app_catalog_status>& _applications) const override {
+        if (_source_id != "camera_front") {
+            return {status_code::invalid_argument, "unexpected catalog source"};
+        }
+        _applications = {
+            {{"S01", "security.restricted_area_smoking",
+                 "Restricted Area Smoking", "1.0.0", true},
+                _source_id, false, false, false, false, false,
+                app_install_state::not_installed, "unsupported", 4},
+            {{"S04", "security.fire_smoke_detection",
+                 "Fire and Smoke Detection", "1.0.0", true},
+                _source_id, true, true, true, false, false,
+                app_install_state::installed_disabled, "installed_disabled", 4}};
+        return {};
+    }
     status vqec_vision_ai_ports_apmgr_submit_install(
         const app_operation_request&, const app_package_candidate&,
         std::uint64_t, app_operation_record&) override {
@@ -376,6 +393,32 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
                 std::future_status::ready ||
             !repeated_fetch.get()) {
             throw std::runtime_error("App Manager client cannot refresh a snapshot");
+        }
+        auto list_call = std::async(std::launch::async,
+            [&client, &client_config]() {
+                std::vector<app_catalog_status> applications;
+                const auto listed =
+                    client.vqec_vision_ai_fwctl_amdbs_list_applications(
+                        client_config, "camera_front", applications);
+                return listed.code_ == status_code::ok &&
+                    applications.size() == 2U &&
+                    !applications[0].supported_ &&
+                    applications[1].installed_ &&
+                    applications[1].state_ ==
+                        app_install_state::installed_disabled;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             list_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (list_call.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready ||
+            !list_call.get()) {
+            throw std::runtime_error("App Manager catalog wire is invalid");
         }
         const std::vector<std::uint8_t> configuration{'{', '}'};
         auto configuration_call = std::async(std::launch::async,

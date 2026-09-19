@@ -27,6 +27,7 @@ int main() {
         "--device-id", "09c89b1858f54955a3d13f2767622448",
         "--max-resident-bytes", "536870912", "--max-tensor-bytes", "134217728",
         "--max-active-incidents", "32", "--max-events-per-second", "64",
+        "--app-catalog", "/etc/lacai/usecase_app_catalog.json",
         "--database", "/var/lib/lacai/apps.db", "--max-database-bytes",
         "67108864", "--content-store", "/var/lib/lacai/content",
         "--max-content-store-bytes", "1073741824", "--max-content-blob-bytes",
@@ -48,7 +49,7 @@ int main() {
     assert(vqec_vision_ai_unit_amotst_parse(unknown, options).code_ ==
         status_code::invalid_argument);
     auto relative = valid;
-    relative[14] = "relative.db";
+    relative[14] = "relative.json";
     assert(vqec_vision_ai_unit_amotst_parse(relative, options).code_ ==
         status_code::invalid_argument);
     auto busy_spin = valid;

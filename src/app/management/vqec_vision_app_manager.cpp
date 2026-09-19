@@ -35,11 +35,13 @@ app_manager::app_manager(app_manager_config _config,
     app_package_verifier_port& _package_verifier,
     app_entitlement_verifier_port& _entitlement_verifier,
     app_configuration_registry& _configuration_registry,
-    app_content_store_port& _content_store, app_inventory_port& _inventory)
+    const usecase_app_catalog& _catalog, app_content_store_port& _content_store,
+    app_inventory_port& _inventory)
     : config_(std::move(_config)),
       package_verifier_(_package_verifier),
       entitlement_verifier_(_entitlement_verifier),
       configuration_registry_(_configuration_registry),
+      catalog_(_catalog),
       content_store_(_content_store),
       inventory_(_inventory) {}
 
@@ -76,6 +78,14 @@ const app_runtime_association* app_manager::vqec_vision_ai_appl_appmn_find_assoc
             return _association.app_id_ == _app_id;
         });
     return found == _snapshot.associations_.end() ? nullptr : &*found;
+}
+
+bool app_manager::vqec_vision_ai_appl_appmn_is_catalogued(
+    const std::string& _app_id) const noexcept {
+    return std::any_of(catalog_.applications_.begin(), catalog_.applications_.end(),
+        [&_app_id](const auto& _application) {
+            return _application.app_id_ == _app_id && _application.published_;
+        });
 }
 
 status app_manager::vqec_vision_ai_appl_appmn_stage_package_content(
@@ -144,7 +154,11 @@ status app_manager::vqec_vision_ai_appl_appmn_open(
         config_.capacity_.max_events_per_second_ <= 0.0) {
         return {status_code::invalid_argument, "invalid app manager target or capacity"};
     }
-    auto current = content_store_.vqec_vision_ai_ports_apcst_open();
+    auto current = vqec_vision_ai_core_applc_validate_catalog(catalog_);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    current = content_store_.vqec_vision_ai_ports_apcst_open();
     if (current.code_ == status_code::ok) {
         current = inventory_.vqec_vision_ai_ports_apinv_open();
     }
@@ -193,6 +207,10 @@ status app_manager::vqec_vision_ai_appl_appmn_commit_package(
     current = vqec_vision_ai_core_applc_validate_manifest(package.manifest_);
     if (current.code_ != status_code::ok) {
         return current;
+    }
+    if (!vqec_vision_ai_appl_appmn_is_catalogued(package.manifest_.app_id_)) {
+        return {status_code::unauthorized,
+            "application is not published in the product catalog"};
     }
     if (std::find(package.manifest_.target_ids_.begin(),
             package.manifest_.target_ids_.end(), config_.target_id_) ==
@@ -556,6 +574,10 @@ status app_manager::vqec_vision_ai_appl_appmn_apply_entitlement(
         return {status_code::unauthorized,
             "entitlement scope or verification receipt is invalid"};
     }
+    if (!vqec_vision_ai_appl_appmn_is_catalogued(grant.app_id_)) {
+        return {status_code::unauthorized,
+            "entitlement application is not published in the product catalog"};
+    }
     const auto utc_now_ns = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
@@ -632,6 +654,82 @@ status app_manager::vqec_vision_ai_appl_appmn_get_snapshot(
     return inventory_.vqec_vision_ai_ports_apinv_load_snapshot(_snapshot);
 }
 
+status app_manager::vqec_vision_ai_appl_appmn_list_applications(
+    const std::string& _source_id,
+    std::vector<app_catalog_status>& _applications) const {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _source_id, app_lifecycle_limits::g_max_identifier_bytes)) {
+        return {status_code::invalid_argument, "invalid app catalog source identity"};
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    runtime_control_snapshot snapshot;
+    auto current = inventory_.vqec_vision_ai_ports_apinv_load_snapshot(snapshot);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    std::vector<app_catalog_status> applications;
+    try {
+        applications.reserve(catalog_.applications_.size());
+        for (const auto& entry : catalog_.applications_) {
+            app_catalog_status item;
+            item.catalog_ = entry;
+            item.source_id_ = _source_id;
+            item.supported_ = entry.published_ &&
+                configuration_registry_.vqec_vision_ai_appl_apcrg_supports_app(
+                    entry.app_id_);
+            item.snapshot_revision_ = snapshot.snapshot_revision_;
+            const auto association = std::find_if(snapshot.associations_.begin(),
+                snapshot.associations_.end(), [&entry, &_source_id](const auto& _value) {
+                    return _value.app_id_ == entry.app_id_ &&
+                        _value.source_id_ == _source_id;
+                });
+            if (!entry.published_) {
+                item.reason_code_ = "not_published";
+            } else if (association == snapshot.associations_.end() ||
+                       !association->installed_) {
+                item.entitled_ = association != snapshot.associations_.end() &&
+                    association->entitled_;
+                item.state_ = app_install_state::not_installed;
+                item.reason_code_ = item.supported_ ? "not_installed" : "unsupported";
+            } else {
+                item.installed_ = true;
+                item.entitled_ = association->entitled_;
+                item.desired_ = association->desired_;
+                item.effective_ = association->is_effective();
+                if (!item.supported_ || !association->supported_) {
+                    item.state_ = app_install_state::incompatible;
+                    item.reason_code_ = "unsupported";
+                } else if (!association->entitled_) {
+                    item.state_ = app_install_state::locked;
+                    item.reason_code_ = "entitlement_required";
+                } else if (!association->compatible_) {
+                    item.state_ = app_install_state::incompatible;
+                    item.reason_code_ = "incompatible";
+                } else if (!association->admitted_) {
+                    item.state_ = app_install_state::resource_limited;
+                    item.reason_code_ = "resource_limited";
+                } else if (item.effective_) {
+                    item.state_ = app_install_state::running;
+                    item.reason_code_ = "running";
+                } else {
+                    item.state_ = app_install_state::installed_disabled;
+                    item.reason_code_ = association->reason_code_.empty() ?
+                        "installed_disabled" : association->reason_code_;
+                }
+            }
+            applications.push_back(std::move(item));
+        }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "cannot allocate app catalog status"};
+    }
+    _applications = std::move(applications);
+    return {};
+}
+
 status app_manager::vqec_vision_ai_ports_apmgr_install(
     const app_package_candidate& _candidate,
     std::uint64_t _expected_inventory_revision,
@@ -687,6 +785,13 @@ status app_manager::vqec_vision_ai_ports_apmgr_uninstall(
 status app_manager::vqec_vision_ai_ports_apmgr_get_snapshot(
     runtime_control_snapshot& _snapshot) const {
     return vqec_vision_ai_appl_appmn_get_snapshot(_snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_list_applications(
+    const std::string& _source_id,
+    std::vector<app_catalog_status>& _applications) const {
+    return vqec_vision_ai_appl_appmn_list_applications(
+        _source_id, _applications);
 }
 
 status app_manager::vqec_vision_ai_ports_apmgr_submit_install(

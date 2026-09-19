@@ -41,6 +41,9 @@ public:
         runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_list_applications(
+        const std::string& _source_id,
+        std::vector<app_catalog_status>& _applications) const = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_install(
         const app_operation_request& _operation_request,
         const app_package_candidate& _candidate,

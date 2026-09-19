@@ -50,6 +50,7 @@ const char* vqec_vision_ai_appl_amopt_usage() noexcept {
     return "vqec_vision_app_manager --target <id> --device-id <id> "
            "--max-resident-bytes <bytes> --max-tensor-bytes <bytes> "
            "--max-active-incidents <count> --max-events-per-second <count> "
+           "--app-catalog <absolute-path> "
            "--database <absolute-path> "
            "--max-database-bytes <bytes> --busy-timeout-ms <ms> "
            "--content-store <absolute-directory> --max-content-store-bytes <bytes> "
@@ -96,6 +97,8 @@ status vqec_vision_ai_appl_amopt_parse(
         } else if (option == "--max-events-per-second" &&
                    vqec_vision_ai_appl_amopt_read_u64(value, number)) {
             candidate.capacity_.max_events_per_second_ = static_cast<double>(number);
+        } else if (option == "--app-catalog") {
+            candidate.app_catalog_path_ = value;
         } else if (option == "--database") {
             candidate.database_path_ = value;
         } else if (option == "--max-database-bytes" &&
@@ -155,6 +158,7 @@ status vqec_vision_ai_appl_amopt_parse(
             candidate.capacity_.max_resident_bytes_ ||
         candidate.capacity_.max_active_incidents_ == 0 ||
         candidate.capacity_.max_events_per_second_ <= 0.0 ||
+        !std::filesystem::path(candidate.app_catalog_path_).is_absolute() ||
         !std::filesystem::path(candidate.database_path_).is_absolute() ||
         !std::filesystem::path(candidate.content_store_directory_).is_absolute() ||
         !std::filesystem::path(candidate.public_key_path_).is_absolute() ||

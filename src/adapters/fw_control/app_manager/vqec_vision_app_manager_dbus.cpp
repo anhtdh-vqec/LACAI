@@ -50,6 +50,7 @@ constexpr char g_introspection_xml[] =
     "<method name='SetDesired'><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='b' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='Uninstall'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='GetSnapshot'><arg type='s' direction='out'/></method>"
+    "<method name='ListApplications'><arg type='s' direction='in'/><arg type='a(ssssbbbbbbust)' direction='out'/></method>"
     "</interface></node>";
 
 struct error_owner {
@@ -532,6 +533,37 @@ void vqec_vision_ai_fwctl_amdbs_snapshot(app_manager_port& _port,
         g_variant_new("(s)", stream.str().c_str()));
 }
 
+void vqec_vision_ai_fwctl_amdbs_list_applications(
+    app_manager_port& _port, GVariant* _parameters,
+    GDBusMethodInvocation* _invocation) {
+    const gchar* source_id = nullptr;
+    g_variant_get(_parameters, "(&s)", &source_id);
+    std::vector<app_catalog_status> applications;
+    const auto queried = _port.vqec_vision_ai_ports_apmgr_list_applications(
+        source_id == nullptr ? "" : source_id, applications);
+    if (queried.code_ != status_code::ok) {
+        vqec_vision_ai_fwctl_amdbs_return_error(_invocation, queried);
+        return;
+    }
+    GVariantBuilder builder;
+    g_variant_builder_init(&builder, G_VARIANT_TYPE("a(ssssbbbbbbust)"));
+    for (const auto& item : applications) {
+        g_variant_builder_add(&builder, "(ssssbbbbbbust)",
+            item.catalog_.catalog_code_.c_str(), item.catalog_.app_id_.c_str(),
+            item.catalog_.display_name_.c_str(), item.catalog_.app_version_.c_str(),
+            static_cast<gboolean>(item.catalog_.published_),
+            static_cast<gboolean>(item.supported_),
+            static_cast<gboolean>(item.installed_),
+            static_cast<gboolean>(item.entitled_),
+            static_cast<gboolean>(item.desired_),
+            static_cast<gboolean>(item.effective_),
+            static_cast<guint32>(item.state_), item.reason_code_.c_str(),
+            static_cast<guint64>(item.snapshot_revision_));
+    }
+    g_dbus_method_invocation_return_value(_invocation,
+        g_variant_new("(@a(ssssbbbbbbust))", g_variant_builder_end(&builder)));
+}
+
 bool vqec_vision_ai_fwctl_amdbs_is_named_sender(GDBusConnection* _connection,
     const std::string& _trusted_bus_name, int _rpc_timeout_ms,
     const char* _sender) {
@@ -636,6 +668,10 @@ void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection* _connection,
         } else if (g_strcmp0(_method_name,
                        app_manager_dbus_protocol::g_snapshot_method) == 0) {
             vqec_vision_ai_fwctl_amdbs_snapshot(*binding->port_, _invocation);
+        } else if (g_strcmp0(_method_name,
+                       app_manager_dbus_protocol::g_list_applications_method) == 0) {
+            vqec_vision_ai_fwctl_amdbs_list_applications(
+                *binding->port_, _parameters, _invocation);
         } else {
             g_dbus_method_invocation_return_error_literal(_invocation, G_DBUS_ERROR,
                 G_DBUS_ERROR_UNKNOWN_METHOD, "unknown app manager method");
@@ -765,6 +801,109 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
     }
     std::istringstream stream(payload);
     return vqec_vision_ai_lifec_rcsnp_load(stream, _snapshot);
+}
+
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_list_applications(
+    const app_manager_dbus_client_config& _config,
+    const std::string& _source_id,
+    std::vector<app_catalog_status>& _applications) {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _source_id, app_lifecycle_limits::g_max_identifier_bytes)) {
+        return {status_code::invalid_argument,
+            "invalid App Manager catalog source identity"};
+    }
+    std::string unique_owner;
+    auto current = implementation_->vqec_vision_ai_fwctl_amdbs_prepare(
+        _config, unique_owner);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    error_owner error;
+    GVariant* reply = g_dbus_connection_call_sync(implementation_->connection_,
+        unique_owner.c_str(), _config.object_path_.c_str(),
+        app_manager_dbus_protocol::g_interface_name,
+        app_manager_dbus_protocol::g_list_applications_method,
+        g_variant_new("(s)", _source_id.c_str()),
+        G_VARIANT_TYPE("(a(ssssbbbbbbust))"), G_DBUS_CALL_FLAGS_NONE,
+        _config.rpc_timeout_ms_, nullptr, &error.value_);
+    if (reply == nullptr) {
+        return {status_code::io_error, "App Manager ListApplications failed"};
+    }
+    GVariant* entries = nullptr;
+    g_variant_get(reply, "(@a(ssssbbbbbbust))", &entries);
+    g_variant_unref(reply);
+    if (entries == nullptr ||
+        g_variant_n_children(entries) > app_lifecycle_limits::g_max_applications) {
+        if (entries != nullptr) {
+            g_variant_unref(entries);
+        }
+        return {status_code::protocol_error,
+            "App Manager catalog exceeds application limit"};
+    }
+    std::vector<app_catalog_status> applications;
+    usecase_app_catalog catalog;
+    catalog.schema_version_ = app_lifecycle_limits::g_schema_version;
+    catalog.catalog_id_ = "dbus.app_catalog";
+    catalog.revision_ = 1;
+    try {
+        applications.reserve(g_variant_n_children(entries));
+        catalog.applications_.reserve(g_variant_n_children(entries));
+        GVariantIter iterator;
+        g_variant_iter_init(&iterator, entries);
+        const gchar* catalog_code = nullptr;
+        const gchar* app_id = nullptr;
+        const gchar* display_name = nullptr;
+        const gchar* app_version = nullptr;
+        gboolean published = FALSE;
+        gboolean supported = FALSE;
+        gboolean installed = FALSE;
+        gboolean entitled = FALSE;
+        gboolean desired = FALSE;
+        gboolean effective = FALSE;
+        guint32 state = 0;
+        const gchar* reason_code = nullptr;
+        guint64 snapshot_revision = 0;
+        while (g_variant_iter_next(&iterator, "(&s&s&s&sbbbbbbu&st)",
+                   &catalog_code, &app_id, &display_name, &app_version,
+                   &published, &supported, &installed, &entitled, &desired,
+                   &effective, &state, &reason_code, &snapshot_revision)) {
+            app_catalog_status item;
+            item.catalog_ = {catalog_code == nullptr ? "" : catalog_code,
+                app_id == nullptr ? "" : app_id,
+                display_name == nullptr ? "" : display_name,
+                app_version == nullptr ? "" : app_version, published != FALSE};
+            item.source_id_ = _source_id;
+            item.supported_ = supported != FALSE;
+            item.installed_ = installed != FALSE;
+            item.entitled_ = entitled != FALSE;
+            item.desired_ = desired != FALSE;
+            item.effective_ = effective != FALSE;
+            item.reason_code_ = reason_code == nullptr ? "" : reason_code;
+            item.snapshot_revision_ = snapshot_revision;
+            if (state > static_cast<guint32>(app_install_state::faulted) ||
+                !vqec_vision_ai_cntr_ident_is_valid(item.reason_code_,
+                    app_lifecycle_limits::g_max_identifier_bytes) ||
+                item.snapshot_revision_ == 0) {
+                g_variant_unref(entries);
+                return {status_code::protocol_error,
+                    "App Manager returned invalid catalog status"};
+            }
+            item.state_ = static_cast<app_install_state>(state);
+            catalog.applications_.push_back(item.catalog_);
+            applications.push_back(std::move(item));
+        }
+    } catch (const std::bad_alloc&) {
+        g_variant_unref(entries);
+        return {status_code::resource_exhausted,
+            "cannot allocate App Manager catalog response"};
+    }
+    g_variant_unref(entries);
+    current = vqec_vision_ai_core_applc_validate_catalog(catalog);
+    if (current.code_ != status_code::ok) {
+        return {status_code::protocol_error, current.message_};
+    }
+    _applications = std::move(applications);
+    return {};
 }
 
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(

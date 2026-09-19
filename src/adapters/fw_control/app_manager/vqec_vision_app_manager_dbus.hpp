@@ -24,6 +24,7 @@ inline constexpr char g_entitlement_method[] = "ApplyEntitlement";
 inline constexpr char g_desired_method[] = "SetDesired";
 inline constexpr char g_uninstall_method[] = "Uninstall";
 inline constexpr char g_snapshot_method[] = "GetSnapshot";
+inline constexpr char g_list_applications_method[] = "ListApplications";
 }  // namespace app_manager_dbus_protocol
 
 struct app_manager_dbus_config {
@@ -54,6 +55,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
         const app_manager_dbus_client_config& _config,
         runtime_control_snapshot& _snapshot);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_list_applications(
+        const app_manager_dbus_client_config& _config,
+        const std::string& _source_id,
+        std::vector<app_catalog_status>& _applications);
     [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_install(
         const app_manager_dbus_client_config& _config,
         const app_package_candidate& _candidate,

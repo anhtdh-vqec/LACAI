@@ -30,7 +30,8 @@ public:
     app_manager(app_manager_config _config, app_package_verifier_port& _package_verifier,
         app_entitlement_verifier_port& _entitlement_verifier,
         app_configuration_registry& _configuration_registry,
-        app_content_store_port& _content_store, app_inventory_port& _inventory);
+        const usecase_app_catalog& _catalog, app_content_store_port& _content_store,
+        app_inventory_port& _inventory);
     ~app_manager() noexcept;
 
     [[nodiscard]] status vqec_vision_ai_appl_appmn_open(
@@ -65,6 +66,9 @@ public:
         runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_get_snapshot(
         runtime_control_snapshot& _snapshot) const;
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_list_applications(
+        const std::string& _source_id,
+        std::vector<app_catalog_status>& _applications) const;
     [[nodiscard]] status vqec_vision_ai_appl_appmn_submit_package(
         const app_operation_request& _operation_request,
         const app_package_candidate& _candidate,
@@ -102,6 +106,9 @@ public:
         runtime_control_snapshot& _snapshot) override;
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_list_applications(
+        const std::string& _source_id,
+        std::vector<app_catalog_status>& _applications) const override;
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_submit_install(
         const app_operation_request& _operation_request,
         const app_package_candidate& _candidate,
@@ -131,6 +138,8 @@ private:
         vqec_vision_ai_appl_appmn_find_association(
             const runtime_control_snapshot& _snapshot,
             const std::string& _app_id) const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_appmn_is_catalogued(
+        const std::string& _app_id) const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_appmn_stage_package_content(
         const app_package_candidate& _candidate,
         const verified_app_package& _package,
@@ -148,6 +157,7 @@ private:
     app_package_verifier_port& package_verifier_;
     app_entitlement_verifier_port& entitlement_verifier_;
     app_configuration_registry& configuration_registry_;
+    const usecase_app_catalog& catalog_;
     app_content_store_port& content_store_;
     app_inventory_port& inventory_;
     mutable std::mutex mutex_;

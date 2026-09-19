@@ -185,6 +185,15 @@ add_test(NAME app_manager_options
             COMMAND vqec_vision_ai_feature_catalog_loader_test)
     endif()
     if(TARGET vqec_vision_ai_app_manifest)
+        add_executable(vqec_vision_ai_app_catalog_test
+            unit/runtime/vqec_vision_app_catalog_test.cpp)
+        target_link_libraries(vqec_vision_ai_app_catalog_test
+            PRIVATE vqec_vision_ai_app_manifest)
+        target_compile_definitions(vqec_vision_ai_app_catalog_test PRIVATE
+            VQEC_VISION_AI_APP_CATALOG_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_catalog.example.json")
+        set_target_properties(vqec_vision_ai_app_catalog_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME app_catalog_loading COMMAND vqec_vision_ai_app_catalog_test)
         add_executable(vqec_vision_ai_app_manifest_test
             unit/runtime/vqec_vision_app_manifest_test.cpp)
         target_link_libraries(vqec_vision_ai_app_manifest_test

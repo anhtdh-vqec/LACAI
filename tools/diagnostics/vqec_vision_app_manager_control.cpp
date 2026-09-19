@@ -190,11 +190,30 @@ status vqec_vision_ai_tools_amctl_read_file(
 }
 
 void vqec_vision_ai_tools_amctl_usage() {
-    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|update|rollback|"
+    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|list|install|update|rollback|"
                  "submit-install|submit-update|submit-rollback|operation|cancel-operation|"
                  "configure|entitlement|desired|uninstall> --service-name <name> "
                  "--client-name <name> "
                  "--object-path <path> --rpc-timeout-ms <ms> [--session] [command options]\n";
+}
+
+void vqec_vision_ai_tools_amctl_write_applications(
+    const std::vector<app_catalog_status>& _applications) {
+    for (const auto& item : _applications) {
+        std::cout << "catalog_code=" << item.catalog_.catalog_code_
+                  << " app_id=" << item.catalog_.app_id_
+                  << " display_name=\"" << item.catalog_.display_name_ << '"'
+                  << " app_version=" << item.catalog_.app_version_
+                  << " published=" << (item.catalog_.published_ ? "true" : "false")
+                  << " supported=" << (item.supported_ ? "true" : "false")
+                  << " installed=" << (item.installed_ ? "true" : "false")
+                  << " entitled=" << (item.entitled_ ? "true" : "false")
+                  << " desired=" << (item.desired_ ? "true" : "false")
+                  << " effective=" << (item.effective_ ? "true" : "false")
+                  << " state=" << static_cast<unsigned>(item.state_)
+                  << " reason=" << item.reason_code_
+                  << " snapshot_revision=" << item.snapshot_revision_ << '\n';
+    }
 }
 
 void vqec_vision_ai_tools_amctl_write_operation(
@@ -229,6 +248,13 @@ int main(int argc, char** argv) {
         if (outcome.code_ == status_code::ok) {
             outcome = vqec_vision_ai_lifec_rcsnp_write(snapshot, std::cout);
             std::cout << '\n';
+        }
+    } else if (options.command_ == "list" && !options.source_id_.empty()) {
+        std::vector<app_catalog_status> applications;
+        outcome = client.vqec_vision_ai_fwctl_amdbs_list_applications(
+            options.dbus_, options.source_id_, applications);
+        if (outcome.code_ == status_code::ok) {
+            vqec_vision_ai_tools_amctl_write_applications(applications);
         }
     } else if (options.command_ == "install" || options.command_ == "update" ||
                options.command_ == "submit-install" ||

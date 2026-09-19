@@ -110,8 +110,14 @@ FD-based signed install/update, rollback, package operation submission/query/can
 entitlement, configuration apply, desired state, uninstall and complete snapshot reads. Large
 package/grant data never travels as a byte array.
 Wrong sender, stale revision, invalid/expired/device-mismatched grant or not-installed enable fails
-closed even if the UI hides an action. Catalog/list and attributed-metrics methods remain product
-work and must not be inferred from the current interface.
+closed even if the UI hides an action. Per-app attributed metrics remain product work and must not
+be inferred from the current interface.
+
+The catalog boundary is a bounded version 1 product document, independent of installed package
+directories. `ListApplications(source_id)` joins its entries with compiled processor support and
+the current inventory snapshot. It reports catalog availability, support, install, entitlement,
+desired/effective state and an exact reason without allowing the document to assert any trusted
+gate. Unknown app IDs cannot be entitled or installed merely by presenting a package.
 
 Per-app CPU/RAM is attributed work and shared-cost metadata, not a fabricated `/proc` process
 value, because applications share the runtime process and components.

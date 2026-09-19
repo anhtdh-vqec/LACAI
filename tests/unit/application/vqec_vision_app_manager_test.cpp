@@ -172,14 +172,17 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_entvr_verify(
         const app_entitlement_candidate& _candidate,
         verified_app_entitlement& _entitlement) const override {
-        if (_candidate.signature_payload_ != std::vector<std::uint8_t>{'t', 'e', 's', 't'}) {
+        const bool revoke = _candidate.signature_payload_ ==
+            std::vector<std::uint8_t>{'d', 'e', 'n', 'y'};
+        if (!revoke && _candidate.signature_payload_ !=
+                std::vector<std::uint8_t>{'t', 'e', 's', 't'}) {
             return {status_code::unauthorized, "test entitlement signature rejected"};
         }
         verified_app_entitlement candidate;
         candidate.grant_.schema_version_ = app_lifecycle_limits::g_schema_version;
-        candidate.grant_.grant_id_ = "test_grant";
-        candidate.grant_.grant_revision_ = 1;
-        candidate.grant_.expected_entitlement_revision_ = 1;
+        candidate.grant_.grant_id_ = revoke ? "test_revocation" : "test_grant";
+        candidate.grant_.grant_revision_ = revoke ? 2 : 1;
+        candidate.grant_.expected_entitlement_revision_ = revoke ? 2 : 1;
         candidate.grant_.issuer_id_ = "test_issuer";
         candidate.grant_.key_id_ = "test_key";
         candidate.grant_.customer_id_ = "test_customer";
@@ -189,8 +192,10 @@ public:
         candidate.grant_.source_id_ = "camera_front";
         candidate.grant_.not_before_utc_ns_ = 1;
         candidate.grant_.expires_utc_ns_ = 9000000000000000000ULL;
-        candidate.grant_.granted_ = true;
-        candidate.grant_.output_scopes_ = {"security.fire_smoke.event"};
+        candidate.grant_.granted_ = !revoke;
+        if (!revoke) {
+            candidate.grant_.output_scopes_ = {"security.fire_smoke.event"};
+        }
         candidate.grant_sha256_ = _candidate.grant_sha256_;
         candidate.verification_receipt_id_ = "test_entitlement_receipt";
         _entitlement = std::move(candidate);
@@ -207,6 +212,18 @@ app_manager_config vqec_vision_ai_unit_amtest_manager_config() {
     config.capacity_.max_active_incidents_ = 32;
     config.capacity_.max_events_per_second_ = 64.0;
     return config;
+}
+
+usecase_app_catalog vqec_vision_ai_unit_amtest_catalog() {
+    usecase_app_catalog catalog;
+    catalog.schema_version_ = app_lifecycle_limits::g_schema_version;
+    catalog.catalog_id_ = "test.usecase_apps";
+    catalog.revision_ = 1;
+    catalog.applications_.push_back({"S01", "security.restricted_area_smoking",
+        "Restricted Area Smoking", "1.0.0", true});
+    catalog.applications_.push_back({"S04", "security.fire_smoke_detection",
+        "Fire and Smoke Detection", "1.0.0", true});
+    return catalog;
 }
 
 test_candidate::test_candidate(const test_database& _database, bool _is_update) {
@@ -248,6 +265,7 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
     test_entitlement_verifier entitlement_verifier;
     fire_smoke_factory fire_factory;
     app_configuration_registry registry;
+    const auto catalog = vqec_vision_ai_unit_amtest_catalog();
     assert(registry.vqec_vision_ai_appl_apcrg_register(
                "security.fire_smoke_detection", "security.fire_smoke.configuration",
                "fire_smoke_alarm", fire_factory)
@@ -260,9 +278,16 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         app_content_store content_store(
             vqec_vision_ai_unit_amtest_content_config(database.content_path_));
         app_manager manager(vqec_vision_ai_unit_amtest_manager_config(), verifier,
-            entitlement_verifier, registry, content_store, inventory);
+            entitlement_verifier, registry, catalog, content_store, inventory);
         assert(manager.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
         assert(snapshot.inventory_revision_ == 1);
+        std::vector<app_catalog_status> applications;
+        assert(manager.vqec_vision_ai_appl_appmn_list_applications(
+                   "camera_front", applications)
+                   .code_ == status_code::ok);
+        assert(applications.size() == 2U && !applications[0].supported_ &&
+            applications[0].state_ == app_install_state::not_installed &&
+            applications[1].supported_ && !applications[1].installed_);
 
         test_candidate bad_signature(database);
         bad_signature.value_.signature_payload_.clear();
@@ -399,6 +424,24 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
                    candidate.value_.configuration_sha256_, snapshot)
                    .code_ == status_code::invalid_state);
         assert(snapshot.associations_[0].configuration_revision_ == 4);
+
+        app_entitlement_candidate revocation;
+        revocation.grant_payload_ = {'{', '}'};
+        revocation.grant_sha256_ =
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+        revocation.signature_payload_ = {'d', 'e', 'n', 'y'};
+        assert(manager.vqec_vision_ai_appl_appmn_apply_entitlement(
+                   revocation, snapshot)
+                   .code_ == status_code::ok);
+        assert(!snapshot.associations_[0].entitled_);
+        applications.clear();
+        assert(manager.vqec_vision_ai_appl_appmn_list_applications(
+                   "camera_front", applications)
+                   .code_ == status_code::ok);
+        assert(applications.size() == 2U && applications[1].installed_ &&
+            !applications[1].entitled_ &&
+            applications[1].state_ == app_install_state::locked &&
+            applications[1].reason_code_ == "entitlement_required");
     }
     {
         sqlite_app_inventory inventory(
@@ -406,7 +449,7 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         app_content_store content_store(
             vqec_vision_ai_unit_amtest_content_config(database.content_path_));
         app_manager manager(vqec_vision_ai_unit_amtest_manager_config(), verifier,
-            entitlement_verifier, registry, content_store, inventory);
+            entitlement_verifier, registry, catalog, content_store, inventory);
         assert(manager.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
         assert(snapshot.associations_.size() == 1);
         assert(!snapshot.associations_[0].is_effective());
@@ -416,12 +459,53 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
     }
 }
 
+void vqec_vision_ai_unit_amtest_test_unpublished_app_is_fail_closed() {
+    test_database database;
+    test_package_verifier verifier;
+    test_entitlement_verifier entitlement_verifier;
+    fire_smoke_factory fire_factory;
+    app_configuration_registry registry;
+    assert(registry.vqec_vision_ai_appl_apcrg_register(
+               "security.fire_smoke_detection", "security.fire_smoke.configuration",
+               "fire_smoke_alarm", fire_factory)
+               .code_ == status_code::ok);
+    auto catalog = vqec_vision_ai_unit_amtest_catalog();
+    catalog.applications_.erase(catalog.applications_.begin() + 1);
+    sqlite_app_inventory inventory(
+        vqec_vision_ai_unit_amtest_inventory_config(database.path_));
+    app_content_store content_store(
+        vqec_vision_ai_unit_amtest_content_config(database.content_path_));
+    app_manager manager(vqec_vision_ai_unit_amtest_manager_config(), verifier,
+        entitlement_verifier, registry, catalog, content_store, inventory);
+    runtime_control_snapshot snapshot;
+    assert(manager.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
+
+    app_entitlement_candidate entitlement;
+    entitlement.grant_payload_ = {'{', '}'};
+    entitlement.grant_sha256_ =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    entitlement.signature_payload_ = {'t', 'e', 's', 't'};
+    assert(manager.vqec_vision_ai_appl_appmn_apply_entitlement(
+               entitlement, snapshot)
+               .code_ == status_code::unauthorized);
+    test_candidate package(database);
+    assert(manager.vqec_vision_ai_appl_appmn_install(
+               package.value_, 1, snapshot)
+               .code_ == status_code::unauthorized);
+    app_content_record unstaged;
+    assert(content_store.vqec_vision_ai_ports_apcst_get(
+               "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+               unstaged)
+               .code_ == status_code::source_lost);
+}
+
 void vqec_vision_ai_unit_amtest_test_target_and_digest_fail_closed() {
     test_database database;
     test_package_verifier verifier;
     test_entitlement_verifier entitlement_verifier;
     fire_smoke_factory fire_factory;
     app_configuration_registry registry;
+    const auto catalog = vqec_vision_ai_unit_amtest_catalog();
     assert(registry.vqec_vision_ai_appl_apcrg_register(
                "security.fire_smoke_detection", "security.fire_smoke.configuration",
                "fire_smoke_alarm", fire_factory)
@@ -433,7 +517,7 @@ void vqec_vision_ai_unit_amtest_test_target_and_digest_fail_closed() {
     auto wrong_config = vqec_vision_ai_unit_amtest_manager_config();
     wrong_config.target_id_ = "another_target";
     app_manager wrong_target(wrong_config, verifier, entitlement_verifier,
-        registry, content_store, inventory);
+        registry, catalog, content_store, inventory);
     runtime_control_snapshot snapshot;
     assert(wrong_target.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
     test_candidate candidate(database);
@@ -457,5 +541,6 @@ int main(int argc, char** argv) {
     }
     vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart();
     vqec_vision_ai_unit_amtest_test_target_and_digest_fail_closed();
+    vqec_vision_ai_unit_amtest_test_unpublished_app_is_fail_closed();
     return 0;
 }

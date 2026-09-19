@@ -77,5 +77,14 @@ bool app_configuration_registry::vqec_vision_ai_appl_apcrg_supports_manifest(
     return !_manifest.features_.empty();
 }
 
-}  // namespace vqec::vision::ai
+bool app_configuration_registry::vqec_vision_ai_appl_apcrg_supports_app(
+    const std::string& _app_id) const noexcept {
+    for (std::size_t index = 0; index < count_; ++index) {
+        if (entries_[index].app_id_ == _app_id) {
+            return true;
+        }
+    }
+    return false;
+}
 
+}  // namespace vqec::vision::ai

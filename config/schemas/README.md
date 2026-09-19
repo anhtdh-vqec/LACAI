@@ -18,6 +18,7 @@ Configuration and control validation schemas with bounded fields and version/rev
 | `usecase_app_manifest.schema.json` | Declarative signed usecase package manifest v1 |
 | `usecase_app_entitlement.schema.json` | Signed device/target/app/source/time/output entitlement grant v1 |
 | `runtime_control_snapshot.schema.json` | Complete App Manager-to-runtime control projection v1 |
+| `usecase_app_catalog.schema.json` | Bounded S01-S18 product identity/display catalog; it grants no lifecycle state |
 | `hardware_admission_profile.schema.json` | Startup hardware admission profile defining platform memory, FW concurrency and thermal limits |
 | `metadata_runtime_profile.schema.json` | P2 metadata service bounds, retention horizons, trajectory provenance and per-feature access domains |
 | `integration_contract_registry.schema.json` | Exact C01–C10 ownership, handoff and S01–S18 dependency registry |

@@ -678,6 +678,9 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.cpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | tests/unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp | rcstst | vqec_vision_ai_unit_rcstst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_manager.hpp | apmgr | vqec_vision_ai_ports_apmgr_ |
+| src/runtime/lifecycle/vqec_vision_app_catalog.hpp | apcat | vqec_vision_ai_lifec_apcat_ |
+| src/runtime/lifecycle/vqec_vision_app_catalog.cpp | apcat | vqec_vision_ai_lifec_apcat_ |
+| tests/unit/runtime/vqec_vision_app_catalog_test.cpp | acatst | vqec_vision_ai_unit_acatst_ (`main` entrypoint exception) |
 | src/adapters/fw_control/app_manager/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | src/adapters/fw_control/app_manager/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | tests/unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp | amdtst | vqec_vision_ai_unit_amdtst_ |

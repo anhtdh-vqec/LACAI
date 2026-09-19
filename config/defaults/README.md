@@ -25,6 +25,7 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 | `feature_catalog.fire_smoke.example.json` | S04 processor dependency and bounded feature resource contract |
 | `usecase_app_manifest.fire_smoke.example.json` | Declarative S04 application package manifest |
 | `usecase_app_entitlement.fire_smoke.example.json` | Example S04 entitlement signing input; filesystem presence grants no authority |
+| `usecase_app_catalog.example.json` | Complete S01-S18 product catalog; compiled support and lifecycle gates remain authoritative |
 
 The example dimensions, rates, memory values, model assignments and released
 `detect0`/`detect1` outputs are illustrative. Never install it as an effective configuration

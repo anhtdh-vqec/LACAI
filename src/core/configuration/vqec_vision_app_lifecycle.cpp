@@ -242,4 +242,35 @@ status vqec_vision_ai_core_applc_validate_runtime_snapshot(
     return {};
 }
 
+status vqec_vision_ai_core_applc_validate_catalog(
+    const usecase_app_catalog& _catalog) {
+    if (_catalog.schema_version_ != app_lifecycle_limits::g_schema_version ||
+        !vqec_vision_ai_core_applc_is_identifier(_catalog.catalog_id_) ||
+        _catalog.revision_ == 0 || _catalog.applications_.empty() ||
+        _catalog.applications_.size() > app_lifecycle_limits::g_max_applications) {
+        return {status_code::invalid_argument, "invalid usecase app catalog identity"};
+    }
+    for (std::size_t index = 0; index < _catalog.applications_.size(); ++index) {
+        const auto& application = _catalog.applications_[index];
+        if (!vqec_vision_ai_core_applc_is_text(application.catalog_code_,
+                app_lifecycle_limits::g_max_catalog_code_bytes) ||
+            !vqec_vision_ai_core_applc_is_identifier(application.app_id_) ||
+            !vqec_vision_ai_core_applc_is_text(application.display_name_,
+                app_lifecycle_limits::g_max_display_name_bytes) ||
+            !vqec_vision_ai_core_applc_is_text(application.app_version_,
+                app_lifecycle_limits::g_max_version_bytes)) {
+            return {status_code::invalid_argument, "invalid app catalog entry"};
+        }
+        for (std::size_t previous = 0; previous < index; ++previous) {
+            const auto& other = _catalog.applications_[previous];
+            if (other.catalog_code_ == application.catalog_code_ ||
+                other.app_id_ == application.app_id_) {
+                return {status_code::invalid_argument,
+                    "duplicate app catalog identity"};
+            }
+        }
+    }
+    return {};
+}
+
 }  // namespace vqec::vision::ai

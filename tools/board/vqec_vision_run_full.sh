@@ -54,6 +54,7 @@ g_app_content_store_bytes=${LACAI_APP_CONTENT_STORE_BYTES:-1073741824}
 g_app_content_blob_bytes=${LACAI_APP_CONTENT_BLOB_BYTES:-536870912}
 g_app_content_blob_count=${LACAI_APP_CONTENT_BLOB_COUNT:-2048}
 g_app_public_key=${LACAI_APP_PUBLIC_KEY:-$g_root/config/trust/app_manager_public.pem}
+g_app_catalog=${LACAI_APP_CATALOG:-$g_root/config/usecase_app_catalog.json}
 g_app_manifest=${LACAI_APP_MANIFEST:-$g_root/config/app_package/usecase_app_manifest.fire_smoke.json}
 g_app_configuration=${LACAI_APP_CONFIGURATION:-$g_root/config/app_package/fire_smoke_configuration.json}
 g_app_package_signature=${LACAI_APP_PACKAGE_SIGNATURE:-$g_root/config/app_package/fire_smoke_package.sig}
@@ -527,7 +528,7 @@ if [ "$g_evidence_reference_receiver" -eq 1 ]; then
         "$g_root/tools/fixtures/vqec_vision_evidence_receiver.py"
 fi
 vqec_vision_ai_tools_rnful_require_file "$g_metadata_profile"
-for app_file in "$g_app_public_key" "$g_app_manifest" "$g_app_configuration" \
+for app_file in "$g_app_public_key" "$g_app_catalog" "$g_app_manifest" "$g_app_configuration" \
     "$g_app_package_signature" "$g_app_entitlement" \
     "$g_app_entitlement_signature" "$g_app_model_component" \
     "$g_app_labels_component"; do
@@ -666,6 +667,7 @@ setsid "$g_app_manager" \
     --device-id "$(sed -n '1p' /etc/machine-id)" \
     --max-resident-bytes 536870912 --max-tensor-bytes 134217728 \
     --max-active-incidents 32 --max-events-per-second 64 \
+    --app-catalog "$g_app_catalog" \
     --database "$g_app_database" --max-database-bytes 67108864 \
     --content-store "$g_app_content_store_dir" \
     --max-content-store-bytes "$g_app_content_store_bytes" \

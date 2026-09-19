@@ -34,6 +34,8 @@ inline constexpr std::uint64_t g_max_component_bytes =
 inline constexpr std::size_t g_max_operation_message_bytes = 512;
 inline constexpr std::size_t g_max_operations = 1024;
 inline constexpr std::size_t g_max_pending_operations = 16;
+inline constexpr std::size_t g_max_catalog_code_bytes = 16;
+inline constexpr std::size_t g_max_display_name_bytes = 128;
 }  // namespace app_lifecycle_limits
 
 enum class app_component_type { model, labels, ontology, rules, configuration };
@@ -210,12 +212,42 @@ struct runtime_control_snapshot {
     std::vector<app_runtime_association> associations_;
 };
 
+struct app_catalog_entry {
+    std::string catalog_code_;
+    std::string app_id_;
+    std::string display_name_;
+    std::string app_version_;
+    bool published_{false};
+};
+
+struct usecase_app_catalog {
+    std::uint32_t schema_version_{0};
+    std::string catalog_id_;
+    std::uint64_t revision_{0};
+    std::vector<app_catalog_entry> applications_;
+};
+
+struct app_catalog_status {
+    app_catalog_entry catalog_;
+    std::string source_id_;
+    bool supported_{false};
+    bool installed_{false};
+    bool entitled_{false};
+    bool desired_{false};
+    bool effective_{false};
+    app_install_state state_{app_install_state::not_installed};
+    std::string reason_code_;
+    std::uint64_t snapshot_revision_{0};
+};
+
 [[nodiscard]] status vqec_vision_ai_core_applc_validate_manifest(
     const usecase_app_manifest& _manifest);
 [[nodiscard]] status vqec_vision_ai_core_applc_validate_entitlement(
     const app_entitlement_grant& _grant);
 [[nodiscard]] status vqec_vision_ai_core_applc_validate_runtime_snapshot(
     const runtime_control_snapshot& _snapshot);
+[[nodiscard]] status vqec_vision_ai_core_applc_validate_catalog(
+    const usecase_app_catalog& _catalog);
 
 }  // namespace vqec::vision::ai
 

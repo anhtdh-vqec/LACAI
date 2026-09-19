@@ -88,6 +88,7 @@ endif()
 
 if(TARGET nlohmann_json::nlohmann_json)
     add_library(vqec_vision_ai_app_manifest STATIC
+        lifecycle/vqec_vision_app_catalog.cpp
         lifecycle/vqec_vision_app_manifest.cpp
         lifecycle/vqec_vision_app_entitlement.cpp
         lifecycle/vqec_vision_runtime_control_snapshot.cpp)

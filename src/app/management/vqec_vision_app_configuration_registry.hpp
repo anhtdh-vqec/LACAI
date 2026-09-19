@@ -27,6 +27,8 @@ public:
         std::uint64_t _revision, const std::vector<std::uint8_t>& _payload) const;
     [[nodiscard]] bool vqec_vision_ai_appl_apcrg_supports_manifest(
         const usecase_app_manifest& _manifest) const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_apcrg_supports_app(
+        const std::string& _app_id) const noexcept;
 
 private:
     struct entry {
@@ -42,4 +44,3 @@ private:
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_APPL_APP_CONFIGURATION_REGISTRY_HPP
-

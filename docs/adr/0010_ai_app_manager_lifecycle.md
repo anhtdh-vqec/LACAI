@@ -42,6 +42,11 @@ the real-time frame path.
   enforced from actual payload scope after activation, not only at the UI switch.
 - App Manager publishes a complete immutable runtime-control snapshot by monotonically increasing
   revision. Signals are wake-ups only; runtime never reconstructs authority from deltas.
+- A separately provisioned, bounded product catalog declares stable application identity and UI
+  text for every offered S01-S18 SKU. `ListApplications(source_id)` joins that catalog with the
+  compiled processor registry and committed runtime snapshot. A catalog row cannot grant support,
+  entitlement, installation or desired state; absent/unsupported/locked/installed/running remain
+  distinguishable. Unknown package application IDs fail closed.
 - Inventory and operation journals are separate from business metadata. Content blobs are
   immutable and digest-addressed; a database never stores model binary payloads.
 - Package install, update and rollback use bounded asynchronous idempotent operation journaling:
@@ -75,6 +80,8 @@ the real-time frame path.
   processor source. Semantic or ABI changes require explicit compatibility work.
 - Fire/smoke is the first complete application slice, but resolver, inventory, operations and
   runtime snapshot must not contain S04-specific branches.
+- Backend can render the complete catalog without directory scanning or one process per app, but
+  must treat list state as observational and use revisioned lifecycle methods for mutations.
 - Released FW remains involved only in the evidence-media receiver contract, not application
   installation or control.
 

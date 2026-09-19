@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "catalog_id": "lacai.security.usecase_apps",
+  "revision": 1,
+  "applications": [
+    {"catalog_code":"S01","app_id":"security.restricted_area_smoking","display_name":"Restricted Area Smoking","app_version":"1.0.0","published":true},
+    {"catalog_code":"S02","app_id":"security.suspicious_weapon","display_name":"Suspicious Weapon","app_version":"1.0.0","published":true},
+    {"catalog_code":"S03","app_id":"security.ppe_compliance","display_name":"PPE Compliance","app_version":"1.0.0","published":true},
+    {"catalog_code":"S04","app_id":"security.fire_smoke_detection","display_name":"Fire and Smoke Detection","app_version":"1.0.0","published":true},
+    {"catalog_code":"S05","app_id":"security.blacklist_person_alert","display_name":"Blacklist Person Alert","app_version":"1.0.0","published":true},
+    {"catalog_code":"S06","app_id":"security.attendance_recognition","display_name":"Attendance Recognition","app_version":"1.0.0","published":true},
+    {"catalog_code":"S07","app_id":"security.demographic_estimation","display_name":"Demographic Estimation","app_version":"1.0.0","published":true},
+    {"catalog_code":"S08","app_id":"security.people_density_heatmap","display_name":"People Density Heatmap","app_version":"1.0.0","published":true},
+    {"catalog_code":"S09","app_id":"security.unauthorized_intrusion","display_name":"Unauthorized Intrusion","app_version":"1.0.0","published":true},
+    {"catalog_code":"S10","app_id":"security.people_entry_exit_count","display_name":"People Entry Exit Count","app_version":"1.0.0","published":true},
+    {"catalog_code":"S11","app_id":"security.person_tracking","display_name":"Person Tracking","app_version":"1.0.0","published":true},
+    {"catalog_code":"S12","app_id":"security.vlm_context_alert","display_name":"VLM Context Alert","app_version":"1.0.0","published":true},
+    {"catalog_code":"S13","app_id":"security.abandoned_or_removed_object","display_name":"Abandoned or Removed Object","app_version":"1.0.0","published":true},
+    {"catalog_code":"S14","app_id":"security.lost_item_trace","display_name":"Lost Item Trace","app_version":"1.0.0","published":true},
+    {"catalog_code":"S15","app_id":"security.luggage_cart_tracking","display_name":"Luggage and Cart Tracking","app_version":"1.0.0","published":true},
+    {"catalog_code":"S16","app_id":"security.vehicle_plate_recognition","display_name":"Vehicle Plate Recognition","app_version":"1.0.0","published":true},
+    {"catalog_code":"S17","app_id":"security.crowd_gathering","display_name":"Crowd Gathering","app_version":"1.0.0","published":true},
+    {"catalog_code":"S18","app_id":"security.abnormal_fight_conflict","display_name":"Abnormal Fight or Conflict","app_version":"1.0.0","published":true}
+  ]
+}
