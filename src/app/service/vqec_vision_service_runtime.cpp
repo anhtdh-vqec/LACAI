@@ -433,6 +433,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
+    const std::function<bool()>& _is_runtime_reconcile_requested,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
@@ -440,8 +441,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--usecase-snapshot <json>] "
             "[--app-manager-dbus|--app-manager-dbus-session "
-            "--app-manager-service-name <name> --app-manager-object-path <path> "
-            "--app-manager-rpc-timeout-ms <ms>] "
+            "--app-manager-service-name <name> --app-manager-client-name <name> "
+            "--app-manager-object-path <path> "
+            "--app-manager-rpc-timeout-ms <ms> --app-manager-poll-interval-ms <ms>] "
             "[--usecase-dbus|--usecase-dbus-session "
             "--usecase-service-name <name> --usecase-object-path <path> "
             "--usecase-peer-name <name> --usecase-rpc-timeout-ms <ms> "
@@ -476,6 +478,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 
     auto startup = vqec_vision_ai_appl_svstr_resolve_startup(
         args, _effective_deployment, _runtime_control, _control_manager, _poll_control,
+        _is_runtime_reconcile_requested,
         []() noexcept { return g_stop_requested != 0; }, _runtime_generation,
         _pending_control_revision, g_step_interval_ns,
         g_reconcile_generation_exit_code);
@@ -1357,6 +1360,11 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         if (_poll_control) {
             _poll_control();
         }
+        if (_is_runtime_reconcile_requested &&
+            _is_runtime_reconcile_requested()) {
+            reconcile_requested = true;
+            break;
+        }
         if (_control_manager != nullptr && generation_published &&
             _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
             reconcile_requested = true;
@@ -1826,12 +1834,14 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
         return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
     }
     if (!args.app_manager_dbus &&
         (!args.app_manager_service_name.empty() ||
+            !args.app_manager_client_name.empty() ||
             !args.app_manager_object_path.empty() ||
-            args.app_manager_rpc_timeout_ms != 0)) {
+            args.app_manager_rpc_timeout_ms != 0 ||
+            args.app_manager_poll_interval_ms != 0)) {
         std::fprintf(stderr,
             "app manager DBus settings require --app-manager-dbus\n");
         return 2;
@@ -1840,8 +1850,12 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
         if (args.usecase_dbus || !args.production_mode ||
             args.usecase_snapshot_path.empty() || args.feature_catalog_path.empty() ||
             args.app_manager_service_name.empty() ||
+            args.app_manager_client_name.empty() ||
             args.app_manager_object_path.empty() ||
-            args.app_manager_rpc_timeout_ms <= 0) {
+            args.app_manager_rpc_timeout_ms <= 0 ||
+            args.app_manager_poll_interval_ms == 0 ||
+            args.app_manager_poll_interval_ms >
+                service_options_limits::g_max_app_manager_poll_interval_ms) {
             std::fprintf(stderr,
                 "app manager runtime control requires production mode, usecase and "
                 "feature catalogs, service/object names and RPC timeout; it cannot be "
@@ -1855,19 +1869,77 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
 #else
         app_manager_dbus_client client;
         runtime_control_snapshot runtime_control;
+        runtime_control.schema_version_ = app_lifecycle_limits::g_schema_version;
+        runtime_control.snapshot_revision_ = 1;
+        runtime_control.inventory_revision_ = 1;
+        runtime_control.entitlement_revision_ = 1;
+        runtime_control.desired_revision_ = 1;
         const app_manager_dbus_client_config client_config{
-            args.app_manager_service_name, args.app_manager_object_path,
+            args.app_manager_service_name, args.app_manager_client_name,
+            args.app_manager_object_path,
             args.app_manager_rpc_timeout_ms,
             args.app_manager_dbus_session_bus};
+        runtime_control_snapshot fetched_snapshot;
         const auto fetched = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
-            client_config, runtime_control);
-        if (fetched.code_ != status_code::ok) {
-            std::fprintf(stderr, "app manager snapshot failed (%d): %s\n",
+            client_config, fetched_snapshot);
+        if (fetched.code_ == status_code::ok) {
+            runtime_control = std::move(fetched_snapshot);
+        } else {
+            std::fprintf(stderr,
+                "app manager unavailable at startup; runtime remains disabled (%d): %s\n",
                 static_cast<int>(fetched.code_), fetched.message_.c_str());
-            return 1;
         }
-        return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, &runtime_control, nullptr, {}, 1, 0);
+        std::uint64_t generation = 1;
+        for (;;) {
+            bool reconcile = false;
+            runtime_control_snapshot pending = runtime_control;
+            std::uint64_t next_poll_ns = 0;
+            const std::function<void()> poll_control = [&]() {
+                const auto now = vqec_vision_ai_appl_svcmn_monotonic_ns();
+                const auto interval_ns = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::milliseconds(args.app_manager_poll_interval_ms)).count());
+                if (next_poll_ns != 0 && now < next_poll_ns) {
+                    return;
+                }
+                next_poll_ns = now <= UINT64_MAX - interval_ns ? now + interval_ns : UINT64_MAX;
+                runtime_control_snapshot candidate;
+                const auto refreshed = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+                    client_config, candidate);
+                if (refreshed.code_ == status_code::ok &&
+                    candidate.snapshot_revision_ > runtime_control.snapshot_revision_) {
+                    pending = std::move(candidate);
+                    reconcile = true;
+                    return;
+                }
+                const auto utc_now_ns = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count());
+                pending = runtime_control;
+                for (auto& association : pending.associations_) {
+                    if (association.entitled_ &&
+                        association.entitlement_expires_utc_ns_ != 0 &&
+                        association.entitlement_expires_utc_ns_ <= utc_now_ns) {
+                        association.entitled_ = false;
+                        association.reason_code_ = "entitlement_expired";
+                        reconcile = true;
+                    }
+                }
+            };
+            const std::function<bool()> is_reconcile_requested = [&]() {
+                return reconcile;
+            };
+            const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
+                _argc, _argv, nullptr, &runtime_control, nullptr, poll_control,
+                is_reconcile_requested, generation, 0);
+            if (outcome == g_reconcile_generation_exit_code && reconcile &&
+                generation != UINT64_MAX) {
+                runtime_control = std::move(pending);
+                ++generation;
+                continue;
+            }
+            return outcome;
+        }
 #endif
     }
     if (!args.usecase_dbus) {
@@ -1878,7 +1950,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
             return 2;
         }
         return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
     }
 #if !defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
     std::fprintf(stderr, "usecase DBus was requested but adapter is not built\n");
@@ -1941,7 +2013,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     for (;;) {
         const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
             _argc, _argv, &current_deployment, nullptr, &manager, poll_control,
-            generation, pending_revision);
+            {}, generation, pending_revision);
         if (outcome == g_reconcile_generation_exit_code) {
             last_published_deployment = current_deployment;
             usecase_control_snapshot pending;

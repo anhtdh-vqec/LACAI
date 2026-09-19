@@ -161,6 +161,12 @@ Future incremental replacement may retain compatible shared dependencies, but mu
 those ownership/output/readiness gates. Session readiness does not prove numerical warmup
 or continued source health.
 
+The target App Manager runtime consumer is startup-order independent. If App Manager or backend is
+absent, the service starts with a valid empty effective generation and periodically retries a full
+snapshot read through its configured trusted D-Bus client name. Only a strictly newer complete
+snapshot can trigger replacement; transport failure and stale data fail closed. Entitlement expiry
+is evaluated from the local UTC clock and triggers drain even when the control plane is absent.
+
 The initial implementation may stop and rebuild the complete runtime generation. It must
 still keep command/state reporting live and must not release buffers until actual backend
 completion. A failed candidate leaves the last valid generation running when policy still

@@ -63,6 +63,7 @@ vqec_vision_ai_appl_svstr_resolve_feature_authority(
     const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
+    const std::function<bool()>& _is_runtime_reconcile_requested,
     const std::function<bool()>& _is_stop_requested,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision,
     std::uint64_t _idle_step_interval_ns, int _reconcile_generation_exit_code);

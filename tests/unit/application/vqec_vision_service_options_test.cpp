@@ -47,6 +47,19 @@ int main() {
     }
     {
         parsed_arguments args;
+        check(vqec_vision_ai_unit_sotst_parse(
+                  {"app", "--deployment", "d", "--model-catalog", "c",
+                      "--app-manager-dbus", "--app-manager-service-name", "com.vqec.Manager",
+                      "--app-manager-client-name", "com.vqec.Runtime",
+                      "--app-manager-object-path", "/com/vqec/Manager",
+                      "--app-manager-rpc-timeout-ms", "1000",
+                      "--app-manager-poll-interval-ms", "250"}, args),
+            "app manager poll interval parse");
+        check(args.app_manager_poll_interval_ms == 250,
+            "app manager poll interval captured");
+    }
+    {
+        parsed_arguments args;
         check(!vqec_vision_ai_unit_sotst_parse({"app", "--nonsense", "x"}, args),
             "unknown option rejected");
         check(!vqec_vision_ai_unit_sotst_parse({"app", "--deployment", "d.json"}, args),

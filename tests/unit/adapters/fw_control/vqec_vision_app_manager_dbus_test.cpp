@@ -105,6 +105,21 @@ void vqec_vision_ai_unit_amdtst_request_name(GDBusConnection* _connection) {
     g_variant_unref(reply);
 }
 
+void vqec_vision_ai_unit_amdtst_release_name(GDBusConnection* _connection) {
+    GError* error = nullptr;
+    GVariant* reply = g_dbus_connection_call_sync(_connection, "org.freedesktop.DBus",
+        "/org/freedesktop/DBus", "org.freedesktop.DBus", "ReleaseName",
+        g_variant_new("(s)", g_peer_name), G_VARIANT_TYPE("(u)"),
+        G_DBUS_CALL_FLAGS_NONE, g_rpc_timeout_ms, nullptr, &error);
+    if (reply == nullptr) {
+        const std::string message = error == nullptr ?
+            "cannot release app manager test peer name" : error->message;
+        if (error != nullptr) g_error_free(error);
+        throw std::runtime_error(message);
+    }
+    g_variant_unref(reply);
+}
+
 std::future<GVariant*> vqec_vision_ai_unit_amdtst_call(
     GDBusConnection* _connection, const char* _method, GVariant* _parameters,
     const GVariantType* _reply_type) {
@@ -193,6 +208,38 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         g_variant_unref(desired_reply);
         if (revision != 5 || !port.desired_called_) {
             throw std::runtime_error("SetDesired wire reply is invalid");
+        }
+
+        vqec_vision_ai_unit_amdtst_release_name(peer);
+        app_manager_dbus_client client;
+        const app_manager_dbus_client_config client_config{
+            g_service_name, g_peer_name, g_object_path, g_rpc_timeout_ms, true};
+        auto repeated_fetch = std::async(std::launch::async,
+            [&client, &client_config]() {
+                runtime_control_snapshot first;
+                runtime_control_snapshot second;
+                const auto first_status =
+                    client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+                        client_config, first);
+                const auto second_status =
+                    client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+                        client_config, second);
+                return first_status.code_ == status_code::ok &&
+                    second_status.code_ == status_code::ok &&
+                    first.snapshot_revision_ == second.snapshot_revision_;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             repeated_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (repeated_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready ||
+            !repeated_fetch.get()) {
+            throw std::runtime_error("App Manager client cannot refresh a snapshot");
         }
     }
     g_object_unref(peer);

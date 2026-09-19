@@ -26,7 +26,15 @@ status vqec_vision_ai_appl_svstr_project_runtime_control(
             std::chrono::system_clock::now().time_since_epoch()).count());
     std::vector<usecase_activation_request> requests;
     try {
-        requests.reserve(_runtime.associations_.size());
+        requests = _control.requests_;
+        for (auto& request : requests) {
+            request.desired_enabled_ = false;
+            request.installed_ = false;
+            request.entitlement_granted_ = false;
+            request.supported_ = false;
+            request.compatible_ = false;
+            request.resource_admitted_ = false;
+        }
         for (const auto& association : _runtime.associations_) {
             const auto usecase = std::find_if(_control.catalog_.usecases_.begin(),
                 _control.catalog_.usecases_.end(), [&association](const auto& _entry) {
@@ -41,17 +49,22 @@ status vqec_vision_ai_appl_svstr_project_runtime_control(
                 return {status_code::invalid_argument,
                     "runtime control association is absent from deployment catalog"};
             }
-            usecase_activation_request request;
-            request.source_id_ = association.source_id_;
-            request.usecase_id_ = association.app_id_;
-            request.desired_enabled_ = association.desired_;
-            request.installed_ = association.installed_;
-            request.entitlement_granted_ = association.entitled_ &&
+            const auto request = std::find_if(requests.begin(), requests.end(),
+                [&association](const auto& _request) {
+                    return _request.source_id_ == association.source_id_ &&
+                        _request.usecase_id_ == association.app_id_;
+                });
+            if (request == requests.end()) {
+                return {status_code::invalid_argument,
+                    "runtime control association is absent from trusted usecase plan"};
+            }
+            request->desired_enabled_ = association.desired_;
+            request->installed_ = association.installed_;
+            request->entitlement_granted_ = association.entitled_ &&
                 association.entitlement_expires_utc_ns_ > utc_now_ns;
-            request.supported_ = association.supported_;
-            request.compatible_ = association.compatible_;
-            request.resource_admitted_ = association.admitted_;
-            requests.push_back(std::move(request));
+            request->supported_ = association.supported_;
+            request->compatible_ = association.compatible_;
+            request->resource_admitted_ = association.admitted_;
         }
     } catch (const std::bad_alloc&) {
         return {status_code::resource_exhausted,
@@ -197,6 +210,7 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
     const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
+    const std::function<bool()>& _is_runtime_reconcile_requested,
     const std::function<bool()>& _is_stop_requested,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision,
     std::uint64_t _idle_step_interval_ns, int _reconcile_generation_exit_code) {
@@ -285,6 +299,11 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
                (_args.max_steps == 0 || idle_steps < _args.max_steps)) {
             if (_poll_control) {
                 _poll_control();
+            }
+            if (_is_runtime_reconcile_requested &&
+                _is_runtime_reconcile_requested()) {
+                result.exit_code = _reconcile_generation_exit_code;
+                return result;
             }
             if (_control_manager != nullptr &&
                 _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {

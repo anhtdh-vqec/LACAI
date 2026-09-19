@@ -4,8 +4,8 @@ This document defines the AI-owned application lifecycle boundary used to distri
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
 **Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade,
-Ed25519 package verifier and daemon bootstrap are delivered; deployment and backend conformance
-remain open.
+Ed25519 package verifier, daemon bootstrap and reconnecting runtime consumer are delivered;
+deployment and backend conformance remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -75,6 +75,13 @@ Entitlement expiry and revocation are enforced locally at scheduling and output 
 Manager outage may keep a previously committed non-expired snapshot running, but cannot extend a
 grant or authorize new output.
 
+The inference service does not require App Manager or backend startup ordering. When App Manager is
+unavailable at service startup, the runtime publishes no active source/model generation and polls
+for the complete snapshot at the configured bounded interval. A higher snapshot revision requests
+a serialized generation drain and reconciliation. A missing or stale reply never enables an
+association. Locally observed entitlement expiry also requests reconciliation even while App
+Manager is offline.
+
 ## D-Bus facade
 
 Production uses the system bus and binds the configured backend well-known name to its unique
@@ -87,6 +94,12 @@ not-installed enable fails closed even if the UI hides an action.
 
 Per-app CPU/RAM is attributed work and shared-cost metadata, not a fabricated `/proc` process
 value, because applications share the runtime process and components.
+
+The runtime consumer owns a separate configured well-known client name and App Manager resolves it
+to the current unique owner for every `GetSnapshot` call. The service name, client name, object
+path, RPC timeout, poll interval and system/session bus selection are deployment configuration;
+they are not model or usecase constants. Snapshot polling is level-triggered: reconnect never
+depends on receiving an earlier D-Bus signal.
 
 ## Package signature baseline
 

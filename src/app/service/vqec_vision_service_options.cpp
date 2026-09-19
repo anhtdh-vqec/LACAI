@@ -67,11 +67,16 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.app_manager_dbus_session_bus = true;
         } else if (option == "--app-manager-service-name" && has_value) {
             _args.app_manager_service_name = _argv[++index];
+        } else if (option == "--app-manager-client-name" && has_value) {
+            _args.app_manager_client_name = _argv[++index];
         } else if (option == "--app-manager-object-path" && has_value) {
             _args.app_manager_object_path = _argv[++index];
         } else if (option == "--app-manager-rpc-timeout-ms" && has_value) {
             _args.app_manager_rpc_timeout_ms = static_cast<int>(
                 std::strtol(_argv[++index], nullptr, 10));
+        } else if (option == "--app-manager-poll-interval-ms" && has_value) {
+            _args.app_manager_poll_interval_ms = static_cast<std::uint32_t>(
+                std::strtoul(_argv[++index], nullptr, 10));
         } else if (option == "--usecase-dbus") {
             _args.usecase_dbus = true;
         } else if (option == "--usecase-dbus-session") {

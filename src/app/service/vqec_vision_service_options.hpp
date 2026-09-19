@@ -16,6 +16,7 @@ namespace service_options_limits {
 inline constexpr std::uint64_t g_default_runtime_step_interval_ns = 10000000;
 inline constexpr std::uint64_t g_nanoseconds_per_microsecond = 1000;
 inline constexpr std::uint64_t g_default_max_artifact_bytes = 256ULL * 1024 * 1024;
+inline constexpr std::uint32_t g_max_app_manager_poll_interval_ms = 60000;
 }  // namespace service_options_limits
 
 // Parsed process arguments. This is the cold-path startup contract between main() and the
@@ -28,8 +29,10 @@ struct parsed_arguments {
     bool app_manager_dbus{false};
     bool app_manager_dbus_session_bus{false};
     std::string app_manager_service_name;
+    std::string app_manager_client_name;
     std::string app_manager_object_path;
     int app_manager_rpc_timeout_ms{0};
+    std::uint32_t app_manager_poll_interval_ms{0};
     bool usecase_dbus{false};
     bool usecase_dbus_session_bus{false};
     std::string usecase_service_name;

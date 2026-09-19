@@ -29,6 +29,7 @@ struct app_manager_dbus_config {
 
 struct app_manager_dbus_client_config {
     std::string service_bus_name_;
+    std::string client_bus_name_;
     std::string object_path_;
     int rpc_timeout_ms_{0};
     bool use_session_bus_{false};

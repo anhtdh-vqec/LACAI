@@ -305,6 +305,7 @@ const GDBusInterfaceVTable g_vtable = {
 
 struct app_manager_dbus_client::implementation {
     GDBusConnection* connection_{nullptr};
+    bool owns_name_{false};
     ~implementation() noexcept {
         if (connection_ != nullptr) {
             g_dbus_connection_close(connection_, nullptr, nullptr, nullptr);
@@ -320,31 +321,50 @@ app_manager_dbus_client::~app_manager_dbus_client() noexcept = default;
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
     const app_manager_dbus_client_config& _config,
     runtime_control_snapshot& _snapshot) {
-    if (implementation_->connection_ != nullptr) {
-        return {status_code::invalid_state,
-            "app manager DBus client already fetched a snapshot"};
-    }
     if (!g_dbus_is_name(_config.service_bus_name_.c_str()) ||
+        !g_dbus_is_name(_config.client_bus_name_.c_str()) ||
         !g_variant_is_object_path(_config.object_path_.c_str()) ||
         _config.rpc_timeout_ms_ <= 0) {
         return {status_code::invalid_argument,
             "invalid app manager DBus client configuration"};
     }
     error_owner error;
-    gchar* address = g_dbus_address_get_for_bus_sync(
-        _config.use_session_bus_ ? G_BUS_TYPE_SESSION : G_BUS_TYPE_SYSTEM,
-        nullptr, &error.value_);
-    if (address == nullptr) {
-        return {status_code::io_error,
-            "cannot resolve app manager DBus client address"};
-    }
-    implementation_->connection_ = g_dbus_connection_new_for_address_sync(address,
-        static_cast<GDBusConnectionFlags>(G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
-            G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION), nullptr, nullptr,
-        &error.value_);
-    g_free(address);
     if (implementation_->connection_ == nullptr) {
-        return {status_code::io_error, "cannot connect to app manager DBus"};
+        gchar* address = g_dbus_address_get_for_bus_sync(
+            _config.use_session_bus_ ? G_BUS_TYPE_SESSION : G_BUS_TYPE_SYSTEM,
+            nullptr, &error.value_);
+        if (address == nullptr) {
+            return {status_code::io_error,
+                "cannot resolve app manager DBus client address"};
+        }
+        implementation_->connection_ = g_dbus_connection_new_for_address_sync(address,
+            static_cast<GDBusConnectionFlags>(G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+                G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION), nullptr, nullptr,
+            &error.value_);
+        g_free(address);
+        if (implementation_->connection_ == nullptr) {
+            return {status_code::io_error, "cannot connect to app manager DBus"};
+        }
+    }
+    if (!implementation_->owns_name_) {
+        GVariant* name_reply = g_dbus_connection_call_sync(implementation_->connection_,
+            "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+            "RequestName", g_variant_new("(su)", _config.client_bus_name_.c_str(),
+                g_request_name_do_not_queue), G_VARIANT_TYPE("(u)"),
+            G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_, nullptr, &error.value_);
+        if (name_reply == nullptr) {
+            return {status_code::source_lost,
+                "app manager client cannot request its trusted bus name"};
+        }
+        guint32 result = 0;
+        g_variant_get(name_reply, "(u)", &result);
+        g_variant_unref(name_reply);
+        if (result != g_request_name_primary_owner &&
+            result != g_request_name_already_owner) {
+            return {status_code::unauthorized,
+                "app manager client trusted bus name is already owned"};
+        }
+        implementation_->owns_name_ = true;
     }
     GVariant* owner_reply = g_dbus_connection_call_sync(implementation_->connection_,
         "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
