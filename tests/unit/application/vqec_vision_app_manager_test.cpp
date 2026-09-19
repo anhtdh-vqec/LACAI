@@ -218,12 +218,14 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         assert(snapshot.inventory_revision_ == 1);
 
         test_candidate candidate(database);
-        assert(manager.vqec_vision_ai_appl_appmn_install(candidate.value_, 1, snapshot).code_ ==
-            status_code::ok);
-        assert(snapshot.associations_.size() == 1);
-        assert(snapshot.associations_[0].installed_);
-        assert(!snapshot.associations_[0].desired_);
-
+        assert(manager.vqec_vision_ai_appl_appmn_install(
+                   candidate.value_, 1, snapshot)
+                   .code_ == status_code::unauthorized);
+        app_content_record unstaged;
+        assert(content_store.vqec_vision_ai_ports_apcst_get(
+                   "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                   unstaged)
+                   .code_ == status_code::source_lost);
         app_entitlement_candidate entitlement;
         entitlement.grant_payload_ = {'{', '}'};
         entitlement.grant_sha256_ =
@@ -232,6 +234,13 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         assert(manager.vqec_vision_ai_appl_appmn_apply_entitlement(
                    entitlement, snapshot)
                    .code_ == status_code::ok);
+        assert(snapshot.associations_.empty() && snapshot.entitlement_revision_ == 2);
+        assert(manager.vqec_vision_ai_appl_appmn_install(candidate.value_, 1, snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.associations_.size() == 1);
+        assert(snapshot.associations_[0].installed_);
+        assert(!snapshot.associations_[0].desired_);
+
         app_desired_update desired{"security.fire_smoke_detection", "camera_front",
             snapshot.desired_revision_, true};
         assert(manager.vqec_vision_ai_appl_appmn_set_desired(desired, snapshot).code_ ==

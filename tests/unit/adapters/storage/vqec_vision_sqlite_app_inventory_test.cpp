@@ -65,6 +65,9 @@ app_install_request vqec_vision_ai_unit_saitst_install_request() {
     request.configuration_sha256_ = request.manifest_.configuration_defaults_sha256_;
     request.configuration_payload_ = vqec_vision_ai_unit_saitst_read_bytes(
         VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE);
+    request.supported_ = true;
+    request.compatible_ = true;
+    request.admitted_ = true;
     return request;
 }
 
@@ -94,18 +97,21 @@ void vqec_vision_ai_unit_saitst_test_lifecycle_and_restart() {
         assert(snapshot.snapshot_revision_ == 1 && snapshot.associations_.empty());
         const auto install = vqec_vision_ai_unit_saitst_install_request();
         assert(inventory.vqec_vision_ai_ports_apinv_install(install, snapshot).code_ ==
+            status_code::unauthorized);
+        auto authority = vqec_vision_ai_unit_saitst_authority();
+        assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
+            authority, snapshot).code_ == status_code::ok);
+        assert(snapshot.entitlement_revision_ == 2 && snapshot.associations_.empty());
+        assert(inventory.vqec_vision_ai_ports_apinv_install(install, snapshot).code_ ==
             status_code::ok);
         assert(snapshot.inventory_revision_ == 2 && snapshot.associations_.size() == 1);
-        assert(snapshot.associations_[0].installed_ && !snapshot.associations_[0].desired_);
+        assert(snapshot.associations_[0].installed_ && snapshot.associations_[0].entitled_ &&
+            !snapshot.associations_[0].desired_);
         runtime_control_snapshot preserved;
         preserved.snapshot_revision_ = 99;
         assert(inventory.vqec_vision_ai_ports_apinv_install(install, preserved).code_ !=
             status_code::ok);
         assert(preserved.snapshot_revision_ == 99);
-        auto authority = vqec_vision_ai_unit_saitst_authority();
-        assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
-            authority, snapshot).code_ == status_code::ok);
-        assert(snapshot.entitlement_revision_ == 2 && snapshot.associations_[0].entitled_);
         app_desired_update desired{authority.app_id_, authority.source_id_, 1, true};
         assert(inventory.vqec_vision_ai_ports_apinv_set_desired(
             desired, snapshot).code_ == status_code::ok);
@@ -151,15 +157,15 @@ void vqec_vision_ai_unit_saitst_test_scope_and_revision_fail_closed() {
     assert((database_status.st_mode & (S_IRWXG | S_IRWXO)) == 0);
     auto install = vqec_vision_ai_unit_saitst_install_request();
     runtime_control_snapshot snapshot;
-    assert(inventory.vqec_vision_ai_ports_apinv_install(install, snapshot).code_ ==
-        status_code::ok);
     auto authority = vqec_vision_ai_unit_saitst_authority();
     authority.output_scopes_ = {"security.identity.secret"};
     assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
-        authority, snapshot).code_ == status_code::unauthorized);
+        authority, snapshot).code_ == status_code::ok);
     runtime_control_snapshot after;
     assert(inventory.vqec_vision_ai_ports_apinv_load_snapshot(after).code_ == status_code::ok);
-    assert(after.entitlement_revision_ == 1 && !after.associations_[0].entitled_);
+    assert(after.entitlement_revision_ == 2 && after.associations_.empty());
+    assert(inventory.vqec_vision_ai_ports_apinv_install(install, snapshot).code_ ==
+        status_code::unauthorized);
     app_desired_update desired{authority.app_id_, authority.source_id_, 1, true};
     assert(inventory.vqec_vision_ai_ports_apinv_set_desired(
         desired, snapshot).code_ == status_code::invalid_state);
@@ -167,13 +173,16 @@ void vqec_vision_ai_unit_saitst_test_scope_and_revision_fail_closed() {
     assert(after.desired_revision_ == 1);
 
     authority = vqec_vision_ai_unit_saitst_authority();
+    authority.expected_entitlement_revision_ = 2;
     assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
         authority, after).code_ == status_code::ok);
+    assert(inventory.vqec_vision_ai_ports_apinv_install(install, after).code_ ==
+        status_code::ok);
     app_desired_update enable{authority.app_id_, authority.source_id_, 1, true};
     assert(inventory.vqec_vision_ai_ports_apinv_set_desired(
         enable, after).code_ == status_code::ok);
     assert(after.associations_[0].is_effective());
-    authority.expected_entitlement_revision_ = 2;
+    authority.expected_entitlement_revision_ = 3;
     authority.entitled_ = false;
     authority.output_scopes_.clear();
     authority.entitlement_expires_utc_ns_ = 0;

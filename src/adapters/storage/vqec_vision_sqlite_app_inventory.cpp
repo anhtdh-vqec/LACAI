@@ -1,6 +1,7 @@
 #include "vqec_vision_sqlite_app_inventory.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <limits>
 #include <new>
@@ -39,6 +40,15 @@ CREATE TABLE IF NOT EXISTS applications(
   configuration_sha256 TEXT NOT NULL,
   configuration_payload BLOB NOT NULL,
   requested_output_scopes TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS app_grants(
+  app_id TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  entitled INTEGER NOT NULL,
+  entitlement_expires_utc_ns INTEGER NOT NULL,
+  output_scopes TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  PRIMARY KEY(app_id,source_id)
 );
 CREATE TABLE IF NOT EXISTS app_sources(
   app_id TEXT NOT NULL REFERENCES applications(app_id) ON DELETE CASCADE,
@@ -499,6 +509,61 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_open() {
     return vqec_vision_ai_stor_apinv_load(database_, snapshot);
 }
 
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_authorize_install(
+    const usecase_app_manifest& _manifest,
+    std::uint64_t _expected_inventory_revision) const {
+    if (database_ == nullptr) {
+        return {status_code::invalid_state, "app inventory is not open"};
+    }
+    const auto valid = vqec_vision_ai_core_applc_validate_manifest(_manifest);
+    if (valid.code_ != status_code::ok || _expected_inventory_revision == 0) {
+        return valid.code_ != status_code::ok ? valid :
+            status{status_code::invalid_argument,
+                "invalid app install authorization request"};
+    }
+    std::uint64_t snapshot_revision = 0;
+    std::uint64_t inventory_revision = 0;
+    std::uint64_t entitlement_revision = 0;
+    std::uint64_t desired_revision = 0;
+    auto current = vqec_vision_ai_stor_apinv_read_revisions(database_, snapshot_revision,
+        inventory_revision, entitlement_revision, desired_revision);
+    if (current.code_ != status_code::ok ||
+        inventory_revision != _expected_inventory_revision) {
+        return current.code_ != status_code::ok ? current :
+            status{status_code::invalid_state, "stale app inventory revision"};
+    }
+    const auto utc_now_ns = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    for (const auto& source : _manifest.requested_scopes_.sources_) {
+        sqlite_statement statement;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "SELECT entitled,entitlement_expires_utc_ns,output_scopes "
+            "FROM app_grants WHERE app_id=? AND source_id=?", statement);
+        auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 1, _manifest.app_id_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 2, source) ||
+            sqlite3_step(handle) != SQLITE_ROW) {
+            return {status_code::unauthorized,
+                "active entitlement is required before package staging"};
+        }
+        const auto expiry = sqlite3_column_int64(handle, 1);
+        std::vector<std::string> scopes;
+        if (sqlite3_column_int(handle, 0) == 0 || expiry <= 0 ||
+            static_cast<std::uint64_t>(expiry) <= utc_now_ns ||
+            (current = vqec_vision_ai_stor_apinv_split_scopes(
+                sqlite3_column_text(handle, 2), scopes)).code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_is_subset(
+                scopes, _manifest.requested_scopes_.outputs_)) {
+            return current.code_ != status_code::ok ? current :
+                status{status_code::unauthorized,
+                    "entitlement is expired or exceeds package scopes"};
+        }
+    }
+    return {};
+}
+
 status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
     const app_install_request& _request, runtime_control_snapshot& _snapshot) {
     if (database_ == nullptr) {
@@ -533,6 +598,50 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current.code_ != status_code::ok ? current :
             status{status_code::invalid_state, "stale app inventory revision"};
+    }
+    struct install_grant {
+        std::uint64_t expires_utc_ns_{0};
+        std::vector<std::string> output_scopes_;
+        std::string reason_code_;
+    };
+    std::vector<install_grant> grants;
+    grants.reserve(_request.manifest_.requested_scopes_.sources_.size());
+    const auto utc_now_ns = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    for (const auto& source : _request.manifest_.requested_scopes_.sources_) {
+        sqlite_statement grant_statement;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "SELECT entitled,entitlement_expires_utc_ns,output_scopes,reason_code "
+            "FROM app_grants WHERE app_id=? AND source_id=?", grant_statement);
+        auto* grant_handle = grant_statement.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(
+                grant_handle, 1, _request.manifest_.app_id_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(grant_handle, 2, source) ||
+            sqlite3_step(grant_handle) != SQLITE_ROW) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::unauthorized,
+                "active entitlement is required before app install"};
+        }
+        const auto expiry = sqlite3_column_int64(grant_handle, 1);
+        const auto* reason = sqlite3_column_text(grant_handle, 3);
+        install_grant grant;
+        if (sqlite3_column_int(grant_handle, 0) == 0 || expiry <= 0 ||
+            static_cast<std::uint64_t>(expiry) <= utc_now_ns || reason == nullptr ||
+            (current = vqec_vision_ai_stor_apinv_split_scopes(
+                sqlite3_column_text(grant_handle, 2), grant.output_scopes_)).code_ !=
+                status_code::ok ||
+            !vqec_vision_ai_stor_apinv_is_subset(grant.output_scopes_,
+                _request.manifest_.requested_scopes_.outputs_)) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return current.code_ != status_code::ok ? current :
+                status{status_code::unauthorized,
+                    "entitlement is expired or exceeds package scopes"};
+        }
+        grant.expires_utc_ns_ = static_cast<std::uint64_t>(expiry);
+        grant.reason_code_ = reinterpret_cast<const char*>(reason);
+        grants.push_back(std::move(grant));
     }
     sqlite_statement application;
     current = vqec_vision_ai_stor_apinv_prepare(database_,
@@ -570,19 +679,30 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
         return !app_bound ? status{status_code::resource_exhausted,
             "app install binding failed"} : current;
     }
-    for (const auto& source : _request.manifest_.requested_scopes_.sources_) {
+    for (std::size_t source_index = 0;
+         source_index < _request.manifest_.requested_scopes_.sources_.size();
+         ++source_index) {
+        const auto& source = _request.manifest_.requested_scopes_.sources_[source_index];
+        const auto& grant = grants[source_index];
         sqlite_statement statement;
         current = vqec_vision_ai_stor_apinv_prepare(database_,
-            "INSERT INTO app_sources(app_id,source_id,supported,compatible,admitted) "
-            "VALUES(?,?,?,?,?)", statement);
+            "INSERT INTO app_sources(app_id,source_id,entitled,supported,compatible,"
+            "admitted,entitlement_expires_utc_ns,output_scopes,reason_code) "
+            "VALUES(?,?,?,?,?,?,?,?,?)", statement);
         auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+        const auto scopes = vqec_vision_ai_stor_apinv_join_scopes(grant.output_scopes_);
         if (current.code_ != status_code::ok ||
             !vqec_vision_ai_stor_apinv_bind_text(
                 handle, 1, _request.manifest_.app_id_) ||
             !vqec_vision_ai_stor_apinv_bind_text(handle, 2, source) ||
-            sqlite3_bind_int(handle, 3, _request.supported_ ? 1 : 0) != SQLITE_OK ||
-            sqlite3_bind_int(handle, 4, _request.compatible_ ? 1 : 0) != SQLITE_OK ||
-            sqlite3_bind_int(handle, 5, _request.admitted_ ? 1 : 0) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 3, 1) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 4, _request.supported_ ? 1 : 0) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 5, _request.compatible_ ? 1 : 0) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 6, _request.admitted_ ? 1 : 0) != SQLITE_OK ||
+            !vqec_vision_ai_stor_apinv_bind_uint64(
+                handle, 7, grant.expires_utc_ns_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 8, scopes) ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 9, grant.reason_code_) ||
             (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
                 status_code::ok) {
             vqec_vision_ai_stor_apinv_rollback(database_);
@@ -724,17 +844,27 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update_authority(
         return current;
     }
     std::vector<std::string> requested;
+    bool installed = false;
     sqlite_statement requested_statement;
     current = vqec_vision_ai_stor_apinv_prepare(database_,
         "SELECT requested_output_scopes FROM applications WHERE app_id=?",
         requested_statement);
     auto* requested_handle = requested_statement.vqec_vision_ai_stor_apinv_get();
-    if (current.code_ != status_code::ok ||
-        !vqec_vision_ai_stor_apinv_bind_text(requested_handle, 1, _update.app_id_) ||
-        sqlite3_step(requested_handle) != SQLITE_ROW ||
-        (current = vqec_vision_ai_stor_apinv_split_scopes(
-            sqlite3_column_text(requested_handle, 0), requested)).code_ != status_code::ok ||
-        !vqec_vision_ai_stor_apinv_is_subset(_update.output_scopes_, requested)) {
+    const bool requested_bound = current.code_ == status_code::ok &&
+        vqec_vision_ai_stor_apinv_bind_text(requested_handle, 1, _update.app_id_);
+    const int requested_result = requested_bound ? sqlite3_step(requested_handle) : SQLITE_ERROR;
+    if (!requested_bound ||
+        (requested_result != SQLITE_ROW && requested_result != SQLITE_DONE)) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current.code_ != status_code::ok ? current :
+            status{status_code::io_error, "cannot inspect installed app scopes"};
+    }
+    installed = requested_result == SQLITE_ROW;
+    if (installed &&
+        ((current = vqec_vision_ai_stor_apinv_split_scopes(
+              sqlite3_column_text(requested_handle, 0), requested)).code_ !=
+             status_code::ok ||
+         !vqec_vision_ai_stor_apinv_is_subset(_update.output_scopes_, requested))) {
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current.code_ != status_code::ok ? current :
             status{status_code::unauthorized, "authority exceeds requested app scopes"};
@@ -751,31 +881,58 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update_authority(
         return current.code_ != status_code::ok ? current :
             status{status_code::invalid_state, "stale entitlement revision"};
     }
-    sqlite_statement statement;
+    sqlite_statement grant_statement;
     current = vqec_vision_ai_stor_apinv_prepare(database_,
-        "UPDATE app_sources SET entitled=?,supported=?,compatible=?,admitted=?,"
-        "entitlement_expires_utc_ns=?,output_scopes=?,reason_code=? "
-        "WHERE app_id=? AND source_id=?", statement);
-    auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+        "INSERT INTO app_grants(app_id,source_id,entitled,"
+        "entitlement_expires_utc_ns,output_scopes,reason_code) VALUES(?,?,?,?,?,?) "
+        "ON CONFLICT(app_id,source_id) DO UPDATE SET entitled=excluded.entitled,"
+        "entitlement_expires_utc_ns=excluded.entitlement_expires_utc_ns,"
+        "output_scopes=excluded.output_scopes,reason_code=excluded.reason_code",
+        grant_statement);
+    auto* grant_handle = grant_statement.vqec_vision_ai_stor_apinv_get();
     const auto scopes = vqec_vision_ai_stor_apinv_join_scopes(_update.output_scopes_);
     const auto reason = _update.reason_code_.empty() ? "ok" : _update.reason_code_;
-    const bool bound = current.code_ == status_code::ok &&
-        sqlite3_bind_int(handle, 1, _update.entitled_ ? 1 : 0) == SQLITE_OK &&
-        sqlite3_bind_int(handle, 2, _update.supported_ ? 1 : 0) == SQLITE_OK &&
-        sqlite3_bind_int(handle, 3, _update.compatible_ ? 1 : 0) == SQLITE_OK &&
-        sqlite3_bind_int(handle, 4, _update.admitted_ ? 1 : 0) == SQLITE_OK &&
+    const bool grant_bound = current.code_ == status_code::ok &&
+        vqec_vision_ai_stor_apinv_bind_text(grant_handle, 1, _update.app_id_) &&
+        vqec_vision_ai_stor_apinv_bind_text(grant_handle, 2, _update.source_id_) &&
+        sqlite3_bind_int(grant_handle, 3, _update.entitled_ ? 1 : 0) == SQLITE_OK &&
         vqec_vision_ai_stor_apinv_bind_uint64(
-            handle, 5, _update.entitlement_expires_utc_ns_) &&
-        vqec_vision_ai_stor_apinv_bind_text(handle, 6, scopes) &&
-        vqec_vision_ai_stor_apinv_bind_text(handle, 7, reason) &&
-        vqec_vision_ai_stor_apinv_bind_text(handle, 8, _update.app_id_) &&
-        vqec_vision_ai_stor_apinv_bind_text(handle, 9, _update.source_id_);
-    if (!bound ||
-        (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
-            status_code::ok || sqlite3_changes(database_) != 1) {
+            grant_handle, 4, _update.entitlement_expires_utc_ns_) &&
+        vqec_vision_ai_stor_apinv_bind_text(grant_handle, 5, scopes) &&
+        vqec_vision_ai_stor_apinv_bind_text(grant_handle, 6, reason);
+    if (!grant_bound ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, grant_handle)).code_ !=
+            status_code::ok) {
         vqec_vision_ai_stor_apinv_rollback(database_);
-        return !bound || current.code_ == status_code::ok ?
-            status{status_code::invalid_state, "app association is not installed"} : current;
+        return !grant_bound ? status{status_code::io_error,
+            "app grant binding failed"} : current;
+    }
+    if (installed) {
+        sqlite_statement statement;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "UPDATE app_sources SET entitled=?,supported=?,compatible=?,admitted=?,"
+            "entitlement_expires_utc_ns=?,output_scopes=?,reason_code=? "
+            "WHERE app_id=? AND source_id=?", statement);
+        auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+        const bool bound = current.code_ == status_code::ok &&
+            sqlite3_bind_int(handle, 1, _update.entitled_ ? 1 : 0) == SQLITE_OK &&
+            sqlite3_bind_int(handle, 2, _update.supported_ ? 1 : 0) == SQLITE_OK &&
+            sqlite3_bind_int(handle, 3, _update.compatible_ ? 1 : 0) == SQLITE_OK &&
+            sqlite3_bind_int(handle, 4, _update.admitted_ ? 1 : 0) == SQLITE_OK &&
+            vqec_vision_ai_stor_apinv_bind_uint64(
+                handle, 5, _update.entitlement_expires_utc_ns_) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 6, scopes) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 7, reason) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 8, _update.app_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 9, _update.source_id_);
+        if (!bound ||
+            (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
+                status_code::ok || sqlite3_changes(database_) != 1) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return !bound || current.code_ == status_code::ok ?
+                status{status_code::invalid_state,
+                    "installed app association is unavailable"} : current;
+        }
     }
     current = vqec_vision_ai_stor_apinv_update_revisions(database_,
         snapshot_revision + 1U, inventory_revision,

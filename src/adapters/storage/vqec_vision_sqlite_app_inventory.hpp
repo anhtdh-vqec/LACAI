@@ -24,6 +24,9 @@ public:
     sqlite_app_inventory& operator=(const sqlite_app_inventory&) = delete;
 
     [[nodiscard]] status vqec_vision_ai_ports_apinv_open() override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_authorize_install(
+        const usecase_app_manifest& _manifest,
+        std::uint64_t _expected_inventory_revision) const override;
     [[nodiscard]] status vqec_vision_ai_ports_apinv_install(
         const app_install_request& _request,
         runtime_control_snapshot& _snapshot) override;
@@ -50,4 +53,3 @@ private:
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_STOR_SQLITE_APP_INVENTORY_HPP
-

@@ -5,8 +5,8 @@ and activate the stable S01–S18 usecases without putting package I/O in the in
 
 **Status:** board-smoke — signed first install, entitlement, configuration CAS, desired-state
 reconcile, persistent inventory, D-Bus facade and startup-order independence passed on the recorded
-QCS6490 candidate; an immutable content-store adapter is logic-tested but package ingest,
-operation journaling, update/rollback and backend conformance remain open.
+QCS6490 candidate; immutable component FD ingest and entitlement-before-stage enforcement are
+logic-tested, while operation journaling, update/rollback and backend conformance remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -66,6 +66,11 @@ Package ingest copies exactly the declared bytes from a read-only FD into a priv
 while calculating the digest. Commit order is payload fsync, candidate receipt fsync and atomic
 inventory publication. Recovery selects a complete old or new revision. Orphan staging is not an
 installed application and may be garbage-collected after journal reconciliation.
+
+A signed entitlement is persisted independently of installation. Package preflight checks the
+grant, expiry, source and requested-output subset before reading any large component FD; the
+inventory repeats the same checks inside the install commit transaction. Consequently knowledge
+of a package path or direct D-Bus access cannot populate the private model store before grant.
 
 ## Runtime snapshot
 
@@ -127,9 +132,10 @@ Entitlement v1 is a strict signed JSON document binding grant/revision, issuer/k
 machine ID, target, app, source, validity interval and output scopes. The signed byte sequence is
 the ASCII domain `VQEC-LACAI-ENTITLEMENT-1`, the exact document length as unsigned 64-bit
 big-endian and the exact document bytes. App Manager checks the configured key ID, machine/target,
-UTC validity, installed association, requested-scope subset and signed expected entitlement
-revision before publishing it. Replay with a stale revision and package presence without a signed
-grant both fail closed.
+UTC validity and signed expected entitlement revision before persisting it. At package preflight,
+App Manager checks source and requested-scope subset against the verified manifest; the same check
+is repeated at inventory commit. Replay, expired/revoked grants and package presence without a
+signed grant all fail closed.
 
 Backend supplies only the signed entitlement. Compiled processor support is derived from the AI
 registry, compatibility from verified target/runtime/package checks, and admission from the
@@ -139,10 +145,9 @@ configured App Manager resource capacity. These booleans are never accepted from
 
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
-- Content-addressed artifact staging is source-delivered and logic-tested independently. Binding
-  package component FDs, inventory generation references and safe garbage collection to that
-  adapter remains open together with operation journaling, update/rollback, D-Bus/backend
-  conformance, fault injection and release acceptance.
+- Content-addressed component FD staging is bound to signed manifest digest/size and install
+  authority. Inventory generation history, safe garbage collection, operation journaling,
+  update/rollback, D-Bus/backend conformance, fault injection and release acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
 - The first-install board path is accepted only at board-smoke level. It does not make the
   synchronous mutation API an asynchronous operation journal and does not qualify component

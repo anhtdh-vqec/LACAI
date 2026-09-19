@@ -654,6 +654,12 @@ if [ ! -s "$g_snapshot_path" ]; then
     exit 1
 fi
 
+if [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; then
+    vqec_vision_ai_tools_rnful_control entitlement \
+        --grant "$g_app_entitlement" --signature "$g_app_entitlement_signature" \
+        --grant-sha256 "$(sha256sum "$g_app_entitlement" | cut -d ' ' -f 1)"
+    vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
+fi
 if [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; then
     g_inventory_revision=$(vqec_vision_ai_tools_rnful_snapshot_field inventory_revision)
     vqec_vision_ai_tools_rnful_control install \
@@ -664,12 +670,6 @@ if [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; th
         --manifest-sha256 "$(sha256sum "$g_app_manifest" | cut -d ' ' -f 1)" \
         --configuration-sha256 "$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)" \
         --expected-revision "$g_inventory_revision"
-    vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
-fi
-if [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; then
-    vqec_vision_ai_tools_rnful_control entitlement \
-        --grant "$g_app_entitlement" --signature "$g_app_entitlement_signature" \
-        --grant-sha256 "$(sha256sum "$g_app_entitlement" | cut -d ' ' -f 1)"
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
 fi
 if [ "$(vqec_vision_ai_tools_rnful_association_field desired)" != "true" ]; then

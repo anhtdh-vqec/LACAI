@@ -182,6 +182,11 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
     if (current.code_ != status_code::ok) {
         return current;
     }
+    current = inventory_.vqec_vision_ai_ports_apinv_authorize_install(
+        package.manifest_, _expected_inventory_revision);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
     current = vqec_vision_ai_appl_appmn_stage_package_content(_candidate, package);
     if (current.code_ != status_code::ok) {
         return current;
@@ -302,23 +307,24 @@ status app_manager::vqec_vision_ai_appl_appmn_apply_entitlement(
             return _association.app_id_ == grant.app_id_ &&
                 _association.source_id_ == grant.source_id_;
         });
-    if (association == current_snapshot.associations_.end() ||
-        !association->installed_) {
-        return {status_code::invalid_state,
-            "entitlement application association is not installed"};
-    }
     app_authority_update update;
     update.app_id_ = grant.app_id_;
     update.source_id_ = grant.source_id_;
     update.expected_entitlement_revision_ = grant.expected_entitlement_revision_;
     update.entitled_ = grant.granted_;
-    update.supported_ = association->supported_;
-    update.compatible_ = association->compatible_;
-    update.admitted_ = association->admitted_;
+    update.supported_ = association != current_snapshot.associations_.end() &&
+        association->installed_ && association->supported_;
+    update.compatible_ = association != current_snapshot.associations_.end() &&
+        association->installed_ && association->compatible_;
+    update.admitted_ = association != current_snapshot.associations_.end() &&
+        association->installed_ && association->admitted_;
     update.entitlement_expires_utc_ns_ = grant.granted_ ? grant.expires_utc_ns_ : 0;
     update.output_scopes_ = grant.output_scopes_;
     if (!grant.granted_) {
         update.reason_code_ = "revoked";
+    } else if (association == current_snapshot.associations_.end() ||
+               !association->installed_) {
+        update.reason_code_ = "verified_preinstall";
     } else if (!association->supported_) {
         update.reason_code_ = "unsupported";
     } else if (!association->compatible_) {
