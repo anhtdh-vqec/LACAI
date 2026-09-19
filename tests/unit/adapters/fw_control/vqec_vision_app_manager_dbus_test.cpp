@@ -32,10 +32,23 @@ public:
         std::uint64_t, runtime_control_snapshot&) override {
         return {status_code::unsupported, "install not exercised by this wire test"};
     }
-    status vqec_vision_ai_ports_apmgr_update_configuration(const std::string&,
-        std::uint64_t, const std::vector<std::uint8_t>&, const std::string&,
-        runtime_control_snapshot&) override {
-        return {status_code::unsupported, "configuration not exercised by this wire test"};
+    status vqec_vision_ai_ports_apmgr_update_configuration(const std::string& _app_id,
+        std::uint64_t _expected_revision,
+        const std::vector<std::uint8_t>& _configuration,
+        const std::string& _configuration_sha256,
+        runtime_control_snapshot& _snapshot) override {
+        if (_app_id != "security.fire_smoke_detection" || _expected_revision != 1 ||
+            _configuration != std::vector<std::uint8_t>{'{', '}'} ||
+            _configuration_sha256 !=
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") {
+            return {status_code::invalid_argument, "unexpected configuration update"};
+        }
+        configuration_called_ = true;
+        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
+        _snapshot.snapshot_revision_ = 5;
+        _snapshot.associations_[0].configuration_revision_ = 2;
+        _snapshot.associations_[0].configuration_sha256_ = _configuration_sha256;
+        return {};
     }
     status vqec_vision_ai_ports_apmgr_apply_entitlement(
         const app_entitlement_candidate& _candidate,
@@ -103,6 +116,7 @@ public:
 
     bool desired_called_{false};
     bool entitlement_called_{false};
+    bool configuration_called_{false};
 };
 
 void vqec_vision_ai_unit_amdtst_request_name(
@@ -259,6 +273,31 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
                 std::future_status::ready ||
             !repeated_fetch.get()) {
             throw std::runtime_error("App Manager client cannot refresh a snapshot");
+        }
+        const std::vector<std::uint8_t> configuration{'{', '}'};
+        auto configuration_call = std::async(std::launch::async,
+            [&client, &client_config, &configuration]() {
+                std::uint64_t revision = 0;
+                const auto applied =
+                    client.vqec_vision_ai_fwctl_amdbs_apply_configuration(
+                        client_config, "security.fire_smoke_detection", 1,
+                        configuration,
+                        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        revision);
+                return applied.code_ == status_code::ok && revision == 5;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             configuration_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (configuration_call.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready ||
+            !configuration_call.get() || !port.configuration_called_) {
+            throw std::runtime_error("App Manager configuration FD wire is invalid");
         }
         app_entitlement_candidate entitlement;
         entitlement.grant_payload_ = {'{', '}'};

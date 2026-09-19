@@ -52,6 +52,13 @@ public:
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision,
         std::uint64_t& _snapshot_revision);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_apply_configuration(
+        const app_manager_dbus_client_config& _config,
+        const std::string& _app_id,
+        std::uint64_t _expected_configuration_revision,
+        const std::vector<std::uint8_t>& _configuration_payload,
+        const std::string& _configuration_sha256,
+        std::uint64_t& _snapshot_revision);
     [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_apply_entitlement(
         const app_manager_dbus_client_config& _config,
         const app_entitlement_candidate& _candidate,

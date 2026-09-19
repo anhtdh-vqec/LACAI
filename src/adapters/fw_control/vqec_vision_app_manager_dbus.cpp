@@ -613,6 +613,47 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_entitlement(
     return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
 }
 
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_apply_configuration(
+    const app_manager_dbus_client_config& _config,
+    const std::string& _app_id,
+    std::uint64_t _expected_configuration_revision,
+    const std::vector<std::uint8_t>& _configuration_payload,
+    const std::string& _configuration_sha256,
+    std::uint64_t& _snapshot_revision) {
+    std::string unique_owner;
+    auto current = implementation_->vqec_vision_ai_fwctl_amdbs_prepare(
+        _config, unique_owner);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    fd_owner configuration;
+    current = vqec_vision_ai_fwctl_amdbs_make_payload_fd(
+        _configuration_payload, configuration);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    error_owner error;
+    GUnixFDList* descriptors = g_unix_fd_list_new();
+    const int configuration_handle = g_unix_fd_list_append(
+        descriptors, configuration.value_, &error.value_);
+    if (configuration_handle < 0) {
+        g_object_unref(descriptors);
+        return {status_code::io_error,
+            "cannot attach App Manager configuration descriptor"};
+    }
+    GVariant* reply = g_dbus_connection_call_with_unix_fd_list_sync(
+        implementation_->connection_, unique_owner.c_str(), _config.object_path_.c_str(),
+        app_manager_dbus_protocol::g_interface_name,
+        app_manager_dbus_protocol::g_configuration_method,
+        g_variant_new("(sths)", _app_id.c_str(),
+            static_cast<guint64>(_expected_configuration_revision),
+            configuration_handle, _configuration_sha256.c_str()),
+        G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
+        descriptors, nullptr, nullptr, &error.value_);
+    g_object_unref(descriptors);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+}
+
 status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_set_desired(
     const app_manager_dbus_client_config& _config,
     const app_desired_update& _update,

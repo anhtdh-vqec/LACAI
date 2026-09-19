@@ -182,6 +182,29 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
                    candidate.configuration_sha256_, snapshot)
                    .code_ == status_code::protocol_error);
         assert(snapshot.associations_[0].configuration_revision_ == 1);
+
+        std::string updated_text(candidate.configuration_payload_.begin(),
+            candidate.configuration_payload_.end());
+        const std::string old_threshold = "\"fire_alarm_confidence\": 0.6";
+        const auto threshold_offset = updated_text.find(old_threshold);
+        assert(threshold_offset != std::string::npos);
+        updated_text.replace(threshold_offset, old_threshold.size(),
+            "\"fire_alarm_confidence\": 0.72");
+        const std::vector<std::uint8_t> updated_configuration(
+            updated_text.begin(), updated_text.end());
+        constexpr char updated_sha256[] =
+            "f3155b44db80397765c5437cdb7e4023ef5ca7ff26682afd74a92f42f1742387";
+        assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
+                   "security.fire_smoke_detection", 1, updated_configuration,
+                   updated_sha256, snapshot)
+                   .code_ == status_code::ok);
+        assert(snapshot.associations_[0].configuration_revision_ == 2);
+        assert(snapshot.associations_[0].configuration_sha256_ == updated_sha256);
+        assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
+                   "security.fire_smoke_detection", 1, candidate.configuration_payload_,
+                   candidate.configuration_sha256_, snapshot)
+                   .code_ == status_code::invalid_state);
+        assert(snapshot.associations_[0].configuration_revision_ == 2);
     }
     {
         sqlite_app_inventory inventory(
@@ -191,6 +214,9 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         assert(manager.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
         assert(snapshot.associations_.size() == 1);
         assert(snapshot.associations_[0].is_effective());
+        assert(snapshot.associations_[0].configuration_revision_ == 2);
+        assert(snapshot.associations_[0].configuration_sha256_ ==
+            "f3155b44db80397765c5437cdb7e4023ef5ca7ff26682afd74a92f42f1742387");
     }
 }
 

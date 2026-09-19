@@ -139,7 +139,7 @@ status vqec_vision_ai_tools_amctl_read_file(
 }
 
 void vqec_vision_ai_tools_amctl_usage() {
-    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|entitlement|"
+    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|configure|entitlement|"
                  "desired|uninstall> --service-name <name> --client-name <name> "
                  "--object-path <path> --rpc-timeout-ms <ms> [--session] [command options]\n";
 }
@@ -184,6 +184,15 @@ int main(int argc, char** argv) {
         if (outcome.code_ == status_code::ok) {
             outcome = client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
                 options.expected_revision_, revision);
+        }
+    } else if (options.command_ == "configure") {
+        std::vector<std::uint8_t> configuration;
+        outcome = vqec_vision_ai_tools_amctl_read_file(options.configuration_path_,
+            app_lifecycle_limits::g_max_document_bytes, configuration);
+        if (outcome.code_ == status_code::ok) {
+            outcome = client.vqec_vision_ai_fwctl_amdbs_apply_configuration(
+                options.dbus_, options.app_id_, options.expected_revision_,
+                configuration, options.configuration_sha256_, revision);
         }
     } else if (options.command_ == "entitlement") {
         app_entitlement_candidate candidate;
