@@ -187,6 +187,7 @@ public:
             event.event_schema_version_ = "1";
             event.kind_ = feature_event_kind::snapshot;
             event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
+            event.episode_begin_ns_ = event.occurred_at_ns_;
             event.config_revision_ = config_.config_revision_;
             event.track_ids_.push_back(item.track_id_);
             candidate.events_.push_back(std::move(event));
@@ -603,24 +604,33 @@ int main() {
 
     // B02: a result captured under policy revision 1 must not be relabelled by a later
     // regrant to revision 2; dispatch with the captured revision is denied, not delivered.
-    bool stale_pending = false;
-    for (unsigned step = 0; step < 400 && !stale_pending; ++step, now_ns += 1000000) {
+    bool stale_event_taken = false;
+    std::array<observation_batch, deployment_limits::g_max_models_per_source> stale_tracked;
+    std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> stale_events;
+    runtime_executor_report stale_taken;
+    for (unsigned step = 0; step < 400 && !stale_event_taken; ++step, now_ns += 1000000) {
         runtime_executor_report step_report;
         const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, step_report);
         assert(progressed.code_ == status_code::ok ||
                progressed.code_ == status_code::pending);
-        stale_pending = executor->vqec_vision_ai_appl_rtexe_has_pending() &&
-            step_report.has_feature_fanout_;
-        if (!stale_pending && executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+        if (!executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            continue;
+        }
+        if (!step_report.has_feature_fanout_) {
             executor->vqec_vision_ai_appl_rtexe_discard_pending();
+            continue;
+        }
+        assert(executor->vqec_vision_ai_appl_rtexe_take_result(
+                   stale_tracked, stale_events, stale_taken).code_ == status_code::ok);
+        for (std::uint16_t ordinal = 0;
+             ordinal < feature_fanout_limits::g_max_feature_stages; ++ordinal) {
+            const auto bit = static_cast<std::uint32_t>(1U) << ordinal;
+            stale_event_taken = stale_event_taken ||
+                ((stale_taken.features_.processed_mask_ & bit) != 0U &&
+                 !stale_events[ordinal].events_.empty());
         }
     }
-    assert(stale_pending);
-    std::array<observation_batch, deployment_limits::g_max_models_per_source> stale_tracked;
-    std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> stale_events;
-    runtime_executor_report stale_taken;
-    assert(executor->vqec_vision_ai_appl_rtexe_take_result(
-               stale_tracked, stale_events, stale_taken).code_ == status_code::ok);
+    assert(stale_event_taken);
     assert(stale_taken.captured_policy_revision_ == 1);
     output_policy regranted = policy;
     regranted.revision_ = 2;
@@ -628,9 +638,9 @@ int main() {
                regranted, 1).code_ == status_code::ok);
     feature_dispatch_report stale_report;
     assert(executor->vqec_vision_ai_appl_rtexe_dispatch_events(
-               stale_events, stale_taken.source_index_, stale_taken.model_slot_,
-               stale_taken.captured_policy_revision_, stale_taken.features_.processed_mask_,
-               now_ns, stale_report).code_ == status_code::unauthorized);
+        stale_events, stale_taken.source_index_, stale_taken.model_slot_,
+        stale_taken.captured_policy_revision_, stale_taken.features_.processed_mask_,
+        now_ns, stale_report).code_ == status_code::unauthorized);
     assert(stale_report.accepted_ == 0 && stale_report.denied_ == 1);
 
     // A05: stop while a routed result is still pending. The drain must consume/discard it

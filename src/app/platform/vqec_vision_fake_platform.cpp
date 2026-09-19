@@ -90,6 +90,7 @@ public:
             event.event_schema_version_ = platform_config_.event_schema_version_;
             event.kind_ = feature_event_kind::snapshot;
             event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
+            event.episode_begin_ns_ = event.occurred_at_ns_;
             event.config_revision_ = config_.config_revision_;
             event.track_ids_.push_back(item.track_id_);
             feature_event_field field;
