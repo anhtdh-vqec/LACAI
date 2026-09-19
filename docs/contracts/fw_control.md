@@ -1,8 +1,8 @@
 # FW control, outputs, entitlement and BSP handoff
 
-This umbrella proposal defines the FW/AI APP control plane, entitlement, output envelope,
-package/update and BSP handoff boundaries for four-team review. It extends, not replaces,
-the released AI D-Bus and H264 preview interfaces.
+This umbrella proposal defines the system FW/AI APP control plane, output envelope and BSP
+handoff boundaries. Usecase application distribution is an AI APP-owned boundary: the backend
+calls the AI-owned D-Bus App Manager and FW/BSP does not manage usecase packages or inventory.
 
 **Status:** source-delivered — the usecase activation boundary is normative in
 [FW usecase activation](fw_usecase_control.md); the D-Bus v1 adapter and service-owned
@@ -16,8 +16,8 @@ methods and signed-grant provisioning must not be assumed present in released FW
 
 ## Responsibility
 
-- Defines the control, entitlement, output, packaging and BSP handoff boundary for
-  four-team review.
+- Defines system control, output and BSP handoff boundaries and distinguishes base-system
+  deployment from AI-owned usecase application lifecycle.
 - Keeps AI APP ownership of preview overlay/encode/ring output and of the protected face
   gallery; FW own persistent evidence and recording.
 - Must not be read as released FW: new control methods and signed-grant provisioning must
@@ -28,9 +28,9 @@ methods and signed-grant provisioning must not be assumed present in released FW
 | Team | Deliverable |
 |---|---|
 | FW BSP | board/image/sysroot/SDK + memory/import/sync/reset sample, capability limits |
-| FW software | camera transport, service supervision, config, provisioning, install/update, event/evidence persistence |
+| FW software | camera transport, base-service supervision, base image/runtime deployment, config and event/evidence persistence; no usecase App Manager authority |
 | AI Model | full model package + golden + quality report |
-| AI APP | runtime/backend integration, feature rules, entitlement enforcement, outputs/metrics, FR enrollment/matching and all protected gallery/key/index persistence + app IPK |
+| AI APP | runtime/backend integration, AI-owned D-Bus App Manager, usecase entitlement verification, private package store/inventory/install/update/rollback, feature rules, outputs/metrics, FR enrollment/matching and protected gallery/key/index persistence |
 
 FW must not open, copy, back up or mutate the face gallery and must not provision or
 receive its encryption key. AI also confines the derived Zvec collection to private
@@ -54,7 +54,8 @@ The response separates an accepted command from actual running readiness.
 Status per source/feature: installed, entitled, desired, supported, compatible,
 admitted, effective_state, reason, config/model/license revisions.
 
-Auth comes from transport + FW policy; do not trust a caller-written customer_id field.
+Auth comes from the configured backend transport identity plus AI APP policy; do not trust a
+caller-written customer_id field.
 Parse bounds; rate limits; a diagnostic dump contains no secrets/biometrics by default.
 
 ## Entitlement
@@ -66,7 +67,9 @@ not connected to a transport/router yet, and does not implement compute admissio
 
 A signed grant contains grant_id, issuer/key_id, revision, device/customer scope,
 feature_ids, attribute scopes, source/camera limits, not_before/expires, offline policy and
-signature. Key provisioning/trusted time belong to FW. The runtime verifies the grant and
+signature. The backend supplies grants through the authenticated AI-owned App Manager boundary;
+AI APP owns schema, verification and publication. Trust-anchor provisioning and trusted-time
+primitives are deployment inputs, not FW authority over the usecase state. The runtime verifies the grant and
 enforces deny-by-default for features outside scope. An installed bundle does not by itself
 grant every feature in the bundle.
 
@@ -77,9 +80,9 @@ Recheck the revision when dispatching queued output; a retry spool must also fol
 revocation/retention policy and must not unconditionally export old embeddings.
 
 A signed offline license does not know about a newer remote revocation while disconnected.
-Clock rollback/key rotation/grace policy must be fixed with FW. Root-bypass resistance
-needs FW's trusted firmware chain; an APP software check does not by itself provide that
-guarantee.
+Clock rollback/key rotation/grace policy is fixed by the AI APP/backend security contract.
+Root-bypass resistance may depend on platform secure-boot and trusted-time primitives, but that
+dependency does not transfer App Manager or entitlement state authority to FW/BSP.
 
 ## Outputs
 
@@ -101,11 +104,14 @@ retention. AI does not log/raw-export faces/embeddings by default.
 
 ## Package/update
 
-Logical packages runtime/backend/features/models are independent with compatible metadata.
-FW install transaction: download/verify -> stage -> validate set -> stop/drain -> activate
-coherent set -> health check -> commit or rollback the coherent set. Do not run a package
-script that kills the service before there is a quiescence guarantee. A signed
-model/feature manifest does not replace camera authorization.
+Base OS/image and the LACAI runtime service remain C10 deployment artifacts integrated by FW/BSP.
+Usecase applications are separate C05 artifacts managed only by AI APP: authenticated backend
+D-Bus request -> bounded Unix-FD staging -> signature/digest verification -> dependency/preflight
+-> atomic inventory generation -> runtime drain/activate -> health commit or rollback. Backend and
+FW/BSP cannot write the private app store or set installed/running fields. No package-provided
+script may kill the service before quiescence. A signed model/feature manifest does not replace
+camera authorization. The target workflow is specified in
+[usecase app distribution](../planning/architecture_improvement/usecase_app_distribution_plan.md).
 
 ## Acceptance
 
@@ -116,7 +122,7 @@ drift. Each test has an owner and an expected reason.
 
 ## Limits and next work
 
-- Signed entitlement provisioning/verification remains a separate boundary; the delivered
+- The AI-owned App Manager and signed entitlement verifier remain planned; the delivered
   output_gate is a policy evaluator only.
 - Measurement and release cases are tracked in
   [FR validation](../testing/face_recognition_production_validation.md).

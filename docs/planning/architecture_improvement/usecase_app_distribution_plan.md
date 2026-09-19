@@ -1,11 +1,13 @@
 # Phân phối và quản lý ứng dụng usecase
 
-Kế hoạch này định nghĩa cách đóng gói mỗi usecase thành một application/SKU độc lập, chỉ cho
-thiết bị được cấp entitlement tải package và chỉ cho application đã cài đặt tham gia điều khiển
-bật/tắt. Thiết kế giữ một LACAI runtime dùng chung để chia sẻ camera, model và accelerator.
+Kế hoạch này định nghĩa cách AI APP đóng gói và quản lý mỗi usecase thành một application/SKU độc
+lập, chỉ cho thiết bị được cấp entitlement tải package và chỉ cho application đã cài đặt tham gia
+điều khiển bật/tắt. Backend giao tiếp với AI-owned App Manager qua D-Bus v1; BSP/FW không tham gia
+lifecycle usecase app. Thiết kế giữ một LACAI runtime dùng chung để chia sẻ camera, model và
+accelerator.
 
-**Status:** planned — đã đối chiếu contract và source hiện tại; chưa có package manager,
-signed entitlement provider hay install inventory production. **Layer:** docs. **Source:**
+**Status:** planned — AI APP ownership đã được lead quyết định; chưa có App Manager, D-Bus v1,
+signed entitlement verifier hay install inventory production. **Layer:** docs. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_usecase_activation.hpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp`,
 `config/schemas/usecase_control_snapshot.schema.json`.
@@ -18,6 +20,7 @@ signed entitlement provider hay install inventory production. **Layer:** docs. *
 - Định nghĩa download/install/update/rollback/uninstall an toàn, có thể khôi phục sau mất điện.
 - Cho phép nhiều app dùng chung model/feature mà không tải, load hoặc tính toán trùng lặp.
 - Không biến app store, UI hoặc một file JSON tự khai báo thành nguồn cấp quyền.
+- Không giao implementation, state authority hay acceptance của usecase App Manager cho BSP/FW.
 
 ## 1. Quyết định kiến trúc
 
@@ -40,13 +43,14 @@ camera, giữ nhiều bản sao detector/tracker/QNN context, cạnh tranh HTP/c
 ownership của RAW frame. Kiến trúc đích là:
 
 ```text
-Product UI / App Store
+Backend / Product UI
         |
+        | AI-owned D-Bus v1 contract; metadata/control + Unix FD transfer
         v
-BSP+FW App Manager ---- signed entitlement / repository / install inventory
-        |                                      |
-        | committed inventory revision         | immutable package digests
-        v                                      v
+AI APP App Manager ---- private content store / install inventory / entitlement verifier
+        |
+        | committed app + desired + entitlement revisions
+        v
 AI APP gate reconciler ----------------> shared LACAI runtime
                                            |-- one camera acquisition per source
                                            |-- shared model graph by exact identity
@@ -61,8 +65,10 @@ Trường hợp đó phải dùng sandbox/out-of-process worker và neutral IPC 
 ### 1.2. Package v1 là declarative và không có install script
 
 Package v1 không phải `.exe`, không chứa `postinstall.sh` và không được phép chạy lệnh do package
-cung cấp. AI APP phát hành logical usecase bundle; BSP+FW App Manager chịu trách nhiệm transport,
-signature, content store và atomic installation.
+cung cấp. AI APP phát hành logical usecase bundle và sở hữu App Manager, entitlement verification,
+package ingest/staging, signature validation, private content store, atomic install và rollback. Backend
+chỉ gọi D-Bus contract hoặc chuyển package bằng read-only Unix FD; backend không ghi trực tiếp vào
+AI-owned store.
 
 Bundle gồm một manifest đã ký và các blob immutable được định danh bằng SHA-256. File `.vqapp`
 chỉ là container dùng để truyền online/offline; sau verify, payload được đưa vào content-addressed
@@ -82,7 +88,7 @@ khi tuple sau khớp chính xác:
 component_id + component_version + target_id + artifact_digest + semantic_contract_digest
 ```
 
-App manifest tham chiếu dependency immutable. Package manager lưu mỗi blob một lần; AI runtime
+App manifest tham chiếu dependency immutable. App Manager lưu mỗi blob một lần; AI runtime
 giữ một graph/context khi backend contract cho phép và reference-count theo effective app. Gỡ một
 app không xóa dependency còn được app khác hoặc rollback generation tham chiếu.
 
@@ -95,11 +101,11 @@ derive từng gate từ owner độc lập:
 
 | State | Authority duy nhất | Không được suy ra từ |
 |---|---|---|
-| `catalog_available` | signed repository index do BSP+FW publish | UI list hoặc file upload |
-| `entitled` | signed entitlement provider, scope device/customer/app/source/time | installed/model present |
-| `download_allowed` | server authorization + entitlement hiện hành | URL biết trước hoặc UI hidden |
-| `installed` | committed install receipt và complete verified dependency closure | directory/file tồn tại |
-| `desired` | authenticated FW UI/control request | install hoặc entitlement |
+| `catalog_available` | AI APP App Manager verify AI-owned catalog schema/signature | UI list hoặc file upload |
+| `entitled` | AI APP verifier trên signed backend grant, scope device/customer/app/source/time | installed/model present |
+| `download_allowed` | AI APP policy từ entitlement hiện hành và authenticated backend peer | URL biết trước hoặc UI hidden |
+| `installed` | AI-owned committed install receipt và complete verified dependency closure | directory/file tồn tại |
+| `desired` | authenticated backend request qua AI-owned D-Bus | install hoặc entitlement |
 | `supported` | AI APP compiled capability/processor registry | package tự khai báo |
 | `compatible` | AI APP resolver đối chiếu target/runtime ABI/schema/dependency | cùng filename/version text |
 | `admitted` | hardware/resource admission cho complete candidate | install thành công |
@@ -113,7 +119,7 @@ effective = installed AND entitled AND desired AND supported AND compatible AND 
 ```
 
 `installed` là điều kiện bắt buộc để gửi `desired=true`. Disable được phép để hỗ trợ idempotent
-stop/uninstall. Enable của app chưa cài phải bị backend từ chối với `not_installed`, kể cả khi gọi
+stop/uninstall. Enable của app chưa cài phải bị App Manager từ chối với `not_installed`, kể cả khi gọi
 thẳng API mà bỏ qua UI. Install luôn tạo `desired=false`; cài app không tự chạy camera/model.
 
 Entitlement hết hạn hoặc bị revoke chặn output ngay, rồi stop/drain runtime. Desired intent có thể
@@ -144,9 +150,11 @@ Mỗi manifest bắt buộc có:
 baseline version 1 theo canonical version registry. Mọi artifact reference là immutable; URL và
 absolute deployment path không nằm trong semantic manifest.
 
-### 3.2. BSP-owned distribution envelope và install inventory
+### 3.2. AI-owned distribution envelope và install inventory
 
-C10 vẫn do BSP+FW sở hữu. Distribution envelope và inventory phải có:
+Usecase application distribution là subdomain của C05 do AI APP sở hữu, không phải C10 system
+deployment. C10 vẫn chỉ áp dụng cho base LACAI runtime, OS launcher/image và system rollback bên
+ngoài plan này. AI APP định nghĩa và implement distribution envelope, private store và inventory:
 
 - signed repository revision, package digest, size, channel và anti-rollback sequence;
 - device/target compatibility và product trust-chain reference;
@@ -154,21 +162,24 @@ C10 vẫn do BSP+FW sở hữu. Distribution envelope và inventory phải có:
 - install transaction ID, previous/current generation, state và stable reason;
 - exact installed component digests, dependency references và rollback retention;
 - fsync/atomic-commit evidence, disk quota và garbage-collection eligibility;
-- package-manager signature/attestation trên complete inventory revision.
+- integrity-protected receipt trên complete inventory revision; chỉ gọi là signature/attestation khi
+  khóa và primitive tương ứng thực sự được platform cung cấp và review.
 
-AI APP không tin một directory scan. Nó chỉ coi app installed sau khi verify complete inventory,
-manifest signature/digest và dependency closure. D-Bus notification chỉ là hint; sau notification
-AI APP đọc lại full immutable snapshot theo revision để chịu được lost/duplicate/reordered signal.
+Runtime không tin một directory scan hay backend assertion. Nó chỉ coi app installed sau khi
+AI-owned App Manager verify complete inventory, manifest signature/digest và dependency closure.
+App Manager publish full immutable snapshot theo revision để runtime chịu được
+lost/duplicate/reordered D-Bus request hoặc process restart.
 
 ### 3.3. Entitlement snapshot
 
-Entitlement v1 thuộc C05 semantic authority của AI APP; BSP+FW/backend là producer. Grant tối thiểu
-chứa issuer/key, grant/revision, device/customer scope, `app_id`, source/attribute/output limits,
-`not_before`, `expires_at`, offline/grace policy và signature.
+Entitlement v1 thuộc C05 authority của AI APP. Backend là producer bên ngoài và phải phát đúng
+AI-owned schema; AI APP là verifier và quyết định accept/reject. Grant tối thiểu chứa issuer/key,
+grant/revision, device/customer scope, `app_id`, source/attribute/output limits, `not_before`,
+`expires_at`, offline/grace policy và signature.
 
-Repository server chỉ trả metadata/download authorization cho app được entitlement. Device vẫn
-verify lại grant và package; ẩn nút trên UI không phải security. Offline install dùng cùng signed
-`.vqapp` và vẫn phải có offline grant phù hợp. Không có entitlement thì upload local cũng bị từ chối.
+Backend chỉ được request/stage package mà grant cho phép. AI APP vẫn verify lại grant và package;
+ẩn nút trên UI không phải security. Offline install dùng cùng signed `.vqapp` và vẫn phải có offline
+grant phù hợp. Không có entitlement thì package FD hoặc local upload cũng bị từ chối.
 
 ## 4. State machine hiển thị cho UI
 
@@ -199,12 +210,14 @@ chính xác. Process crash/kill là runtime event; chỉ gắn fault cho app khi
 
 ### 5.1. Discover và download
 
-1. Device authenticate với platform bằng identity do BSP provision.
-2. App Manager lấy signed repository snapshot và signed entitlement snapshot.
-3. UI chỉ hiện `Install` cho app có entitlement và target phù hợp.
-4. Server kiểm quyền trước khi cấp short-lived download authorization; client không tự ghép URL.
-5. Blob tải vào bounded staging, hỗ trợ resume theo chunk digest và quota.
-6. Entitlement bị revoke giữa download không làm app installed; verify/commit phải kiểm lại revision.
+1. AI APP App Manager bind configured backend well-known name sang unique D-Bus sender và từ chối
+   peer khác; caller-supplied customer/device ID không phải authentication.
+2. Backend provision signed catalog và entitlement snapshot theo AI-owned schema/revision.
+3. App Manager verify grant rồi trả danh sách app/action cho backend UI qua D-Bus.
+4. Backend gọi `StagePackage` rồi `Install`; package data đi bằng read-only Unix FD hoặc descriptor tải đã
+   được contract cho phép, không đi bằng D-Bus byte array lớn.
+5. App Manager tải/copy blob vào bounded private staging, kiểm size/chunk digest và quota.
+6. Entitlement bị revoke giữa download không làm app installed; verify/commit kiểm lại revision.
 
 ### 5.2. Install
 
@@ -212,9 +225,9 @@ chính xác. Process crash/kill là runtime event; chỉ gắn fault cho app khi
 2. Parse manifest với bounded strict validator; reject unknown required semantics.
 3. Resolve complete dependency closure; mọi mandatory blob phải có và đúng digest.
 4. AI APP preflight target/runtime/schema/processor/model compatibility; không load model.
-5. BSP kiểm storage/quota/permissions; AI admission chỉ đánh giá khả năng hợp lệ, không hứa mọi tổ
-   hợp app đã cài đều chạy đồng thời.
-6. Fsync blobs và candidate receipt, rồi atomically publish một inventory revision đầy đủ.
+5. AI APP kiểm private storage/quota/permissions; admission chỉ đánh giá khả năng hợp lệ, không hứa
+   mọi tổ hợp app đã cài đều chạy đồng thời.
+6. App Manager fsync blobs và candidate receipt, rồi atomically publish một inventory revision đầy đủ.
 7. AI APP re-read inventory, derive `installed=true`, publish status `installed_disabled`.
 
 Power loss trước bước 6 để lại orphan staging có thể GC, không đổi current inventory. Power loss sau
@@ -232,19 +245,20 @@ package và không xóa dữ liệu nghiệp vụ.
 
 ### 5.4. Update và rollback
 
-Update luôn side-by-side: tải/verify candidate mới, giữ current generation và rollback set. Nếu app
-đang chạy, AI APP dừng output/scheduling của dependency bị thay, drain, chuyển inventory generation,
-prepare runtime candidate, health-check rồi commit. Nếu prepare/health thất bại, package manager trả
-inventory về generation trước và AI APP reconcile lại. Không overwrite artifact đang mmap/load.
+Update luôn side-by-side: App Manager tải/verify candidate mới, giữ current generation và rollback
+set. Nếu app đang chạy, AI APP dừng output/scheduling của dependency bị thay, drain, chuyển inventory
+generation, prepare runtime candidate, health-check rồi commit. Nếu prepare/health thất bại, App
+Manager trả inventory về generation trước và runtime reconcile lại. Không overwrite artifact đang
+mmap/load.
 
 Breaking model/preprocess/ontology/data change phải có migration và rollback tương thích. Data
 migration dùng journal/checkpoint; không chạy arbitrary package script.
 
 ### 5.5. Uninstall
 
-1. Package manager yêu cầu app về desired false.
+1. App Manager áp desired false trong cùng serialized control transaction.
 2. AI APP chặn output, drain và trả quiesce receipt.
-3. Package manager commit inventory không còn app.
+3. App Manager commit inventory không còn app.
 4. Chỉ blob có reference count bằng zero và không thuộc rollback set mới được GC.
 
 Không xóa gallery, metadata, event/evidence hoặc audit khi uninstall nếu chưa có `purge_data` action
@@ -253,43 +267,77 @@ riêng, scope riêng và retention policy. Nếu không chứng minh quiescence,
 
 ## 6. Boundary API
 
-Không đưa download/install vào frame-processing service. Boundary tối thiểu:
+Không đưa download/install vào frame-processing service. AI APP cung cấp một facade duy nhất
+`com.vqec.AiVision.AppManager1`; backend là authenticated peer và không được gọi trực tiếp runtime
+manager, sửa inventory hay ghi vào private content store.
 
-| Boundary | Owner | Semantics |
+Baseline triển khai App Manager thành service/process AI-owned tách khỏi realtime LACAI runtime,
+nhưng phát hành trong cùng product boundary. App Manager chịu blocking I/O, crypto, fsync, recovery
+và quota; runtime chỉ nhận immutable committed snapshot/control qua neutral internal port. App
+Manager crash hoặc disk-full không được giữ raw frame, tensor hay hardware completion owner.
+
+| Method/boundary | Authority | Semantics bắt buộc |
 |---|---|---|
-| Repository/catalog/download API | BSP+FW platform | authenticated list/download, quota, resume, traffic metrics |
-| Package manager API | BSP+FW | install/update/uninstall/status, atomic inventory, rollback |
-| Install inventory port | BSP+FW producer, AI APP consumer | complete revisioned snapshot + signed receipt; notification is hint |
-| Entitlement port | BSP+FW producer, AI APP schema owner | signed complete grant snapshot, trusted time/revocation |
-| Desired control port | AI APP; authenticated FW caller | desired-only CAS/idempotency; cannot set installed/entitled |
-| Compatibility/preflight port | AI APP | manifest/dependency/runtime/target validation without activation |
-| Runtime status port | AI APP | independent gates, generation, stable reason, health and attributed metrics |
+| `ApplyBackendSnapshot` | AI APP schema; backend producer | complete signed catalog/entitlement snapshot, monotonic revision, CAS/idempotency |
+| `StagePackage` | AI APP | nhận read-only Unix FD + declared size/digest; bounded copy, verify rồi đóng staging transaction |
+| `Install` / `Update` | AI APP | preflight dependency/target/quota, atomic generation, health check, commit hoặc rollback |
+| `Uninstall` | AI APP | disable, block output, drain, commit inventory, reference-counted GC; purge là action riêng |
+| `ApplyDesiredPlan` | AI APP; backend caller | desired-only complete snapshot; không được đặt installed/entitled/supported/admitted |
+| `ListApplications` | AI APP | authoritative UI projection của catalog, entitlement, inventory và runtime gates |
+| `GetOperationStatus` | AI APP | durable operation/revision/generation, stable reason và progress có giới hạn |
+| `CancelOperation` | AI APP | best-effort trước commit point; không biến cancellation thành hardware completion |
 
-Giữ D-Bus cho desired/config/status tần suất thấp. Package bytes không đi qua D-Bus; dùng downloader
-và filesystem/content store của BSP. Install inventory change có thể notify bằng D-Bus/UDS nhưng
-state được phục hồi từ full snapshot, không phụ thuộc signal đã nhận.
+D-Bus chỉ mang metadata/control bounded. Package hoặc snapshot lớn không đi bằng byte array; backend
+truyền Unix FD (`h`) với size/digest đã khai báo, App Manager sao chép có giới hạn vào staging riêng,
+verify signature/digest rồi mới publish. FD close, peer disconnect hoặc timeout không đồng nghĩa copy,
+verify, inference hay drain đã hoàn tất.
+
+AI APP bind configured backend well-known name sang unique sender và từ chối sender khác. Request có
+bounded idempotency key, expected revision và payload digest; retry cùng payload trả kết quả cũ, reuse
+key với payload khác bị từ chối. Signal chỉ là hint; sau reconnect backend gọi status/full snapshot để
+phục hồi, không suy trạng thái từ signal có thể mất.
+
+Production dùng system bus policy: chỉ service UID đã cấu hình được own backend well-known name và
+gọi `AppManager1`; App Manager theo dõi `NameOwnerChanged` và rebind unique owner. UID/name chỉ xác
+thực local peer, còn catalog/grant/package vẫn phải verify chữ ký và scope. Session bus không phải
+production default.
+
+Mutating method chỉ validate/enqueue rồi trả `operation_id`, accepted revision và stable reason; D-Bus
+handler không chờ download, fsync, model prepare hay hardware drain. `GetOperationStatus` báo một trong
+`queued`, `staging`, `verifying`, `installing`, `reconciling`, `committed`, `rolled_back`, `cancelled`,
+`failed`, `recovery_required`. `accepted` không có nghĩa `installed` hoặc `running`.
+
+Với package FD, App Manager `fstat`, giới hạn loại/size, sao chép đúng declared byte count vào file
+private mới, tính digest trong lúc copy, fsync rồi mới verify/publish. Memfd nên có write/grow/shrink
+seals; regular file vẫn luôn được copy và verify để không tin tính immutable của peer. Không nhận path
+từ backend và không mmap trực tiếp FD của peer làm runtime artifact.
 
 `GetCapabilities` tiếp tục nghĩa “runtime biết xử lý usecase nào”, không đổi thành “app nào đã cài”.
-UI join repository entitlement + package inventory + AI runtime status theo stable `app_id`.
+Backend/UI dùng `ListApplications` làm product view theo stable `app_id`; không tự join file/DB nội bộ.
 
-## 7. Scope ba team
-
-### BSP+FW
-
-- Sở hữu app-store UI/backend client, device authentication, downloader, staging/content store,
-  product trust roots, trusted time, disk quota, install transaction, inventory, rollback và
-  supervisor integration.
-- Enforce entitlement ở repository/download boundary và phát signed entitlement/install receipts.
-- Không tự khai báo AI compatibility, model semantics, resource admission hay running readiness.
-- Không chạy package shell script, không truyền arbitrary artifact path hoặc ép kill AI service.
+## 7. Phạm vi owner và peer
 
 ### AI APP
 
-- Sở hữu stable app/usecase IDs, semantic app manifest, dependency resolver, compatibility,
-  admission composition, desired control, runtime reconciliation, shared dependency lifetime,
-  output authorization, status/reason và per-app attributed metrics.
-- Build logical app bundle từ component đã accept và giao immutable digest/SBOM cho release pipeline.
-- Không tự cấp entitlement, không tự ký BSP install receipt và không tải package trong hot path.
+- Sở hữu App Manager, D-Bus v1, schema catalog/entitlement/package, verifier, package ingest/staging,
+  private content store, quota, install inventory/journal, update/rollback/uninstall/recovery,
+  dependency resolver, desired/runtime reconciliation, audit và metrics.
+- Là authority duy nhất của installed/compatible/supported/admitted/loaded/running và install receipt.
+- Bind backend identity từ transport; không tin `customer_id`, role hay entitlement boolean trong
+  payload nếu không có authenticated/signed authority tương ứng.
+- Không chạy arbitrary package script, không nhận arbitrary deployment path và không ghi đè artifact
+  đang load. Hot path frame/inference không thực hiện download, verify hoặc filesystem transaction.
+
+### Backend
+
+- Là external producer/client, không phải state authority bên trong device. Backend phải theo D-Bus,
+  schema, bounds, revision, error taxonomy và conformance fixtures do AI APP phát hành.
+- Cấp signed catalog/entitlement/package metadata và package FD; gọi install/update/uninstall/desired;
+  hiển thị đúng status/reason do App Manager trả về.
+- Không được ghi private store/inventory, tự đặt installed/running, bypass entitlement, suy readiness từ
+  method return hoặc yêu cầu runtime load artifact path do backend chọn.
+- Nếu backend nối cloud, backend/local gateway tự bridge remote protocol sang local D-Bus; D-Bus không
+  phải giao thức Internet và AI APP không phụ thuộc cloud trong frame-processing path.
 
 ### AI Model
 
@@ -299,20 +347,28 @@ UI join repository entitlement + package inventory + AI runtime status theo stab
 - Khi một model dùng chung nhiều app, semantic/digest identity phải bất biến; thay semantics là
   component version mới và chạy lại downstream acceptance.
 
+### BSP+FW
+
+- Không có implementation task, state authority hay acceptance sign-off trong vòng đời usecase app.
+- C10 chỉ áp dụng cho base OS/system image, LACAI runtime service, UID/volume/supervision và OTA của
+  nền tảng; C10 không được dùng để giành quyền App Manager, usecase inventory hay private app store.
+- Device/media/accelerator/evidence boundaries khác vẫn theo C01/C02/C07/C08/C10 tương ứng và nằm
+  ngoài plan phân phối usecase app này.
+
 ## 8. Kế hoạch triển khai
 
 | Task | Owner | Đầu ra | Tiêu chí hoàn thành |
 |---|---|---|---|
-| UAP-01 | AI APP lead + BSP lead | ADR app-as-SKU/shared-runtime và authority matrix | ký owner, non-goals, trust/rollback decision |
+| UAP-01 | AI APP lead | ADR app-as-SKU/shared-runtime, D-Bus facade, authority matrix và backend conformance profile | AI APP khóa owner, non-goals, peer auth, trust/rollback decision; backend không có quyền đổi semantics |
 | UAP-02 | AI APP | `usecase_app_manifest` v1 schema, C++ neutral contract, valid/error fixtures | strict bounds/version/digest/dependency tests pass eSDK |
-| UAP-03 | AI APP + BSP | entitlement snapshot v1 và verifier port | wrong device/customer/app/time/signature fail closed |
-| UAP-04 | BSP+FW | repository/distribution envelope, content store và install inventory v1 | power-loss/disk-full/partial-download tests giữ current revision |
+| UAP-03 | AI APP | entitlement snapshot v1, verifier, system-bus policy và D-Bus peer authentication | wrong sender/UID/device/customer/app/time/signature fail closed; name-owner change rebind đúng |
+| UAP-04 | AI APP | distribution envelope, FD staging, private content store, journal và install inventory v1 | power-loss/disk-full/partial-download/FD-close giữ current revision |
 | UAP-05 | AI APP | pure dependency/compatibility resolver và preflight CLI/port | shared/missing/conflict/cycle/rollback cases deterministic |
 | UAP-06 | AI APP | tách gate providers khỏi startup booleans; trusted install/entitlement ports | UI chỉ thay desired; forged gate field không ảnh hưởng state |
 | UAP-07 | AI APP | runtime generation reconcile install/update/uninstall | drain đúng, no auto-start, shared dependency không unload sớm |
-| UAP-08 | BSP+FW | Install/Update/Uninstall/List UI/API | direct API và UI có cùng authorization/state behavior |
-| UAP-09 | AI APP + BSP | metrics, audit, traffic accounting, diagnostics | không gán giả shared CPU/RAM/crash; revision/digest trace được |
-| UAP-10 | Cả ba | QCS6490 end-to-end/recovery/soak acceptance | đủ gate mục 9 và receipts C03/C05/C10 |
+| UAP-08 | AI APP | `AppManager1` Install/Update/Uninstall/List/status API và backend conformance fixtures | direct D-Bus và UI có cùng authorization/state behavior |
+| UAP-09 | AI APP | per-app metrics, audit, traffic accounting và diagnostics | không gán giả shared CPU/RAM/crash; revision/digest trace được |
+| UAP-10 | AI APP lead | QCS6490 end-to-end/recovery/soak acceptance với C03 và backend peer | đủ gate mục 9, AI APP C05 receipt, AI Model C03 receipt và backend conformance report |
 
 Thứ tự bắt buộc: UAP-01 → UAP-02/03/04 → UAP-05 → UAP-06/07 → UAP-08/09 → UAP-10.
 UAP-02/03/04 có thể làm song song sau khi ADR khóa boundary. Không bắt đầu UI production bằng API
@@ -332,7 +388,7 @@ giả trước khi authority/state machine được duyệt.
 ### Install và control
 
 - [ ] Cài app thành công tạo `installed_disabled`; không mở camera/model và không tự bật.
-- [ ] `desired=true` cho app chưa installed bị backend từ chối; sửa UI không bypass được.
+- [ ] `desired=true` cho app chưa installed bị App Manager từ chối; sửa UI không bypass được.
 - [ ] Installed, entitled nhưng incompatible/resource-limited không chạy và có reason đúng.
 - [ ] Command accepted, loaded và running vẫn là ba trạng thái khác nhau.
 - [ ] Reboot phục hồi inventory/desired policy đúng; không mặc định bật toàn bộ app đã cài.
@@ -346,6 +402,8 @@ giả trước khi authority/state machine được duyệt.
 - [ ] Power loss ở mọi bước, disk full, duplicate/reordered notification và process restart không tạo
   half-installed state hoặc mất current generation.
 - [ ] Uninstall không xóa dữ liệu người dùng nếu không có authorized purge transaction riêng.
+- [ ] Wrong D-Bus sender, stale revision, reused idempotency key khác payload, FD size/digest mismatch,
+  oversized byte array và disconnect đều fail closed; reconnect phục hồi bằng authoritative status.
 
 ### Product và board
 
@@ -353,7 +411,7 @@ giả trước khi authority/state machine được duyệt.
 - [ ] Test ít nhất một cặp app chia sẻ detector và một app cascade; model load/unload khớp expectation.
 - [ ] Long soak theo release workload không tăng RSS/FD/thread, không orphan staging/receipt và không
   làm giảm FPS/CPU gate đã ký ngoài budget mới được chấp thuận.
-- [ ] Released-FW App Manager/launcher/UI và AI APP cùng pass receipt C05/C10; model component pass C03.
+- [ ] AI-owned `AppManager1` và backend pass cùng bộ C05 conformance; model component pass C03.
 
 ## 10. Migration từ source hiện tại
 
@@ -366,14 +424,17 @@ giả trước khi authority/state machine được duyệt.
 6. Derive `supported`, `compatible`, `admitted` từ registry/resolver/profile thay vì trusted boolean.
 7. Cho manager reject enable khi installed false nhưng vẫn giữ independent status fields.
 8. Sau khi hot inventory reconciliation và reboot recovery pass, mới nối Install/Update/Uninstall UI.
-9. Legacy bundle/startup snapshot chỉ gỡ sau released-FW migration/rollback acceptance.
+9. `UsecaseControl1` hiện tại trở thành internal compatibility/control seam; backend product chỉ gọi
+   `AppManager1`, không điều khiển đồng thời cả hai facade.
+10. Legacy bundle/startup snapshot chỉ gỡ sau backend D-Bus v1 conformance và rollback acceptance.
 
 ## Giới hạn và công việc tiếp theo
 
-- Chưa chọn transport container vật lý cuối cùng (`tar.zst`, immutable image hay cơ chế BSP có sẵn);
+- Chưa chọn transport container vật lý cuối cùng (`tar.zst` hay immutable image do AI APP quản lý);
   quyết định thuộc UAP-01/UAP-04 và không thay semantic manifest/content-addressed identity.
 - Product trust algorithm, key rotation, trusted time, offline grace, server API và storage quota cần
-  BSP/security owner chốt; AI APP không tự tạo crypto scheme.
+  AI APP security design khóa trong contract với backend; không tự tạo crypto scheme mà chọn primitive
+  đã review và giữ key material ngoài log/package.
 - Dynamic third-party native plugin, multi-tenant device và cross-device license transfer nằm ngoài
   baseline này.
 - Plan này không tuyên bố signed entitlement, app store hay atomic install đã source-delivered.
@@ -382,8 +443,8 @@ giả trước khi authority/state machine được duyệt.
 
 - [Contract và phạm vi ba team](contract_and_team_scope.md)
 - [Integration contract registry](../../contracts/integration_contract_registry.md)
-- [FW usecase activation](../../contracts/fw_usecase_control.md)
-- [FW control and package boundary](../../contracts/fw_control.md)
+- [Current usecase activation seam](../../contracts/fw_usecase_control.md)
+- [System deployment and control boundaries](../../contracts/fw_control.md)
 - [Usecase activation](../../architecture/usecase_activation.md)
 - [Model package registry](../../architecture/model_package_registry.md)
 - [Artifact digest](../../architecture/artifact_digest.md)

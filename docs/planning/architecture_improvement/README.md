@@ -235,7 +235,7 @@ BSP+FW cho driver/ABI/media hoặc AI Model cho chất lượng model.
 | Model, ontology nhãn/thuộc tính, preprocess/decode semantics | AI Model | AI APP review khả năng tích hợp; không chỉ nhận một file model |
 | Production preprocess/decoder/tracker adapter, kể cả DSP skel/kernel do ứng dụng sở hữu | AI APP | AI Model cấp thuật toán/golden; BSP+FW cấp và qualify môi trường phần cứng; không giao mơ hồ “tối ưu DSP cho BSP” |
 | Tracking runtime, fusion, attribute freshness, feature rules | AI APP | AI Model cấp reference/quality contract; detection không tự là event |
-| Usecase catalog và ánh xạ thương mại → compute/data/query | AI APP | BSP+FW dùng ID/schema cho UI; AI Model xác nhận dependency/quality |
+| Usecase catalog và ánh xạ thương mại → compute/data/query | AI APP | Backend dùng D-Bus/schema AI APP cho UI; AI Model xác nhận dependency/quality; BSP+FW không tham gia app lifecycle |
 | Scene/lane/rule/calibration schema và tính hợp lệ khi áp dụng | AI APP | AI Model cung cấp phương pháp/sai số; BSP+FW thu nhận cấu hình, profile và hiện trạng camera |
 | Timestamp/exposure/PTZ/profile facts, signal/controller input | BSP+FW | AI APP chỉ tính traffic metric khi validity/time contract đáp ứng |
 | Metadata journal, local DB/index, archive, query engine/API | AI APP | BSP+FW cấp volume/quota/security context; không truy cập schema DB riêng của nhau |
@@ -249,7 +249,8 @@ BSP+FW cho driver/ABI/media hoặc AI Model cho chất lượng model.
 | Hạ tầng chạy center: broker/storage/network/secrets/monitoring deployment | BSP+FW, đầu mối tích hợp đề xuất | Nếu ngoài năng lực/phạm vi hiện tại phải chốt người tiếp nhận; không coi camera delivery là đã giao xong center |
 | FR gallery, enrollment, matching, protected store/index | AI APP | Giữ ADR 0004; BSP+FW cung cấp secure-storage primitive và UI/transport |
 | Dataset, training/export/quantization, quality report và reference outputs | AI Model | AI APP cung cấp lỗi thực tế/trace đúng quyền; không gửi dữ liệu nhạy cảm tự động |
-| Package, supervision, OTA/rollback, FW resource reservation | BSP+FW | AI APP/AI Model cung cấp package compatibility, health và version manifest |
+| Base OS/system image, LACAI service supervision, OTA/rollback, FW resource reservation | BSP+FW | AI APP/AI Model cung cấp runtime compatibility, health và version manifest; đây là C10, không phải usecase app lifecycle |
+| Usecase App Manager, entitlement verify, private store, inventory, install/update/rollback/uninstall | AI APP | Backend là authenticated D-Bus peer theo contract AI APP; BSP+FW không có state authority hay acceptance gate |
 
 Tách **chủ sở hữu dữ liệu logic** khỏi **chủ sở hữu thiết bị lưu trữ**: metadata schema/index
 do AI APP quản lý, media do BSP+FW quản lý; cùng nằm trên flash không làm chúng thành một DB.
@@ -306,7 +307,7 @@ semantics; một file IDL không thay mô tả ownership, failure và authority.
 | C07 Event/evidence / AI APP | AI APP ↔ BSP+FW | Event/command IDs, phases/revisions, authorized intent, ack level, pre/post-roll, actual interval, dedup/receipt/reconcile | Lost ACK/restart/duplicate/end-before-start/disk-full; media status không lẫn event status |
 | C08 Annotation/video / AI APP | AI APP → BSP+FW | Frame/epoch/clock/transform/TTL, allowed labels, capability/demand, legacy/new ownership mode | Late overlay/revoke/profile switch/first viewer; một writer; FW ký migration |
 | C09 Cloud metadata / AI APP | Edge AI APP → center; BSP+FW vận hành endpoint | Schema/partition/order, outbox/dedup, update/tombstone, broker vs lake receipt, export scope và offline quota | Replay/late data/delete/ambiguous ACK; lake commit không suy từ produce success |
-| C10 Deployment/operations / BSP+FW | Cả ba team → BSP+FW tích hợp | Package manifests/SBOM, config roots, UID/volume/quota/key handles, health/reason codes, compatibility/OTA/rollback | Clean install/reboot/upgrade/rollback/mixed-load soak; health trả đúng degraded/fault |
+| C10 Deployment/operations / BSP+FW | Cả ba team → BSP+FW tích hợp | Base system/runtime manifests/SBOM, config roots, UID/volume/quota/key handles, health/reason codes, compatibility/OTA/rollback; usecase apps thuộc AI APP C05 | Clean base install/reboot/upgrade/rollback/mixed-load soak; health trả đúng degraded/fault |
 
 C03 kế thừa [model integration](../../contracts/model_integration.md); C01/C05 kế thừa
 [FW–AI contract](../../contracts/fw_ai_app_contract.md) và
@@ -1220,7 +1221,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 |---|---|---|---|
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
-| [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead + BSP/FW | Plan 1 accepted | App-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control |
+| [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | Plan 1 accepted | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control; backend là peer theo contract AI APP |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |

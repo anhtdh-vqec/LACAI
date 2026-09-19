@@ -14,8 +14,12 @@ artifact/evidence ngay, không chờ AI APP đoán ABI hoặc semantics.
 
 - AI APP lead là authority của integration boundary, stable IDs, feature/runtime semantics,
   authorization, admission và quyết định accept/reject end-to-end.
+- Riêng vòng đời usecase application, AI APP sở hữu App Manager, D-Bus contract, entitlement
+  verifier, package store, inventory và install/update/rollback/uninstall; backend là external peer
+  phải theo contract AI APP, không phải state authority trên thiết bị.
 - BSP+FW là authority duy nhất của device/media facts, allocator/cache/fence/reset, released-FW
-  transport, deployment và operations evidence.
+  transport, base runtime/system deployment và operations evidence. BSP+FW không tham gia usecase
+  App Manager và không sở hữu usecase package/inventory.
 - AI Model là authority duy nhất của artifact, exact preprocess/decode semantics, ontology,
   golden và quality evidence.
 - Một schema có đúng một owner. Consumer không sửa nghĩa field trong adapter; owner không tự ký
@@ -49,16 +53,20 @@ entitlement hoặc runtime admission.
 | C02 accelerator platform | BSP+FW | BSP+FW | AI APP, AI Model | SDK/ABI/toolchain, allocator/cache/fence/completion, signing, resource/thermal |
 | C03 model integration kit | AI Model | AI Model | AI APP, BSP+FW | artifact, IO, preprocess/decode/quantization, ontology, M0–M5, limits/rollback |
 | C04 scene/calibration/time | AI APP | BSP+FW cung cấp facts theo schema AI APP | BSP+FW, AI Model | coordinate/revision/validity/uncertainty, clock mapping, signal/access facts |
-| C05 control/auth/admission | AI APP | AI APP; BSP+FW provision signed facts | BSP+FW, AI Model | installed/entitled/desired/supported/compatible/admitted/running tách biệt |
+| C05 control/auth/admission | AI APP | AI APP; target Plan 1A nhận signed catalog/grant từ backend external | backend, AI Model | installed/entitled/desired/supported/compatible/admitted/running tách biệt; App Manager thuộc AI APP |
 | C06 metadata/query | AI APP | AI APP | BSP+FW query clients | snapshot/paging/coverage/quality/retention/field authorization |
 | C07 event/evidence | AI APP | AI APP event; BSP+FW media receipt | BSP+FW | phase/revision/idempotency; event ACK tách media receipt |
 | C08 annotation/video | AI APP | AI APP compatibility writer | BSP+FW | source frame/transform/TTL/authorized fields, single writer/output generation |
 | C09 cloud metadata | AI APP | AI APP | BSP+FW/cloud bridge | partition/order/outbox/dedup; broker ACK tách lake receipt |
-| C10 deployment/operations | BSP+FW | BSP+FW | AI APP, AI Model | coherent manifest/SBOM/UID/path/volume/health/OTA/rollback |
+| C10 deployment/operations | BSP+FW | BSP+FW | AI APP, AI Model | base OS/system image và LACAI runtime: manifest/SBOM/UID/path/volume/health/OTA/rollback; không bao gồm usecase app lifecycle |
 
 Registry v1 bắt buộc cho mỗi contract: max bytes/rate, clock + unit, ownership + completion,
 retry/idempotency/order, authenticated principal, authorization scopes, sensitive fields,
 deny-by-default, error taxonomy, required fields và valid/rejected case.
+
+Registry machine-readable hiện vẫn mô tả producer `bsp_fw` của compatibility seam đã giao. UAP-01
+phải có migration ADR rồi mới đổi registry/fixtures sang backend peer; trạng thái chuyển tiếp này
+không giao BSP/FW bất kỳ task hay sign-off nào trong usecase App Manager mới.
 
 ## 3. Scope team không chồng lấn
 
@@ -73,6 +81,8 @@ storage volume, RTSP/UI/recording và evidence media. Team này không được:
 - recycle buffer vì timeout/disconnect/FD close;
 - biến D-Bus enable thành entitlement hoặc running readiness;
 - fork usecase/event/query schema để tiện UI/backend.
+- triển khai hoặc làm authority cho usecase App Manager, entitlement verifier, private app store,
+  usecase inventory hay install/update/rollback/uninstall transaction.
 
 ### AI APP
 
@@ -80,6 +90,8 @@ Sở hữu C04–C09 schema, neutral ports, feature/usecase catalog, runtime dep
 tracking/relations, event semantics, local metadata/query, cloud projection, authorization,
 admission, Qualcomm/reference adapters, integration tests và acceptance report. AI APP không được:
 
+- giao App Manager hoặc usecase package lifecycle cho BSP/FW; AI APP phải sở hữu D-Bus facade,
+  authenticated backend peer, staging/content store, inventory/journal và recovery;
 - tự tuyên bố BSP completion/cache/reset hoặc model quality;
 - tự điền golden/ontology/threshold thiếu từ model binary;
 - expose vendor/FW types qua neutral contracts;
@@ -175,6 +187,8 @@ phải nộp receipts theo contract này trước khi capability tương ứng �
 
 ## Bàn giao sang plan khác
 
+- Plan phân phối usecase app nhận C05 authority của AI APP; C10 chỉ còn base system/runtime
+  deployment. Backend phải pass D-Bus conformance do AI APP phát hành, BSP/FW không có gate plan này.
 - Plan metadata/query nhận stable S01–S18 dependencies và C04/C06/C09 semantics.
 - Plan event/evidence nhận C01/C04/C07/C08 boundaries.
 - Plan DSP đã nhận C02/C03 owner split; BSP signing và Model quality vẫn giữ external gate.

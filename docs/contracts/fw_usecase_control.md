@@ -1,13 +1,21 @@
 # FW usecase activation contract
 
-This document is the normative FW/AI APP boundary through which FW controls commercial AI
-usecases rather than individual models. It defines the effective-state rule, the D-Bus v1
-methods, the entitlement boundary and the reconciliation/hardware-lifetime ordering.
+This document records the currently delivered FW/AI APP compatibility boundary through which FW
+controls commercial AI usecases rather than individual models. It defines the effective-state
+rule, the D-Bus v1 methods, the entitlement boundary and the reconciliation/hardware-lifetime
+ordering. It is not the target product App Manager authority.
 
 **Status:** source-delivered — the bounded D-Bus v1 adapter, the neutral desired-plan
 manager and service-owned stop/drain/recomposition are delivered; live hardware acceptance
 and FW product integration require the evidence below. **Layer:** contracts.
 **Source:** `n/a`.
+
+The product target moves commercial app management to the AI-owned
+`com.vqec.AiVision.AppManager1` facade with an authenticated backend peer. This document records
+the currently delivered `UsecaseControl1` compatibility seam; it must become an internal control
+boundary during that migration. Backend product code must not drive both interfaces. FW/BSP has
+no ownership of the target usecase package, entitlement, inventory or install lifecycle. See
+[usecase app distribution](../planning/architecture_improvement/usecase_app_distribution_plan.md).
 
 FW controls commercial AI **usecases**, not individual models. A usecase is the stable
 product identity shown to licensing and UI. Its implementation may require one or more
@@ -124,11 +132,12 @@ installation, entitlement or admission.
 
 ## Entitlement boundary
 
-Desired-state methods are not entitlement provisioning. FW installs a signed entitlement
-snapshot through the separately authenticated provisioning path described in
-[FW control](fw_control.md). AI APP verifies device/customer scope, validity, revision and
-usecase/source limits before publishing it. A normal D-Bus caller cannot set
-`entitled=true`.
+Desired-state methods are not entitlement provisioning. The delivered compatibility seam
+historically expects a separately authenticated provisioning path described in
+[FW control](fw_control.md). In the target product, the authenticated backend supplies the signed
+snapshot only through the AI-owned App Manager. AI APP verifies device/customer scope, validity,
+revision and usecase/source limits before publishing it. No normal D-Bus caller can set
+`entitled=true`; FW/BSP is not the target entitlement authority.
 
 Revocation blocks newly emitted sensitive attributes/events immediately at the output
 gate using the new entitlement revision, then triggers runtime reconciliation. Queued
