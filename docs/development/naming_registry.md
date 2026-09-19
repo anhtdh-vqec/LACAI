@@ -712,6 +712,9 @@ App lifecycle registrations (source delivered):
 | src/app/service/generation/vqec_vision_service_platform.hpp | svplt | vqec_vision_ai_appl_svplt_ |
 | src/app/service/generation/vqec_vision_service_platform.cpp | svplt | vqec_vision_ai_appl_svplt_ |
 | tests/unit/application/vqec_vision_service_platform_test.cpp | spltst | vqec_vision_ai_unit_spltst_ |
+| src/app/service/enrollment/vqec_vision_service_enrollment_runtime.hpp | svenr | vqec_vision_ai_appl_svenr_ |
+| src/app/service/enrollment/vqec_vision_service_enrollment_runtime.cpp | svenr | vqec_vision_ai_appl_svenr_ |
+| tests/unit/application/vqec_vision_service_enrollment_runtime_test.cpp | sentst | vqec_vision_ai_unit_sentst_ |
 | src/app/service/bootstrap/vqec_vision_service_startup.hpp | svstr | vqec_vision_ai_appl_svstr_ |
 | src/app/service/bootstrap/vqec_vision_service_startup.cpp | svstr | vqec_vision_ai_appl_svstr_ |
 | src/app/service/generation/vqec_vision_service_fixture.hpp | svfix | constants only |

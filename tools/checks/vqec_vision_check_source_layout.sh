@@ -10,7 +10,7 @@ source_extensions='\.(c|cc|cpp|cxx|h|hh|hpp|hxx|ps1|py|sh)$'
 include_root_list=(include src
     src/app/cascade src/app/composition src/app/pipeline src/app/platform
     src/app/management src/app/service src/app/service/bootstrap
-    src/app/service/generation src/app/service/output
+    src/app/service/generation src/app/service/enrollment src/app/service/output
     src/app/session src/app/supervision
     src/outputs/events src/outputs/media src/core/memory
     src/adapters/camera src/adapters/qualcomm/dsp/host

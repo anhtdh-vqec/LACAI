@@ -407,6 +407,31 @@ if(TARGET vqec_vision_ai_production_platform)
         vqec_vision_ai_service_options)
     set_target_properties(vqec_vision_ai_service_cascade_runtime
         PROPERTIES CXX_EXTENSIONS OFF)
+
+    add_library(vqec_vision_ai_service_enrollment_runtime STATIC
+        service/enrollment/vqec_vision_service_enrollment_runtime.cpp)
+    target_include_directories(vqec_vision_ai_service_enrollment_runtime PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/enrollment>
+        PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cascade>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/session>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>)
+    target_link_libraries(vqec_vision_ai_service_enrollment_runtime PUBLIC
+        vqec_vision_ai_production_platform
+        vqec_vision_ai_service_cascade_runtime
+        vqec_vision_ai_face_enrollment_image_pipeline
+        vqec_vision_ai_image_path_authorizer
+        vqec_vision_ai_embedding)
+    if(TARGET vqec_vision_ai_face_enrollment_dbus)
+        target_link_libraries(vqec_vision_ai_service_enrollment_runtime PRIVATE
+            vqec_vision_ai_face_enrollment_dbus)
+        target_compile_definitions(vqec_vision_ai_service_enrollment_runtime PRIVATE
+            VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS=1)
+    endif()
+    set_target_properties(vqec_vision_ai_service_enrollment_runtime
+        PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Required external service executable. Built only when the JSON loaders and the
@@ -425,6 +450,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_service_feature_activation
         vqec_vision_ai_service_platform
         vqec_vision_ai_service_cascade_runtime
+        vqec_vision_ai_service_enrollment_runtime
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_evidence_service
         vqec_vision_ai_service_output_runtime
@@ -452,6 +478,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
     target_include_directories(vqec_ai_vision_applications PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/enrollment>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/events>
@@ -473,14 +500,6 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>)
         target_compile_definitions(vqec_ai_vision_applications PRIVATE
             VQEC_VISION_AI_HAS_APP_MANAGER_DBUS=1)
-    endif()
-    if(TARGET vqec_vision_ai_face_enrollment_dbus)
-        target_link_libraries(vqec_ai_vision_applications PRIVATE
-            vqec_vision_ai_face_enrollment_dbus)
-        target_include_directories(vqec_ai_vision_applications PRIVATE
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>)
-        target_compile_definitions(vqec_ai_vision_applications PRIVATE
-            VQEC_VISION_AI_HAS_FACE_ENROLLMENT_DBUS=1)
     endif()
     if(TARGET vqec_vision_ai_zvec_embedding)
         target_link_libraries(vqec_ai_vision_applications PRIVATE

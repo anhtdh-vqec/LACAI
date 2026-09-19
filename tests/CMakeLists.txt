@@ -72,6 +72,15 @@ if(TARGET vqec_vision_ai_service_platform)
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME service_platform_owner
         COMMAND vqec_vision_ai_service_platform_test)
+
+    add_executable(vqec_vision_ai_service_enrollment_runtime_test
+        unit/application/vqec_vision_service_enrollment_runtime_test.cpp)
+    target_link_libraries(vqec_vision_ai_service_enrollment_runtime_test PRIVATE
+        vqec_vision_ai_service_enrollment_runtime)
+    set_target_properties(vqec_vision_ai_service_enrollment_runtime_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_enrollment_runtime_owner
+        COMMAND vqec_vision_ai_service_enrollment_runtime_test)
 endif()
 
 if(TARGET vqec_vision_ai_ed25519_app_package_verifier)

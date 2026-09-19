@@ -27,7 +27,10 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `composition/` | Top-level owner factories and dependency assembly; no service CLI parsing |
 | `pipeline/` | Bounded frame/result/feature/media progress steps; no platform construction |
 | `platform/` | Fake, reference and production platform owner bundles |
-| `service/` | Minimal executable entry point, lifecycle controller and cold-path configuration |
+| `service/bootstrap/` | Minimal executable entry point, option validation and process lifecycle |
+| `service/generation/` | One generation's authority, platform and feature composition |
+| `service/enrollment/` | Lazy file-enrollment control/image/graph lifecycle owner |
+| `service/output/` | Metadata, evidence and output lifecycle owners |
 | `session/` | One-source and multi-model acquisition/graph lifecycle ownership |
 | `supervision/` | Multi-source fairness, worker ownership and runtime execution loop |
 | `CMakeLists.txt` | Declares the application targets and explicit private include boundaries |
@@ -48,7 +51,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   authorizes that source/feature/attribute scope. Enrollment control is optional GIO
   D-Bus and never carries image bytes or embeddings. File enrollment requires explicit
   allow-listed roots, JPEG byte/time limits and Qualcomm element selection; its graph
-  lifecycle is isolated from live camera inference.
+  lifecycle is isolated from live camera inference. Publishing enrollment D-Bus does not
+  load QNN/HTP: graph startup is gated on a successfully authorized and decoded retained
+  image.
 - Production FR also requires explicit `--fr-gallery-path` beneath a service-owned mode-0700 tmpfs parent for
   the disposable Zvec collection and AI-owned protected-store settings: `--fr-protected-directory`,
   `--fr-gallery-file`, `--fr-key-file`, `--fr-lock-file`, `--fr-gallery-id`,

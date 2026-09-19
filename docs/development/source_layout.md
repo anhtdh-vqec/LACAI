@@ -65,7 +65,10 @@ Within `src/app/`:
 
 | Directory | Owns | Must not own |
 |---|---|---|
-| `service/` | `main`, CLI parsing, cold-path option validation | Graph algorithms, vendor calls |
+| `service/bootstrap/` | Minimal entrypoint, CLI parsing, process/generation lifecycle | Feature rules, graph algorithms |
+| `service/generation/` | One generation's neutral composition and authority binding | Adapter implementation details |
+| `service/enrollment/` | Offline enrollment adapter composition and graph lifecycle | Gallery semantics, live-camera cascade |
+| `service/output/` | Metadata/evidence/output owner composition | Model execution, camera acquisition |
 | `platform/` | Construction of fake/reference/production owner bundles | Frame stepping or feature policy |
 | `composition/` | Wiring validated owners behind neutral ports | External ABI translation |
 | `session/` | Acquisition and graph start/drain/release lifecycle | Global fairness or model decoding |

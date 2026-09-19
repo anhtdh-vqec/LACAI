@@ -43,6 +43,8 @@ For the target footprint, trajectory, cross-camera, event and aggregate design, 
 transaction/outbox measurements.
 For AI-owned application distribution, inventory and runtime-control authority, see the
 [usecase application manager](architecture/app_manager.md).
+For the lazy, no-data-safe file-enrollment composition, see the
+[service enrollment runtime](architecture/service_enrollment_runtime.md).
 
 ## Contracts
 
