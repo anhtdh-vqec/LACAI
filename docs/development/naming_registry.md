@@ -529,6 +529,12 @@ have the same logical owner. Unit test
 `tests/unit/adapters/storage/vqec_vision_spatiotemporal_store_test.cpp` uses file_id `ststst`,
 prefix `vqec_vision_ai_unit_ststst_`; `main` retains the language entrypoint spelling.
 
+Bounded metadata service
+`src/app/service/vqec_vision_metadata_service.cpp` uses file_id `mdsvc`, prefix
+`vqec_vision_ai_appl_mdsvc_`; its paired private header has the same owner. Unit test
+`tests/unit/application/vqec_vision_metadata_service_test.cpp` uses file_id `mdsvt`, prefix
+`vqec_vision_ai_unit_mdsvt_`; `main` retains the language entrypoint spelling.
+
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 

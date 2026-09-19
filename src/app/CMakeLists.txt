@@ -10,6 +10,15 @@ target_include_directories(vqec_vision_ai_service_options PUBLIC
 target_link_libraries(vqec_vision_ai_service_options PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_service_options PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_metadata_service STATIC
+    service/vqec_vision_metadata_service.cpp)
+target_include_directories(vqec_vision_ai_metadata_service PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
+target_link_libraries(vqec_vision_ai_metadata_service PUBLIC
+    vqec_vision_ai_spatiotemporal_store Threads::Threads)
+set_target_properties(vqec_vision_ai_metadata_service PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     pipeline/vqec_vision_camera_graph_pump.cpp
     session/vqec_vision_camera_session.cpp)
