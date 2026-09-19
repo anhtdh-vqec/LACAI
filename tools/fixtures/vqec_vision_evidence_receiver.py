@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import json
 import os
 import pathlib
 import signal
 import socket
-import sqlite3
 import struct
+from typing import BinaryIO
 
 
 g_wire_magic = 0x31514556
@@ -23,6 +25,7 @@ g_max_message_bytes = 64 * 1024
 g_max_identifier_bytes = 128
 g_max_field_value_bytes = 512
 g_max_fields = 32
+g_default_maximum_inbox_bytes = 64 * 1024 * 1024
 g_running = True
 
 
@@ -138,26 +141,96 @@ def vqec_vision_ai_tools_evrcv_make_receipt(
     return bytes(output)
 
 
-def vqec_vision_ai_tools_evrcv_open_database(path: pathlib.Path) -> sqlite3.Connection:
+def vqec_vision_ai_tools_evrcv_decode_record(
+    line: bytes,
+) -> tuple[str, bytes, bytes]:
+    document = json.loads(line.decode("ascii"))
+    if not isinstance(document, dict) or set(document) != {
+        "request_id",
+        "command",
+        "receipt",
+    }:
+        raise ValueError("invalid inbox record")
+    request_id = document["request_id"]
+    if not isinstance(request_id, str) or not request_id:
+        raise ValueError("invalid inbox request identity")
+    command = base64.b64decode(document["command"], validate=True)
+    receipt = base64.b64decode(document["receipt"], validate=True)
+    parsed_request_id, _revision, _occurred_at_ns = (
+        vqec_vision_ai_tools_evrcv_parse_command(command)
+    )
+    if parsed_request_id != request_id or not receipt:
+        raise ValueError("inbox record identity mismatch")
+    return request_id, command, receipt
+
+
+def vqec_vision_ai_tools_evrcv_open_inbox(
+    path: pathlib.Path,
+) -> tuple[BinaryIO, dict[str, tuple[bytes, bytes]]]:
     path.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
-    database = sqlite3.connect(path)
-    database.execute("PRAGMA journal_mode=WAL")
-    database.execute("PRAGMA synchronous=FULL")
-    database.execute(
-        "CREATE TABLE IF NOT EXISTS inbox("
-        "request_id TEXT PRIMARY KEY, command BLOB NOT NULL, receipt BLOB NOT NULL)"
-    )
-    database.commit()
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
     os.chmod(path, 0o600)
-    return database
+    stream = os.fdopen(descriptor, "r+b", buffering=0)
+    records: dict[str, tuple[bytes, bytes]] = {}
+    valid_bytes = 0
+    while True:
+        line = stream.readline()
+        if not line:
+            break
+        if not line.endswith(b"\n"):
+            break
+        try:
+            request_id, command, receipt = vqec_vision_ai_tools_evrcv_decode_record(
+                line[:-1]
+            )
+        except (UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            stream.close()
+            raise SystemExit("evidence inbox contains an invalid committed record")
+        prior = records.get(request_id)
+        if prior is not None and prior != (command, receipt):
+            stream.close()
+            raise SystemExit("evidence inbox contains a conflicting request identity")
+        records[request_id] = (command, receipt)
+        valid_bytes += len(line)
+    if stream.tell() != valid_bytes:
+        os.ftruncate(stream.fileno(), valid_bytes)
+        os.fsync(stream.fileno())
+    stream.seek(0, os.SEEK_END)
+    return stream, records
+
+
+def vqec_vision_ai_tools_evrcv_commit_record(
+    stream: BinaryIO,
+    records: dict[str, tuple[bytes, bytes]],
+    request_id: str,
+    command: bytes,
+    receipt: bytes,
+    maximum_bytes: int,
+) -> None:
+    document = {
+        "request_id": request_id,
+        "command": base64.b64encode(command).decode("ascii"),
+        "receipt": base64.b64encode(receipt).decode("ascii"),
+    }
+    record = json.dumps(document, sort_keys=True, separators=(",", ":")).encode(
+        "ascii"
+    ) + b"\n"
+    current_bytes = stream.seek(0, os.SEEK_END)
+    if len(record) > maximum_bytes - current_bytes:
+        raise OSError("evidence inbox capacity exhausted")
+    stream.write(record)
+    os.fsync(stream.fileno())
+    records[request_id] = (command, receipt)
 
 
 def vqec_vision_ai_tools_evrcv_handle(
     peer: socket.socket,
-    database: sqlite3.Connection,
+    inbox_stream: BinaryIO,
+    records: dict[str, tuple[bytes, bytes]],
     expected_uid: int,
     drop_first_ack: bool,
+    maximum_inbox_bytes: int,
 ) -> None:
     credentials = peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
     _pid, uid, _gid = struct.unpack("3i", credentials)
@@ -178,25 +251,28 @@ def vqec_vision_ai_tools_evrcv_handle(
             )
         except (UnicodeDecodeError, ValueError):
             return
-        row = database.execute(
-            "SELECT command,receipt FROM inbox WHERE request_id=?", (request_id,)
-        ).fetchone()
+        row = records.get(request_id)
         if row is not None:
-            if bytes(row[0]) != payload:
+            if row[0] != payload:
                 return
-            peer.sendall(bytes(row[1]))
+            if peer.send(row[1]) != len(row[1]):
+                return
             continue
         receipt = vqec_vision_ai_tools_evrcv_make_receipt(
             request_id, revision, occurred_at_ns
         )
-        database.execute(
-            "INSERT INTO inbox(request_id,command,receipt) VALUES(?,?,?)",
-            (request_id, payload, receipt),
+        vqec_vision_ai_tools_evrcv_commit_record(
+            inbox_stream,
+            records,
+            request_id,
+            payload,
+            receipt,
+            maximum_inbox_bytes,
         )
-        database.commit()
         if drop_first_ack:
             return
-        peer.sendall(receipt)
+        if peer.send(receipt) != len(receipt):
+            return
 
 
 def vqec_vision_ai_tools_evrcv_parse() -> argparse.Namespace:
@@ -206,6 +282,9 @@ def vqec_vision_ai_tools_evrcv_parse() -> argparse.Namespace:
     parser.add_argument("--expected-uid", type=int, required=True)
     parser.add_argument("--socket-mode", type=lambda value: int(value, 8), default=0o600)
     parser.add_argument("--drop-first-ack", action="store_true")
+    parser.add_argument(
+        "--maximum-inbox-bytes", type=int, default=g_default_maximum_inbox_bytes
+    )
     return parser.parse_args()
 
 
@@ -213,9 +292,11 @@ def vqec_vision_ai_tools_evrcv_main() -> int:
     arguments = vqec_vision_ai_tools_evrcv_parse()
     if not arguments.socket.is_absolute() or not arguments.database.is_absolute():
         raise SystemExit("socket and database paths must be absolute")
+    if arguments.maximum_inbox_bytes <= 0:
+        raise SystemExit("maximum inbox bytes must be positive")
     arguments.socket.parent.mkdir(parents=True, exist_ok=True)
     arguments.socket.unlink(missing_ok=True)
-    database = vqec_vision_ai_tools_evrcv_open_database(arguments.database)
+    inbox_stream, records = vqec_vision_ai_tools_evrcv_open_inbox(arguments.database)
     server = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     server.bind(str(arguments.socket))
     os.chmod(arguments.socket, arguments.socket_mode)
@@ -233,13 +314,15 @@ def vqec_vision_ai_tools_evrcv_main() -> int:
             with peer:
                 vqec_vision_ai_tools_evrcv_handle(
                     peer,
-                    database,
+                    inbox_stream,
+                    records,
                     arguments.expected_uid,
                     arguments.drop_first_ack,
+                    arguments.maximum_inbox_bytes,
                 )
     finally:
         server.close()
-        database.close()
+        inbox_stream.close()
         arguments.socket.unlink(missing_ok=True)
     return 0
 
