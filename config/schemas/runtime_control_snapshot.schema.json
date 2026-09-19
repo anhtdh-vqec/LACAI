@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.local/schemas/runtime_control_snapshot.schema.json",
+  "title": "LACAI committed runtime control snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "snapshot_revision", "inventory_revision", "entitlement_revision", "desired_revision", "associations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "snapshot_revision": {"type": "integer", "minimum": 1},
+    "inventory_revision": {"type": "integer", "minimum": 1},
+    "entitlement_revision": {"type": "integer", "minimum": 1},
+    "desired_revision": {"type": "integer", "minimum": 1},
+    "associations": {"type": "array", "maxItems": 288, "items": {"$ref": "#/$defs/association"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "association": {
+      "type": "object", "additionalProperties": false,
+      "required": ["app_id", "source_id", "installed", "entitled", "desired", "supported", "compatible", "admitted", "configuration_revision", "configuration_sha256", "output_scopes"],
+      "properties": {
+        "app_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "source_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "installed": {"type": "boolean"},
+        "entitled": {"type": "boolean"},
+        "desired": {"type": "boolean"},
+        "supported": {"type": "boolean"},
+        "compatible": {"type": "boolean"},
+        "admitted": {"type": "boolean"},
+        "configuration_revision": {"type": "integer", "minimum": 1},
+        "configuration_sha256": {"$ref": "#/$defs/digest"},
+        "output_scopes": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
+        "reason_code": {"type": "string", "maxLength": 64},
+        "entitlement_expires_utc_ns": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
+

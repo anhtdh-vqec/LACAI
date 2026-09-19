@@ -27,6 +27,11 @@ secondary model activated through the SCRFD dependency in the matching model cat
 The usecase snapshot is illustrative and grants no entitlement by itself. Production must
 authenticate the catalog and entitlement revision before passing the document to AI APP.
 
+`usecase_app_manifest.fire_smoke.example.json` and
+`fire_smoke_configuration.example.json` are declarative S04 package/configuration fixtures.
+They are not signed install receipts or entitlement grants. Production App Manager must verify
+the package envelope, complete dependency closure and grant before publishing a runtime snapshot.
+
 ## See also
 
 - [Deployment schema](../schemas/deployment.schema.json), [multi-source configuration](../../docs/architecture/multi_source_configuration.md)

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "classes": {
+    "fire_enabled": true,
+    "smoke_enabled": true,
+    "fire_alarm_confidence": 0.6,
+    "smoke_alarm_confidence": 0.6,
+    "minimum_region_area_ratio": 0.001
+  },
+  "temporal": {
+    "confirmation_count": 3,
+    "confirmation_duration_ms": 500,
+    "clear_count": 5,
+    "clear_duration_ms": 1500,
+    "update_interval_ms": 1000
+  },
+  "spatial": {
+    "scene_revision": 1,
+    "association_iou": 0.2,
+    "include_zone_ids": [],
+    "exclude_zone_ids": []
+  },
+  "incident": {
+    "max_active_incidents": 8,
+    "source_gap_policy": "interrupt",
+    "config_change_policy": "interrupt"
+  },
+  "severity": {
+    "high_confidence": 0.85,
+    "critical_duration_ms": 10000
+  },
+  "evidence": {
+    "enabled": true,
+    "profile_ref": "security_alarm_v1",
+    "pre_duration_ms": 5000,
+    "post_duration_ms": 10000,
+    "snapshot": true,
+    "clip": true,
+    "retry_deadline_ms": 300000
+  },
+  "metadata": {
+    "retention_profile_ref": "security_event_v1",
+    "access_profile_ref": "security_operator_v1",
+    "aggregation_dimensions": ["class", "severity", "source", "zone", "hour", "day", "month"]
+  }
+}
+

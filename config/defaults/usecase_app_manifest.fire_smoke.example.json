@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "app_id": "security.fire_smoke_detection",
+  "usecase_id": "security.fire_smoke_detection",
+  "app_version": "1.0.0",
+  "usecase_version": "1",
+  "release_sequence": 1,
+  "runtime_abi": {"major": 1, "minor": 0},
+  "target_ids": ["qcs6490_qlinux_1_8"],
+  "components": [
+    {
+      "component_id": "yolo11n_fire_smoke",
+      "component_version": "1.0",
+      "component_type": "model",
+      "target_id": "qcs6490_qlinux_1_8",
+      "artifact_sha256": "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+      "semantic_contract_sha256": "436ea6a5df7eb7d8e13706639a7ebc1b3f6e6459a80703fd459ca01af982be42",
+      "required": true,
+      "model_role": "primary",
+      "quality_receipt_ref": "quality/yolo11n_fire_smoke_qcs6490_v1.json"
+    },
+    {
+      "component_id": "yolo11n_fire_smoke_labels",
+      "component_version": "1.0",
+      "component_type": "labels",
+      "target_id": "qcs6490_qlinux_1_8",
+      "artifact_sha256": "d8f123f9ba433864b287cf10cbcf23cc5f7a85ec46b4c967259bc5c9520a0fe9",
+      "semantic_contract_sha256": "d8f123f9ba433864b287cf10cbcf23cc5f7a85ec46b4c967259bc5c9520a0fe9",
+      "required": true
+    },
+    {
+      "component_id": "fire_smoke_configuration_defaults",
+      "component_version": "1.0",
+      "component_type": "configuration",
+      "target_id": "qcs6490_qlinux_1_8",
+      "artifact_sha256": "0544d053af2f8d995ebe9bea61521c3937bb5312dbc6966a803a249f7fc73366",
+      "semantic_contract_sha256": "7134f4783dc72e8c6acccb7a9826a180eae84e78f896bd534c91e9ce04916be7",
+      "required": true
+    }
+  ],
+  "features": [
+    {
+      "feature_id": "fire_smoke_alarm",
+      "processor_contract": "fire_smoke_alarm",
+      "configuration_schema_id": "security.fire_smoke.configuration"
+    }
+  ],
+  "configuration": {
+    "schema_id": "security.fire_smoke.configuration",
+    "schema_version": 1,
+    "defaults_sha256": "0544d053af2f8d995ebe9bea61521c3937bb5312dbc6966a803a249f7fc73366"
+  },
+  "requested_scopes": {
+    "sources": ["camera_front"],
+    "outputs": ["security.fire_smoke.event", "security.fire_smoke.region"],
+    "queries": ["Q08", "Q15"],
+    "evidence": ["snapshot", "clip"]
+  },
+  "resources": {
+    "max_resident_bytes": 268435456,
+    "max_tensor_bytes": 67108864,
+    "max_active_incidents": 8,
+    "max_events_per_second": 16
+  },
+  "data_policy": {
+    "metadata_profile_ref": "security_event_v1",
+    "uninstall_purges_data": false
+  },
+  "supply_chain": {
+    "sbom_ref": "sbom/security.fire_smoke_detection-1.0.0.spdx.json",
+    "provenance_ref": "provenance/security.fire_smoke_detection-1.0.0.json",
+    "known_limits_ref": "quality/security.fire_smoke_detection-1.0.0-limits.md"
+  }
+}

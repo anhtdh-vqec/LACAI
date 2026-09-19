@@ -41,6 +41,8 @@ For the target footprint, trajectory, cross-camera, event and aggregate design, 
 [spatiotemporal metadata architecture](architecture/spatiotemporal_metadata.md). The existing
 [metadata transactional prototype](architecture/metadata_query.md) records narrower SQLite
 transaction/outbox measurements.
+For AI-owned application distribution, inventory and runtime-control authority, see the
+[usecase application manager](architecture/app_manager.md).
 
 ## Contracts
 
@@ -90,7 +92,8 @@ transactional, columnar and moving-feature sources used by the P2 redesign.
 `docs/adr/` records decisions in numeric order; ADR 0001 baseline, 0002 plugin backend,
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
 0006 unwired execution infrastructure, proposed 0007 versioned FastRPC operations, and
-0008 transactional metadata store baseline, and accepted 0009 spatiotemporal metadata tiering.
+0008 transactional metadata store baseline, accepted 0009 spatiotemporal metadata tiering, and
+proposed 0010 AI-owned usecase application lifecycle.
 
 ## Operations
 
