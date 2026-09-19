@@ -43,6 +43,7 @@ same API counts as one owner. Do not reuse an exported prefix for a different me
 | src/adapters/qualcomm | qcom |
 | src/adapters/reference | refer |
 | src/adapters/fw_control | fwctl |
+| src/adapters/security | secad |
 | src/adapters/storage | stor |
 | src/adapters/fw_output | fwout |
 | src/outputs | outpt |
@@ -656,6 +657,9 @@ App lifecycle registrations (source delivered):
 | src/adapters/fw_control/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | src/adapters/fw_control/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | tests/unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp | amdtst | vqec_vision_ai_unit_amdtst_ |
+| src/adapters/security/vqec_vision_ed25519_app_package_verifier.hpp | edver | vqec_vision_ai_secad_edver_ |
+| src/adapters/security/vqec_vision_ed25519_app_package_verifier.cpp | edver | vqec_vision_ai_secad_edver_ (port override retains `vqec_vision_ai_ports_apver_`) |
+| tests/unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp | edvtst | vqec_vision_ai_unit_edvtst_ |
 
 
 | Logical owner path | file_id | Prefix |

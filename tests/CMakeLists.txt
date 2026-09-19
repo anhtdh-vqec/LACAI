@@ -48,6 +48,20 @@ if(TARGET vqec_vision_ai_app_manager_dbus)
         COMMAND vqec_vision_ai_app_manager_dbus_test)
 endif()
 
+if(TARGET vqec_vision_ai_ed25519_app_package_verifier)
+    add_executable(vqec_vision_ai_ed25519_app_package_verifier_test
+        unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp)
+    target_link_libraries(vqec_vision_ai_ed25519_app_package_verifier_test PRIVATE
+        vqec_vision_ai_ed25519_app_package_verifier)
+    target_compile_definitions(vqec_vision_ai_ed25519_app_package_verifier_test PRIVATE
+        VQEC_VISION_AI_APP_MANIFEST_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_manifest.fire_smoke.example.json"
+        VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/fire_smoke_configuration.example.json")
+    set_target_properties(vqec_vision_ai_ed25519_app_package_verifier_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME ed25519_app_package_verifier
+        COMMAND vqec_vision_ai_ed25519_app_package_verifier_test)
+endif()
+
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
     add_executable(vqec_vision_ai_fire_smoke_alarm_test

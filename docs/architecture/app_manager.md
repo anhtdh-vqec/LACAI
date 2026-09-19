@@ -3,7 +3,8 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** planned — contracts and schemas are defined; production service is not yet delivered.
+**Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade and
+Ed25519 package verifier are delivered; daemon deployment and backend conformance remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -84,10 +85,25 @@ not-installed enable fails closed even if the UI hides an action.
 Per-app CPU/RAM is attributed work and shared-cost metadata, not a fabricated `/proc` process
 value, because applications share the runtime process and components.
 
+## Package signature baseline
+
+The baseline package signature is a raw 64-byte Ed25519 signature. The signed byte sequence is
+the ASCII domain `VQEC-LACAI-VQAPP-1`, the manifest length as an unsigned 64-bit big-endian
+integer, the exact manifest bytes, the configuration length in the same encoding and the exact
+configuration bytes. Length framing prevents concatenation ambiguity; artifact SHA-256 values
+are checked independently and are not treated as authentication.
+
+The verifier opens one configured absolute PEM public-key path with `O_NOFOLLOW`, accepts only a
+regular file owned by root or the service UID, and rejects group/other-writable trust material.
+It verifies the signature before parsing or accepting manifest authority. A production image must
+provision the public key outside the app content store and bind a reviewed key ID into service
+configuration. Private keys and test-generated keys never ship on the device.
+
 ## Limits and next work
 
-- The product trust store and signature primitive need supply-chain owner approval.
-- Source delivery, D-Bus/backend conformance, fault injection and board acceptance remain open.
+- Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
+  this baseline intentionally accepts one configured Ed25519 public key.
+- Daemon deployment, D-Bus/backend conformance, fault injection and board acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
 
 ## See also
@@ -97,4 +113,3 @@ value, because applications share the runtime process and components.
 - [Usecase activation](usecase_activation.md)
 - [Application distribution plan](../planning/architecture_improvement/usecase_app_distribution_plan.md)
 - [Fire/smoke product slice](../planning/architecture_improvement/fire_smoke_product_slice_plan.md)
-

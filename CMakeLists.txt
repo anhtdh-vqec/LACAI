@@ -99,6 +99,7 @@ add_subdirectory(src/runtime)
 
 add_subdirectory(src/adapters/camera)
 add_subdirectory(src/adapters/fw_control)
+add_subdirectory(src/adapters/security)
 add_subdirectory(src/adapters/storage)
 
 if(VQEC_VISION_AI_BUILD_FUZZERS)
