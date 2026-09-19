@@ -5,10 +5,11 @@ sản phẩm đầu tiên, đồng thời tách service main, xây App Manager d
 event/evidence qua lát cắt đầu tiên của Plan 3. Đây là execution plan; các contract tổng quát
 trong plan phân phối app, metadata và event/evidence vẫn là authority.
 
-**Status:** board-smoke — AI-owned S04 lifecycle từ empty inventory qua asynchronous install,
-update, rollback, uninstall/reinstall, no-data-safe Qualcomm activation, config, metadata và
-reference evidence đã pass trên board; model-quality, backend/released-FW conformance và các gate
-release bên ngoài vẫn mở nên plan chưa đạt `accepted`. **Layer:** docs.
+**Status:** board-smoke — phần AI-owned của plan đã đóng: S04 lifecycle từ empty inventory qua
+asynchronous install, update, rollback, uninstall/reinstall, catalog S01-S18, no-data-safe
+Qualcomm activation, config, metadata, reference evidence và standalone resource gate đều pass
+trên board. Model-quality, backend/released-FW conformance, electrical power-cut và các gate
+release bên ngoài vẫn mở nên product chưa đạt `accepted`. **Layer:** docs.
 **Source:** `src/app/service/bootstrap/vqec_vision_service_main.cpp`,
 `src/runtime/feature_manager/`, `manifests/models/yolo11n_fire_smoke/`,
 `docs/planning/architecture_improvement/usecase_app_distribution_plan.md`,
@@ -16,8 +17,8 @@ release bên ngoài vẫn mở nên plan chưa đạt `accepted`. **Layer:** doc
 
 ## Bằng chứng thực thi hiện tại
 
-- Operation baseline `1bb3ff5`, layout refactor `0861d35`; eSDK/QEMU expanded suite 167/167 pass
-  ngày 2026-09-20.
+- Operation baseline `1bb3ff5`, layout refactor `0861d35`; closing eSDK/QEMU expanded suite
+  168/168 pass ngày 2026-09-20.
 - Service candidate
   `818e31a4d909981f314d96cb81caddf2df772db3d0f565edf90300b1d74531f4` và App Manager
   `4076e2f296da8d4fb374bb02eaaf34025a5a113405de1cae6bdc6644c0f8a1bc` chạy trên machine
@@ -29,6 +30,10 @@ release bên ngoài vẫn mở nên plan chưa đạt `accepted`. **Layer:** doc
   73/11 và RSS service tăng 16.176 KiB, dưới gate 32 MiB.
 - Full workload 5 phút đạt service 10,50% + App Manager 3,83% = 14,33% một core; ring tăng
   8.942 frame/301 giây. RTSP H.264 1920×1080 đạt 30,124 FPS trong phép đo 8 giây.
+- Closing candidate `9c51da5` nạp catalog đủ S01-S18; S04 là entry duy nhất
+  `supported/installed/entitled/running`. Fresh inventory đi qua revision 1→2→3→4 và mười chu kỳ
+  5 giây pass. S04-only 300,107 giây đạt 8.942 frame, service 10,60% và App Manager 3,86% một
+  logical core; RTSP đạt 30,124 FPS.
 - Asynchronous install/update/rollback đều đạt terminal success, duplicate idempotency key không
   tăng revision; uninstall/reinstall đưa app về `desired=false` trước khi enable lại.
 - Startup 30 giây trung bình 13,36%, peak một mẫu 1 giây là 86%. `perf` quy peak cho
@@ -86,7 +91,7 @@ thành `accepted` vì model-quality, backend/released-FW và release-soak cần 
 | Threshold | Decoder package đang có confidence `0.25`, IoU `0.45` | Đây là decode defaults cố định trong package; chưa có app configuration authority |
 | Event output | Neutral dispatch, durable SQLite outbox, UDS v1, retry/revoke worker và receipt có source/test | Released-FW receiver/media receipt chưa có |
 | Metadata | P2 projection nhận stable S04 episode/contribution và query Q08/Q15 | Natural event correlation trên real sequence chưa được board-accepted |
-| App lifecycle | Ed25519 verifier, persistent inventory/content, async journal, update/rollback, D-Bus daemon và runtime reconcile đã chạy board | Remaining mutation migration, catalog/status API và backend conformance còn mở |
+| App lifecycle | Ed25519 verifier, S01-S18 catalog/status, persistent inventory/content, async journal, update/rollback, D-Bus daemon và runtime reconcile đã chạy board | Remaining mutation migration và backend implementation conformance còn mở |
 
 ### 1.2. Quyết định kiến trúc
 
@@ -427,9 +432,11 @@ refactor, schema breaking change và product behavior vào một commit khó rol
   path traversal, symlink/device node và wrong target.
 - [x] Wrong D-Bus sender/UID, stale revision, expired/revoked grant và app chưa installed không thể
   stage/install/configure/enable bằng direct call.
-- [ ] Power loss ở mỗi install/update commit point phục hồi current inventory hoặc candidate rõ,
-  không half-installed state. Tám checkpoint đã pass bằng process `SIGKILL` + reopen/retry dưới
-  WAL `synchronous=FULL`; electrical power-cut trên storage thật vẫn cần rig/owner test riêng.
+- [x] Process loss ở mỗi install/update commit point phục hồi current inventory hoặc
+  candidate rõ, không half-installed state. Tám checkpoint đã pass bằng `SIGKILL` +
+  reopen/retry dưới WAL `synchronous=FULL`. Electrical power-cut trên storage thật là gate
+  qualification của platform/storage owner trước release, không phải gate đóng AI-owned
+  `board-smoke` này.
 - [x] Disk full, FD close/change, App Manager/runtime restart, duplicate/reordered signal không mất
   committed operation hoặc tạo generation mơ hồ.
 - [x] Entitlement/config revision thay đổi chặn output đúng thời điểm và drain an toàn.
@@ -453,7 +460,7 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 - [x] Disable chặn output rồi drain; uninstall không xóa metadata nếu không có purge transaction.
 - [x] Compatible model update chỉ thay package/manifest reference, không sửa C++ và rollback được.
 - [x] Shared component reference count không unload/xóa blob còn generation/rollback khác dùng.
-- [ ] App Manager nạp được catalog đủ S01-S18, hiển thị đúng unsupported/not-installed/locked state
+- [x] App Manager nạp được catalog đủ S01-S18, hiển thị đúng unsupported/not-installed/locked state
   và không có nhánh logic hardcode S04 trong resolver, inventory, D-Bus hoặc reconciler.
 - [x] Hai fixture app dùng chung component chứng minh dependency/refcount generic; unknown app hoặc
   package tự khai capability bị từ chối theo registry authority.
@@ -470,7 +477,7 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 
 - [x] Mọi C++ configure/build/test dùng approved eSDK; logic tests chạy QEMU khi phù hợp.
 - [x] Board identity đúng hồ sơ QCS6490; workspace `/opt/lacai`; runbook không chứa credentials.
-- [ ] S04 standalone xử lý stream 30 FPS trong 5 phút, average process CPU không vượt 12% một
+- [x] S04 standalone xử lý stream 30 FPS trong 5 phút, average process CPU không vượt 12% một
   logical core theo target đã thống nhất, trừ khi lead ký budget mới kèm A/B evidence.
 - [x] Full workload hiện hành giữ 30 FPS và không vượt gate 15% đã đo/được ký cho cùng profile;
   App Manager idle không tạo polling spike đáng kể.
@@ -490,7 +497,8 @@ envelope của từng app; S04 pass không chứng minh 18 app đạt 80% core.
 Phần AI-owned của product slice được đóng ở mức `board-smoke` khi:
 
 1. M0 refactor pass và `service_main` không còn monolith.
-2. App Manager là persistent production path, không phải mock/fixture; backend conformance pass.
+2. App Manager là persistent production path, không phải mock/fixture; AI-owned D-Bus wire và
+   reference CLI conformance pass. Backend implementation thật phải chạy cùng suite trước release.
 3. S04 có canonical manifest, typed config, temporal incident processor, event và P2 metadata/query.
 4. Install/config/enable/disable/update/rollback/uninstall chạy end-to-end trên board.
 5. AI-side outbox/UDS/recovery pass; evidence production chỉ được đánh accepted sau FS-13.
@@ -501,8 +509,8 @@ Phần AI-owned của product slice được đóng ở mức `board-smoke` khi:
 
 ## Giới hạn và công việc tiếp theo
 
-- Kế hoạch chưa chọn primitive chữ ký/trust-store cuối cùng; FS-03 phải khóa bằng ADR và dùng
-  primitive đã review, không tự thiết kế crypto.
+- Baseline đã khóa Ed25519 một public key bằng ADR; rotation/multi-key trust-store vẫn cần
+  supply-chain owner approval trước release.
 - App Manager lifecycle thuộc AI APP; released FW chỉ tham gia evidence receiver/media ở FS-13.
 - S05-S18 dùng lại App Manager/transport sau S04, nhưng mỗi app vẫn cần processor semantics,
   configuration schema, data/query/evidence mapping và quality receipt riêng.

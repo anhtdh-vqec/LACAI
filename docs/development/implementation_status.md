@@ -440,10 +440,11 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The expanded eSDK configuration passes 167/167 CTest tests under SDK QEMU (2026-09-20).
+- The expanded eSDK configuration passes 168/168 CTest tests under SDK QEMU (2026-09-20).
   Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
   this focused rerun is not a new full native-suite count.
-- Golden, replay and live FW/model integration suites remain planned scaffolding.
+- Deterministic S04 semantic replay is delivered. Model-quality golden and live released-FW/model
+  integration suites remain external/planned gates.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
   scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.
 - `tools/checks/vqec_vision_check_source_layout.sh` checks physical filenames, quoted includes and
@@ -456,8 +457,8 @@ capability, not by model identity.
 2. Model accuracy calibration and golden parity; concrete feature packages; production
    tracker and attribute producers; pose/OCR.
 3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.
-4. Trust rotation, asynchronous conversion of remaining lifecycle mutations, deeper operation
-   fault injection and backend conformance.
+4. Trust rotation, asynchronous conversion of remaining lifecycle mutations, electrical
+   power-cut qualification and backend implementation conformance.
 5. Automatic source/BSP recovery, fault/soak/golden tests and performance/thermal qualification.
 
 Delivered component details live in the architecture and contract docs, not here:

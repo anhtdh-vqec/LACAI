@@ -5,8 +5,8 @@ and activate the stable S01–S18 usecases without putting package I/O in the in
 
 **Status:** board-smoke — signed asynchronous install, update and rollback, entitlement,
 configuration CAS, desired-state reconcile, persistent inventory, D-Bus facade, idempotency and
-startup-order independence passed on the recorded QCS6490 candidate. Backend conformance and
-asynchronous conversion of the remaining mutations remain open.
+startup-order independence passed on the recorded QCS6490 candidate. Backend implementation
+conformance and asynchronous conversion of the remaining mutations remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -171,12 +171,13 @@ configured App Manager resource capacity. These booleans are never accepted from
 - Content-addressed component FD staging is bound to signed manifest digest/size and install
   authority. Package generation history, rollback and the bounded operation journal are delivered;
   safe garbage collection policy, async conversion of the remaining mutations, D-Bus/backend
-  conformance, deeper power-loss fault injection and release acceptance remain open.
+  implementation conformance, electrical power-cut qualification and release acceptance remain
+  open. Deterministic install/update process-crash injection is delivered.
 - Released FW evidence service is a separate contract and does not affect install authority.
 - `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and `GetOperation` passed the complete S04
   board lifecycle, including duplicate idempotency keys. Entitlement, configuration, desired state
-  and uninstall remain synchronous CAS calls in version 1; backend conformance and conversion of
-  those methods remain follow-up work.
+  and uninstall remain synchronous CAS calls in version 1; backend implementation conformance and
+  conversion of those methods remain follow-up work.
 
 ## See also
 
