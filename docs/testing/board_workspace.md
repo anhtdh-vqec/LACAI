@@ -104,17 +104,17 @@ It owns only processes whose PID and command match its state files; it does not 
 /opt/lacai/run_full.sh stop
 ```
 
-Open `rtsp://192.168.138.98:8554/live/ai/detect0` in VLC after `start` reports success.
+Open `rtsp://192.168.0.102:8554/live/ai/detect0` in VLC after `start` reports success.
 `restart` performs the bounded stop and full start. Deployment choices can be overridden through
 documented `LACAI_*` environment variables in the script, while the canonical defaults use only
-`/opt/lacai` and the measured `.98` configuration. The default full workload uses parallel model
+`/opt/lacai` and the current `.102` address. The default full workload uses parallel model
 execution, eight output surfaces, 30 FPS preview and the registered `qcom,system` DMA heap.
 
 Verify from the host:
 
 ```bash
 tools/board/vqec_vision_preview_acceptance.sh \
-  --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
+  --uri rtsp://192.168.0.102:8554/live/ai/detect0 \
   --output-dir /tmp/lacai-preview-acceptance \
   --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
   --expected-fps 30 --fps-tolerance 1.0

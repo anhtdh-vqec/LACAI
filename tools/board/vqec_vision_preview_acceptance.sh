@@ -24,12 +24,13 @@ while (($# > 0)); do
     esac
 done
 
+authorized_target="192.168.0.102"
 if [[ -z "$uri" || -z "$output_dir" ]]; then
-    echo "usage: $0 --uri rtsp://192.168.138.98:PORT/PATH --output-dir PATH [--duration-seconds N] [--expected-width N] [--expected-height N] [--expected-fps N] [--fps-tolerance N]" >&2
+    echo "usage: $0 --uri rtsp://$authorized_target:PORT/PATH --output-dir PATH [--duration-seconds N] [--expected-width N] [--expected-height N] [--expected-fps N] [--fps-tolerance N]" >&2
     exit 2
 fi
-if [[ ! "$uri" =~ ^rtsp://192\.168\.138\.98(:[0-9]+)?/ ]]; then
-    echo "preview acceptance is restricted to the authorized target 192.168.138.98" >&2
+if [[ ! "$uri" =~ ^rtsp://192\.168\.0\.102(:[0-9]+)?/ ]]; then
+    echo "preview acceptance is restricted to the current authorized target $authorized_target" >&2
     exit 2
 fi
 if [[ "$uri" == *"@"* ]]; then
@@ -83,8 +84,22 @@ if [[ "$codec" != "h264" || "$width" != "$expected_width" ||
     echo "captured stream metadata does not meet the requested profile" >&2
     exit 1
 fi
-effective_fps=$(awk -v packets="$packet_count" -v duration="$captured_duration" \
-    'BEGIN { if (duration <= 0) exit 1; printf "%.3f", packets / duration }')
+packet_pts=$(ffprobe -v error -select_streams v:0 \
+    -show_entries packet=pts_time -of csv=p=0 "$capture")
+packet_pts_span=$(printf '%s\n' "$packet_pts" | awk '
+    NR == 1 { first = $1 }
+    { last = $1; count += 1 }
+    END { if (count < 2 || last < first) exit 1; printf "%.9f", last - first }')
+effective_fps=$(awk -v packets="$packet_count" -v span="$packet_pts_span" \
+    -v rate="$declared_rate" '
+    BEGIN {
+        split(rate, parts, "/")
+        if (parts[1] <= 0 || parts[2] <= 0) exit 1
+        frame_duration = parts[2] / parts[1]
+        measured_duration = span + frame_duration
+        if (measured_duration <= 0) exit 1
+        printf "%.3f", packets / measured_duration
+    }')
 if ! awk -v actual="$effective_fps" -v expected="$expected_fps" -v tolerance="$fps_tolerance" \
     'BEGIN { delta = actual - expected; if (delta < 0) delta = -delta; exit !(delta <= tolerance) }'; then
     echo "effective FPS $effective_fps is outside $expected_fps +/- $fps_tolerance" >&2
@@ -96,13 +111,14 @@ ffmpeg -nostdin -hide_banner -loglevel warning -i "$capture" \
     -frames:v 1 -y "$contact_sheet"
 
 {
-    echo "target=192.168.138.98"
+    echo "target=$authorized_target"
     echo "codec=$codec"
     echo "width=$width"
     echo "height=$height"
     echo "declared_avg_frame_rate=$declared_rate"
     echo "captured_packets=$packet_count"
     echo "captured_duration_seconds=$captured_duration"
+    echo "packet_pts_span_seconds=$packet_pts_span"
     echo "effective_fps=$effective_fps"
     echo "expected_fps=$expected_fps"
     echo "fps_tolerance=$fps_tolerance"

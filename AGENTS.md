@@ -198,8 +198,10 @@ The eSDK includes qemu-aarch64 after sourcing its environment. See
 docs/testing/esdk_emulation.md before claiming target tests cannot execute; emulation
 is logic evidence only and never device/BSP acceptance.
 
-The only user-authorized QCS6490 test target is `192.168.138.98`. Connection guidance is recorded in
-docs/testing/qsc6490_board.md. The board workspace is standardized under `/opt/lacai`; use
+The only user-authorized QCS6490 test target is the board recorded in
+docs/testing/qsc6490_board.md (machine ID `09c89b1858f54955a3d13f2767622448`, currently
+reachable as `lacai-home` / `192.168.0.102`; its previous LAN address was
+`192.168.138.98`). The board workspace is standardized under `/opt/lacai`; use
 the layout and build/stage/test/run procedure in docs/testing/board_workspace.md and never
-use a personal directory name. Verify any local alias resolves to `.98`, then try BatchMode
+use a personal directory name. Verify the alias and recorded machine ID, then try BatchMode
 before asking for credentials. Never record or echo a password.

@@ -11,7 +11,8 @@ below. **Layer:** reference. **Source:** `n/a`.
 
 Result: runtime switching and image-path enrollment pass against simulated FW on QCS6490
 `.98`. This is integration evidence; release acceptance is still open for the gates below.
-Only `192.168.138.98` is an authorized device target. No biometric fixtures, model binaries or credentials
+Only the machine identity recorded in [QCS6490 board target](qsc6490_board.md) is an authorized
+device target. No biometric fixtures, model binaries or credentials
 are included in Git.
 
 ## Responsibility

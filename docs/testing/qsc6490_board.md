@@ -1,16 +1,17 @@
 # QCS6490 board target
 
-This document defines the only authorized LACAI development target and retains the latest
-reproducible evidence for that target. It is not a chronological archive of superseded boards.
+This document defines the only authorized LACAI development target by stable machine identity
+and retains reproducible evidence for that target. A DHCP/LAN address change does not create a
+different board.
 
-**Status:** accepted — QCS6490 `192.168.138.98` passed the declared five-minute full-workload
+**Status:** accepted — the authorized QCS6490 passed the declared five-minute full-workload
 AI APP gate on 2026-09-18. Released-FW completion and product-release qualification remain
 external gates. **Layer:** docs.
 **Source:** `tools/board/`, `docs/testing/board_workspace.md`.
 
 ## Responsibility
 
-- Authorize only `192.168.138.98` for LACAI board work.
+- Authorize only machine ID `09c89b1858f54955a3d13f2767622448` for LACAI board work.
 - Define evidence that must be collected from the exact staged candidate.
 - Keep credentials outside Git, logs and command history.
 - Separate native logic smoke, live preview correctness, throughput, resource and external
@@ -18,13 +19,16 @@ external gates. **Layer:** docs.
 
 ## Target and access rules
 
-The target is `192.168.138.98`, QCS6490 / Qualcomm Linux 1.8. Use `/opt/lacai` as the
-only board workspace. Verify that any local SSH alias resolves to this exact address before
-use, then try non-interactive key access first:
+The target is QCS6490 / Qualcomm Linux 1.8 with machine ID
+`09c89b1858f54955a3d13f2767622448`. It is currently reachable through `lacai-home` at
+`192.168.0.102`; `192.168.138.98` is the same board's previous LAN address and remains only in
+dated evidence. Use `/opt/lacai` as the only board workspace. Resolve the alias, use
+non-interactive key access first, then verify the machine ID before staging or execution:
 
 ```bash
-getent hosts 192.168.138.98
-ssh -o BatchMode=yes -o ConnectTimeout=5 root@192.168.138.98 true
+getent hosts lacai-home
+ssh -o BatchMode=yes -o ConnectTimeout=5 lacai-home \
+  'test "$(cat /etc/machine-id)" = 09c89b1858f54955a3d13f2767622448'
 ```
 
 An interactive password prompt may be used when key access is unavailable, but credentials
@@ -77,7 +81,7 @@ Example host-side preview capture after the board publishes RTSP:
 
 ```bash
 tools/board/vqec_vision_preview_acceptance.sh \
-  --uri rtsp://192.168.138.98:8554/live/ai/detect0 \
+  --uri rtsp://192.168.0.102:8554/live/ai/detect0 \
   --output-dir /tmp/lacai-preview-acceptance \
   --duration-seconds 8 --expected-width 1920 --expected-height 1080 \
   --expected-fps 30 --fps-tolerance 1.0

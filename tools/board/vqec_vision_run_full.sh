@@ -11,6 +11,7 @@ g_ring_id=${LACAI_RING_ID:-encoded_ai_detect0_cam0_ch0}
 g_ring_path="/dev/shm/camera_ai_$g_ring_id"
 g_rtsp_port=${LACAI_RTSP_PORT:-8554}
 g_rtsp_mount=${LACAI_RTSP_MOUNT:-/live/ai/detect0}
+g_board_address=${LACAI_BOARD_ADDRESS:-192.168.0.102}
 g_preview_fps=${LACAI_PREVIEW_FPS:-30}
 g_output_surface_count=${LACAI_OUTPUT_SURFACE_COUNT:-8}
 g_cpu_set=${LACAI_CPU_SET:-4-7}
@@ -96,7 +97,7 @@ vqec_vision_ai_tools_rnful_report_status() {
             result=1
         fi
     done
-    echo "vlc=rtsp://192.168.138.98:$g_rtsp_port$g_rtsp_mount"
+    echo "vlc=rtsp://$g_board_address:$g_rtsp_port$g_rtsp_mount"
     return "$result"
 }
 
@@ -249,6 +250,6 @@ if ! kill -0 "$g_camera_pid" 2>/dev/null ||
 fi
 
 echo "LACAI full workload is running"
-echo "Open VLC: rtsp://192.168.138.98:$g_rtsp_port$g_rtsp_mount"
+echo "Open VLC: rtsp://$g_board_address:$g_rtsp_port$g_rtsp_mount"
 echo "Status: $0 status"
 echo "Stop:   $0 stop"
