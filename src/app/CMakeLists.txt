@@ -19,6 +19,14 @@ target_link_libraries(vqec_vision_ai_metadata_service PUBLIC
     vqec_vision_ai_spatiotemporal_store Threads::Threads)
 set_target_properties(vqec_vision_ai_metadata_service PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_metadata_runtime STATIC
+    service/vqec_vision_metadata_runtime.cpp)
+target_include_directories(vqec_vision_ai_metadata_runtime PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>)
+target_link_libraries(vqec_vision_ai_metadata_runtime PUBLIC
+    vqec_vision_ai_metadata_service nlohmann_json::nlohmann_json)
+set_target_properties(vqec_vision_ai_metadata_runtime PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     pipeline/vqec_vision_camera_graph_pump.cpp
     session/vqec_vision_camera_session.cpp)
@@ -232,6 +240,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         platform/vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_service_options
+        vqec_vision_ai_metadata_runtime
         vqec_vision_ai_admission
         vqec_vision_ai_production_platform
         vqec_vision_ai_cascade_graph_session

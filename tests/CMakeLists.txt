@@ -526,6 +526,14 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME metadata_service
         COMMAND vqec_vision_ai_metadata_service_test)
+    add_executable(vqec_vision_ai_metadata_runtime_test
+        unit/application/vqec_vision_metadata_runtime_test.cpp)
+    target_link_libraries(vqec_vision_ai_metadata_runtime_test
+        PRIVATE vqec_vision_ai_metadata_runtime)
+    set_target_properties(vqec_vision_ai_metadata_runtime_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME metadata_runtime
+        COMMAND vqec_vision_ai_metadata_runtime_test)
     add_executable(vqec_vision_ai_metadata_store_benchmark
         board/vqec_vision_metadata_store_benchmark.cpp)
     target_link_libraries(vqec_vision_ai_metadata_store_benchmark

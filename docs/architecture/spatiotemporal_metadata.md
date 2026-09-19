@@ -3,12 +3,13 @@
 This document defines the target AI APP metadata subsystem for live and historical object
 footprints, cross-camera paths, event analytics and long-retention security/traffic queries.
 
-**Status:** board-smoke — version 1 contracts, packed SQLite shards, correction-aware rollups
-and the bounded service passed the 2026-09-19 eSDK and QCS6490 workload; retention/ACK and
-query-cancellation primitives are logic-tested, while production composition and board fault
-qualification remain open. **Layer:** app. **Source:**
+**Status:** source-delivered — version 1 contracts, packed SQLite shards, correction-aware
+rollups, receipt-safe retention and the production lifecycle/producer owner are implemented;
+the prior isolated workload is board-smoke and the exact composed candidate still requires the
+final board fault/performance rerun. **Layer:** app. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp`,
-`src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`.
+`src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`,
+`src/app/service/vqec_vision_metadata_runtime.cpp`.
 
 ## Responsibility
 
@@ -222,6 +223,22 @@ The planner resolves hot facts, detail shards, cold files and rollups behind one
 Small selective queries return pages. Multi-day geometry, similarity and recomputation become
 bounded asynchronous jobs with cancellation, scan-byte, CPU, RSS, output and deadline budgets.
 
+## Production composition
+
+`--metadata-profile` is the sole opt-in. The baseline-v1 profile supplies the AI-owned root,
+all queue/store/quota bounds, sampling and retention horizons, device/source scene/coordinate/
+clock revisions, one declared trajectory model per source, and exact per-feature access-domain
+rules. The loader cross-validates every source and trajectory model against the effective
+deployment; an undeployed producer returns `unsupported` before runtime activation.
+
+The runtime starts its single storage worker before composition activation and drains it after
+the inference executor stops. Authorized feature events reach it only through the existing
+output gate and retain stable episode IDs/revisions. Episode and initial count contribution are
+enqueued as one atomic projection work item. Trajectory batches require a separate successful
+output-gate decision named by the profile; denied observations are not persisted. The selected
+model, tracker, boot, source epoch, scene, coordinate and clock revisions populate every frame
+locator. Missing event access rules fail `unsupported` rather than choosing a hidden default.
+
 ## Usecase query coverage
 
 This matrix defines query families that the data model must express; it is not a claim that the
@@ -340,8 +357,6 @@ the failed comparison prevents the optimized result from hiding the rejected des
 
 ## Limits and next work
 
-- The service library is not composed into `vqec_ai_vision_applications`; usecase producers do
-  not yet feed production observation/event batches into it.
 - Plan 3 must feed the delivered receipt API; P2 does not infer broker durability from attempts.
 - Board power-cut, disk-full, restart and long-query cancellation evidence is still missing.
 - Q01–Q30 remain capability groups; the new typed query implements tracklet, association,

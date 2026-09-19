@@ -1734,8 +1734,13 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_apply_retention(
         _policy.contribution_before_ns_ < 0 || _policy.rollup_before_ns_ < 0) {
         return {status_code::invalid_argument, "metadata retention cutoff is invalid"};
     }
+    auto result = vqec_vision_ai_stor_stsql_seal_before(
+        static_cast<std::uint64_t>(_policy.trajectory_before_ns_));
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
     sqlite_statement shard_statement;
-    auto result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+    result = vqec_vision_ai_stor_stsql_prepare(catalog_,
         "SELECT shard_id,relative_path FROM shard_manifests WHERE state='sealed' "
         "AND bucket_end_ns<=?1 ORDER BY bucket_end_ns;", shard_statement);
     auto* shard_query = shard_statement.vqec_vision_ai_stor_stsql_get();

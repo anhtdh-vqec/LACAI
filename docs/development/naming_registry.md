@@ -533,7 +533,10 @@ Bounded metadata service
 `src/app/service/vqec_vision_metadata_service.cpp` uses file_id `mdsvc`, prefix
 `vqec_vision_ai_appl_mdsvc_`; its paired private header has the same owner. Unit test
 `tests/unit/application/vqec_vision_metadata_service_test.cpp` uses file_id `mdsvt`, prefix
-`vqec_vision_ai_unit_mdsvt_`; `main` retains the language entrypoint spelling.
+`vqec_vision_ai_unit_mdsvt_`. `src/app/service/vqec_vision_metadata_runtime.cpp` uses file_id
+`mdrun`, prefix `vqec_vision_ai_appl_mdrun_`; its paired header has the same owner. Unit test
+`tests/unit/application/vqec_vision_metadata_runtime_test.cpp` uses file_id `mdrut`, prefix
+`vqec_vision_ai_unit_mdrut_`; both test entrypoints retain the language spelling `main`.
 
 Representative spatiotemporal benchmark
 `tests/board/vqec_vision_spatiotemporal_benchmark.cpp` uses file_id `stben`, prefix

@@ -17,6 +17,7 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 | `model_package_registry.person_face.example.json` | Package bindings for YOLOv8n-person, SCRFD and EdgeFace |
 | `usecase_control_snapshot.person_face.example.json` | Example trusted startup snapshot enabling person detection and FR |
 | `hardware_admission_profile.qcs6490.example.json` | Measured QCS6490 admission profile example with memory, DDR, FW concurrency and thermal limits |
+| `metadata_runtime_profile.qcs6490.example.json` | P2 metadata lifecycle, storage, retention, source revision and per-feature access-domain example |
 
 The example dimensions, rates, memory values, model assignments and released
 `detect0`/`detect1` outputs are illustrative. Never install it as an effective configuration

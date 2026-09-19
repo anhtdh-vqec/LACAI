@@ -102,6 +102,7 @@ int main() {
                       "--dsp-legacy-clock-corner", "7",
                       "--dsp-legacy-latency-us", "100", "--dsp-enable-unsigned-pd",
                       "--hardware-profile", "/opt/lacai/config/hardware_profile.json",
+                      "--metadata-profile", "/opt/lacai/config/metadata_runtime_profile.json",
                       "--max-artifact-bytes", "134217728"},
                   args),
             "model root and max artifact bytes parse");
@@ -114,6 +115,9 @@ int main() {
         check(args.dsp_enable_unsigned_pd, "unsigned DSP policy captured");
         check(args.hardware_profile_path == "/opt/lacai/config/hardware_profile.json",
             "hardware profile path captured");
+        check(args.metadata_profile_path ==
+                "/opt/lacai/config/metadata_runtime_profile.json",
+            "metadata profile path captured");
         check(args.max_artifact_bytes == 134217728ULL, "max_artifact_bytes captured");
     }
 

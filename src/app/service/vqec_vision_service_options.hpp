@@ -58,6 +58,7 @@ struct parsed_arguments {
     std::int32_t dsp_legacy_latency_us{0};
     bool dsp_enable_unsigned_pd{false};
     std::string hardware_profile_path;
+    std::string metadata_profile_path;
     std::uint64_t max_artifact_bytes{0};
     std::string camera_socket_dir;
     std::uint32_t camera_producer_uid{0};

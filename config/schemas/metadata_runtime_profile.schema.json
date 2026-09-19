@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.example/schemas/metadata_runtime_profile.schema.json",
+  "title": "LACAI metadata runtime profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "device_id", "required", "aggregate_bucket_ns", "service", "trajectory", "retention", "sources"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "device_id": {"$ref": "#/$defs/identifier"},
+    "required": {"type": "boolean"},
+    "aggregate_bucket_ns": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue_capacity", "maximum_live_tracks", "maximum_live_deltas", "maximum_batch_records", "outbox_sinks", "store"],
+      "properties": {
+        "queue_capacity": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "maximum_live_tracks": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "maximum_live_deltas": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "maximum_batch_records": {"type": "integer", "minimum": 1, "maximum": 256},
+        "outbox_sinks": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "store": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root_directory", "shard_duration_ns", "maximum_shard_bytes", "maximum_store_bytes", "reserve_free_bytes", "maximum_encoded_chunk_bytes", "maximum_query_results", "busy_timeout_ms", "wal_autocheckpoint_pages", "full_sync"],
+          "properties": {
+            "root_directory": {"type": "string", "pattern": "^/", "maxLength": 4096},
+            "shard_duration_ns": {"type": "integer", "minimum": 1},
+            "maximum_shard_bytes": {"type": "integer", "minimum": 1},
+            "maximum_store_bytes": {"type": "integer", "minimum": 1},
+            "reserve_free_bytes": {"type": "integer", "minimum": 1},
+            "maximum_encoded_chunk_bytes": {"type": "integer", "minimum": 1},
+            "maximum_query_results": {"type": "integer", "minimum": 1},
+            "busy_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+            "wal_autocheckpoint_pages": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+            "full_sync": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "trajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_points_per_chunk", "maximum_chunk_duration_ns", "minimum_sample_interval_ns", "stale_track_ns"],
+      "properties": {
+        "maximum_points_per_chunk": {"type": "integer", "minimum": 2, "maximum": 4096},
+        "maximum_chunk_duration_ns": {"type": "integer", "minimum": 1},
+        "minimum_sample_interval_ns": {"type": "integer", "minimum": 0},
+        "stale_track_ns": {"type": "integer", "minimum": 1}
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maintenance_interval_ns", "trajectory_ns", "episode_ns", "contribution_ns", "rollup_ns"],
+      "properties": {
+        "maintenance_interval_ns": {"type": "integer", "minimum": 1},
+        "trajectory_ns": {"type": "integer", "minimum": 1},
+        "episode_ns": {"type": "integer", "minimum": 1},
+        "contribution_ns": {"type": "integer", "minimum": 1},
+        "rollup_ns": {"type": "integer", "minimum": 1}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "scene_revision", "coordinate_revision", "clock_mapping_revision", "trajectory_model_id", "trajectory_authorization_feature_id", "trajectory_authorization_attribute_id", "event_access_rules"],
+        "properties": {
+          "source_id": {"$ref": "#/$defs/identifier"},
+          "scene_revision": {"$ref": "#/$defs/identifier"},
+          "coordinate_revision": {"$ref": "#/$defs/identifier"},
+          "clock_mapping_revision": {"$ref": "#/$defs/identifier"},
+          "trajectory_model_id": {"$ref": "#/$defs/identifier"},
+          "trajectory_authorization_feature_id": {"$ref": "#/$defs/identifier"},
+          "trajectory_authorization_attribute_id": {"$ref": "#/$defs/identifier"},
+          "event_access_rules": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["feature_id", "access_domains"],
+              "properties": {
+                "feature_id": {"$ref": "#/$defs/identifier"},
+                "access_domains": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {"enum": ["aggregate", "object", "visual_attribute", "trajectory", "plate", "identity", "vector", "media", "operational", "audit"]}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.:-]+$"}
+  }
+}

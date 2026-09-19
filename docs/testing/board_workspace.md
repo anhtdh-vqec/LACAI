@@ -23,6 +23,7 @@ name. The layout is:
 | `tools/board/` | The repository-owned full-workload runner |
 | `tools/fixtures/` | DMA-heap compatibility camera and RTSP ring reader |
 | `protected_gallery/` | AI-owned encrypted gallery/key/lock files (mode 0600) |
+| `data/metadata/` | AI-owned P2 catalog and bounded detail shards; never opened by FW/UI |
 | `out/` | Current logs and the retained `acceptance_5m/` raw evidence |
 | `run_full.sh` | Canonical link/copy of `tools/board/vqec_vision_run_full.sh` |
 
@@ -53,6 +54,7 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
 2. Stage the artifacts to the board (the user handles pushes; this is `scp`/`ssh` only):
 
    - service binary `$lacai_build_dir/src/app/vqec_ai_vision_applications` -> `/opt/lacai/bin/vqec_ai_vision_applications`;
+   - validated metadata profile -> `/opt/lacai/config/metadata_runtime_profile.json`;
    - Hexagon-built `libvqec_vision_dsp_v1_skel.so` plus receipt -> `/opt/lacai/dsp/v1/`;
    - native test binaries and manifests may be staged into a temporary candidate directory for
      validation, then removed after evidence is retained; they are not part of runtime layout;

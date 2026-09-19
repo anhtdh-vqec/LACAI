@@ -64,6 +64,7 @@
 #include "vqec_vision_usecase_control_dbus.hpp"
 #endif
 #include "vqec_vision_event_delivery_seam.hpp"
+#include "vqec_vision_metadata_runtime.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -1068,6 +1069,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             "--usecase-callbacks-per-poll <n>] "
             "[--steps <n>] [--require-sources <n>] "
             "[--mode harness|production] [--platform fake|reference|qualcomm] "
+            "[--metadata-profile <json>] "
             "[--model-package-registry <json>] "
             "[--output-ring-id <id> [--output-fps <fps>] --output-bitrate <bps> "
             "--output-keyframe-interval <frames> "
@@ -1259,10 +1261,37 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     output_gate output_policy_gate;
     reference_event_sink reference_sink;
     event_delivery_seam production_seam;
-    feature_event_sink_port& active_event_sink =
+    feature_event_sink_port& downstream_event_sink =
         use_production_platform
             ? static_cast<feature_event_sink_port&>(production_seam)
             : static_cast<feature_event_sink_port&>(reference_sink);
+    std::unique_ptr<metadata_runtime> metadata;
+    bool metadata_required = false;
+    if (!args.metadata_profile_path.empty()) {
+        std::ifstream metadata_profile(args.metadata_profile_path, std::ios::binary);
+        metadata_runtime_config metadata_config;
+        const auto loaded = metadata_profile
+            ? vqec_vision_ai_appl_mdrun_load_config(
+                  metadata_profile, deployment, metadata_config)
+            : status{status_code::io_error, "cannot open metadata runtime profile"};
+        if (loaded.code_ != status_code::ok) {
+            std::fprintf(stderr, "metadata profile failed (%d): %s\n",
+                static_cast<int>(loaded.code_), loaded.message_.c_str());
+            return 1;
+        }
+        metadata_required = metadata_config.required_;
+        metadata = std::make_unique<metadata_runtime>(
+            std::move(metadata_config), downstream_event_sink);
+        const auto started = metadata->vqec_vision_ai_appl_mdrun_start();
+        if (started.code_ != status_code::ok) {
+            std::fprintf(stderr, "metadata runtime start failed (%d): %s\n",
+                static_cast<int>(started.code_), started.message_.c_str());
+            return 1;
+        }
+    }
+    feature_event_sink_port& active_event_sink = metadata != nullptr
+        ? static_cast<feature_event_sink_port&>(*metadata)
+        : downstream_event_sink;
 
     // Platform owners: production adapters or the device-free reference backend.
     std::vector<std::unique_ptr<reference_raw_source>> reference_sources;
@@ -1988,6 +2017,10 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     if (dispatched.code_ != status_code::ok) {
                         std::fprintf(stderr, "event delivery rejected: %s\n",
                             dispatched.message_.c_str());
+                        if (metadata_required) {
+                            first_error_code = dispatched.code_;
+                            break;
+                        }
                     }
                 }
                 if (recognition_enabled && !embeddings.empty() &&
@@ -2049,6 +2082,55 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+                if (metadata != nullptr &&
+                    taken.source_index_ < deployment.sources_.size() &&
+                    taken.model_slot_ < tracked.size()) {
+                    const auto& metadata_source = deployment.sources_[taken.source_index_];
+                    const auto* profile = metadata->vqec_vision_ai_appl_mdrun_find_source(
+                        metadata_source.source_id_);
+                    const auto* model = taken.model_slot_ < metadata_source.model_ids_.size()
+                        ? vqec_vision_ai_appl_svcmn_find_model(
+                              catalog, metadata_source.model_ids_[taken.model_slot_])
+                        : nullptr;
+                    if (profile != nullptr && model != nullptr &&
+                        profile->trajectory_model_id_ == model->model_id_) {
+                        const output_authorization trajectory_scope{
+                            taken.captured_policy_revision_, metadata_source.source_id_,
+                            profile->trajectory_authorization_feature_id_,
+                            {profile->trajectory_authorization_attribute_id_}};
+                        const bool trajectory_authorized = output_policy_gate
+                            .vqec_vision_ai_core_otgat_authorize(
+                                trajectory_scope, now_ns).code_ == status_code::ok;
+                        const auto submitted = metadata->
+                            vqec_vision_ai_appl_mdrun_submit_observations(
+                                metadata_source.source_id_,
+                                model->model_id_ + "." + model->model_version_,
+                                tracker_contract, tracked[taken.model_slot_],
+                                trajectory_authorized);
+                        if (submitted.code_ != status_code::ok &&
+                            submitted.code_ != status_code::unauthorized &&
+                            submitted.code_ != status_code::unsupported) {
+                            std::fprintf(stderr, "metadata trajectory failed (%d): %s\n",
+                                static_cast<int>(submitted.code_),
+                                submitted.message_.c_str());
+                            if (metadata_required) {
+                                first_error_code = submitted.code_;
+                                break;
+                            }
+                        }
+                        const auto maintained = metadata->vqec_vision_ai_appl_mdrun_maintain(
+                            tracked[taken.model_slot_].frame_.source_pts_ns_);
+                        if (maintained.code_ != status_code::ok) {
+                            std::fprintf(stderr, "metadata maintenance failed (%d): %s\n",
+                                static_cast<int>(maintained.code_),
+                                maintained.message_.c_str());
+                            if (metadata_required) {
+                                first_error_code = maintained.code_;
+                                break;
                             }
                         }
                     }
@@ -2297,6 +2379,19 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
+    }
+    if (metadata != nullptr) {
+        const auto metadata_stopped = metadata->vqec_vision_ai_appl_mdrun_stop(true);
+        if (metadata_stopped.code_ != status_code::ok &&
+            first_error_code == status_code::ok) {
+            first_error_code = metadata_stopped.code_;
+        }
+        const auto metadata_stats = metadata->vqec_vision_ai_appl_mdrun_get_stats();
+        std::printf("metadata accepted=%llu committed=%llu rejected=%llu failed=%llu\n",
+            static_cast<unsigned long long>(metadata_stats.accepted_records_),
+            static_cast<unsigned long long>(metadata_stats.committed_records_),
+            static_cast<unsigned long long>(metadata_stats.rejected_records_),
+            static_cast<unsigned long long>(metadata_stats.failed_records_));
     }
     if (use_production_platform) {
         production_seam.vqec_vision_ai_outpt_evdsm_request_stop();

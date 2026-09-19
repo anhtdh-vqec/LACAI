@@ -26,6 +26,7 @@ g_model_catalog=${LACAI_MODEL_CATALOG:-$g_root/config/model_catalog.json}
 g_model_registry=${LACAI_MODEL_REGISTRY:-$g_root/config/model_registry.json}
 g_usecase_snapshot=${LACAI_USECASE_SNAPSHOT:-$g_root/config/usecase_control_snapshot_full.json}
 g_hardware_profile=${LACAI_HARDWARE_PROFILE:-$g_root/config/hardware_admission_profile.json}
+g_metadata_profile=${LACAI_METADATA_PROFILE:-$g_root/config/metadata_runtime_profile.json}
 g_action=${1:-start}
 
 for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
@@ -145,6 +146,7 @@ for required_file in \
     "$g_hardware_profile"; do
     vqec_vision_ai_tools_rnful_require_file "$required_file"
 done
+vqec_vision_ai_tools_rnful_require_file "$g_metadata_profile"
 if [ ! -c "$g_dma_heap" ]; then
     echo "registered DMA-BUF heap is unavailable: $g_dma_heap" >&2
     exit 1
@@ -199,6 +201,7 @@ setsid env \
     --dsp-v1-skel-dir "$g_dsp_v1_dir" \
     --dsp-enable-unsigned-pd \
     --hardware-profile "$g_hardware_profile" \
+    --metadata-profile "$g_metadata_profile" \
     --tracker-contract portable.iou.tracker.v1 \
     --event-schema-id reference.zone --event-schema-version 1 \
     --consumer-id-prefix lacai_ai \

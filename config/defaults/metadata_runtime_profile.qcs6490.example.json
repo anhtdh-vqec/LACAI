@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "device_id": "qcs6490_camera_01",
+  "required": true,
+  "aggregate_bucket_ns": 3600000000000,
+  "service": {
+    "queue_capacity": 4096,
+    "maximum_live_tracks": 4096,
+    "maximum_live_deltas": 16384,
+    "maximum_batch_records": 256,
+    "outbox_sinks": [],
+    "store": {
+      "root_directory": "/opt/lacai/data/metadata",
+      "shard_duration_ns": 300000000000,
+      "maximum_shard_bytes": 268435456,
+      "maximum_store_bytes": 2147483648,
+      "reserve_free_bytes": 268435456,
+      "maximum_encoded_chunk_bytes": 1048576,
+      "maximum_query_results": 1024,
+      "busy_timeout_ms": 1000,
+      "wal_autocheckpoint_pages": 1000,
+      "full_sync": true
+    }
+  },
+  "trajectory": {
+    "maximum_points_per_chunk": 256,
+    "maximum_chunk_duration_ns": 1000000000,
+    "minimum_sample_interval_ns": 100000000,
+    "stale_track_ns": 2000000000
+  },
+  "retention": {
+    "maintenance_interval_ns": 60000000000,
+    "trajectory_ns": 3600000000000,
+    "episode_ns": 2592000000000000,
+    "contribution_ns": 2592000000000000,
+    "rollup_ns": 31536000000000000
+  },
+  "sources": [
+    {
+      "source_id": "camera_front",
+      "scene_revision": "camera_front_scene_1",
+      "coordinate_revision": "camera_front_pixels_1",
+      "clock_mapping_revision": "camera_front_pts_1",
+      "trajectory_model_id": "yolov8n_person",
+      "trajectory_authorization_feature_id": "preview",
+      "trajectory_authorization_attribute_id": "overlay",
+      "event_access_rules": [
+        {"feature_id": "smoking", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "suspicious_object", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "ppe", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "fire_smoke", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "blacklist", "access_domains": ["object", "identity"]},
+        {"feature_id": "attendance", "access_domains": ["object", "identity"]},
+        {"feature_id": "demographics", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "heatmap", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "intrusion", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "counting", "access_domains": ["object"]},
+        {"feature_id": "person_tracking", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "vlm_alert", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "abandoned_object", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "lost_item", "access_domains": ["object", "trajectory", "vector"]},
+        {"feature_id": "luggage_tracking", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "plate_recognition", "access_domains": ["object", "plate", "trajectory"]},
+        {"feature_id": "crowd_gathering", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "abnormal_behavior", "access_domains": ["object", "trajectory"]},
+        {"feature_id": "traffic", "access_domains": ["object", "visual_attribute", "trajectory", "plate"]}
+      ]
+    }
+  ]
+}
