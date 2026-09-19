@@ -177,11 +177,13 @@ struct production_platform::implementation {
     std::vector<std::unique_ptr<source_lifecycle>> sources_;
     std::unique_ptr<platform_tracker_factory> tracker_factory_;
     std::unique_ptr<qtiv_renderer> renderer_;
+    qtiv_renderer_config renderer_config_;
+    bool has_renderer_config_{false};
     std::shared_ptr<dsp_v1_client> dsp_v1_client_;
     std::shared_ptr<dsp_buffer_cache> dsp_buffer_cache_;
 };
 
-status vqec_vision_ai_appl_pdplt_open_dsp_v1(
+status vqec_vision_ai_appl_pdplt_configure_dsp_v1(
     const std::string& _skel_dir, bool _enable_unsigned_pd,
     std::shared_ptr<dsp_v1_client>& _client) {
     if (_client != nullptr) {
@@ -196,9 +198,9 @@ status vqec_vision_ai_appl_pdplt_open_dsp_v1(
     dsp_v1_client_config config;
     config.skel_dir_ = _skel_dir;
     config.enable_unsigned_pd_ = _enable_unsigned_pd;
-    const auto opened = candidate->vqec_vision_ai_qcom_d1cli_open(config);
-    if (opened.code_ != status_code::ok) {
-        return opened;
+    const auto configured = candidate->vqec_vision_ai_qcom_d1cli_configure(config);
+    if (configured.code_ != status_code::ok) {
+        return configured;
     }
     _client = std::move(candidate);
     return {};
@@ -483,7 +485,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
                 return {status_code::invalid_argument,
                     "anchor-distance package must be a primary model"};
             }
-            const auto dsp_v1_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+            const auto dsp_v1_opened = vqec_vision_ai_appl_pdplt_configure_dsp_v1(
                 impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
                 impl.dsp_v1_client_);
             if (dsp_v1_opened.code_ != status_code::ok) {
@@ -524,7 +526,7 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             }
             const auto labels = vqec_vision_ai_appl_pdplt_load_labels(
                 package, binding->package_dir_);
-            const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+            const auto dsp_opened = vqec_vision_ai_appl_pdplt_configure_dsp_v1(
                 impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
                 impl.dsp_v1_client_);
             if (dsp_opened.code_ != status_code::ok) {
@@ -631,13 +633,12 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
             return {status_code::unsupported,
                 "preview ring output requires exactly one deployment source"};
         }
-        const auto dsp_opened = vqec_vision_ai_appl_pdplt_open_dsp_v1(
+        const auto dsp_opened = vqec_vision_ai_appl_pdplt_configure_dsp_v1(
             impl.config_.dsp_v1_skel_dir_, impl.config_.dsp_enable_unsigned_pd_,
             impl.dsp_v1_client_);
         if (dsp_opened.code_ != status_code::ok) {
             return dsp_opened;
         }
-        impl.renderer_ = std::make_unique<qtiv_renderer>();
         qtiv_renderer_config renderer_config;
         renderer_config.ring_id_ = impl.config_.output_ring_id_;
         renderer_config.width_ = _deployment.sources_.front().profile_.width_;
@@ -655,10 +656,8 @@ status production_platform::vqec_vision_ai_appl_pdplt_prepare(
         renderer_config.interlace_mode_ = impl.config_.output_interlace_mode_;
         renderer_config.buffer_cache_ = impl.dsp_buffer_cache_;
         renderer_config.dsp_client_ = impl.dsp_v1_client_;
-        const auto rendered = impl.renderer_->vqec_vision_ai_qcom_qtvr_init(renderer_config);
-        if (rendered.code_ != status_code::ok) {
-            return rendered;
-        }
+        impl.renderer_config_ = std::move(renderer_config);
+        impl.has_renderer_config_ = true;
     }
     impl.is_prepared_ = true;
     return {};
@@ -791,8 +790,23 @@ status production_platform::vqec_vision_ai_appl_pdplt_render(
     if (implementation_ == nullptr || !implementation_->is_prepared_) {
         return {status_code::invalid_state, "production platform is not prepared"};
     }
-    if (implementation_->renderer_ == nullptr) {
+    if (!implementation_->has_renderer_config_) {
         return {};
+    }
+    if (implementation_->renderer_ == nullptr) {
+        const auto dsp_opened =
+            implementation_->renderer_config_.dsp_client_->
+                vqec_vision_ai_qcom_d1cli_ensure_open();
+        if (dsp_opened.code_ != status_code::ok) {
+            return dsp_opened;
+        }
+        auto candidate = std::make_unique<qtiv_renderer>();
+        const auto initialized = candidate->vqec_vision_ai_qcom_qtvr_init(
+            implementation_->renderer_config_);
+        if (initialized.code_ != status_code::ok) {
+            return initialized;
+        }
+        implementation_->renderer_ = std::move(candidate);
     }
     return implementation_->renderer_->vqec_vision_ai_qcom_qtvr_render(_frame, _payload);
 }

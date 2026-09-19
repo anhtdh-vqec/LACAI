@@ -78,8 +78,9 @@ lease reconciliation. First operational error is retained for diagnostics. The c
 keep the source, graph adapters and private retention domains alive until stopped or an
 external BSP recovery procedure proves DMA has ceased.
 
-The fake-port test source covers preflight rejection before FW acquisition, failure while
-starting a later graph with rollback of an already-running graph, shared-frame running
+The fake-port test source covers preflight rejection before FW acquisition, an indefinitely
+missing first frame with zero graph configure/load calls, failure while starting a later graph
+with rollback of an already-running graph, shared-frame running
 progress, ordered result correlation and graph-before-source shutdown.
 
 The result frame owner moves from the pump's completed model slot into the session's

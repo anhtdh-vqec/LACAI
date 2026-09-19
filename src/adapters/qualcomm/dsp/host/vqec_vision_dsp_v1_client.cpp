@@ -129,6 +129,8 @@ public:
     dsp_v1_rpc_api api_{};
     mutable std::mutex mutex_;
     std::uint64_t handle_{0};
+    dsp_v1_client_config config_;
+    bool configured_{false};
     bool opened_{false};
     bool faulted_{false};
     vqec_vision_ai_dsp_v1_capabilities capabilities_{};
@@ -148,6 +150,15 @@ dsp_v1_rpc_api dsp_v1_client::vqec_vision_ai_qcom_d1cli_system_rpc_api() noexcep
 }
 
 status dsp_v1_client::vqec_vision_ai_qcom_d1cli_open(const dsp_v1_client_config& _config) {
+    const auto configured = vqec_vision_ai_qcom_d1cli_configure(_config);
+    if (configured.code_ != status_code::ok) {
+        return configured;
+    }
+    return vqec_vision_ai_qcom_d1cli_ensure_open();
+}
+
+status dsp_v1_client::vqec_vision_ai_qcom_d1cli_configure(
+    const dsp_v1_client_config& _config) {
     if (impl_ == nullptr || !vqec_vision_ai_qcom_d1cli_api_valid(impl_->api_)) {
         return {status_code::invalid_state, "DSP v1 RPC API is incomplete"};
     }
@@ -157,19 +168,44 @@ status dsp_v1_client::vqec_vision_ai_qcom_d1cli_open(const dsp_v1_client_config&
 
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     if (impl_->opened_ && !impl_->faulted_) {
-        return {};
+        return impl_->config_.skel_dir_ == _config.skel_dir_ &&
+                impl_->config_.enable_unsigned_pd_ == _config.enable_unsigned_pd_ ?
+            status{} : status{status_code::invalid_state,
+                "DSP v1 client cannot change configuration while open"};
     }
     if (impl_->handle_ != 0) {
         return {status_code::invalid_state,
                 "DSP v1 client is faulted; close it before opening a new domain"};
     }
 
-    const std::string library_path = vqec_vision_ai_qcom_d1cli_search_path(_config.skel_dir_);
+    impl_->config_ = _config;
+    impl_->configured_ = true;
+    return {};
+}
+
+status dsp_v1_client::vqec_vision_ai_qcom_d1cli_ensure_open() {
+    if (impl_ == nullptr || !vqec_vision_ai_qcom_d1cli_api_valid(impl_->api_)) {
+        return {status_code::invalid_state, "DSP v1 RPC API is incomplete"};
+    }
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    if (impl_->opened_ && !impl_->faulted_) {
+        return {};
+    }
+    if (!impl_->configured_) {
+        return {status_code::invalid_state, "DSP v1 client is not configured"};
+    }
+    if (impl_->handle_ != 0) {
+        return {status_code::invalid_state,
+                "DSP v1 client is faulted; close it before opening a new domain"};
+    }
+
+    const auto& config = impl_->config_;
+    const std::string library_path = vqec_vision_ai_qcom_d1cli_search_path(config.skel_dir_);
     if (setenv("ADSP_LIBRARY_PATH", library_path.c_str(), 1) != 0 ||
         setenv("DSP_LIBRARY_PATH", library_path.c_str(), 1) != 0) {
         return {status_code::io_error, "Cannot configure DSP v1 library search path"};
     }
-    if (_config.enable_unsigned_pd_ && impl_->api_.prepare_domain_ != nullptr) {
+    if (config.enable_unsigned_pd_ && impl_->api_.prepare_domain_ != nullptr) {
         const int prepare_result = impl_->api_.prepare_domain_();
         if (prepare_result != g_aee_success) {
             return {status_code::io_error,
@@ -228,6 +264,14 @@ bool dsp_v1_client::vqec_vision_ai_qcom_d1cli_is_open() const noexcept {
     }
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     return impl_->opened_ && !impl_->faulted_ && impl_->handle_ != 0;
+}
+
+bool dsp_v1_client::vqec_vision_ai_qcom_d1cli_is_configured() const noexcept {
+    if (impl_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    return impl_->configured_;
 }
 
 vqec_vision_ai_dsp_v1_capabilities

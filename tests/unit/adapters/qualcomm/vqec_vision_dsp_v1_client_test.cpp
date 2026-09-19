@@ -229,6 +229,35 @@ bool vqec_vision_ai_unit_d1clt_open_and_execute() {
     return ok;
 }
 
+bool vqec_vision_ai_unit_d1clt_defer_domain_open() {
+    using namespace vqec::vision::ai;
+    vqec_vision_ai_unit_d1clt_reset_fake();
+    dsp_v1_client client(vqec_vision_ai_unit_d1clt_fake_api());
+    dsp_v1_client_config config{};
+    config.skel_dir_ = g_fixture_skeleton_dir;
+    config.enable_unsigned_pd_ = true;
+    const auto configured = client.vqec_vision_ai_qcom_d1cli_configure(config);
+    bool ok = vqec_vision_ai_unit_d1clt_check(
+        configured.code_ == status_code::ok &&
+            client.vqec_vision_ai_qcom_d1cli_is_configured() &&
+            !client.vqec_vision_ai_qcom_d1cli_is_open(),
+        "deferred DSP configuration did not remain closed");
+    ok = vqec_vision_ai_unit_d1clt_check(
+        g_fake_rpc_state.prepare_calls_ == 0 && g_fake_rpc_state.open_calls_ == 0 &&
+            g_fake_rpc_state.query_calls_ == 0,
+        "DSP configuration touched the process domain before media") && ok;
+    const auto opened = client.vqec_vision_ai_qcom_d1cli_ensure_open();
+    ok = vqec_vision_ai_unit_d1clt_check(
+        opened.code_ == status_code::ok && client.vqec_vision_ai_qcom_d1cli_is_open() &&
+            g_fake_rpc_state.prepare_calls_ == 1 && g_fake_rpc_state.open_calls_ == 1 &&
+            g_fake_rpc_state.query_calls_ == 1,
+        "deferred DSP activation did not open exactly once") && ok;
+    const auto repeated = client.vqec_vision_ai_qcom_d1cli_ensure_open();
+    return vqec_vision_ai_unit_d1clt_check(
+               repeated.code_ == status_code::ok && g_fake_rpc_state.open_calls_ == 1,
+               "idempotent DSP activation opened a second domain") && ok;
+}
+
 bool vqec_vision_ai_unit_d1clt_reject_malformed_capability() {
     using namespace vqec::vision::ai;
     vqec_vision_ai_unit_d1clt_reset_fake();
@@ -262,7 +291,8 @@ bool vqec_vision_ai_unit_d1clt_reject_domain_prepare_failure() {
 }  // namespace
 
 int main() {
-    return vqec_vision_ai_unit_d1clt_open_and_execute() &&
+    return vqec_vision_ai_unit_d1clt_defer_domain_open() &&
+                   vqec_vision_ai_unit_d1clt_open_and_execute() &&
                    vqec_vision_ai_unit_d1clt_reject_malformed_capability() &&
                    vqec_vision_ai_unit_d1clt_reject_domain_prepare_failure()
                ? 0

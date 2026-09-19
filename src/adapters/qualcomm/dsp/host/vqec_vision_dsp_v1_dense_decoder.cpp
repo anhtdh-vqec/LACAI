@@ -85,14 +85,17 @@ status vqec_vision_ai_qcom_d1ddc_validate_config(
         _config.placement_ != image_placement::stretch) {
         return {status_code::unsupported, "DSP v1 dense decoder placement is unsupported"};
     }
-    if (!_config.client_->vqec_vision_ai_qcom_d1cli_is_open()) {
-        return {status_code::invalid_state, "DSP v1 dense client is not open"};
+    if (!_config.client_->vqec_vision_ai_qcom_d1cli_is_configured()) {
+        return {status_code::invalid_state, "DSP v1 dense client is not configured"};
     }
-    const auto capabilities = _config.client_->vqec_vision_ai_qcom_d1cli_capabilities();
-    const std::uint32_t dense_mask =
-        1U << (VQEC_VISION_AI_DSP_V1_DENSE_DECODE - 1U);
-    if ((capabilities.operations_mask & dense_mask) == 0U) {
-        return {status_code::unsupported, "DSP v1 service does not advertise dense_decode"};
+    if (_config.client_->vqec_vision_ai_qcom_d1cli_is_open()) {
+        const auto capabilities = _config.client_->vqec_vision_ai_qcom_d1cli_capabilities();
+        const std::uint32_t dense_mask =
+            1U << (VQEC_VISION_AI_DSP_V1_DENSE_DECODE - 1U);
+        if ((capabilities.operations_mask & dense_mask) == 0U) {
+            return {status_code::unsupported,
+                "DSP v1 service does not advertise dense_decode"};
+        }
     }
     return {};
 }
@@ -169,6 +172,13 @@ status dsp_v1_dense_decoder::vqec_vision_ai_cntr_mddec_decode(
     const tensor_result& _result, const preview_frame_key& _expected_frame,
     observation_batch& _observations) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (config_.client_ == nullptr) {
+        return {status_code::invalid_state, "DSP v1 dense client is unavailable"};
+    }
+    const auto opened = config_.client_->vqec_vision_ai_qcom_d1cli_ensure_open();
+    if (opened.code_ != status_code::ok) {
+        return opened;
+    }
     const auto configured = vqec_vision_ai_qcom_d1ddc_validate_config(config_);
     if (configured.code_ != status_code::ok) {
         return configured;

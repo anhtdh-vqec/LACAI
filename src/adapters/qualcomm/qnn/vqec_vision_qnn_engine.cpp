@@ -212,6 +212,10 @@ struct qnn_engine::implementation {
     qnn_rpcmem_driver rpcmem_;
     const QnnHtpDevice_PerfInfrastructure_t* perf_{nullptr};
     std::uint32_t power_client_id_{0};
+    std::string backend_library_;
+    std::string system_library_;
+    inference_execution_policy policy_;
+    bool is_configured_{false};
     bool has_power_client_{false};
     bool supports_low_latency_{false};
     bool supports_shared_memory_{false};
@@ -226,11 +230,55 @@ qnn_engine::~qnn_engine() noexcept {
     vqec_vision_ai_qcom_qneng_close();
 }
 
+status qnn_engine::vqec_vision_ai_qcom_qneng_configure(
+    const std::string& _backend_library, const std::string& _system_library,
+    const inference_execution_policy& _policy) {
+    if (implementation_ == nullptr) {
+        return {status_code::invalid_state, "QNN engine implementation is unavailable"};
+    }
+    if (_backend_library.empty() || _system_library.empty()) {
+        return {status_code::invalid_argument, "QNN backend and system paths are required"};
+    }
+    const auto valid_policy = vqec_vision_ai_core_inexe_validate_policy(_policy);
+    if (valid_policy.code_ != status_code::ok) {
+        return valid_policy;
+    }
+    auto& impl = *implementation_;
+    if (impl.is_open_) {
+        return impl.backend_library_ == _backend_library &&
+                impl.system_library_ == _system_library ? status{} :
+            status{status_code::invalid_state,
+                "QNN engine cannot change configuration while open"};
+    }
+    impl.backend_library_ = _backend_library;
+    impl.system_library_ = _system_library;
+    impl.policy_ = _policy;
+    impl.is_configured_ = true;
+    return {};
+}
+
+status qnn_engine::vqec_vision_ai_qcom_qneng_ensure_open() {
+    if (implementation_ == nullptr || !implementation_->is_configured_) {
+        return {status_code::invalid_state, "QNN engine is not configured"};
+    }
+    if (implementation_->is_open_) {
+        return {};
+    }
+    return vqec_vision_ai_qcom_qneng_open(
+        implementation_->backend_library_, implementation_->system_library_,
+        implementation_->policy_);
+}
+
 status qnn_engine::vqec_vision_ai_qcom_qneng_open(
     const std::string& _backend_library, const std::string& _system_library,
     const inference_execution_policy& _policy) {
     if (implementation_ == nullptr) {
         return {status_code::invalid_state, "QNN engine implementation is unavailable"};
+    }
+    const auto configured = vqec_vision_ai_qcom_qneng_configure(
+        _backend_library, _system_library, _policy);
+    if (configured.code_ != status_code::ok) {
+        return configured;
     }
     auto& impl = *implementation_;
     if (impl.is_open_) {
@@ -371,6 +419,30 @@ status qnn_engine::vqec_vision_ai_qcom_qneng_open(
 
 bool qnn_engine::vqec_vision_ai_qcom_qneng_is_open() const noexcept {
     return implementation_ != nullptr && implementation_->is_open_;
+}
+
+bool qnn_engine::vqec_vision_ai_qcom_qneng_is_configured() const noexcept {
+    return implementation_ != nullptr && implementation_->is_configured_;
+}
+
+status qnn_engine::vqec_vision_ai_qcom_qneng_get_declared_capabilities(
+    inference_capabilities& _capabilities) const noexcept {
+    if (!vqec_vision_ai_qcom_qneng_is_configured()) {
+        return {status_code::invalid_state, "QNN engine is not configured"};
+    }
+    inference_capabilities capabilities;
+    capabilities.supported_dtype_mask_ = vqec_vision_ai_qcom_qneng_supported_dtype_mask();
+    capabilities.perf_profile_mask_ = static_cast<std::uint8_t>(
+        1U << static_cast<unsigned>(inference_perf_profile::balanced));
+    capabilities.graph_count_ = 1;
+    capabilities.max_inflight_jobs_ = 1;
+    capabilities.supports_native_output_ = true;
+    const auto valid = vqec_vision_ai_core_inexe_validate_capabilities(capabilities);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    _capabilities = capabilities;
+    return {};
 }
 
 status qnn_engine::vqec_vision_ai_qcom_qneng_probe_capabilities(

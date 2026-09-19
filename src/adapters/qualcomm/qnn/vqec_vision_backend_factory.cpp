@@ -34,15 +34,16 @@ status vqec_vision_ai_qcom_bfact_create(
     try {
         auto candidate = std::unique_ptr<qnn_backend_bundle>(new qnn_backend_bundle());
         candidate->engine_ = std::make_unique<qnn_engine>();
-        const auto opened = candidate->engine_->vqec_vision_ai_qcom_qneng_open(
+        const auto configured = candidate->engine_->vqec_vision_ai_qcom_qneng_configure(
             _paths.backend_path_, _paths.system_path_, _policy);
-        if (opened.code_ != status_code::ok) {
-            return opened;
+        if (configured.code_ != status_code::ok) {
+            return configured;
         }
-        const auto probed = candidate->engine_->vqec_vision_ai_qcom_qneng_probe_capabilities(
+        const auto declared =
+            candidate->engine_->vqec_vision_ai_qcom_qneng_get_declared_capabilities(
             candidate->capabilities_);
-        if (probed.code_ != status_code::ok) {
-            return probed;
+        if (declared.code_ != status_code::ok) {
+            return declared;
         }
         const auto supported = vqec_vision_ai_core_inexe_policy_is_supported(
             _policy, candidate->capabilities_);

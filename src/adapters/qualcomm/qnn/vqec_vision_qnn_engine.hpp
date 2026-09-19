@@ -26,6 +26,12 @@ public:
     qnn_engine(const qnn_engine& _other) = delete;
     qnn_engine& operator=(const qnn_engine& _other) = delete;
 
+    // Stores paths and policy only. No vendor library, backend, device, HTP domain or
+    // power client is touched until ensure_open is called after live media is observed.
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_configure(
+        const std::string& _backend_library, const std::string& _system_library,
+        const inference_execution_policy& _policy);
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_ensure_open();
     // Loads the backend/system libraries, resolves the interface, creates the backend and
     // device. The policy is the validated intent used only for device/affinity selection;
     // it is not silently downgraded. Failure tears down anything already created.
@@ -33,6 +39,9 @@ public:
         const std::string& _backend_library, const std::string& _system_library,
         const inference_execution_policy& _policy);
     [[nodiscard]] bool vqec_vision_ai_qcom_qneng_is_open() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_qcom_qneng_is_configured() const noexcept;
+    [[nodiscard]] status vqec_vision_ai_qcom_qneng_get_declared_capabilities(
+        inference_capabilities& _capabilities) const noexcept;
     // Reports the capabilities this adapter implements, not every SDK symbol it can
     // resolve. An unimplemented operation (async, shared memory, artifact update,
     // multi-model domain) is reported unsupported so policy admission fails closed.

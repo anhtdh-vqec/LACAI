@@ -108,6 +108,20 @@ Init: verify artifact -> load backend/System libs -> enumerate compatible provid
 backend/device -> inspect binary metadata -> create context -> select graph by manifest name ->
 validate all I/O -> allocate/bind -> warmup.
 
+The production owner separates a cold configuration recipe from accelerator activation. Platform
+composition validates paths, artifacts, manifests and policy and constructs neutral graph owners,
+but it must not `dlopen` QNN, create an HTP backend/device, open FastRPC/cDSP or create a power
+client. The source session first acquires FW and observes one valid retained RAW frame. It releases
+that probe-frame owner, starts the graph-load deadline, and only then permits graph `load()` to open
+QNN/HTP. DSP v1 stores its skeleton recipe during composition and opens the cDSP process domain on
+the first real preprocess/render operation. Therefore AI APP may start before FW or the preview
+consumer without activating an accelerator against an absent media producer.
+
+This is a startup-order and fault-containment rule, not a claim that vendor activation is
+nonblocking. QNN/FastRPC activation remains on serialized workers. A missing producer remains a
+bounded pending state with zero graph/DSP loads; a missing output ring makes preview initialization
+retryable while inference ownership continues.
+
 - A context binary is the default candidate; a `.so` model is a separate path if the product needs
   it.
 - Check version-tagged metadata/tensor unions before reading members; deep-copy metadata if the

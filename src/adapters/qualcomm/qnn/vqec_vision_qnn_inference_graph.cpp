@@ -22,8 +22,8 @@ qnn_inference_graph::qnn_inference_graph(qnn_engine& _engine) noexcept
     : engine_(_engine) {}
 
 status qnn_inference_graph::vqec_vision_ai_ports_infgr_validate_activation() const {
-    if (!engine_.vqec_vision_ai_qcom_qneng_is_open()) {
-        return {status_code::invalid_state, "QNN engine is not open"};
+    if (!engine_.vqec_vision_ai_qcom_qneng_is_configured()) {
+        return {status_code::invalid_state, "QNN engine is not configured"};
     }
     if (state_ != inference_graph_state::empty) {
         return {status_code::invalid_state, "QNN graph must be empty before activation"};
@@ -48,6 +48,10 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_configure(
 status qnn_inference_graph::vqec_vision_ai_ports_infgr_load() {
     if (state_ != inference_graph_state::configured) {
         return {status_code::invalid_state, "QNN graph must be configured to load"};
+    }
+    const auto opened = engine_.vqec_vision_ai_qcom_qneng_ensure_open();
+    if (opened.code_ != status_code::ok) {
+        return opened;
     }
     const auto prepared = engine_.vqec_vision_ai_qcom_qneng_prepare(plan_.model_path_);
     if (prepared.code_ != status_code::ok) {
@@ -252,6 +256,10 @@ inference_capabilities qnn_inference_graph::
 vqec_vision_ai_ports_infgr_get_capabilities() const noexcept {
     inference_capabilities capabilities;
     if (engine_.vqec_vision_ai_qcom_qneng_probe_capabilities(capabilities).code_ ==
+        status_code::ok) {
+        return capabilities;
+    }
+    if (engine_.vqec_vision_ai_qcom_qneng_get_declared_capabilities(capabilities).code_ ==
         status_code::ok) {
         return capabilities;
     }

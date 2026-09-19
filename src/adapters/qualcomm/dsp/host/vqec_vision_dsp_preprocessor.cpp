@@ -119,10 +119,11 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_validate(
     if (implementation_ == nullptr || implementation_->config_.client_ == nullptr ||
         implementation_->config_.buffer_cache_ == nullptr ||
         implementation_->has_uncertain_completion_ ||
-        !implementation_->config_.client_->vqec_vision_ai_qcom_d1cli_is_open()) {
+        !implementation_->config_.client_->vqec_vision_ai_qcom_d1cli_is_configured()) {
         return {status_code::invalid_state, "DSP v1 image processor is not runnable"};
     }
-    if (!vqec_vision_ai_qcom_dsppr_has_image_operation(
+    if (implementation_->config_.client_->vqec_vision_ai_qcom_d1cli_is_open() &&
+        !vqec_vision_ai_qcom_dsppr_has_image_operation(
             *implementation_->config_.client_)) {
         return {status_code::unsupported,
             "DSP v1 domain does not advertise image_transform"};
@@ -198,6 +199,16 @@ status dsp_preprocessor::vqec_vision_ai_ports_imgpr_validate(
 status dsp_preprocessor::vqec_vision_ai_ports_imgpr_preprocess(
     const raw_frame& _frame, const inference_plan& _plan,
     const tensor_spec& _target, std::vector<tensor_blob>& _outputs) {
+    if (implementation_ == nullptr || implementation_->config_.client_ == nullptr) {
+        return {status_code::invalid_state, "DSP v1 image processor is unavailable"};
+    }
+    // preprocess is reached only with a retained source frame. This is the first legal
+    // point at which the Qualcomm process domain may be activated.
+    const auto opened =
+        implementation_->config_.client_->vqec_vision_ai_qcom_d1cli_ensure_open();
+    if (opened.code_ != status_code::ok) {
+        return opened;
+    }
     const auto valid = vqec_vision_ai_ports_imgpr_validate(_frame, _plan, _target);
     if (valid.code_ != status_code::ok) {
         return valid;

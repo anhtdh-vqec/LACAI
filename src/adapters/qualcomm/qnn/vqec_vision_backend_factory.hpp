@@ -36,10 +36,9 @@ private:
         std::unique_ptr<qnn_backend_bundle>& _bundle);
 };
 
-// Opens the QNN backend/system libraries from the resolved paths, creates the engine,
-// probes capabilities and fails closed when the validated policy is not supported, then
-// constructs the graph binding. It does not configure, load or execute the model. Failure
-// preserves _bundle.
+// Configures paths/policy and constructs the graph binding without loading vendor libraries or
+// touching HTP. The graph opens and probes the real backend only from load(), after the neutral
+// source session's first-frame gate. Failure preserves _bundle.
 [[nodiscard]] status vqec_vision_ai_qcom_bfact_create(
     const resolved_model_paths& _paths,
     const inference_execution_policy& _policy,

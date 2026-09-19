@@ -1207,6 +1207,17 @@ if(VQEC_VISION_AI_ENABLE_QUALCOMM)
     set_target_properties(vqec_vision_ai_dsp_v1_client_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME dsp_v1_client_negotiation COMMAND vqec_vision_ai_dsp_v1_client_test)
 
+    if(TARGET vqec_vision_ai_qnn_engine)
+        add_executable(vqec_vision_ai_backend_factory_lazy_test
+            unit/adapters/qualcomm/vqec_vision_backend_factory_lazy_test.cpp)
+        target_link_libraries(vqec_vision_ai_backend_factory_lazy_test PRIVATE
+            vqec_vision_ai_qnn_engine)
+        set_target_properties(vqec_vision_ai_backend_factory_lazy_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME qnn_backend_factory_deferred_open
+            COMMAND vqec_vision_ai_backend_factory_lazy_test)
+    endif()
+
     add_executable(vqec_vision_ai_dsp_v1_dense_decoder_test
         unit/adapters/qualcomm/vqec_vision_dsp_v1_dense_decoder_test.cpp)
     target_link_libraries(vqec_vision_ai_dsp_v1_dense_decoder_test

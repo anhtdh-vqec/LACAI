@@ -59,11 +59,17 @@ public:
     dsp_v1_client(dsp_v1_client&&) = delete;
     dsp_v1_client& operator=(dsp_v1_client&&) = delete;
 
+    // Stores a validated activation recipe without touching FastRPC or a DSP domain.
+    [[nodiscard]] status vqec_vision_ai_qcom_d1cli_configure(
+        const dsp_v1_client_config& _config);
+    // Idempotently opens the configured domain. Call only after live media is observed.
+    [[nodiscard]] status vqec_vision_ai_qcom_d1cli_ensure_open();
     [[nodiscard]] status vqec_vision_ai_qcom_d1cli_open(const dsp_v1_client_config& _config);
 
     void vqec_vision_ai_qcom_d1cli_close();
 
     [[nodiscard]] bool vqec_vision_ai_qcom_d1cli_is_open() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_qcom_d1cli_is_configured() const noexcept;
 
     [[nodiscard]] vqec_vision_ai_dsp_v1_capabilities
     vqec_vision_ai_qcom_d1cli_capabilities() const noexcept;
