@@ -3,12 +3,6 @@
 #include <new>
 
 namespace vqec::vision::ai {
-namespace {
-
-constexpr char g_fire_smoke_processor_contract[] = "fire_smoke_alarm";
-
-}  // namespace
-
 status service_feature_registry::vqec_vision_ai_appl_sfreg_register_compiled(
     const feature_catalog& _catalog, feature_processor_registry& _registry,
     feature_catalog& _platform_catalog) {
@@ -21,11 +15,13 @@ status service_feature_registry::vqec_vision_ai_appl_sfreg_register_compiled(
         platform_catalog.features_.reserve(_catalog.features_.size());
         bool fire_smoke_registered = false;
         for (const auto& feature : _catalog.features_) {
-            if (feature.processor_contract_ == g_fire_smoke_processor_contract) {
+            if (feature.processor_contract_ ==
+                fire_smoke_app_contract::g_processor_contract) {
                 if (!fire_smoke_registered) {
                     const auto registered =
                         _registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
-                            g_fire_smoke_processor_contract, fire_smoke_factory_);
+                            fire_smoke_app_contract::g_processor_contract,
+                            fire_smoke_factory_);
                     if (registered.code_ != status_code::ok) {
                         return registered;
                     }

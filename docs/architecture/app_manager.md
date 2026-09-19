@@ -3,8 +3,9 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade and
-Ed25519 package verifier are delivered; daemon deployment and backend conformance remain open.
+**Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade,
+Ed25519 package verifier and daemon bootstrap are delivered; deployment and backend conformance
+remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -77,7 +78,9 @@ grant or authorize new output.
 ## D-Bus facade
 
 Production uses the system bus and binds the configured backend well-known name to its unique
-owner. The facade provides capability/catalog reads, FD-based staging, install/update/rollback/
+owner on every request. The daemon can start while the backend is offline, and a backend restart
+does not retain authority from its previous unique owner. The facade provides capability/catalog
+reads, FD-based staging, install/update/rollback/
 uninstall, configuration validation/apply, desired state, operation status/cancel and full status.
 Large package data never travels as a byte array. Wrong sender, stale revision, invalid grant or
 not-installed enable fails closed even if the UI hides an action.
@@ -103,7 +106,9 @@ configuration. Private keys and test-generated keys never ship on the device.
 
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
-- Daemon deployment, D-Bus/backend conformance, fault injection and board acceptance remain open.
+- Signed entitlement ingestion, operation journaling, D-Bus/backend conformance, fault injection
+  and board acceptance remain open. Until signed grants are wired, the daemon cannot promote an
+  installed app to entitled/running through backend requests alone.
 - Released FW evidence service is a separate contract and does not affect install authority.
 
 ## See also

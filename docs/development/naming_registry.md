@@ -660,6 +660,10 @@ App lifecycle registrations (source delivered):
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.hpp | edver | vqec_vision_ai_secad_edver_ |
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.cpp | edver | vqec_vision_ai_secad_edver_ (port override retains `vqec_vision_ai_ports_apver_`) |
 | tests/unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp | edvtst | vqec_vision_ai_unit_edvtst_ |
+| src/app/management/vqec_vision_app_manager_options.hpp | amopt | vqec_vision_ai_appl_amopt_ |
+| src/app/management/vqec_vision_app_manager_options.cpp | amopt | vqec_vision_ai_appl_amopt_ |
+| src/app/management/vqec_vision_app_manager_main.cpp | amain | `main` entrypoint only |
+| tests/unit/application/vqec_vision_app_manager_options_test.cpp | amotst | vqec_vision_ai_unit_amotst_ |
 
 
 | Logical owner path | file_id | Prefix |

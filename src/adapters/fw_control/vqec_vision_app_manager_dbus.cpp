@@ -28,7 +28,8 @@ constexpr std::size_t g_max_signature_bytes = 64U * 1024U;
 
 struct dbus_binding {
     app_manager_port* port_{nullptr};
-    std::string trusted_sender_;
+    std::string trusted_peer_bus_name_;
+    int rpc_timeout_ms_{0};
 };
 
 constexpr char g_introspection_xml[] =
@@ -221,13 +222,36 @@ void vqec_vision_ai_fwctl_amdbs_snapshot(app_manager_port& _port,
         g_variant_new("(s)", stream.str().c_str()));
 }
 
-void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection*,
+bool vqec_vision_ai_fwctl_amdbs_is_trusted_sender(GDBusConnection* _connection,
+    const dbus_binding& _binding, const char* _sender) {
+    if (_connection == nullptr || _sender == nullptr ||
+        _binding.trusted_peer_bus_name_.empty()) {
+        return false;
+    }
+    error_owner error;
+    GVariant* reply = g_dbus_connection_call_sync(_connection,
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+        "GetNameOwner", g_variant_new("(s)",
+            _binding.trusted_peer_bus_name_.c_str()), G_VARIANT_TYPE("(s)"),
+        G_DBUS_CALL_FLAGS_NONE, _binding.rpc_timeout_ms_, nullptr, &error.value_);
+    if (reply == nullptr) {
+        return false;
+    }
+    const gchar* owner = nullptr;
+    g_variant_get(reply, "(&s)", &owner);
+    const bool matches = owner != nullptr && g_strcmp0(owner, _sender) == 0;
+    g_variant_unref(reply);
+    return matches;
+}
+
+void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection* _connection,
     const gchar* _sender, const gchar*, const gchar*, const gchar* _method_name,
     GVariant* _parameters, GDBusMethodInvocation* _invocation,
     gpointer _user_data) {
     auto* binding = static_cast<dbus_binding*>(_user_data);
-    if (binding == nullptr || _sender == nullptr ||
-        binding->trusted_sender_ != _sender) {
+    if (binding == nullptr ||
+        !vqec_vision_ai_fwctl_amdbs_is_trusted_sender(
+            _connection, *binding, _sender)) {
         g_dbus_method_invocation_return_error_literal(_invocation, G_DBUS_ERROR,
             G_DBUS_ERROR_ACCESS_DENIED,
             "app manager caller is not the configured backend peer");
@@ -414,19 +438,8 @@ status app_manager_dbus_server::vqec_vision_ai_fwctl_amdbs_open(
         return {status_code::io_error, "cannot connect to app manager DBus"};
     }
     g_dbus_connection_set_exit_on_close(implementation_->connection_, FALSE);
-    GVariant* peer_reply = g_dbus_connection_call_sync(implementation_->connection_,
-        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
-        "GetNameOwner", g_variant_new("(s)", _config.trusted_peer_bus_name_.c_str()),
-        G_VARIANT_TYPE("(s)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
-        nullptr, &error.value_);
-    if (peer_reply == nullptr) {
-        return {status_code::unauthorized,
-            "configured backend peer has no DBus owner"};
-    }
-    const gchar* sender = nullptr;
-    g_variant_get(peer_reply, "(&s)", &sender);
-    implementation_->trusted_sender_ = sender;
-    g_variant_unref(peer_reply);
+    implementation_->trusted_peer_bus_name_ = _config.trusted_peer_bus_name_;
+    implementation_->rpc_timeout_ms_ = _config.rpc_timeout_ms_;
     implementation_->context_ = g_main_context_new();
     implementation_->max_callbacks_per_poll_ = _config.max_callbacks_per_poll_;
     implementation_->port_ = &_port;

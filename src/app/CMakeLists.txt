@@ -10,6 +10,13 @@ target_link_libraries(vqec_vision_ai_app_configuration_registry
 set_target_properties(vqec_vision_ai_app_configuration_registry
     PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_app_manager_options STATIC
+    management/vqec_vision_app_manager_options.cpp)
+target_include_directories(vqec_vision_ai_app_manager_options PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/management>)
+target_link_libraries(vqec_vision_ai_app_manager_options PUBLIC vqec_vision_ai_core)
+set_target_properties(vqec_vision_ai_app_manager_options PROPERTIES CXX_EXTENSIONS OFF)
+
 if(TARGET vqec_vision_ai_artifact_digest AND TARGET vqec_vision_ai_app_manifest)
     add_library(vqec_vision_ai_app_manager STATIC
         management/vqec_vision_app_manager.cpp)
@@ -20,6 +27,28 @@ if(TARGET vqec_vision_ai_artifact_digest AND TARGET vqec_vision_ai_app_manifest)
         vqec_vision_ai_app_manifest
         vqec_vision_ai_artifact_digest)
     set_target_properties(vqec_vision_ai_app_manager PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
+if(TARGET vqec_vision_ai_app_manager AND
+   TARGET vqec_vision_ai_app_manager_dbus AND
+   TARGET vqec_vision_ai_ed25519_app_package_verifier AND
+   TARGET vqec_vision_ai_sqlite_app_inventory)
+    add_executable(vqec_vision_app_manager
+        management/vqec_vision_app_manager_main.cpp)
+    target_include_directories(vqec_vision_app_manager PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/security>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/features/fire_smoke>)
+    target_link_libraries(vqec_vision_app_manager PRIVATE
+        vqec_vision_ai_app_manager_options
+        vqec_vision_ai_app_manager
+        vqec_vision_ai_app_manager_dbus
+        vqec_vision_ai_ed25519_app_package_verifier
+        vqec_vision_ai_sqlite_app_inventory
+        vqec_vision_ai_fire_smoke_feature
+        Threads::Threads)
+    set_target_properties(vqec_vision_app_manager PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Cold-path startup option parsing, split out of the service main translation unit so it

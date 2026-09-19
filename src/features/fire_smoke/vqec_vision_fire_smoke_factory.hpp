@@ -7,6 +7,13 @@
 
 namespace vqec::vision::ai {
 
+namespace fire_smoke_app_contract {
+inline constexpr char g_app_id[] = "security.fire_smoke_detection";
+inline constexpr char g_configuration_schema_id[] =
+    "security.fire_smoke.configuration";
+inline constexpr char g_processor_contract[] = "fire_smoke_alarm";
+}  // namespace fire_smoke_app_contract
+
 class fire_smoke_factory final : public feature_processor_factory_port,
                                  public app_configuration_validator_port {
 public:

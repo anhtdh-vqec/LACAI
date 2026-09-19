@@ -153,7 +153,6 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         g_object_unref(bus);
         throw std::runtime_error(message);
     }
-    vqec_vision_ai_unit_amdtst_request_name(peer);
     {
         fake_app_manager port;
         app_manager_dbus_server server;
@@ -163,6 +162,9 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         if (opened.code_ != status_code::ok) {
             throw std::runtime_error(opened.message_);
         }
+        // App Manager must start before the backend and bind the backend's current
+        // unique owner at call time so a backend restart does not require daemon restart.
+        vqec_vision_ai_unit_amdtst_request_name(peer);
 
         auto snapshot_future = vqec_vision_ai_unit_amdtst_call(peer,
             app_manager_dbus_protocol::g_snapshot_method, nullptr,

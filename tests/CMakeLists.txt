@@ -62,6 +62,15 @@ if(TARGET vqec_vision_ai_ed25519_app_package_verifier)
         COMMAND vqec_vision_ai_ed25519_app_package_verifier_test)
 endif()
 
+add_executable(vqec_vision_ai_app_manager_options_test
+    unit/application/vqec_vision_app_manager_options_test.cpp)
+target_link_libraries(vqec_vision_ai_app_manager_options_test PRIVATE
+    vqec_vision_ai_app_manager_options)
+set_target_properties(vqec_vision_ai_app_manager_options_test
+    PROPERTIES CXX_EXTENSIONS OFF)
+add_test(NAME app_manager_options
+    COMMAND vqec_vision_ai_app_manager_options_test)
+
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
     add_executable(vqec_vision_ai_fire_smoke_alarm_test
