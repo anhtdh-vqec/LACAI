@@ -17,6 +17,7 @@ g_output_surface_count=${LACAI_OUTPUT_SURFACE_COUNT:-8}
 g_cpu_set=${LACAI_CPU_SET:-4-7}
 g_dma_heap=${LACAI_DMA_HEAP:-/dev/dma_heap/qcom,system}
 g_start_timeout_seconds=${LACAI_START_TIMEOUT_SECONDS:-30}
+g_camera_start_delay_seconds=${LACAI_CAMERA_START_DELAY_SECONDS:-5}
 g_preview_ready_timeout_seconds=${LACAI_PREVIEW_READY_TIMEOUT_SECONDS:-120}
 g_stop_timeout_seconds=${LACAI_STOP_TIMEOUT_SECONDS:-30}
 g_runtime_step_interval_us=${LACAI_RUNTIME_STEP_INTERVAL_US:-8000}
@@ -71,6 +72,7 @@ g_action=${1:-start}
 
 for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
     "$g_output_surface_count" "$g_start_timeout_seconds" \
+    "$g_camera_start_delay_seconds" \
     "$g_preview_ready_timeout_seconds" "$g_stop_timeout_seconds" \
     "$g_runtime_step_interval_us" "$g_evidence_io_timeout_ms" \
     "$g_evidence_busy_timeout_ms" "$g_evidence_outbox_max_bytes" \
@@ -441,26 +443,6 @@ echo "$g_app_bus_pid" >"$g_run_dir/app_bus.pid"
 printf '%s\n' "$DBUS_SESSION_BUS_ADDRESS" >"$g_run_dir/app_bus.address"
 chmod 0600 "$g_run_dir/app_bus.address"
 
-setsid python3 "$g_root/tools/fixtures/vqec_vision_fw_camera_sim.py" \
-    --socket-dir "$g_camera_socket_dir" --camera 0 --channel 0 --consumer ai \
-    --width 1920 --height 1080 --fps 30 --max-in-flight 3 \
-    --dma-heap "$g_dma_heap" >"$g_root/out/camera.log" 2>&1 </dev/null &
-g_camera_pid=$!
-echo "$g_camera_pid" >"$g_run_dir/camera.pid"
-
-g_wait_count=0
-g_wait_limit=$((g_start_timeout_seconds * 10))
-while [ ! -S "$g_camera_socket" ] && kill -0 "$g_camera_pid" 2>/dev/null &&
-      [ "$g_wait_count" -lt "$g_wait_limit" ]; do
-    sleep 0.1
-    g_wait_count=$((g_wait_count + 1))
-done
-if [ ! -S "$g_camera_socket" ]; then
-    echo "camera fixture did not become ready" >&2
-    vqec_vision_ai_tools_rnful_stop_all
-    exit 1
-fi
-
 setsid env \
     LD_LIBRARY_PATH="$g_root/lib" \
     ADSP_LIBRARY_PATH="$g_dsp_v1_dir;/usr/lib/dsp/cdsp/cv/v68/KODIAK;/usr/lib/rfsa/adsp;/dsp" \
@@ -519,6 +501,7 @@ setsid env \
     >"$g_root/out/service.log" 2>&1 </dev/null &
 g_service_pid=$!
 echo "$g_service_pid" >"$g_run_dir/service.pid"
+g_wait_limit=$((g_start_timeout_seconds * 10))
 
 # Deliberately start the runtime before App Manager. A missing manager must keep
 # the runtime disabled; it must never cause Qualcomm graph/DSP/HTP loading.
@@ -607,6 +590,40 @@ if [ "$(vqec_vision_ai_tools_rnful_association_field desired)" != "true" ]; then
         --source-id "$g_app_source_id" --expected-revision "$g_desired_revision" \
         --enabled true
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
+fi
+
+# Start the FW camera producer last. This is the canonical dependency-order test:
+# the AI service must survive with neither App Manager nor media available, and the
+# Qualcomm graph/DSP/HTP path must remain unopened until a real frame is received.
+sleep "$g_camera_start_delay_seconds"
+if ! kill -0 "$g_service_pid" 2>/dev/null; then
+    echo "service stopped while camera media was unavailable" >&2
+    tail -n 80 "$g_root/out/service.log" >&2 || true
+    vqec_vision_ai_tools_rnful_stop_all
+    exit 1
+fi
+if grep -F '/libQnnHtp.so' "/proc/$g_service_pid/maps" >/dev/null 2>&1; then
+    echo "Qualcomm HTP backend loaded before camera media was available" >&2
+    vqec_vision_ai_tools_rnful_stop_all
+    exit 1
+fi
+setsid python3 "$g_root/tools/fixtures/vqec_vision_fw_camera_sim.py" \
+    --socket-dir "$g_camera_socket_dir" --camera 0 --channel 0 --consumer ai \
+    --width 1920 --height 1080 --fps 30 --max-in-flight 3 \
+    --dma-heap "$g_dma_heap" >"$g_root/out/camera.log" 2>&1 </dev/null &
+g_camera_pid=$!
+echo "$g_camera_pid" >"$g_run_dir/camera.pid"
+
+g_wait_count=0
+while [ ! -S "$g_camera_socket" ] && kill -0 "$g_camera_pid" 2>/dev/null &&
+      [ "$g_wait_count" -lt "$g_wait_limit" ]; do
+    sleep 0.1
+    g_wait_count=$((g_wait_count + 1))
+done
+if [ ! -S "$g_camera_socket" ]; then
+    echo "camera fixture did not become ready" >&2
+    vqec_vision_ai_tools_rnful_stop_all
+    exit 1
 fi
 
 g_wait_count=0
