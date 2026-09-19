@@ -227,6 +227,10 @@ machine ID `09c89b1858f54955a3d13f2767622448` qua alias `lacai-home`.
 | AI APP đồng thời | 12,88% một core, RSS trung bình 371.233 KiB |
 | Preview sau workload | H.264 1920x1080, 30,000 packet-PTS FPS; overlay person review pass |
 
+Target-native codec/store/service tests cũng pass. Store test digest `957c37ee…cc18ab` bao phủ
+deadline hết hạn, missing-shard trả partial, repair index và quota rejection; không được gọi đây
+là power-cut hoặc filesystem-full test vật lý.
+
 Thiết kế cũ query-time scan cùng cardinality dùng trung bình 46,56% metadata CPU và tăng theo
 lịch sử. Vì vậy source đã chuyển latest-corrected aggregate sang rollup materialized giao dịch;
 as-observed/as-known-at vẫn đọc revision history có budget.

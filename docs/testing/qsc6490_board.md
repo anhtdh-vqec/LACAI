@@ -148,6 +148,9 @@ maximum RSS was 37,120 KiB and the store was 32,567,296 bytes. Concurrent AI APP
 12.88% of one core. A post-run capture measured H.264 1920x1080 at 30.000 packet-PTS FPS; its
 four-frame contact sheet showed a correctly aligned current person box/label with no stale box.
 This is P2 board-smoke, not retention, disk-full, power-cut or production-composition acceptance.
+The updated native store test (`957c37ee26dcf77396e77d95a0fe1ab8080797a2cd93e6484978b4f9accc18ab`)
+also passed expired-deadline, missing-shard/partial-coverage, index-repair and quota-rejection
+cases on the board. Those controlled cases do not replace a physical disk-full or power-cut run.
 
 ## Evidence record
 

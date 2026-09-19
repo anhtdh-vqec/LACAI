@@ -23,6 +23,10 @@
   profiles. Query p50/p95/p99 was 2.688/12.454/18.546 ms; metadata used 30.110% of one core,
   37,120 KiB maximum RSS and 32,567,296 bytes. AI APP averaged 12.88% of one core. H.264 preview
   measured 30.000 packet-PTS FPS and the current overlay contact sheet passed visual review.
+- The exact target-native codec, store and service tests also pass on the same board. Store test
+  SHA-256 `957c37ee…cc18ab` covers expired-deadline budgeting, missing-shard partial coverage,
+  startup index repair and quota rejection. This is fail-closed logic evidence, not a physical
+  power interruption or filesystem-full test.
 - Packed SQLite shards are the v1 edge choice; Parquet is center interchange/future cold-tier work,
   not an unreviewed edge dependency. ADR 0009 remains proposed because production composition,
   retention tied to outbox receipts, board power-cut/disk-full/cancellation and capacity profiles
