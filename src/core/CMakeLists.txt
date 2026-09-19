@@ -29,6 +29,7 @@ add_library(vqec_vision_ai_core STATIC
     features/vqec_vision_feature_catalog.cpp
     output/vqec_vision_output_gate.cpp
     output/vqec_vision_output_generation.cpp
+    output/vqec_vision_metadata_query.cpp
     configuration/vqec_vision_deployment_config.cpp
     configuration/vqec_vision_model_catalog.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)

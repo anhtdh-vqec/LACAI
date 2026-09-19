@@ -29,6 +29,7 @@ if(integration_contract_python)
         COMMAND ${integration_contract_python}
             ${CMAKE_SOURCE_DIR}/tools/contracts/vqec_vision_check_metadata_query.py
             --catalog ${CMAKE_SOURCE_DIR}/config/contracts/metadata_query_catalog.json
+            --cases ${CMAKE_SOURCE_DIR}/config/contracts/metadata_query_cases.json
             --integration-registry
                 ${CMAKE_SOURCE_DIR}/config/contracts/integration_contract_registry.json
             --version-registry
@@ -485,6 +486,14 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME encrypted_face_gallery_store
         COMMAND vqec_vision_ai_encrypted_face_gallery_store_test)
+    add_executable(vqec_vision_ai_sqlite_metadata_store_test
+        unit/adapters/storage/vqec_vision_sqlite_metadata_store_test.cpp)
+    target_link_libraries(vqec_vision_ai_sqlite_metadata_store_test
+        PRIVATE vqec_vision_ai_sqlite_metadata_store)
+    set_target_properties(vqec_vision_ai_sqlite_metadata_store_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME sqlite_metadata_store
+        COMMAND vqec_vision_ai_sqlite_metadata_store_test)
     add_executable(vqec_vision_ai_face_enrollment_controller_test
         unit/perception/vqec_vision_face_enrollment_controller_test.cpp)
     target_link_libraries(vqec_vision_ai_face_enrollment_controller_test

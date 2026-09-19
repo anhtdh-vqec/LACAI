@@ -171,7 +171,26 @@ def vqec_vision_ai_tcont_mdqck_validate_catalog(_catalog, _baseline, _integratio
         "usecase, traffic and administrative mapping does not cover Q01-Q30")
 
 
-def vqec_vision_ai_tcont_mdqck_run_self_test(_catalog, _baseline, _integration):
+def vqec_vision_ai_tcont_mdqck_validate_cases(_cases, _catalog, _baseline):
+    vqec_vision_ai_tcont_mdqck_require(
+        set(_cases) == {"schema_version", "catalog_id", "catalog_revision", "cases"}
+        and _cases["schema_version"] == _baseline
+        and _cases["catalog_id"] == _catalog["catalog_id"]
+        and _cases["catalog_revision"] == _catalog["revision"],
+        "metadata query case identity or version mismatch")
+    entries = _cases["cases"]
+    vqec_vision_ai_tcont_mdqck_require(
+        isinstance(entries, list) and len(entries) == len(g_query_ids),
+        "metadata query case coverage is incomplete")
+    vqec_vision_ai_tcont_mdqck_validate_ids(entries, "query_id", g_query_ids)
+    for entry in entries:
+        vqec_vision_ai_tcont_mdqck_require(
+            set(entry) == {"query_id", "outcomes"}
+            and tuple(entry["outcomes"]) == g_outcomes,
+            f"{entry['query_id']} fixture outcomes are incomplete or unordered")
+
+
+def vqec_vision_ai_tcont_mdqck_run_self_test(_catalog, _cases, _baseline, _integration):
     mutations = []
     missing_record = copy.deepcopy(_catalog)
     missing_record["record_families"].pop()
@@ -191,25 +210,36 @@ def vqec_vision_ai_tcont_mdqck_run_self_test(_catalog, _baseline, _integration):
         except metadata_query_validation_error:
             continue
         raise metadata_query_validation_error(f"negative self-test was accepted: {label}")
+    missing_case = copy.deepcopy(_cases)
+    missing_case["cases"].pop()
+    try:
+        vqec_vision_ai_tcont_mdqck_validate_cases(missing_case, _catalog, _baseline)
+    except metadata_query_validation_error:
+        return
+    raise metadata_query_validation_error("negative self-test accepted missing Q30 cases")
 
 
 def vqec_vision_ai_tcont_mdqck_run(_arguments=None):
     parser = argparse.ArgumentParser(description="Validate LACAI metadata/query catalog v1")
     parser.add_argument("--catalog", required=True)
+    parser.add_argument("--cases", required=True)
     parser.add_argument("--integration-registry", required=True)
     parser.add_argument("--version-registry", required=True)
     parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args(_arguments)
     baseline = vqec_vision_ai_tcont_mdqck_read_baseline(arguments.version_registry)
     catalog = vqec_vision_ai_tcont_mdqck_load_json(arguments.catalog)
+    cases = vqec_vision_ai_tcont_mdqck_load_json(arguments.cases)
     integration = vqec_vision_ai_tcont_mdqck_load_json(arguments.integration_registry)
     vqec_vision_ai_tcont_mdqck_validate_catalog(catalog, baseline, integration)
+    vqec_vision_ai_tcont_mdqck_validate_cases(cases, catalog, baseline)
     if arguments.self_test:
-        vqec_vision_ai_tcont_mdqck_run_self_test(catalog, baseline, integration)
+        vqec_vision_ai_tcont_mdqck_run_self_test(catalog, cases, baseline, integration)
     print(
         f"PASS: {len(catalog['usecases'])} usecases, "
         f"{len(catalog['record_families'])} record families, "
-        f"{len(catalog['queries'])} queries, schema v{baseline}")
+        f"{len(catalog['queries'])} queries, {len(cases['cases']) * len(g_outcomes)} cases, "
+        f"schema v{baseline}")
     return 0
 
 

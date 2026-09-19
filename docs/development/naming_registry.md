@@ -495,6 +495,16 @@ Metadata/query catalog checker `tools/contracts/vqec_vision_check_metadata_query
 `mdqck`, prefix `vqec_vision_ai_tcont_mdqck_`; its top-level Python entrypoint is the language
 entrypoint exception.
 
+Metadata/query neutral contract
+`include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp` and validator
+`src/core/output/vqec_vision_metadata_query.cpp` use file_id `mdqry`, with declaration prefix
+`vqec_vision_ai_cntr_mdqry_` retained by the implementation.
+
+SQLite metadata baseline `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp` uses file_id
+`mdsql`, prefix `vqec_vision_ai_stor_mdsql_`.
+Its unit test `tests/unit/adapters/storage/vqec_vision_sqlite_metadata_store_test.cpp` uses file_id
+`mdstst`, prefix `vqec_vision_ai_unit_mdstst_`; `main` retains the language entrypoint spelling.
+
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 
