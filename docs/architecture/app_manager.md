@@ -4,8 +4,8 @@ This document defines the AI-owned application lifecycle boundary used to distri
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
 **Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade,
-Ed25519 package verifier, daemon bootstrap and reconnecting runtime consumer are delivered;
-deployment and backend conformance remain open.
+Ed25519 package/entitlement verification, daemon bootstrap and reconnecting runtime consumer are
+delivered; operation journaling, content-store lifecycle and backend conformance remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -14,7 +14,8 @@ deployment and backend conformance remain open.
 
 - Own verified package staging, immutable content, transactional inventory and operation journal.
 - Verify entitlement and derive independent lifecycle gates before publishing a runtime snapshot.
-- Expose the bounded `AppManager1` version 1 control facade to the configured backend peer.
+- Expose the bounded `AppManager1` version 1 control facade to separately configured backend
+  mutation and runtime read peers.
 - Never acquire frames, own tensors, run models or perform evidence media encoding.
 - Never infer installation from a directory scan or accept authority fields from a package.
 
@@ -53,11 +54,10 @@ JSON per frame.
 
 ## Operation and recovery contract
 
-Mutating calls carry an idempotency key, payload digest and expected revision. Reusing a key with
-the same payload returns the original operation; a different payload is a conflict. Calls return
-an operation ID after bounded validation/enqueue. Observable operation states are `queued`,
-`staging`, `verifying`, `installing`, `reconciling`, `committed`, `rolled_back`, `cancelled`,
-`failed` and `recovery_required`.
+The current baseline executes bounded manifest/config/grant validation and inventory transactions
+synchronously with CAS revisions. The target operation journal adds an idempotency key, payload
+digest and explicit asynchronous operation state. Until that journal ships, callers must not infer
+queued/cancel/update/rollback semantics from the current methods.
 
 Package ingest copies exactly the declared bytes from a read-only FD into a private staging file
 while calculating the digest. Commit order is payload fsync, candidate receipt fsync and atomic
@@ -84,19 +84,22 @@ Manager is offline.
 
 ## D-Bus facade
 
-Production uses the system bus and binds the configured backend well-known name to its unique
-owner on every request. The daemon can start while the backend is offline, and a backend restart
-does not retain authority from its previous unique owner. The facade provides capability/catalog
-reads, FD-based staging, install/update/rollback/
-uninstall, configuration validation/apply, desired state, operation status/cancel and full status.
-Large package data never travels as a byte array. Wrong sender, stale revision, invalid grant or
-not-installed enable fails closed even if the UI hides an action.
+Production uses the system bus and binds separately configured backend and runtime well-known names
+to their unique owners on every request. Only the backend peer may mutate lifecycle state. The
+runtime peer may only call `GetSnapshot`; backend may also read it for status/revision handling.
+The daemon can start while either peer is offline, and a restart does not retain authority from a
+previous unique owner. The two names must be different. The source-delivered facade currently
+provides FD-based signed install, FD-based signed entitlement, configuration apply, desired state,
+uninstall and complete snapshot reads. Large package/grant data never travels as a byte array.
+Wrong sender, stale revision, invalid/expired/device-mismatched grant or not-installed enable fails
+closed even if the UI hides an action. Asynchronous operation status/cancel, update/rollback and
+catalog-list methods remain product work and must not be inferred from the current interface.
 
 Per-app CPU/RAM is attributed work and shared-cost metadata, not a fabricated `/proc` process
 value, because applications share the runtime process and components.
 
-The runtime consumer owns a separate configured well-known client name and App Manager resolves it
-to the current unique owner for every `GetSnapshot` call. The service name, client name, object
+The runtime consumer owns its configured well-known client name and App Manager resolves it to the
+current unique owner for every `GetSnapshot` call. The service name, both peer names, object
 path, RPC timeout, poll interval and system/session bus selection are deployment configuration;
 they are not model or usecase constants. Snapshot polling is level-triggered: reconnect never
 depends on receiving an earlier D-Bus signal.
@@ -115,13 +118,26 @@ It verifies the signature before parsing or accepting manifest authority. A prod
 provision the public key outside the app content store and bind a reviewed key ID into service
 configuration. Private keys and test-generated keys never ship on the device.
 
+## Entitlement signature baseline
+
+Entitlement v1 is a strict signed JSON document binding grant/revision, issuer/key/customer,
+machine ID, target, app, source, validity interval and output scopes. The signed byte sequence is
+the ASCII domain `VQEC-LACAI-ENTITLEMENT-1`, the exact document length as unsigned 64-bit
+big-endian and the exact document bytes. App Manager checks the configured key ID, machine/target,
+UTC validity, installed association, requested-scope subset and signed expected entitlement
+revision before publishing it. Replay with a stale revision and package presence without a signed
+grant both fail closed.
+
+Backend supplies only the signed entitlement. Compiled processor support is derived from the AI
+registry, compatibility from verified target/runtime/package checks, and admission from the
+configured App Manager resource capacity. These booleans are never accepted from the D-Bus caller.
+
 ## Limits and next work
 
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
-- Signed entitlement ingestion, operation journaling, D-Bus/backend conformance, fault injection
-  and board acceptance remain open. Until signed grants are wired, the daemon cannot promote an
-  installed app to entitled/running through backend requests alone.
+- Operation journaling, content-addressed artifact staging, update/rollback, D-Bus/backend
+  conformance, fault injection and board acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
 
 ## See also

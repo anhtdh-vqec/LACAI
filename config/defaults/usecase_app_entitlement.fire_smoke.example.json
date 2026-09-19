@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "grant_id": "grant_fire_smoke_camera_front",
+  "grant_revision": 1,
+  "expected_entitlement_revision": 1,
+  "issuer_id": "vqec_backend",
+  "key_id": "vqec_product_signing_key",
+  "customer_id": "customer_example",
+  "device_id": "09c89b1858f54955a3d13f2767622448",
+  "target_id": "qcs6490_qlinux_1_8",
+  "app_id": "security.fire_smoke_detection",
+  "source_id": "camera_front",
+  "not_before_utc_ns": 1,
+  "expires_utc_ns": 9000000000000000000,
+  "granted": true,
+  "output_scopes": [
+    "security.fire_smoke.event",
+    "security.fire_smoke.class",
+    "security.fire_smoke.severity",
+    "security.fire_smoke.region",
+    "security.fire_smoke.reason",
+    "security.fire_smoke.scene_revision",
+    "security.fire_smoke.evidence"
+  ]
+}

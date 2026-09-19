@@ -112,6 +112,24 @@ struct usecase_app_manifest {
     std::string rollback_predecessor_;
 };
 
+struct app_entitlement_grant {
+    std::uint32_t schema_version_{0};
+    std::string grant_id_;
+    std::uint64_t grant_revision_{0};
+    std::uint64_t expected_entitlement_revision_{0};
+    std::string issuer_id_;
+    std::string key_id_;
+    std::string customer_id_;
+    std::string device_id_;
+    std::string target_id_;
+    std::string app_id_;
+    std::string source_id_;
+    std::uint64_t not_before_utc_ns_{0};
+    std::uint64_t expires_utc_ns_{0};
+    bool granted_{false};
+    std::vector<std::string> output_scopes_;
+};
+
 struct app_runtime_association {
     std::string app_id_;
     std::string source_id_;
@@ -145,10 +163,11 @@ struct runtime_control_snapshot {
 
 [[nodiscard]] status vqec_vision_ai_core_applc_validate_manifest(
     const usecase_app_manifest& _manifest);
+[[nodiscard]] status vqec_vision_ai_core_applc_validate_entitlement(
+    const app_entitlement_grant& _grant);
 [[nodiscard]] status vqec_vision_ai_core_applc_validate_runtime_snapshot(
     const runtime_control_snapshot& _snapshot);
 
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_CONTRACTS_APP_LIFECYCLE_HPP
-

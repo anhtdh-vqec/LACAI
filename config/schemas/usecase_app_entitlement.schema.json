@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vqec.local/schemas/usecase_app_entitlement.schema.json",
+  "title": "LACAI usecase application entitlement v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "grant_id", "grant_revision", "expected_entitlement_revision",
+    "issuer_id", "key_id", "customer_id", "device_id", "target_id", "app_id",
+    "source_id", "not_before_utc_ns", "expires_utc_ns", "granted", "output_scopes"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "grant_id": {"$ref": "#/$defs/id"},
+    "grant_revision": {"type": "integer", "minimum": 1},
+    "expected_entitlement_revision": {"type": "integer", "minimum": 1},
+    "issuer_id": {"$ref": "#/$defs/id"},
+    "key_id": {"$ref": "#/$defs/id"},
+    "customer_id": {"$ref": "#/$defs/id"},
+    "device_id": {"$ref": "#/$defs/id"},
+    "target_id": {"$ref": "#/$defs/id"},
+    "app_id": {"$ref": "#/$defs/id"},
+    "source_id": {"$ref": "#/$defs/id"},
+    "not_before_utc_ns": {"type": "integer", "minimum": 1},
+    "expires_utc_ns": {"type": "integer", "minimum": 1},
+    "granted": {"type": "boolean"},
+    "output_scopes": {
+      "type": "array", "maxItems": 32, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 128}
+  }
+}

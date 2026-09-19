@@ -24,12 +24,16 @@ int main() {
     using namespace vqec::vision::ai;
     const std::vector<std::string> valid{
         "vqec_vision_app_manager", "--target", "qcs6490_qlinux_1_8",
+        "--device-id", "09c89b1858f54955a3d13f2767622448",
+        "--max-resident-bytes", "536870912", "--max-tensor-bytes", "134217728",
+        "--max-active-incidents", "32", "--max-events-per-second", "64",
         "--database", "/var/lib/lacai/apps.db", "--max-database-bytes",
         "67108864", "--busy-timeout-ms", "5000", "--public-key",
         "/etc/lacai/release.pem", "--key-id", "release.primary",
         "--service-name", "com.vqec.AiVision.AppManager", "--object-path",
-        "/com/vqec/AiVision/AppManager", "--trusted-peer-name",
-        "com.vqec.Backend", "--rpc-timeout-ms", "5000",
+        "/com/vqec/AiVision/AppManager", "--trusted-backend-name",
+        "com.vqec.Backend", "--trusted-runtime-name", "com.vqec.AiRuntime",
+        "--rpc-timeout-ms", "5000",
         "--callbacks-per-poll", "16", "--poll-interval-ms", "10", "--session"};
     app_manager_options options;
     assert(vqec_vision_ai_unit_amotst_parse(valid, options).code_ == status_code::ok);
@@ -40,7 +44,7 @@ int main() {
     assert(vqec_vision_ai_unit_amotst_parse(unknown, options).code_ ==
         status_code::invalid_argument);
     auto relative = valid;
-    relative[4] = "relative.db";
+    relative[14] = "relative.db";
     assert(vqec_vision_ai_unit_amotst_parse(relative, options).code_ ==
         status_code::invalid_argument);
     auto busy_spin = valid;

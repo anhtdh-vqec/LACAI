@@ -13,6 +13,7 @@ namespace app_manager_dbus_protocol {
 inline constexpr char g_interface_name[] = "com.vqec.AiVision.AppManager1";
 inline constexpr char g_install_method[] = "Install";
 inline constexpr char g_configuration_method[] = "ApplyConfiguration";
+inline constexpr char g_entitlement_method[] = "ApplyEntitlement";
 inline constexpr char g_desired_method[] = "SetDesired";
 inline constexpr char g_uninstall_method[] = "Uninstall";
 inline constexpr char g_snapshot_method[] = "GetSnapshot";
@@ -21,7 +22,8 @@ inline constexpr char g_snapshot_method[] = "GetSnapshot";
 struct app_manager_dbus_config {
     std::string service_bus_name_;
     std::string object_path_;
-    std::string trusted_peer_bus_name_;
+    std::string trusted_backend_bus_name_;
+    std::string trusted_runtime_bus_name_;
     int rpc_timeout_ms_{0};
     std::size_t max_callbacks_per_poll_{0};
     bool use_session_bus_{false};
@@ -45,6 +47,24 @@ public:
     [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
         const app_manager_dbus_client_config& _config,
         runtime_control_snapshot& _snapshot);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_install(
+        const app_manager_dbus_client_config& _config,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        std::uint64_t& _snapshot_revision);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_apply_entitlement(
+        const app_manager_dbus_client_config& _config,
+        const app_entitlement_candidate& _candidate,
+        std::uint64_t& _snapshot_revision);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_set_desired(
+        const app_manager_dbus_client_config& _config,
+        const app_desired_update& _update,
+        std::uint64_t& _snapshot_revision);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_uninstall(
+        const app_manager_dbus_client_config& _config,
+        const std::string& _app_id,
+        std::uint64_t _expected_inventory_revision,
+        std::uint64_t& _snapshot_revision);
 
 private:
     struct implementation;

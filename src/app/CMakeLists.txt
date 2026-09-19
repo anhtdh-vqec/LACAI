@@ -32,6 +32,7 @@ endif()
 if(TARGET vqec_vision_ai_app_manager AND
    TARGET vqec_vision_ai_app_manager_dbus AND
    TARGET vqec_vision_ai_ed25519_app_package_verifier AND
+   TARGET vqec_vision_ai_ed25519_app_entitlement_verifier AND
    TARGET vqec_vision_ai_sqlite_app_inventory)
     add_executable(vqec_vision_app_manager
         management/vqec_vision_app_manager_main.cpp)
@@ -45,10 +46,22 @@ if(TARGET vqec_vision_ai_app_manager AND
         vqec_vision_ai_app_manager
         vqec_vision_ai_app_manager_dbus
         vqec_vision_ai_ed25519_app_package_verifier
+        vqec_vision_ai_ed25519_app_entitlement_verifier
         vqec_vision_ai_sqlite_app_inventory
         vqec_vision_ai_fire_smoke_feature
         Threads::Threads)
     set_target_properties(vqec_vision_app_manager PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
+if(TARGET vqec_vision_ai_app_manager_dbus)
+    add_executable(vqec_vision_app_manager_control
+        ${CMAKE_SOURCE_DIR}/tools/diagnostics/vqec_vision_app_manager_control.cpp)
+    target_include_directories(vqec_vision_app_manager_control PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>)
+    target_link_libraries(vqec_vision_app_manager_control PRIVATE
+        vqec_vision_ai_app_manager_dbus)
+    set_target_properties(vqec_vision_app_manager_control PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Cold-path startup option parsing, split out of the service main translation unit so it

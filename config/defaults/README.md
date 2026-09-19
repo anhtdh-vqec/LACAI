@@ -22,6 +22,7 @@ Versioned examples, never product defaults. Do not enable purchased features aut
 | `usecase_control_snapshot.fire_smoke.example.json` | Transitional S04 startup authority fixture using canonical product identity |
 | `fire_smoke_configuration.example.json` | Strict revision-1 S04 behavior/evidence/metadata configuration |
 | `usecase_app_manifest.fire_smoke.example.json` | Declarative S04 application package manifest |
+| `usecase_app_entitlement.fire_smoke.example.json` | Example S04 entitlement signing input; filesystem presence grants no authority |
 
 The example dimensions, rates, memory values, model assignments and released
 `detect0`/`detect1` outputs are illustrative. Never install it as an effective configuration
@@ -33,7 +34,8 @@ authenticate the catalog and entitlement revision before passing the document to
 
 `usecase_app_manifest.fire_smoke.example.json` and
 `fire_smoke_configuration.example.json` are declarative S04 package/configuration fixtures.
-They are not signed install receipts or entitlement grants. Production App Manager must verify
+They are not signed install receipts or entitlement grants. The entitlement example is signing
+input only and grants nothing by filesystem presence. Production App Manager must verify
 the package envelope, complete dependency closure and grant before publishing a runtime snapshot.
 
 ## See also

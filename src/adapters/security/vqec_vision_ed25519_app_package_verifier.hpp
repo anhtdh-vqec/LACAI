@@ -7,12 +7,12 @@
 #include <vector>
 
 #include "vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp"
+#include "vqec_vision_ed25519_verifier.hpp"
 
 namespace vqec::vision::ai {
 
 namespace ed25519_app_package_limits {
-inline constexpr std::size_t g_signature_bytes = 64;
-inline constexpr std::size_t g_max_public_key_file_bytes = 16U * 1024U;
+inline constexpr std::size_t g_signature_bytes = ed25519_verifier_limits::g_signature_bytes;
 inline constexpr char g_signing_domain[] = "VQEC-LACAI-VQAPP-1";
 }  // namespace ed25519_app_package_limits
 

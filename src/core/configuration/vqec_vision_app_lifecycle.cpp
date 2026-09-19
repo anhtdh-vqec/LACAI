@@ -133,6 +133,34 @@ status vqec_vision_ai_core_applc_validate_manifest(
     return {};
 }
 
+status vqec_vision_ai_core_applc_validate_entitlement(
+    const app_entitlement_grant& _grant) {
+    if (_grant.schema_version_ != app_lifecycle_limits::g_schema_version ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.grant_id_) ||
+        _grant.grant_revision_ == 0 || _grant.expected_entitlement_revision_ == 0 ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.issuer_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.key_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.customer_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.device_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.target_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.app_id_) ||
+        !vqec_vision_ai_core_applc_is_identifier(_grant.source_id_) ||
+        _grant.not_before_utc_ns_ == 0 ||
+        _grant.expires_utc_ns_ <= _grant.not_before_utc_ns_ ||
+        _grant.output_scopes_.size() > app_lifecycle_limits::g_max_scopes ||
+        (!_grant.granted_ && !_grant.output_scopes_.empty())) {
+        return {status_code::invalid_argument, "invalid app entitlement grant"};
+    }
+    for (std::size_t index = 0; index < _grant.output_scopes_.size(); ++index) {
+        if (!vqec_vision_ai_core_applc_is_unique_identifier(
+                _grant.output_scopes_, index)) {
+            return {status_code::invalid_argument,
+                "invalid or duplicate entitlement output scope"};
+        }
+    }
+    return {};
+}
+
 status vqec_vision_ai_core_applc_validate_runtime_snapshot(
     const runtime_control_snapshot& _snapshot) {
     if (_snapshot.schema_version_ != app_lifecycle_limits::g_schema_version ||

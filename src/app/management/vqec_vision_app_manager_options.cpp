@@ -45,11 +45,15 @@ bool vqec_vision_ai_appl_amopt_take_value(
 }  // namespace
 
 const char* vqec_vision_ai_appl_amopt_usage() noexcept {
-    return "vqec_vision_app_manager --target <id> --database <absolute-path> "
+    return "vqec_vision_app_manager --target <id> --device-id <id> "
+           "--max-resident-bytes <bytes> --max-tensor-bytes <bytes> "
+           "--max-active-incidents <count> --max-events-per-second <count> "
+           "--database <absolute-path> "
            "--max-database-bytes <bytes> --busy-timeout-ms <ms> "
            "--public-key <absolute-pem-path> --key-id <id> "
            "--service-name <dbus-name> --object-path <dbus-path> "
-           "--trusted-peer-name <dbus-name> --rpc-timeout-ms <ms> "
+           "--trusted-backend-name <dbus-name> --trusted-runtime-name <dbus-name> "
+           "--rpc-timeout-ms <ms> "
            "--callbacks-per-poll <count> --poll-interval-ms <ms> [--session]";
 }
 
@@ -72,6 +76,22 @@ status vqec_vision_ai_appl_amopt_parse(
         std::uint64_t number = 0;
         if (option == "--target") {
             candidate.target_id_ = value;
+        } else if (option == "--device-id") {
+            candidate.device_id_ = value;
+        } else if (option == "--max-resident-bytes" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number)) {
+            candidate.capacity_.max_resident_bytes_ = number;
+        } else if (option == "--max-tensor-bytes" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number)) {
+            candidate.capacity_.max_tensor_bytes_ = number;
+        } else if (option == "--max-active-incidents" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number) &&
+                   number <= static_cast<std::uint64_t>(
+                       std::numeric_limits<std::size_t>::max())) {
+            candidate.capacity_.max_active_incidents_ = static_cast<std::size_t>(number);
+        } else if (option == "--max-events-per-second" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number)) {
+            candidate.capacity_.max_events_per_second_ = static_cast<double>(number);
         } else if (option == "--database") {
             candidate.database_path_ = value;
         } else if (option == "--max-database-bytes" &&
@@ -89,8 +109,10 @@ status vqec_vision_ai_appl_amopt_parse(
             candidate.service_bus_name_ = value;
         } else if (option == "--object-path") {
             candidate.object_path_ = value;
-        } else if (option == "--trusted-peer-name") {
-            candidate.trusted_peer_bus_name_ = value;
+        } else if (option == "--trusted-backend-name") {
+            candidate.trusted_backend_bus_name_ = value;
+        } else if (option == "--trusted-runtime-name") {
+            candidate.trusted_runtime_bus_name_ = value;
         } else if (option == "--rpc-timeout-ms" &&
                    vqec_vision_ai_appl_amopt_read_u64(value, number) &&
                    number <= static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
@@ -108,12 +130,22 @@ status vqec_vision_ai_appl_amopt_parse(
     }
     if (!vqec_vision_ai_cntr_ident_is_valid(
             candidate.target_id_, app_lifecycle_limits::g_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            candidate.device_id_, app_lifecycle_limits::g_max_identifier_bytes) ||
+        candidate.capacity_.max_resident_bytes_ == 0 ||
+        candidate.capacity_.max_tensor_bytes_ == 0 ||
+        candidate.capacity_.max_tensor_bytes_ >
+            candidate.capacity_.max_resident_bytes_ ||
+        candidate.capacity_.max_active_incidents_ == 0 ||
+        candidate.capacity_.max_events_per_second_ <= 0.0 ||
         !std::filesystem::path(candidate.database_path_).is_absolute() ||
         !std::filesystem::path(candidate.public_key_path_).is_absolute() ||
         !vqec_vision_ai_cntr_ident_is_valid(
             candidate.key_id_, app_lifecycle_limits::g_max_identifier_bytes) ||
         candidate.service_bus_name_.empty() || candidate.object_path_.empty() ||
-        candidate.trusted_peer_bus_name_.empty() ||
+        candidate.trusted_backend_bus_name_.empty() ||
+        candidate.trusted_runtime_bus_name_.empty() ||
+        candidate.trusted_backend_bus_name_ == candidate.trusted_runtime_bus_name_ ||
         candidate.max_database_bytes_ < g_min_database_bytes ||
         candidate.max_database_bytes_ > g_max_database_bytes ||
         candidate.busy_timeout_ms_ <= 0 || candidate.busy_timeout_ms_ > g_max_timeout_ms ||

@@ -16,6 +16,9 @@ struct app_install_request {
     std::uint64_t configuration_revision_{0};
     std::string configuration_sha256_;
     std::vector<std::uint8_t> configuration_payload_;
+    bool supported_{false};
+    bool compatible_{false};
+    bool admitted_{false};
 };
 
 struct app_configuration_update {
@@ -71,4 +74,3 @@ public:
 }  // namespace vqec::vision::ai
 
 #endif  // VQEC_VISION_AI_PORTS_APP_INVENTORY_HPP
-

@@ -573,12 +573,16 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
     for (const auto& source : _request.manifest_.requested_scopes_.sources_) {
         sqlite_statement statement;
         current = vqec_vision_ai_stor_apinv_prepare(database_,
-            "INSERT INTO app_sources(app_id,source_id) VALUES(?,?)", statement);
+            "INSERT INTO app_sources(app_id,source_id,supported,compatible,admitted) "
+            "VALUES(?,?,?,?,?)", statement);
         auto* handle = statement.vqec_vision_ai_stor_apinv_get();
         if (current.code_ != status_code::ok ||
             !vqec_vision_ai_stor_apinv_bind_text(
                 handle, 1, _request.manifest_.app_id_) ||
             !vqec_vision_ai_stor_apinv_bind_text(handle, 2, source) ||
+            sqlite3_bind_int(handle, 3, _request.supported_ ? 1 : 0) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 4, _request.compatible_ ? 1 : 0) != SQLITE_OK ||
+            sqlite3_bind_int(handle, 5, _request.admitted_ ? 1 : 0) != SQLITE_OK ||
             (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
                 status_code::ok) {
             vqec_vision_ai_stor_apinv_rollback(database_);

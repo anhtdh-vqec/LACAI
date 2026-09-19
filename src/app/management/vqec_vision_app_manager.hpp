@@ -8,6 +8,7 @@
 
 #include "vqec/vision/ai/ports/vqec_vision_app_inventory.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_app_manager.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp"
 #include "vqec_vision_app_configuration_registry.hpp"
 
@@ -15,11 +16,14 @@ namespace vqec::vision::ai {
 
 struct app_manager_config {
     std::string target_id_;
+    std::string device_id_;
+    app_resource_envelope capacity_;
 };
 
 class app_manager final : public app_manager_port {
 public:
     app_manager(app_manager_config _config, app_package_verifier_port& _package_verifier,
+        app_entitlement_verifier_port& _entitlement_verifier,
         app_configuration_registry& _configuration_registry,
         app_inventory_port& _inventory);
 
@@ -36,6 +40,9 @@ public:
         runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_apply_verified_authority(
         const app_authority_update& _update,
+        runtime_control_snapshot& _snapshot);
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_apply_entitlement(
+        const app_entitlement_candidate& _candidate,
         runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_set_desired(
         const app_desired_update& _update,
@@ -54,6 +61,9 @@ public:
         const std::string& _app_id, std::uint64_t _expected_configuration_revision,
         const std::vector<std::uint8_t>& _configuration_payload,
         const std::string& _configuration_sha256,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_apply_entitlement(
+        const app_entitlement_candidate& _candidate,
         runtime_control_snapshot& _snapshot) override;
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_set_desired(
         const app_desired_update& _update,
@@ -75,6 +85,7 @@ private:
 
     app_manager_config config_;
     app_package_verifier_port& package_verifier_;
+    app_entitlement_verifier_port& entitlement_verifier_;
     app_configuration_registry& configuration_registry_;
     app_inventory_port& inventory_;
     mutable std::mutex mutex_;

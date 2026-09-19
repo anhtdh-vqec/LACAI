@@ -22,7 +22,9 @@ the real-time frame path.
 - AI APP owns a separate App Manager control-plane process and its private inventory/content
   store. BSP/FW does not own usecase package lifecycle.
 - Backend integrates only through `com.vqec.AiVision.AppManager1` version 1 on system D-Bus.
-  Package bytes travel through a read-only Unix FD; D-Bus carries bounded control metadata.
+  Its configured well-known name has mutation authority. The separately named AI runtime has
+  read-only `GetSnapshot` authority. Package bytes travel through a read-only Unix FD; D-Bus
+  carries bounded control metadata.
 - A usecase application is a declarative SKU and activation unit, not an inference process.
   LACAI keeps one shared runtime and shares dependencies only by exact immutable identity.
 - Package version 1 contains no native plug-in and no install script. Feature processors remain
@@ -31,6 +33,10 @@ the real-time frame path.
 - App Manager verifies entitlement, package integrity, target/runtime compatibility and complete
   dependency closure before atomically publishing an inventory revision. Install always ends in
   `installed_disabled`.
+- Entitlement v1 is an Ed25519-signed strict document scoped to key/customer/device/target/app/
+  source/time/output and a signed expected entitlement revision. Backend cannot submit
+  `supported`, `compatible` or `admitted`; App Manager derives those gates from its compiled
+  registry, verified target/package and configured resource capacity.
 - `installed`, `entitled`, `desired`, `supported`, `compatible`, `admitted`, `loaded` and
   `running` remain independent states with different authorities. Output authorization is
   enforced from actual payload scope after activation, not only at the UI switch.
@@ -38,9 +44,10 @@ the real-time frame path.
   revision. Signals are wake-ups only; runtime never reconstructs authority from deltas.
 - Inventory and operation journals are separate from business metadata. Content blobs are
   immutable and digest-addressed; a database never stores model binary payloads.
-- Mutating calls are asynchronous, revisioned and idempotent. Accepted means queued, never
-  installed or running. Recovery must resolve a transaction to the old or new committed
-  inventory, never a half-installed directory scan.
+- The source baseline uses synchronous revisioned transactions. Asynchronous idempotent operation
+  journaling remains mandatory before remote rollout: accepted will mean queued, never installed
+  or running. Recovery must resolve a transaction to the old or new committed inventory, never a
+  half-installed directory scan.
 - Every LACAI-owned schema and D-Bus contract starts at version 1 and uses the canonical version
   registry. A version increment needs a migration ADR.
 
@@ -76,4 +83,3 @@ the real-time frame path.
 3. Supply-chain owner selects the product trust store and reviewed signature primitive.
 4. Power-loss, disk-full, duplicate request, stale revision and entitlement-revoke tests pass.
 5. S04 install/config/enable/disable/update/rollback/uninstall passes on the recorded QCS6490.
-

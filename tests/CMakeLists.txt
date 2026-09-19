@@ -62,6 +62,19 @@ if(TARGET vqec_vision_ai_ed25519_app_package_verifier)
         COMMAND vqec_vision_ai_ed25519_app_package_verifier_test)
 endif()
 
+if(TARGET vqec_vision_ai_ed25519_app_entitlement_verifier)
+    add_executable(vqec_vision_ai_ed25519_app_entitlement_verifier_test
+        unit/adapters/security/vqec_vision_ed25519_app_entitlement_verifier_test.cpp)
+    target_link_libraries(vqec_vision_ai_ed25519_app_entitlement_verifier_test PRIVATE
+        vqec_vision_ai_ed25519_app_entitlement_verifier)
+    target_compile_definitions(vqec_vision_ai_ed25519_app_entitlement_verifier_test PRIVATE
+        VQEC_VISION_AI_APP_ENTITLEMENT_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_entitlement.fire_smoke.example.json")
+    set_target_properties(vqec_vision_ai_ed25519_app_entitlement_verifier_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME ed25519_app_entitlement_verifier
+        COMMAND vqec_vision_ai_ed25519_app_entitlement_verifier_test)
+endif()
+
 add_executable(vqec_vision_ai_app_manager_options_test
     unit/application/vqec_vision_app_manager_options_test.cpp)
 target_link_libraries(vqec_vision_ai_app_manager_options_test PRIVATE

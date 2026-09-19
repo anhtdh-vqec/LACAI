@@ -660,10 +660,19 @@ App lifecycle registrations (source delivered):
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.hpp | edver | vqec_vision_ai_secad_edver_ |
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.cpp | edver | vqec_vision_ai_secad_edver_ (port override retains `vqec_vision_ai_ports_apver_`) |
 | tests/unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp | edvtst | vqec_vision_ai_unit_edvtst_ |
+| src/adapters/security/vqec_vision_ed25519_verifier.hpp | edsig | vqec_vision_ai_secad_edsig_ |
+| src/adapters/security/vqec_vision_ed25519_verifier.cpp | edsig | vqec_vision_ai_secad_edsig_ |
+| include/vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp | entvr | vqec_vision_ai_ports_entvr_ |
+| src/runtime/lifecycle/vqec_vision_app_entitlement.hpp | apent | vqec_vision_ai_lifec_apent_ |
+| src/runtime/lifecycle/vqec_vision_app_entitlement.cpp | apent | vqec_vision_ai_lifec_apent_ |
+| src/adapters/security/vqec_vision_ed25519_app_entitlement_verifier.hpp | edent | vqec_vision_ai_secad_edent_ |
+| src/adapters/security/vqec_vision_ed25519_app_entitlement_verifier.cpp | edent | vqec_vision_ai_secad_edent_ (port override retains `vqec_vision_ai_ports_entvr_`) |
+| tests/unit/adapters/security/vqec_vision_ed25519_app_entitlement_verifier_test.cpp | edetst | vqec_vision_ai_unit_edetst_ |
 | src/app/management/vqec_vision_app_manager_options.hpp | amopt | vqec_vision_ai_appl_amopt_ |
 | src/app/management/vqec_vision_app_manager_options.cpp | amopt | vqec_vision_ai_appl_amopt_ |
 | src/app/management/vqec_vision_app_manager_main.cpp | amain | `main` entrypoint only |
 | tests/unit/application/vqec_vision_app_manager_options_test.cpp | amotst | vqec_vision_ai_unit_amotst_ |
+| tools/diagnostics/vqec_vision_app_manager_control.cpp | amctl | vqec_vision_ai_tools_amctl_ (`main` entrypoint exception) |
 
 
 | Logical owner path | file_id | Prefix |

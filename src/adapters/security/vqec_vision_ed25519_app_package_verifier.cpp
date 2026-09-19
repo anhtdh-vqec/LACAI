@@ -1,17 +1,7 @@
 #include "vqec_vision_ed25519_app_package_verifier.hpp"
 
-#include <fcntl.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <array>
-#include <cerrno>
 #include <cstring>
 #include <limits>
-#include <memory>
 #include <new>
 #include <sstream>
 #include <utility>
@@ -22,10 +12,6 @@
 
 namespace vqec::vision::ai {
 namespace {
-
-using bio_owner = std::unique_ptr<BIO, decltype(&BIO_free)>;
-using key_owner = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
-using context_owner = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
 void vqec_vision_ai_secad_edver_append_u64_be(
     std::uint64_t _value, std::vector<std::uint8_t>& _payload) {
@@ -48,63 +34,6 @@ status vqec_vision_ai_secad_edver_verify_digest(
     artifact_digest_receipt receipt;
     return vqec_vision_ai_mreg_ardgt_verify_stream(stream, _sha256,
         app_lifecycle_limits::g_max_document_bytes, receipt);
-}
-
-status vqec_vision_ai_secad_edver_load_public_key(
-    const ed25519_app_package_verifier_config& _config,
-    key_owner& _key) {
-    if (_config.public_key_path_.empty() || _config.public_key_path_.front() != '/' ||
-        !vqec_vision_ai_cntr_ident_is_valid(
-            _config.key_id_, app_lifecycle_limits::g_max_identifier_bytes)) {
-        return {status_code::invalid_argument, "invalid package trust configuration"};
-    }
-    const int fd = ::open(_config.public_key_path_.c_str(),
-        O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
-    if (fd < 0) {
-        return {status_code::io_error, "cannot open package public key"};
-    }
-    struct stat metadata {};
-    if (::fstat(fd, &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
-        (metadata.st_mode & (S_IWGRP | S_IWOTH)) != 0 ||
-        (metadata.st_uid != 0 && metadata.st_uid != ::geteuid()) ||
-        metadata.st_size <= 0 ||
-        static_cast<std::uint64_t>(metadata.st_size) >
-            ed25519_app_package_limits::g_max_public_key_file_bytes) {
-        (void)::close(fd);
-        return {status_code::unauthorized, "package public key ownership or mode is invalid"};
-    }
-    std::vector<std::uint8_t> key_bytes;
-    try {
-        key_bytes.resize(static_cast<std::size_t>(metadata.st_size));
-    } catch (const std::bad_alloc&) {
-        (void)::close(fd);
-        return {status_code::resource_exhausted, "package public key allocation failed"};
-    }
-    std::size_t offset = 0;
-    while (offset < key_bytes.size()) {
-        const auto count = ::read(fd, key_bytes.data() + offset,
-            key_bytes.size() - offset);
-        if (count < 0 && errno == EINTR) {
-            continue;
-        }
-        if (count <= 0) {
-            (void)::close(fd);
-            return {status_code::io_error, "package public key read failed"};
-        }
-        offset += static_cast<std::size_t>(count);
-    }
-    (void)::close(fd);
-    bio_owner bio(BIO_new_mem_buf(key_bytes.data(),
-                      static_cast<int>(key_bytes.size())),
-        &BIO_free);
-    if (!bio) {
-        return {status_code::resource_exhausted, "package public key BIO failed"};
-    }
-    _key.reset(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr));
-    if (!_key || EVP_PKEY_is_a(_key.get(), "ED25519") != 1) {
-        return {status_code::unauthorized, "package public key is not Ed25519"};
-    }
-    return {};
 }
 
 }  // namespace
@@ -171,26 +100,17 @@ status ed25519_app_package_verifier::vqec_vision_ai_ports_apver_verify(
     if (current.code_ != status_code::ok) {
         return current;
     }
-    key_owner key(nullptr, &EVP_PKEY_free);
-    current = vqec_vision_ai_secad_edver_load_public_key(config_, key);
-    if (current.code_ != status_code::ok) {
-        return current;
-    }
     std::vector<std::uint8_t> signing_payload;
     current = vqec_vision_ai_secad_edver_build_signing_payload(
         _candidate.manifest_payload_, _candidate.configuration_payload_, signing_payload);
     if (current.code_ != status_code::ok) {
         return current;
     }
-    context_owner context(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
-    if (!context || EVP_DigestVerifyInit(
-            context.get(), nullptr, nullptr, nullptr, key.get()) != 1) {
-        return {status_code::invalid_state, "cannot initialize package signature verifier"};
-    }
-    if (EVP_DigestVerify(context.get(), _candidate.signature_payload_.data(),
-            _candidate.signature_payload_.size(), signing_payload.data(),
-            signing_payload.size()) != 1) {
-        return {status_code::unauthorized, "package signature verification failed"};
+    current = vqec_vision_ai_secad_edsig_verify(
+        {config_.public_key_path_, config_.key_id_}, signing_payload,
+        _candidate.signature_payload_);
+    if (current.code_ != status_code::ok) {
+        return current;
     }
     const std::string manifest_document(
         _candidate.manifest_payload_.begin(), _candidate.manifest_payload_.end());

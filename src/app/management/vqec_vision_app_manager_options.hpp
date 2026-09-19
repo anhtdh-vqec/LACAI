@@ -5,12 +5,15 @@
 #include <cstdint>
 #include <string>
 
+#include "vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp"
 #include "vqec/vision/ai/contracts/vqec_vision_status.hpp"
 
 namespace vqec::vision::ai {
 
 struct app_manager_options {
     std::string target_id_;
+    std::string device_id_;
+    app_resource_envelope capacity_;
     std::string database_path_;
     std::uint64_t max_database_bytes_{0};
     int busy_timeout_ms_{0};
@@ -18,7 +21,8 @@ struct app_manager_options {
     std::string key_id_;
     std::string service_bus_name_;
     std::string object_path_;
-    std::string trusted_peer_bus_name_;
+    std::string trusted_backend_bus_name_;
+    std::string trusted_runtime_bus_name_;
     int rpc_timeout_ms_{0};
     std::size_t max_callbacks_per_poll_{0};
     int poll_interval_ms_{0};

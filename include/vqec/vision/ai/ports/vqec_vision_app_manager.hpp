@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "vqec/vision/ai/ports/vqec_vision_app_inventory.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_app_entitlement_verifier.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp"
 
 namespace vqec::vision::ai {
@@ -21,6 +22,9 @@ public:
         const std::string& _app_id, std::uint64_t _expected_configuration_revision,
         const std::vector<std::uint8_t>& _configuration_payload,
         const std::string& _configuration_sha256,
+        runtime_control_snapshot& _snapshot) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_apply_entitlement(
+        const app_entitlement_candidate& _candidate,
         runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_set_desired(
         const app_desired_update& _update,

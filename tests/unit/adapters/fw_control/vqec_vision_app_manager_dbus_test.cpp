@@ -16,7 +16,8 @@
 namespace vqec::vision::ai {
 namespace {
 
-constexpr char g_peer_name[] = "com.vqec.AppManagerTestPeer";
+constexpr char g_backend_name[] = "com.vqec.AppManagerTestBackend";
+constexpr char g_runtime_name[] = "com.vqec.AppManagerTestRuntime";
 constexpr char g_service_name[] = "com.vqec.AppManagerTestService";
 constexpr char g_object_path[] = "/com/vqec/AiVision/AppManagerTest";
 constexpr int g_rpc_timeout_ms = 5000;
@@ -35,6 +36,20 @@ public:
         std::uint64_t, const std::vector<std::uint8_t>&, const std::string&,
         runtime_control_snapshot&) override {
         return {status_code::unsupported, "configuration not exercised by this wire test"};
+    }
+    status vqec_vision_ai_ports_apmgr_apply_entitlement(
+        const app_entitlement_candidate& _candidate,
+        runtime_control_snapshot& _snapshot) override {
+        if (_candidate.grant_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
+            _candidate.grant_sha256_ !=
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+            return {status_code::invalid_argument, "unexpected entitlement candidate"};
+        }
+        entitlement_called_ = true;
+        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
+        _snapshot.snapshot_revision_ = 5;
+        return {};
     }
     status vqec_vision_ai_ports_apmgr_set_desired(const app_desired_update& _update,
         runtime_control_snapshot& _snapshot) override {
@@ -87,13 +102,15 @@ public:
     }
 
     bool desired_called_{false};
+    bool entitlement_called_{false};
 };
 
-void vqec_vision_ai_unit_amdtst_request_name(GDBusConnection* _connection) {
+void vqec_vision_ai_unit_amdtst_request_name(
+    GDBusConnection* _connection, const char* _name) {
     GError* error = nullptr;
     GVariant* reply = g_dbus_connection_call_sync(_connection, "org.freedesktop.DBus",
         "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName",
-        g_variant_new("(su)", g_peer_name, g_request_name_do_not_queue),
+        g_variant_new("(su)", _name, g_request_name_do_not_queue),
         G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, g_rpc_timeout_ms,
         nullptr, &error);
     if (reply == nullptr) {
@@ -105,11 +122,12 @@ void vqec_vision_ai_unit_amdtst_request_name(GDBusConnection* _connection) {
     g_variant_unref(reply);
 }
 
-void vqec_vision_ai_unit_amdtst_release_name(GDBusConnection* _connection) {
+void vqec_vision_ai_unit_amdtst_release_name(
+    GDBusConnection* _connection, const char* _name) {
     GError* error = nullptr;
     GVariant* reply = g_dbus_connection_call_sync(_connection, "org.freedesktop.DBus",
         "/org/freedesktop/DBus", "org.freedesktop.DBus", "ReleaseName",
-        g_variant_new("(s)", g_peer_name), G_VARIANT_TYPE("(u)"),
+        g_variant_new("(s)", _name), G_VARIANT_TYPE("(u)"),
         G_DBUS_CALL_FLAGS_NONE, g_rpc_timeout_ms, nullptr, &error);
     if (reply == nullptr) {
         const std::string message = error == nullptr ?
@@ -172,14 +190,15 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         fake_app_manager port;
         app_manager_dbus_server server;
         const app_manager_dbus_config config{g_service_name, g_object_path,
-            g_peer_name, g_rpc_timeout_ms, g_callbacks_per_poll, true};
+            g_backend_name, g_runtime_name, g_rpc_timeout_ms,
+            g_callbacks_per_poll, true};
         const auto opened = server.vqec_vision_ai_fwctl_amdbs_open(port, config);
         if (opened.code_ != status_code::ok) {
             throw std::runtime_error(opened.message_);
         }
         // App Manager must start before the backend and bind the backend's current
         // unique owner at call time so a backend restart does not require daemon restart.
-        vqec_vision_ai_unit_amdtst_request_name(peer);
+        vqec_vision_ai_unit_amdtst_request_name(peer, g_backend_name);
 
         auto snapshot_future = vqec_vision_ai_unit_amdtst_call(peer,
             app_manager_dbus_protocol::g_snapshot_method, nullptr,
@@ -210,10 +229,10 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
             throw std::runtime_error("SetDesired wire reply is invalid");
         }
 
-        vqec_vision_ai_unit_amdtst_release_name(peer);
+        vqec_vision_ai_unit_amdtst_release_name(peer, g_backend_name);
         app_manager_dbus_client client;
         const app_manager_dbus_client_config client_config{
-            g_service_name, g_peer_name, g_object_path, g_rpc_timeout_ms, true};
+            g_service_name, g_backend_name, g_object_path, g_rpc_timeout_ms, true};
         auto repeated_fetch = std::async(std::launch::async,
             [&client, &client_config]() {
                 runtime_control_snapshot first;
@@ -240,6 +259,74 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
                 std::future_status::ready ||
             !repeated_fetch.get()) {
             throw std::runtime_error("App Manager client cannot refresh a snapshot");
+        }
+        app_entitlement_candidate entitlement;
+        entitlement.grant_payload_ = {'{', '}'};
+        entitlement.signature_payload_ = {'s'};
+        entitlement.grant_sha256_ =
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        auto entitlement_call = std::async(std::launch::async,
+            [&client, &client_config, &entitlement]() {
+                std::uint64_t revision = 0;
+                const auto applied =
+                    client.vqec_vision_ai_fwctl_amdbs_apply_entitlement(
+                        client_config, entitlement, revision);
+                return applied.code_ == status_code::ok && revision == 5;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             entitlement_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (entitlement_call.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready ||
+            !entitlement_call.get() || !port.entitlement_called_) {
+            throw std::runtime_error("App Manager entitlement FD wire is invalid");
+        }
+        app_manager_dbus_client runtime_client;
+        const app_manager_dbus_client_config runtime_config{
+            g_service_name, g_runtime_name, g_object_path, g_rpc_timeout_ms, true};
+        auto runtime_fetch = std::async(std::launch::async,
+            [&runtime_client, &runtime_config]() {
+                runtime_control_snapshot snapshot;
+                return runtime_client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+                           runtime_config, snapshot).code_ == status_code::ok &&
+                    snapshot.snapshot_revision_ == 4;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             runtime_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (runtime_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready || !runtime_fetch.get()) {
+            throw std::runtime_error("runtime peer cannot read App Manager snapshot");
+        }
+        auto unauthorized_mutation = std::async(std::launch::async,
+            [&runtime_client, &runtime_config]() {
+                std::uint64_t revision = 0;
+                const app_desired_update update{
+                    "security.fire_smoke_detection", "camera_front", 4, true};
+                return runtime_client.vqec_vision_ai_fwctl_amdbs_set_desired(
+                           runtime_config, update, revision).code_ != status_code::ok;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             unauthorized_mutation.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (unauthorized_mutation.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready || !unauthorized_mutation.get()) {
+            throw std::runtime_error("runtime peer can mutate App Manager state");
         }
     }
     g_object_unref(peer);
