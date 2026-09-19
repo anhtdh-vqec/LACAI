@@ -87,7 +87,7 @@ transactional, columnar and moving-feature sources used by the P2 redesign.
 `docs/adr/` records decisions in numeric order; ADR 0001 baseline, 0002 plugin backend,
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
 0006 unwired execution infrastructure, proposed 0007 versioned FastRPC operations, and
-0008 transactional metadata store baseline, and proposed 0009 spatiotemporal metadata tiering.
+0008 transactional metadata store baseline, and accepted 0009 spatiotemporal metadata tiering.
 
 ## Operations
 

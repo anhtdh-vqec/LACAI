@@ -179,13 +179,13 @@ activation.
   output still requires its access-domain entitlement.
 - Coordinates always record frame/space/unit; do not mix normalized box with pixels.
 
-The proposed P2 metadata subsystem is one AI APP-owned service with bounded live state, a
+The accepted P2 metadata subsystem is one AI APP-owned service with bounded live state, a
 transactional catalog/outbox, time/source detail shards, correction-aware rollups and an optional
 manifest-published cold tier. It does not place every detection in one ever-growing database.
 Footprints use frame-correlated local tracklets plus revisioned cross-camera associations and
 report their retained resolution, gaps and error bounds. See
-[spatiotemporal metadata](spatiotemporal_metadata.md); this proposal remains unaccepted until
-ADR 0009 and its target workload gates pass.
+[spatiotemporal metadata](spatiotemporal_metadata.md); ADR 0009 and its exact composed target
+workload/fault gates are accepted for the version 1 baseline.
 
 ## Thread model and lifecycle
 

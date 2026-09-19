@@ -3,7 +3,7 @@
 Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata
 prototype and version 1 sharded spatiotemporal store.
 
-- **Status:** board-smoke — gallery and metadata native boundary tests pass on QCS6490
+- **Status:** accepted — metadata v1 retention/fault/composed gates pass; gallery keeps its own release gates
 - **Layer:** adapters
 - **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
@@ -53,11 +53,11 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - `flock` is advisory; a process that ignores it is not blocked. The directory permission
   and ownership checks are the primary defence.
 - Key rotation is not implemented.
-- The metadata adapter is not wired into the production service output path. Retention/purge and
-  Kafka delivery remain separate capabilities; Parquet is not a version 1 edge dependency.
+- The metadata adapter is composed through the validated production profile. Kafka delivery
+  remains a Plan 3 consumer of the durable outbox/receipt API; Parquet is not a v1 edge dependency.
 - Spatiotemporal shards use source PTS partitions and blocking calls behind the single metadata
-  worker. Episode/contribution projections and materialized rollups are delivered. The 2026-09-19
-  five-minute board workload is capacity evidence, not power-cut or disk-full qualification.
+  worker. Episode/contribution projections and materialized rollups are delivered. SIGKILL,
+  disk-full, corruption and cancellation pass; long power/flash/thermal soak remains release work.
 
 ## See also
 

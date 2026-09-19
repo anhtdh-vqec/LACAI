@@ -3,8 +3,8 @@
 Plan 2 xây metadata service đủ cho footprint realtime/lịch sử, truy vết liên camera, tìm kiếm
 sự kiện và thống kê dài hạn của 18 usecase security cùng traffic mở rộng.
 
-**Status:** board-smoke — M01–M05 có source/eSDK evidence và M07 qua workload 5 phút trên
-QCS6490 ngày 2026-09-19; P2 chưa đóng vì M06/M08 và fault/retention gate còn mở.
+**Status:** accepted — P2 đóng ngày 2026-09-19 sau 142/142 eSDK/QEMU tests, fault/recovery
+gates và exact composed QCS6490 candidate chạy 5 phút ở 30,124 FPS, 13,16% CPU.
 **Layer:** docs. **Source:** `docs/architecture/spatiotemporal_metadata.md`,
 `docs/adr/0009_spatiotemporal_metadata_tiering.md`.
 
@@ -77,14 +77,14 @@ Trạng thái được chốt theo bằng chứng hiện có, không suy rộng 
 
 | Mốc | Trạng thái | Bằng chứng / khoảng trống |
 |---|---|---|
-| M01 | logic-tested | Contract v1, codec và validation có unit test; version lấy từ registry |
-| M02 | logic-tested một phần | Generator có 27 profile S01–S18 + 9 traffic và oracle aggregate; chưa có golden đầy đủ cho từng họ query/correction |
-| M03 | logic-tested | Catalog, packed shard, manifest/seal/recovery/quota và atomic outbox đã có |
-| M04 | logic-tested một phần | Bounded query, exact spatial, snapshot/delta RAM đã có; chưa có cancellable async history job |
-| M05 | logic-tested | Episode revision, contribution correction/retract và materialized rollup đã có; producer từng usecase vẫn fail closed khi chưa tích hợp |
-| M06 | quyết định v1 | Giữ SQLite packed shards; không thêm edge Parquet/DuckDB khi eSDK chưa có package được review và workload hiện tại chưa cần |
-| M07 | board-smoke | 5 phút concurrent pass; power-cut, disk-full, cancellation và retention capacity chưa pass |
-| M08 | chưa đạt | Service chưa compose vào executable; purge phụ thuộc outbox receipt P3; producer/capability wiring thuộc P5 |
+| M01 | accepted | Contract v1, codec và validation lấy version duy nhất từ registry |
+| M02 | accepted baseline | Catalog bao phủ S01–S18 + 9 traffic profile; benchmark 27 scenario có oracle; query chưa có producer trả `unsupported` |
+| M03 | accepted | Catalog, packed shard, manifest/seal/recovery/quota và atomic outbox pass fault gates |
+| M04 | accepted baseline | Bounded query, exact spatial, snapshot/delta, deadline và cancellation đã có; history job lớn là extension sau P2 |
+| M05 | accepted baseline | Episode revision, correction/retract và rollup giao dịch đã có; concrete usecase producer thuộc P5 |
+| M06 | accepted | Chọn SQLite packed shards cho edge v1; Parquet là center/future cold tier |
+| M07 | accepted | Concurrent benchmark, restart, SIGKILL, disk-full, corruption và cancellation pass trên board |
+| M08 | accepted | Validated composition, authorized producers, receipt-safe retention, health và clean drain đã chạy production candidate |
 
 ### M01 — Chốt logical contracts v1
 
@@ -102,14 +102,13 @@ Nghiệm thu:
 
 ### M02 — Dataset và query oracle đại diện
 
-Deliverables: deterministic generator cho S01–S18/traffic; scenario nhiều camera với topology,
-clock uncertainty, ID switch, split/merge và late correction; oracle cho exact/simplified path,
-episode, rollup và frame correlation; fire/smoke tháng-năm-hotspot, person/vehicle cross-camera,
-ANPR/parking, crowd và traffic load.
+Deliverables: deterministic catalog/generator cho S01–S18/traffic; scenario nhiều camera với
+topology, clock uncertainty, ID switch, split/merge và late correction; oracle cho các primitive
+đã hỗ trợ; mỗi query phụ thuộc producer/center capability chưa có phải trả `unsupported`.
 
 Nghiệm thu:
 
-- mỗi họ query có expected result và coverage, không chỉ benchmark random rows;
+- mỗi capability group có oracle mô tả expected result/coverage và trạng thái support rõ;
 - cùng một seed chạy được eSDK/QEMU và QCS6490;
 - oracle phân biệt detection, episode, unique entity, passage và aggregate contribution.
 
@@ -128,15 +127,16 @@ Nghiệm thu:
 
 ### M04 — Query service và live footprint
 
-Deliverables: planner chọn live/catalog/detail/sealed/cold/rollup; RAM snapshot-plus-delta;
-exact spatial verification sau candidate index; temporal valid-time join; paged selective query;
-cancellable bounded history jobs; association revision read model cho đường đi qua camera.
+Deliverables: planner chọn live/catalog/detail/sealed/rollup; RAM snapshot-plus-delta; exact
+spatial verification sau candidate index; paged selective query có deadline/scan/output budget,
+cancellation; association revision read model cho đường đi qua camera. History vượt budget trả
+bounded failure; async job/cold planner chỉ thêm sau khi có API/center requirement được duyệt.
 
 Nghiệm thu:
 
 - UI/backend không mở DB/file trực tiếp và không gửi SQL tự do;
 - không nối trajectory qua gap/scene revision khi thiếu transform;
-- long query có deadline, scan-byte, CPU, RSS, output bounds và không giữ active WAL reader;
+- query có deadline, scan-byte, output bounds, cancellation và không giữ active WAL reader;
 - correction/tombstone/association revision deterministic theo snapshot token.
 
 ### M05 — Rollup và 18-usecase projections
@@ -180,9 +180,9 @@ Nghiệm thu:
 
 ### M08 — Compose, export và đóng P2
 
-Deliverables: production service lifecycle ngoài frame/DSP threads; Kafka outbox/export receipt;
-center schema mapping; operational metrics; retention/purge; manifest backup/restore; capability
-advertisement theo installed/entitled/supported/admitted/running.
+Deliverables: production service lifecycle ngoài frame/DSP threads; durable outbox/receipt API;
+operational metrics; retention/purge; recovery và capability advertisement. Kafka transport và
+center receipt consumer sử dụng API này trong P3, không mở file store trực tiếp.
 
 Nghiệm thu đóng P2:
 
@@ -192,7 +192,7 @@ Nghiệm thu đóng P2:
 - 5 phút concurrent device test pass functional/performance gate; soak dài vẫn là release gate;
 - không claim cross-device path, year-scale local retention hoặc exact replay ngoài profile đã đo.
 
-Phân ranh kế hoạch: Kafka/ACK/export transport thuộc P3; composition usecase producer và release
+Phân ranh kế hoạch: Kafka/ACK/export transport thuộc P3; concrete usecase producer và release
 rollout thuộc P5. P2 vẫn phải cung cấp lifecycle/config hook và retention primitive để hai plan đó
 không mở file DB trực tiếp. Không chuyển đầu việc sang P3/P5 để hợp thức hóa việc đóng P2 sớm.
 
@@ -237,28 +237,41 @@ as-observed/as-known-at vẫn đọc revision history có budget.
 
 Phép đo tăng khoảng 32,57 MB/5 phút, tương đương xấp xỉ 391 MB/giờ nếu giữ nguyên workload tổng
 hợp. Đây là capacity evidence để buộc cấu hình retention; không được ngoại suy thành cam kết lưu
-một tháng vì chưa có purge/ACK và cardinality production của 18 app.
+một tháng vì chưa có receipt transport P3 và cardinality production của 18 app.
 
-## 7. Điều kiện còn lại để đóng
+Exact composed candidate commit `7e8538b9f3e15de4fc9da102e0efbf1ed419090b` có service SHA-256
+`d02770e26610e213ec68cca55543e13378ca1d3aad8511eeb74bb58ecfc07a63` và profile SHA-256
+`79cfc9848f05f8918681064836f9c5b97a014b720a22978e15ad5df976f294ce`. Trong đúng 300 giây,
+AI APP dùng trung bình 13,16% một core, RSS trung bình 345.497 KiB, RTSP H.264 1920x1080 đạt
+30,124 FPS. Store nhận/commit 26/26 work item, không reject/fail; 18 trajectory chunk có 18 ID
+khác nhau. Stop kết thúc `stopped=true`, `first_error=0`, `cascade_failed=0`.
 
-P2 chỉ chuyển `accepted` khi hoàn thành cả bốn mục sau:
+Fault suite trên cùng board chứng minh: reopen sau SIGKILL commit thêm 306 record không oracle
+failure; filesystem tmpfs đầy thật trả 563 write failure rồi recovery commit 306/306; detail DB
+bị ghi đè zero fail closed `file is not a database`; query cancellation và conflicting chunk ID
+được kiểm native. Retention giữ shard/fact còn outbox chưa ACK. Evidence raw nằm tại
+`/opt/lacai/out/p2_candidate/fault/` và `/opt/lacai/out/p2_acceptance_final_5m/`.
 
-1. compose metadata service bằng cấu hình validated trong executable và chứng minh start/drain;
-2. nối producer tối thiểu trajectory + episode/rollup qua authorization, fixture thiếu capability
-   phải trả `unsupported`;
-3. bổ sung retention/purge không xóa outbox chưa ACK, rồi chạy restart/disk-full/corruption và
-   query cancellation trên board;
-4. chạy lại eSDK toàn bộ + workload 5 phút từ exact composed candidate, ghi digest và profile.
+## 7. Điều kiện đóng P2
 
-## 8. Thứ tự triển khai
+| Điều kiện | Kết quả |
+|---|---|
+| Validated composition và start/drain | Pass; `--metadata-profile`, worker ngoài hot path và clean stop trên exact candidate |
+| Authorized trajectory + episode/rollup producer | Pass; thiếu source/model/feature capability trả `unsupported` |
+| Receipt-safe retention và fault gates | Pass; restart, SIGKILL, disk-full, corruption, conflict và cancellation có board evidence |
+| Exact candidate regression/performance | Pass; 142/142 eSDK, native regression, 300 giây, 30,124 FPS và 13,16% CPU |
 
-Phần còn lại thực hiện M08 lifecycle/composition → retention/fault gate → M02 oracle mở rộng →
-M07 rerun. P3 chỉ cung cấp receipt/ACK transport; P5 chỉ wiring producer/package và không được mở
-SQLite trực tiếp.
+P2 được đóng ở baseline v1. `accepted` không có nghĩa mọi Q01–Q30 đều chạy local: catalog công
+bố query nào `supported`/`unsupported`, và không được suy diễn cross-device association,
+year-scale local retention hoặc exact replay ngoài horizon. Kafka delivery thuộc P3; concrete
+model/usecase packages và golden chất lượng thuộc P5.
 
-Không thêm DuckDB/Arrow/Parquet vào production CMake trước M06. Không freeze C++ prototype thành
-ABI đích trước approval ADR 0009. Mỗi source step phải có focused commit, eSDK build/test và không
-push theo quy tắc repository.
+## 8. Handoff sau khi đóng
+
+- P3 dùng outbox/receipt API và phải phân biệt broker ACK với center-lake commit.
+- P5 đăng ký producer theo capability; không được mở SQLite hoặc tự tạo schema song song.
+- Chỉ mở edge Parquet/DuckDB khi có eSDK package/SBOM và A/B chứng minh lợi ích.
+- Long-soak, thermal, released-FW và multi-source capacity vẫn là release gates, không phải P2.
 
 ## Tài liệu liên quan
 

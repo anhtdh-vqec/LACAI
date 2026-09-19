@@ -3,13 +3,14 @@
 Qualcomm SDK, memory/fence, thermal/performance and fault/soak tests that must run on the
 QCS6490 target. Host or QEMU green is insufficient evidence.
 
-- **Status:** no board test sources here; native board execution uses `tools/board/vqec_vision_board_native_tests.sh` (117/117 on `.98` with fixtures)
+- **Status:** board-tested — metadata benchmark source lives here and native runners execute cross-built tests on the authorized QCS6490
 - **Depends on:** a reachable QCS6490 target (see [board notes](../../docs/testing/qsc6490_board.md))
 
 ## Responsibility
 
 - Qualify live SDK, DMA/fence completion, thermal/performance envelopes and recovery.
 - Provide the evidence the emulation results cannot.
+- Keep representative metadata ingest/query/fault workloads separate from production composition.
 
 ## See also
 

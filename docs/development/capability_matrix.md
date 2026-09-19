@@ -8,7 +8,7 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Capability | Source / logic | Native evidence | Not yet accepted |
 |---|---|---|---|
 | Three-team contract authority | C01–C10 registry, producer receipt schema/checker and S01–S18 stable IDs; eSDK/QEMU 100/100 | `.98` registry/self-test smoke | BSP+FW target receipts and AI Model golden/quality receipts |
-| Metadata/query P2 | D01–D18/Q01–Q30 catalog; v1 contracts/codec; bounded writer/live service; packed SQLite shards; association/episode revisions; correction-aware rollups; exact spatial query/recovery | 106/106 eSDK; `.102` five-minute concurrent benchmark: 45,081 records, 9,952 queries, zero failures, p99 18.546 ms, 30.110% metadata CPU | Production composition/producers, retention/purge tied to ACK, board power-cut/disk-full/cancellation; ADR 0009 remains proposed |
+| Metadata/query P2 | Accepted D01–D18/Q01–Q30 capability catalog; v1 contracts/codec; composed bounded writer/live service; packed SQLite shards; receipt-safe retention; association/episode revisions and corrected rollups | 142/142 eSDK; isolated 45,081-record benchmark; exact composed `.102` candidate at 30.124 FPS/13.16% CPU with 26/26 commits; SIGKILL, disk-full, corruption and cancellation gates | Unsupported query groups remain explicit; Kafka transport P3, concrete producers/golden P5, long power/thermal soak and cross-device center analytics remain |
 | Static single-image catalog/manifest | Implemented, tested | Model-specific probes | Generic model accuracy |
 | Dynamic/multi-input/stateful/batch | Rejected where unsupported | None | Implementation/capacity |
 | Synchronous owned QNN | Implemented, tested | SCRFD/YOLO execution + parity; EdgeFace probe | End-to-end FR accuracy |

@@ -1,6 +1,6 @@
 # Implementation status — 2026-09-19
 
-2026-09-19 spatiotemporal metadata implementation (Plan 2: **BOARD-SMOKE, OPEN**):
+2026-09-19 spatiotemporal metadata implementation (Plan 2: **ACCEPTED**):
 
 - M01–M05 now deliver neutral version 1 frame/track/trajectory, association, episode, aggregate,
   live snapshot/delta and typed-query contracts; checked packed trajectory codec; SQLite WAL
@@ -9,7 +9,8 @@
   contribution retract and materialized latest-corrected rollups.
 - A bounded service owns one blocking writer thread, projection batches and bounded live state.
   Producers receive explicit `resource_exhausted`; query work is serialized outside frame/DSP
-  threads. The service is source-delivered but not composed into the production executable.
+  threads. A validated `--metadata-profile` composes it into the production executable, and
+  background persistence errors become required-runtime health/exit failures.
 - Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
   mappings, nine traffic extension profiles and five outcome classes per query. The checker
   cross-validates the stable usecase identities against the three-team registry.
@@ -17,20 +18,25 @@
   fact with its outbox rows, reject conflicting retries, authorize scopes and projections,
   preserve snapshot/keyset paging, evaluate source coverage and recover after reopen. Q02
   checks attribute validity at passage time and requires both attribute and trajectory scopes.
-- The approved eSDK suite passes 106/106 under QEMU. The exact QCS6490 benchmark candidate
+- The approved expanded eSDK suite passes 142/142 under QEMU. The isolated QCS6490 benchmark
   (`c9945697…a22190`) ran `FULL` sync for 300 seconds beside the full AI workload: 45,081 durable
   records, 9,952 queries and zero reject/write/query/oracle failure across 27 security/traffic
   profiles. Query p50/p95/p99 was 2.688/12.454/18.546 ms; metadata used 30.110% of one core,
   37,120 KiB maximum RSS and 32,567,296 bytes. AI APP averaged 12.88% of one core. H.264 preview
   measured 30.000 packet-PTS FPS and the current overlay contact sheet passed visual review.
-- The exact target-native codec, store and service tests also pass on the same board. Store test
-  SHA-256 `957c37ee…cc18ab` covers expired-deadline budgeting, missing-shard partial coverage,
-  startup index repair and quota rejection. This is fail-closed logic evidence, not a physical
-  power interruption or filesystem-full test.
-- Packed SQLite shards are the v1 edge choice; Parquet is center interchange/future cold-tier work,
-  not an unreviewed edge dependency. ADR 0009 remains proposed because production composition,
-  retention tied to outbox receipts, board power-cut/disk-full/cancellation and capacity profiles
-  are not complete. P2 therefore remains open under its own acceptance criteria.
+- The final composed service at commit `7e8538b9f3e15de4fc9da102e0efbf1ed419090b` has SHA-256
+  `d02770e…a63`; its profile digest is
+  `79cfc9…94ce`. Over an exact 300-second interval it averaged 13.16% of one core and 345,497 KiB
+  RSS, with H.264 1920x1080 preview at 30.124 FPS. Metadata committed 26/26 work items, including
+  18 unique trajectory chunks, with zero reject/failure. Drain reported `stopped=true`,
+  `first_error=0`, `cascade_failed=0`.
+- Target-native service/runtime/store regression passes. The fault suite recovers after SIGKILL
+  and after an actual full tmpfs, rejects a zero-overwritten detail DB, cancels queries and keeps
+  pending outbox data through retention. Conflicting asynchronous writes now poison health rather
+  than being hidden in counters.
+- Packed SQLite shards are the accepted v1 edge choice; Parquet is center interchange/future cold
+  tier. ADR 0009 is accepted. Kafka transport is Plan 3 and concrete usecase producers/golden are
+  Plan 5; unsupported Q01–Q30 capabilities remain explicit rather than implied by P2 closure.
 
 2026-09-18 three-team contract baseline (Plan 1: **ACCEPTED**):
 
@@ -427,9 +433,9 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The exact final expanded eSDK configuration passes 135/135 CTest tests under SDK QEMU
-  (2026-09-18). The cross-built native suite passes 128/128 on `.98` via
-  `tools/board/vqec_vision_board_native_tests.sh`.
+- The exact final expanded eSDK configuration passes 142/142 CTest tests under SDK QEMU
+  (2026-09-19). The staged cross-built metadata service/runtime/store tests pass natively on
+  `.102`; this focused rerun is not a new full native-suite count.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
   scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.

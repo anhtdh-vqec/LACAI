@@ -3,7 +3,7 @@
 Implementation map for LACAI layers. Physical folders identify ownership; public include
 paths and logical symbol prefixes remain stable when implementation files move.
 
-- **Status:** board-smoke — eSDK 135/135 and QCS6490 `.98` 130/130 plus service smoke pass
+- **Status:** accepted baseline — eSDK 142/142, QCS6490 workload and P2 metadata gates pass
 - **Layer:** app
 - **Naming registry:** see each owning module README
 - **Depends on:** `include/vqec/vision/ai/`

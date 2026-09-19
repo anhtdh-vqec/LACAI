@@ -152,6 +152,23 @@ The updated native store test (`957c37ee26dcf77396e77d95a0fe1ab8080797a2cd93e648
 also passed expired-deadline, missing-shard/partial-coverage, index-repair and quota-rejection
 cases on the board. Those controlled cases do not replace a physical disk-full or power-cut run.
 
+The closing P2 candidate at commit `7e8538b9f3e15de4fc9da102e0efbf1ed419090b` used service
+SHA-256
+`d02770e26610e213ec68cca55543e13378ca1d3aad8511eeb74bb58ecfc07a63` and metadata profile
+SHA-256 `79cfc9848f05f8918681064836f9c5b97a014b720a22978e15ad5df976f294ce`.
+Its exact 300-second interval averaged 6.06% user + 7.11% system = **13.16% CPU** of one core,
+345,497 KiB RSS and 30.124 RTSP FPS at H.264 1920x1080. Metadata committed 26/26 work items,
+including 18 distinct trajectory chunks, with zero rejection/failure. Direct service drain took
+five 100 ms observations and reported `stopped=true`, `first_error=0`, `cascade_failed=0`.
+
+The contact sheet was visually reviewed: orientation, color and geometry were correct and no
+stale overlay remained; the scene was empty during its four frames, so this run does not add a
+new box-alignment claim. The unchanged storage candidate also passed SIGKILL/reopen, a real
+128 MiB tmpfs full condition and recovery, zero-overwritten detail corruption fail-closed and
+query cancellation. Raw evidence is under `/opt/lacai/out/p2_candidate/fault/` and
+`/opt/lacai/out/p2_acceptance_final_5m/`. This closes P2; it is not long power-loss, flash-wear,
+multi-source, released-FW or product thermal qualification.
+
 ## Evidence record
 
 Every new board result records:

@@ -17,7 +17,7 @@ Architecture decisions with context, alternatives, consequences, owner and statu
 | [0006](0006_unwired_execution_infrastructure.md) | Unwired execution infrastructure in the clean base |
 | [0007](0007_versioned_fastrpc_operations.md) | Versioned FastRPC operation protocol (proposed) |
 | [0008](0008_transactional_metadata_store.md) | Transactional metadata store baseline |
-| [0009](0009_spatiotemporal_metadata_tiering.md) | Spatiotemporal metadata tiering (proposed) |
+| [0009](0009_spatiotemporal_metadata_tiering.md) | Spatiotemporal metadata tiering (accepted) |
 
 New decisions follow the same template; a decision that changes a public boundary must be
 approved by the affected owner before implementation.

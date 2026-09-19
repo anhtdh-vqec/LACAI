@@ -1,6 +1,6 @@
 # ADR 0009 — Spatiotemporal metadata tiering
 
-Status: proposed — physical v1 choice has board evidence, but retention and failure gates remain.
+Status: accepted — AI APP lead requested closure after v1 retention, fault and composed-board gates.
 Date: 2026-09-19.
 Owner: AI APP lead.
 
@@ -21,7 +21,7 @@ Identity, embeddings and plate values are ordinary metadata under the current pr
 They use the normal configured metadata directory and retention system. Access domains still
 enforce entitlement and output isolation; they are not an at-rest sensitivity classification.
 
-## Proposed decision
+## Decision
 
 - Expose one AI APP-owned metadata service and typed query API. No other process opens its
   database, shard or columnar files directly.
@@ -40,9 +40,9 @@ enforce entitlement and output isolation; they are not an at-rest sensitivity cl
 - Retain mandatory points at lifecycle, gap, scene, zone/line, attribute and episode boundaries.
   Between them, use a declared exact, fixed-gap or error-bounded sampling policy. Never invent a
   frame ID for an interpolated point.
-- Serve live footprint through bounded RAM snapshot-plus-delta. Serve selective history from the
-  catalog and shards. Route large historical scans/recomputation through cancellable bounded
-  jobs rather than long transactions on the active database.
+- Serve live footprint through bounded RAM snapshot-plus-delta and selective history from the
+  catalog/shards. Reject scans beyond v1 budgets; introduce cancellable asynchronous jobs before
+  enabling larger history/recomputation rather than holding long active-database transactions.
 - Select packed SQLite detail shards for the version 1 edge tier. Keep Parquet as center
   interchange and an optional future cold tier; do not add DuckDB/Arrow/Parquet to the edge build
   without a pinned eSDK package and a measured benefit. A committed manifest publishes every
@@ -52,7 +52,7 @@ enforce entitlement and output isolation; they are not an at-rest sensitivity cl
 - Configure and admit separate exact-observation, footprint, episode, aggregate, evidence and
   export-spool horizons from measured cardinality, storage quota and compaction reserve.
 
-ADR 0008 remains valid evidence for the transactional catalog/outbox primitive. This proposal
+ADR 0008 remains valid evidence for the transactional catalog/outbox primitive. This decision
 supersedes its assumption that the generic single-file adapter is a complete P2 architecture.
 
 ## Alternatives
@@ -83,20 +83,16 @@ supersedes its assumption that the generic single-file adapter is a complete P2 
   isolates high-rate writes from historical scans and supports explicit capacity admission.
 - Cross-device footprint and year-scale analytics normally execute at the center tier; the edge
   still provides its configured local history and export receipts.
-- P2 stays reopened until the version 1 contracts, representative generator, concurrent target
-  benchmark and one physical tier choice are accepted.
+- P2 closes on this version 1 baseline; unsupported query/producer capabilities remain explicit
+  and do not become implicit local support.
 
-## Acceptance required
+## Acceptance
 
-1. AI APP lead approves the version 1 logical contracts and resolution semantics.
-2. S01–S18 plus traffic fixtures exercise live, selective, spatial, sequence, month aggregate,
-   correction, gap and cross-camera queries.
-3. QCS6490 measures simultaneous ingest, footprint reads, long queries, compaction and
-   Kafka-offline outbox pressure, including CPU, RSS, latency, flash bytes and FPS impact.
-4. Retention profiles fit the assigned quota with WAL, active shards, compaction, spool and
-   reserve included.
-5. The selected detail implementation passes crash, corruption, disk-full and reader-drain tests
-   before this ADR changes to accepted.
+1. AI APP lead approved the version 1 logical contracts and explicit resolution semantics.
+2. S01–S18 and traffic mappings are machine checked; unsupported producers/queries fail closed.
+3. QCS6490 passed representative ingest/query/outbox load and exact composed workload gates.
+4. Validated profiles bound WAL, shard, outbox and reserve; retention preserves unacknowledged data.
+5. Restart, SIGKILL, corruption, disk-full, query cancellation and clean service drain pass.
 
 ## Current evidence
 
@@ -107,9 +103,17 @@ was 2.688/12.454/18.546 ms; metadata used 30.110% of one core, 37,120 KiB maximu
 32,567,296 store bytes. The exact benchmark binary SHA-256 was
 `c9945697b847ae64c8bb664011579c38ef3bdf03ebede76f2418907456a22190`.
 
-This satisfies the representative physical-tier comparison needed to reject an additional edge
-columnar dependency for v1. It does not satisfy retention sizing, power interruption, disk-full,
-reader-drain or production composition gates, so this ADR remains `proposed`.
+The final composed candidate at commit `7e8538b9f3e15de4fc9da102e0efbf1ed419090b` used service
+digest `d02770e…a63` and profile
+digest `79cfc9…94ce`. It passed 142/142 eSDK/QEMU tests and target-native metadata regressions.
+Over 300 seconds the full AI APP averaged 13.16% of one core and 345,497 KiB RSS while RTSP ran
+at 30.124 FPS. Metadata committed 26/26 work items with no rejection/failure; all 18 persisted
+trajectory chunk IDs were unique. Drain reported `stopped=true`, `first_error=0`.
+
+The fault gate recovered after SIGKILL, recovered after a real full tmpfs, rejected a corrupted
+detail database, cancelled queued/active queries and preserved unacknowledged outbox data during
+retention. This accepts packed SQLite shards for edge v1 and rejects an additional edge columnar
+dependency. Kafka delivery and center-lake receipts remain Plan 3 consumers of the accepted API.
 
 ## See also
 

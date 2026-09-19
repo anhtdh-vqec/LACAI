@@ -3,10 +3,9 @@
 This document defines the target AI APP metadata subsystem for live and historical object
 footprints, cross-camera paths, event analytics and long-retention security/traffic queries.
 
-**Status:** source-delivered — version 1 contracts, packed SQLite shards, correction-aware
-rollups, receipt-safe retention and the production lifecycle/producer owner are implemented;
-the prior isolated workload is board-smoke and the exact composed candidate still requires the
-final board fault/performance rerun. **Layer:** app. **Source:**
+**Status:** accepted — version 1 contracts, packed SQLite shards, authorized producers,
+receipt-safe retention, fault recovery and exact composed QCS6490 evidence close P2.
+**Layer:** app. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp`,
 `src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`,
 `src/app/service/vqec_vision_metadata_runtime.cpp`.
@@ -220,8 +219,9 @@ The query service composes a bounded typed plan from these primitives:
 | Output | projection, sort, page/job, live subscription, coverage and evidence refs |
 
 The planner resolves hot facts, detail shards, cold files and rollups behind one snapshot token.
-Small selective queries return pages. Multi-day geometry, similarity and recomputation become
-bounded asynchronous jobs with cancellation, scan-byte, CPU, RSS, output and deadline budgets.
+Small selective queries return pages. Version 1 rejects work beyond its scan/output/deadline
+budgets. Multi-day geometry, similarity and recomputation require a future bounded asynchronous
+job API with cancellation, CPU, RSS and output budgets before those capabilities are advertised.
 
 ## Production composition
 
@@ -333,7 +333,7 @@ the caller must submit a receipt naming sink, family, immutable record ID and re
 
 | Candidate | Role | Gate |
 |---|---|---|
-| SQLite WAL | Selected v1 catalog, hot facts, manifests, outbox and detail shards | Production retention, power-loss and disk-full qualification remain |
+| SQLite WAL | Selected v1 catalog, hot facts, manifests, outbox and detail shards | Retention, SIGKILL, disk-full and corruption gates pass; long-soak remains release work |
 | Packed trajectory chunk | High-rate edge point encoding inside a transactional shard | Golden codec, corruption/overflow tests, compression and exact/error-bound replay |
 | Parquet | Center interchange; optional future immutable cold history | Add only after a pinned eSDK package/license/SBOM and measured edge benefit |
 | DuckDB C API | Optional future cold query worker | Add only with bounded RSS/threads/temp disk/cancellation evidence |
@@ -355,10 +355,18 @@ The materialized corrected rollup replaced a first implementation that scanned a
 revisions. That earlier run used 46.56% metadata CPU and its query cost grew with history. Keeping
 the failed comparison prevents the optimized result from hiding the rejected design.
 
+The final production-composed candidate (`7e8538b9f3e15de4fc9da102e0efbf1ed419090b`, service
+SHA-256 `d02770e…a63`) passed
+142/142 eSDK/QEMU tests and target-native service/runtime/store regression. During its exact
+300-second interval, AI APP averaged 13.16% of one core and 345,497 KiB RSS; H.264 1920x1080
+preview measured 30.124 FPS. Metadata committed 26/26 work items, including 18 distinct
+trajectory chunks, with no reject/failure. Clean drain reported `stopped=true`, `first_error=0`.
+
 ## Limits and next work
 
 - Plan 3 must feed the delivered receipt API; P2 does not infer broker durability from attempts.
-- Board power-cut, disk-full, restart and long-query cancellation evidence is still missing.
+- SIGKILL/reopen, real disk-full/recovery, corruption and query-cancellation gates pass; long
+  power-loss hardware/flash qualification remains a product-release gate.
 - Q01–Q30 remain capability groups; the new typed query implements tracklet, association,
   episode and aggregate slices and rejects unsupported collections explicitly.
 - The current eSDK lacks reviewed DuckDB/Arrow/Parquet packages; no edge cold-tier claim is made.

@@ -3,9 +3,9 @@
 Application composition: binds admitted sessions, modules and owner factories to the neutral
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
-- **Status:** board-smoke — eSDK tests and the 2026-09-18 `.98` native candidate/service run pass
+- **Status:** accepted — production composition and P2 metadata exact-candidate gates pass
 - **Layer:** app
-- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`)
+- **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`, `mdsvc`, `mdrun`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
 - **Used by:** `vqec_ai_vision_applications` executable
 
@@ -17,6 +17,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 - Reconstruct source identity from retained submission tickets, then compose decode/track/feature.
 - Provide the take-once delivery slot so the executor cannot run ahead of an unconsumed result.
 - Resolve an authenticated startup usecase snapshot before package/graph preparation.
+- Own the validated metadata profile, authorized trajectory/event producers and writer drain.
 
 ## Contents
 
@@ -65,6 +66,9 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   per-slot owners cannot fill a bounded camera producer. The cascade reuses its configured
   quantization/input workspace, avoiding a per-face graph-input deep copy. Released-FW
   interoperability, hardware-completion evidence and sustained thermal performance remain open.
+- Metadata persistence runs on its own bounded writer; asynchronous write failure is exposed as
+  required-runtime health and final service error. Chunk identity is unique across track
+  reappearance and process restart. Kafka transport remains Plan 3.
 - The `.98` integration run sustained
   29.1 encoded FPS with 1 FPS inference. A later 30/1 cadence run using the Qualcomm
   FastCV image-processor adapter sustained 30 AI results/s and 30.1 RTSP FPS; multi-source,
