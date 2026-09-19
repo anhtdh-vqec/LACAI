@@ -110,6 +110,7 @@ constexpr int g_recovery_required_exit_code = 5;
 constexpr std::size_t g_max_active_track_labels = 256;
 constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
 constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
+constexpr std::uint64_t g_stop_drain_final_observation_steps = 1U;
 
 void vqec_vision_ai_appl_svcmn_on_signal(int) {
     g_stop_requested = 1;
@@ -2339,7 +2340,12 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         first_error_code = cascade_workers_drained.code_;
     }
     bool stopped = false;
-    for (unsigned drain = 0; drain < 1000 && !stopped; ++drain) {
+    const auto stop_drain_steps =
+        service_harness::g_default_stop_timeout_ns / args.runtime_step_interval_ns +
+        (service_harness::g_default_stop_timeout_ns % args.runtime_step_interval_ns != 0U
+                ? 1U : 0U) +
+        g_stop_drain_final_observation_steps;
+    for (std::uint64_t drain = 0U; drain < stop_drain_steps && !stopped; ++drain) {
         // Drain must consume/discard a retained result, otherwise the executor refuses to
         // advance and a result arriving at stop would prevent reaching stopped.
         if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
@@ -2364,6 +2370,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         }
         stopped = executor->vqec_vision_ai_appl_rtexe_get_snapshot().state_ ==
             application_composition_state::stopped;
+    }
+    if (!stopped && first_error_code == status_code::ok) {
+        first_error_code = status_code::timeout;
     }
     std::uint32_t routed_sources = 0;
     for (std::uint32_t mask = routed_source_mask; mask != 0; mask &= mask - 1U) {

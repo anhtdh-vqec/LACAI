@@ -22,6 +22,7 @@ namespace {
 using json = nlohmann::json;
 
 constexpr const char* g_boot_id_path = "/proc/sys/kernel/random/boot_id";
+constexpr const char* g_runtime_id_path = "/proc/sys/kernel/random/uuid";
 constexpr std::uint64_t g_microunits_per_event = 1000000U;
 
 bool vqec_vision_ai_appl_mdrun_read_u64(
@@ -355,7 +356,6 @@ public:
     struct track_builder {
         trajectory_chunk chunk_;
         std::uint64_t last_seen_ns_{0};
-        std::uint64_t next_sequence_{1};
         std::string model_revision_;
         std::string tracker_revision_;
     };
@@ -369,6 +369,12 @@ public:
             !vqec_vision_ai_appl_mdrun_is_identifier(boot_id_)) {
             return {status_code::io_error, "read metadata boot identity failed"};
         }
+        std::ifstream runtime_stream(g_runtime_id_path);
+        if (!runtime_stream || !std::getline(runtime_stream, runtime_instance_id_) ||
+            !vqec_vision_ai_appl_mdrun_is_identifier(runtime_instance_id_)) {
+            return {status_code::io_error, "read metadata runtime identity failed"};
+        }
+        next_chunk_sequence_ = 1U;
         const auto started = service_.vqec_vision_ai_appl_mdsvc_start();
         if (started.code_ == status_code::ok) {
             started_ = true;
@@ -414,6 +420,10 @@ public:
         if (!started_) {
             return {status_code::invalid_state, "metadata runtime is not started"};
         }
+        const auto health = service_.vqec_vision_ai_appl_mdsvc_get_health();
+        if (config_.required_ && health.code_ != status_code::ok) {
+            return health;
+        }
         const auto* profile = vqec_vision_ai_appl_mdrun_find_source(_source_id);
         if (profile == nullptr) {
             return {status_code::unsupported, "metadata source capability is unavailable"};
@@ -447,7 +457,6 @@ public:
                             "metadata trajectory builder capacity is exhausted"};
                     }
                     current = tracks_.emplace(key, track_builder{}).first;
-                    current->second.next_sequence_ = 1U;
                 }
                 auto& builder = current->second;
                 if (!builder.chunk_.points_.empty() &&
@@ -471,8 +480,12 @@ public:
                     continue;
                 }
                 if (builder.chunk_.points_.empty()) {
-                    vqec_vision_ai_appl_mdrun_initialize_chunk(builder, *profile,
+                    const auto initialized = vqec_vision_ai_appl_mdrun_initialize_chunk(
+                        builder, *profile,
                         _source_id, _model_revision, _tracker_revision, observation);
+                    if (initialized.code_ != status_code::ok) {
+                        return initialized;
+                    }
                 }
                 trajectory_point point;
                 if (!vqec_vision_ai_appl_mdrun_make_point(observation, point)) {
@@ -523,6 +536,10 @@ public:
         if (!started_) {
             return {status_code::invalid_state, "metadata runtime is not started"};
         }
+        const auto health = service_.vqec_vision_ai_appl_mdsvc_get_health();
+        if (config_.required_ && health.code_ != status_code::ok) {
+            return health;
+        }
         if (_source_time_ns < last_maintenance_ns_ ||
             _source_time_ns - last_maintenance_ns_ < config_.maintenance_interval_ns_) {
             return {};
@@ -546,6 +563,10 @@ public:
     }
 
     status vqec_vision_ai_ports_fesnk_deliver_event(const feature_event& _event) {
+        const auto health = service_.vqec_vision_ai_appl_mdsvc_get_health();
+        if (config_.required_ && health.code_ != status_code::ok) {
+            return health;
+        }
         const auto* profile = vqec_vision_ai_appl_mdrun_find_source(_event.source_id_);
         if (profile == nullptr) {
             return {status_code::unsupported, "metadata event source capability is unavailable"};
@@ -651,10 +672,15 @@ public:
     }
 
 private:
-    void vqec_vision_ai_appl_mdrun_initialize_chunk(track_builder& _builder,
+    status vqec_vision_ai_appl_mdrun_initialize_chunk(track_builder& _builder,
         const metadata_source_profile& _profile, const std::string& _source_id,
         const std::string& _model_revision, const std::string& _tracker_revision,
         const observation& _observation) {
+        if (next_chunk_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+            return {status_code::resource_exhausted,
+                "metadata trajectory chunk sequence is exhausted"};
+        }
+        const auto chunk_sequence = next_chunk_sequence_++;
         _builder.chunk_ = {};
         const auto source = std::find_if(config_.sources_.begin(), config_.sources_.end(),
             [&_source_id](const auto& _candidate) {
@@ -663,9 +689,7 @@ private:
         const auto source_slot = static_cast<std::size_t>(
             std::distance(config_.sources_.begin(), source));
         _builder.chunk_.chunk_id_ = "trajectory." + std::to_string(source_slot) + "." +
-            std::to_string(_observation.frame_.source_epoch_) + "." +
-            std::to_string(_observation.track_id_) + "." +
-            std::to_string(_builder.next_sequence_);
+            runtime_instance_id_ + "." + std::to_string(chunk_sequence);
         _builder.chunk_.track_.device_id_ = config_.device_id_;
         _builder.chunk_.track_.source_id_ = _source_id;
         _builder.chunk_.track_.boot_id_ = boot_id_;
@@ -673,7 +697,7 @@ private:
         _builder.chunk_.track_.local_track_id_ = _observation.track_id_;
         _builder.chunk_.subject_ref_ = "track." + std::to_string(_observation.track_id_);
         _builder.chunk_.entity_category_ = _observation.class_id_;
-        _builder.chunk_.chunk_sequence_ = _builder.next_sequence_;
+        _builder.chunk_.chunk_sequence_ = chunk_sequence;
         _builder.chunk_.coordinate_space_ = spatiotemporal_coordinate_space::source_pixel;
         _builder.chunk_.anchor_ = spatiotemporal_anchor::box_footpoint;
         _builder.chunk_.resolution_ = config_.minimum_sample_interval_ns_ == 0U
@@ -688,6 +712,7 @@ private:
         _builder.model_revision_ = _model_revision;
         _builder.tracker_revision_ = _tracker_revision;
         (void)_profile;
+        return {};
     }
 
     bool vqec_vision_ai_appl_mdrun_make_point(
@@ -759,7 +784,6 @@ private:
         if (submitted.code_ != status_code::ok) {
             return submitted;
         }
-        ++_builder.next_sequence_;
         _builder.chunk_ = {};
         return {};
     }
@@ -769,6 +793,8 @@ private:
     metadata_service service_;
     std::map<std::string, track_builder> tracks_;
     std::string boot_id_;
+    std::string runtime_instance_id_;
+    std::uint64_t next_chunk_sequence_{1};
     std::uint64_t last_maintenance_ns_{0};
     bool started_{false};
 };

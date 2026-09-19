@@ -180,7 +180,36 @@ int main() {
     assert(runtime.vqec_vision_ai_ports_fesnk_deliver_event(event).code_ ==
            status_code::ok);
     assert(sink.deliveries_ == 1U && sink.last_event_id_ == event.event_id_);
+    const observation_batch stale_frame{
+        {1U, 0U, 1U, 3U, 1300000U}, {640U, 360U}, {}};
+    assert(runtime.vqec_vision_ai_appl_mdrun_submit_observations(
+               "camera.a", "person_detector.1", "tracker.1", stale_frame, true).code_ ==
+           status_code::ok);
+    const auto reappeared_first =
+        vqec_vision_ai_unit_mdrut_batch(4U, 1400000U, 30.0F);
+    const auto reappeared_second =
+        vqec_vision_ai_unit_mdrut_batch(5U, 1500000U, 40.0F);
+    assert(runtime.vqec_vision_ai_appl_mdrun_submit_observations(
+               "camera.a", "person_detector.1", "tracker.1", reappeared_first, true).code_ ==
+           status_code::ok);
+    assert(runtime.vqec_vision_ai_appl_mdrun_submit_observations(
+               "camera.a", "person_detector.1", "tracker.1", reappeared_second, true).code_ ==
+           status_code::ok);
     assert(runtime.vqec_vision_ai_appl_mdrun_stop(true).code_ == status_code::ok);
+
+    metadata_runtime restarted_runtime(config, sink);
+    assert(restarted_runtime.vqec_vision_ai_appl_mdrun_start().code_ == status_code::ok);
+    const auto restarted_first =
+        vqec_vision_ai_unit_mdrut_batch(6U, 1600000U, 50.0F);
+    const auto restarted_second =
+        vqec_vision_ai_unit_mdrut_batch(7U, 1700000U, 60.0F);
+    assert(restarted_runtime.vqec_vision_ai_appl_mdrun_submit_observations(
+               "camera.a", "person_detector.1", "tracker.1", restarted_first, true).code_ ==
+           status_code::ok);
+    assert(restarted_runtime.vqec_vision_ai_appl_mdrun_submit_observations(
+               "camera.a", "person_detector.1", "tracker.1", restarted_second, true).code_ ==
+           status_code::ok);
+    assert(restarted_runtime.vqec_vision_ai_appl_mdrun_stop(true).code_ == status_code::ok);
 
     sqlite_spatiotemporal_store store(config.service_.store_);
     assert(store.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
@@ -190,8 +219,10 @@ int main() {
         vqec_vision_ai_cntr_stmet_get_access_domain_mask(
             spatiotemporal_access_domain::trajectory));
     assert(store.vqec_vision_ai_stor_stsql_query(query, page).code_ == status_code::ok);
-    assert(page.trajectory_chunks_.size() == 1U);
-    assert(page.trajectory_chunks_.front().points_.size() == 2U);
+    assert(page.trajectory_chunks_.size() == 3U);
+    for (const auto& chunk : page.trajectory_chunks_) {
+        assert(chunk.points_.size() == 2U);
+    }
     query = vqec_vision_ai_unit_mdrut_query(
         spatiotemporal_collection::episodes, g_spatiotemporal_all_access_domains);
     assert(store.vqec_vision_ai_stor_stsql_query(query, page).code_ == status_code::ok);

@@ -175,6 +175,20 @@ int main() {
     assert(service.vqec_vision_ai_appl_mdsvc_submit_trajectory(first).code_ ==
            status_code::invalid_state);
 
+    const auto conflict_root = root / "conflict";
+    metadata_service conflict_service(vqec_vision_ai_unit_mdsvt_make_config(conflict_root));
+    assert(conflict_service.vqec_vision_ai_appl_mdsvc_start().code_ == status_code::ok);
+    auto conflicting = first;
+    conflicting.points_.back().anchor_x_ += 1;
+    assert(conflict_service.vqec_vision_ai_appl_mdsvc_submit_trajectory(first).code_ ==
+           status_code::ok);
+    assert(conflict_service.vqec_vision_ai_appl_mdsvc_submit_trajectory(conflicting).code_ ==
+           status_code::ok);
+    assert(conflict_service.vqec_vision_ai_appl_mdsvc_stop(true).code_ ==
+           status_code::invalid_argument);
+    assert(conflict_service.vqec_vision_ai_appl_mdsvc_get_health().code_ ==
+           status_code::invalid_argument);
+
     std::filesystem::remove_all(root);
     return 0;
 }

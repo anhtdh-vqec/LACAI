@@ -88,6 +88,7 @@ public:
 
     [[nodiscard]] metadata_service_stats
     vqec_vision_ai_appl_mdsvc_get_stats() const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_mdsvc_get_health() const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_mdsvc_get_store_stats(
         spatiotemporal_store_stats& _stats) const;
 

@@ -420,6 +420,11 @@ public:
         return stats_;
     }
 
+    status vqec_vision_ai_appl_mdsvc_get_health() const noexcept {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return worker_result_;
+    }
+
     status vqec_vision_ai_appl_mdsvc_get_store_stats(
         spatiotemporal_store_stats& _stats) const {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -431,6 +436,14 @@ public:
     }
 
 private:
+    void vqec_vision_ai_appl_mdsvc_record_worker_failure_locked(
+        const status& _failure) noexcept {
+        if (worker_result_.code_ == status_code::ok &&
+            _failure.code_ != status_code::ok) {
+            worker_result_ = _failure;
+        }
+    }
+
     status vqec_vision_ai_appl_mdsvc_enqueue(metadata_work_item _item) {
         status result;
         try {
@@ -595,6 +608,7 @@ private:
             ++stats_.committed_records_;
         } else {
             ++stats_.failed_records_;
+            vqec_vision_ai_appl_mdsvc_record_worker_failure_locked(result);
         }
         has_store_stats_ =
             store_.vqec_vision_ai_stor_stsql_get_stats(store_stats_).code_ == status_code::ok;
@@ -626,6 +640,9 @@ private:
         } catch (const std::bad_alloc&) {
             std::lock_guard<std::mutex> lock(mutex_);
             stats_.failed_records_ += _items.size();
+            vqec_vision_ai_appl_mdsvc_record_worker_failure_locked(
+                {status_code::resource_exhausted,
+                    "metadata projection batch allocation failed"});
             return;
         }
         const auto result = store_.vqec_vision_ai_stor_stsql_ingest_projection_batch(
@@ -635,6 +652,7 @@ private:
             stats_.committed_records_ += _items.size();
         } else {
             stats_.failed_records_ += _items.size();
+            vqec_vision_ai_appl_mdsvc_record_worker_failure_locked(result);
         }
         has_store_stats_ =
             store_.vqec_vision_ai_stor_stsql_get_stats(store_stats_).code_ == status_code::ok;
@@ -686,8 +704,9 @@ private:
             } catch (...) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 ++stats_.failed_records_;
-                worker_result_ = {status_code::io_error,
-                    "metadata worker caught an unexpected exception"};
+                vqec_vision_ai_appl_mdsvc_record_worker_failure_locked(
+                    {status_code::io_error,
+                        "metadata worker caught an unexpected exception"});
             }
         }
         const auto close_result = store_.vqec_vision_ai_stor_stsql_close();
@@ -801,6 +820,10 @@ status metadata_service::vqec_vision_ai_appl_mdsvc_cancel_query(
 
 metadata_service_stats metadata_service::vqec_vision_ai_appl_mdsvc_get_stats() const noexcept {
     return implementation_->vqec_vision_ai_appl_mdsvc_get_stats();
+}
+
+status metadata_service::vqec_vision_ai_appl_mdsvc_get_health() const noexcept {
+    return implementation_->vqec_vision_ai_appl_mdsvc_get_health();
 }
 
 status metadata_service::vqec_vision_ai_appl_mdsvc_get_store_stats(
