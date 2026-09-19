@@ -507,6 +507,20 @@ Its unit test `tests/unit/adapters/storage/vqec_vision_sqlite_metadata_store_tes
 The non-CTest board benchmark `tests/board/vqec_vision_metadata_store_benchmark.cpp` uses file_id
 `mdben`, prefix `vqec_vision_ai_board_mdben_`; `main` retains the language entrypoint spelling.
 
+Spatiotemporal metadata contract
+`include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp` and validator
+`src/core/output/vqec_vision_spatiotemporal_metadata.cpp` use file_id `stmet`, with declaration
+prefix `vqec_vision_ai_cntr_stmet_` retained by the implementation. Its unit test
+`tests/unit/core/vqec_vision_spatiotemporal_metadata_test.cpp` uses file_id `smtst`, prefix
+`vqec_vision_ai_unit_smtst_`; `main` retains the language entrypoint spelling.
+
+Packed trajectory codec
+`include/vqec/vision/ai/contracts/vqec_vision_trajectory_codec.hpp` and
+`src/core/output/vqec_vision_trajectory_codec.cpp` use file_id `trcod`, with declaration prefix
+`vqec_vision_ai_cntr_trcod_` retained by the implementation. Its unit test
+`tests/unit/core/vqec_vision_trajectory_codec_test.cpp` uses file_id `tctst`, prefix
+`vqec_vision_ai_unit_tctst_`; `main` retains the language entrypoint spelling.
+
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 

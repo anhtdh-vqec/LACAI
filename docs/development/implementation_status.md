@@ -2,6 +2,10 @@
 
 2026-09-19 metadata/query transactional prototype (Plan 2: **REOPENED**):
 
+- P2 M01 now has neutral version 1 frame-locator, local-track, trajectory-chunk,
+  association-revision and composable-query contracts. The bounded delta/varint trajectory codec
+  rejects corrupt checksums, trailing data, overflow and fabricated endpoints. Approved eSDK/QEMU
+  contract and codec tests pass; no storage/service or board claim follows from this step.
 - Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
   mappings, nine traffic extension profiles and five outcome classes per query. The checker
   cross-validates the stable usecase identities against the three-team registry.

@@ -494,6 +494,22 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME sqlite_metadata_store
         COMMAND vqec_vision_ai_sqlite_metadata_store_test)
+    add_executable(vqec_vision_ai_spatiotemporal_metadata_test
+        unit/core/vqec_vision_spatiotemporal_metadata_test.cpp)
+    target_link_libraries(vqec_vision_ai_spatiotemporal_metadata_test
+        PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_spatiotemporal_metadata_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME spatiotemporal_metadata_contract
+        COMMAND vqec_vision_ai_spatiotemporal_metadata_test)
+    add_executable(vqec_vision_ai_trajectory_codec_test
+        unit/core/vqec_vision_trajectory_codec_test.cpp)
+    target_link_libraries(vqec_vision_ai_trajectory_codec_test
+        PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_trajectory_codec_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME trajectory_codec
+        COMMAND vqec_vision_ai_trajectory_codec_test)
     add_executable(vqec_vision_ai_metadata_store_benchmark
         board/vqec_vision_metadata_store_benchmark.cpp)
     target_link_libraries(vqec_vision_ai_metadata_store_benchmark

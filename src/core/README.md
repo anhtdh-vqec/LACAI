@@ -5,7 +5,7 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 
 - **Status:** board-smoke — eSDK tests and the 2026-09-18 `.98` native candidate run pass
 - **Layer:** core
-- **Naming registry:** `core` (`dpval`, `infpl`, `subwn`, `srcbd`, `tnctr`, `inexe`, `otgat`, `ftevt`, `ftcat`, `otgen`, `encot`, `pvpol`, `encwn`, `pvsrf`, `pvctr`)
+- **Naming registry:** `core` (`dpval`, `infpl`, `subwn`, `srcbd`, `tnctr`, `inexe`, `otgat`, `ftevt`, `ftcat`, `otgen`, `encot`, `pvpol`, `encwn`, `pvsrf`, `pvctr`, `stmet`, `trcod`)
 - **Depends on:** `include/vqec/vision/ai/contracts/`
 - **Used by:** `src/app/`, `src/outputs/`, adapters through neutral contracts
 
@@ -25,7 +25,7 @@ module. No I/O, no allocation of runtime pools and no vendor, GStreamer or OpenC
 | `inference/` | Model/package/IO, preprocess, binding, execution and submission contracts |
 | `media/` | Color, image alignment, preview and encoder value/ownership contracts |
 | `memory/` | Bounded reusable memory-pool bookkeeping |
-| `output/` | Output authorization and monotonic generation identities |
+| `output/` | Output authorization, generation identities, spatiotemporal validation and packed trajectory codec |
 | `perception/` | Observation, embedding and face-gallery value validation |
 | `CMakeLists.txt` | Declares the core target from the ownership subtrees above |
 

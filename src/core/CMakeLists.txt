@@ -30,6 +30,8 @@ add_library(vqec_vision_ai_core STATIC
     output/vqec_vision_output_gate.cpp
     output/vqec_vision_output_generation.cpp
     output/vqec_vision_metadata_query.cpp
+    output/vqec_vision_spatiotemporal_metadata.cpp
+    output/vqec_vision_trajectory_codec.cpp
     configuration/vqec_vision_deployment_config.cpp
     configuration/vqec_vision_model_catalog.cpp)
 target_compile_features(vqec_vision_ai_core PUBLIC cxx_std_17)
