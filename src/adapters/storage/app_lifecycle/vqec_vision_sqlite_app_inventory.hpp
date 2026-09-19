@@ -10,10 +10,25 @@ struct sqlite3;
 
 namespace vqec::vision::ai {
 
+enum class sqlite_app_inventory_checkpoint {
+    install_application_written,
+    install_sources_written,
+    install_components_written,
+    install_revision_written,
+    update_rollback_written,
+    update_application_written,
+    update_components_written,
+    update_revision_written
+};
+
+using sqlite_app_inventory_checkpoint_observer = void (*)(
+    sqlite_app_inventory_checkpoint _checkpoint) noexcept;
+
 struct sqlite_app_inventory_config {
     std::string database_path_;
     std::uint64_t max_database_bytes_{0};
     int busy_timeout_ms_{0};
+    sqlite_app_inventory_checkpoint_observer checkpoint_observer_{nullptr};
 };
 
 class sqlite_app_inventory final : public app_inventory_port {
@@ -65,6 +80,9 @@ public:
         runtime_control_snapshot& _snapshot) const override;
 
 private:
+    void vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint _checkpoint) const noexcept;
+
     sqlite_app_inventory_config config_;
     sqlite3* database_{nullptr};
 };

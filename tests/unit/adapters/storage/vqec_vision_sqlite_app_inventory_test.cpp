@@ -1,10 +1,13 @@
 #include <cassert>
 #include <algorithm>
+#include <array>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <string>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "vqec_vision_app_manifest.hpp"
@@ -13,6 +16,16 @@
 namespace {
 
 using namespace vqec::vision::ai;
+
+sqlite_app_inventory_checkpoint g_crash_checkpoint =
+    sqlite_app_inventory_checkpoint::install_application_written;
+
+void vqec_vision_ai_unit_saitst_crash_at_checkpoint(
+    sqlite_app_inventory_checkpoint _checkpoint) noexcept {
+    if (_checkpoint == g_crash_checkpoint) {
+        (void)::kill(::getpid(), SIGKILL);
+    }
+}
 
 struct test_database {
     std::string directory_;
@@ -76,11 +89,30 @@ app_install_request vqec_vision_ai_unit_saitst_install_request() {
     return request;
 }
 
-app_authority_update vqec_vision_ai_unit_saitst_authority() {
+app_install_request vqec_vision_ai_unit_saitst_update_request(
+    std::uint64_t _expected_inventory_revision) {
+    auto update = vqec_vision_ai_unit_saitst_install_request();
+    update.expected_inventory_revision_ = _expected_inventory_revision;
+    update.configuration_revision_ = 2;
+    update.manifest_.app_version_ = "1.1.0";
+    update.manifest_.release_sequence_ = 2;
+    update.manifest_.rollback_predecessor_ = "1.0.0";
+    update.manifest_.components_[0].component_version_ = "1.1.0";
+    update.manifest_.components_[0].artifact_sha256_ =
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    update.components_[0].manifest_ = update.manifest_.components_[0];
+    update.components_[0].immutable_location_ =
+        "/tmp/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    return update;
+}
+
+app_authority_update vqec_vision_ai_unit_saitst_authority(
+    const std::string& _app_id = "security.fire_smoke_detection",
+    std::uint64_t _expected_entitlement_revision = 1) {
     app_authority_update update;
-    update.app_id_ = "security.fire_smoke_detection";
+    update.app_id_ = _app_id;
     update.source_id_ = "camera_front";
-    update.expected_entitlement_revision_ = 1;
+    update.expected_entitlement_revision_ = _expected_entitlement_revision;
     update.entitled_ = true;
     update.supported_ = true;
     update.compatible_ = true;
@@ -89,6 +121,176 @@ app_authority_update vqec_vision_ai_unit_saitst_authority() {
     update.output_scopes_ = {"security.fire_smoke.event"};
     update.reason_code_ = "ok";
     return update;
+}
+
+void vqec_vision_ai_unit_saitst_test_shared_component_reference_lifecycle() {
+    test_database database;
+    sqlite_app_inventory inventory(vqec_vision_ai_unit_saitst_config(database.path_));
+    assert(inventory.vqec_vision_ai_ports_apinv_open().code_ == status_code::ok);
+    runtime_control_snapshot snapshot;
+    auto first_authority = vqec_vision_ai_unit_saitst_authority();
+    assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
+               first_authority, snapshot)
+               .code_ == status_code::ok);
+    constexpr char g_second_app_id[] = "security.shared_component_fixture";
+    auto second_authority =
+        vqec_vision_ai_unit_saitst_authority(g_second_app_id, 2);
+    assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
+               second_authority, snapshot)
+               .code_ == status_code::ok);
+
+    auto first = vqec_vision_ai_unit_saitst_install_request();
+    assert(inventory.vqec_vision_ai_ports_apinv_install(first, snapshot).code_ ==
+        status_code::ok);
+    auto second = vqec_vision_ai_unit_saitst_install_request();
+    second.manifest_.app_id_ = g_second_app_id;
+    second.manifest_.usecase_id_ = g_second_app_id;
+    second.expected_inventory_revision_ = snapshot.inventory_revision_;
+    const auto second_installed =
+        inventory.vqec_vision_ai_ports_apinv_install(second, snapshot);
+    if (second_installed.code_ != status_code::ok) {
+        std::fprintf(stderr, "second fixture install failed: %s\n",
+            second_installed.message_.c_str());
+    }
+    assert(second_installed.code_ == status_code::ok);
+    assert(snapshot.associations_.size() == 2U);
+    const auto second_before = std::find_if(snapshot.associations_.begin(),
+        snapshot.associations_.end(), [&](const auto& _association) {
+            return _association.app_id_ == g_second_app_id;
+        });
+    assert(second_before != snapshot.associations_.end() &&
+        !second_before->components_.empty());
+    const auto shared_digest = second_before->components_[0].artifact_sha256_;
+
+    assert(inventory.vqec_vision_ai_ports_apinv_uninstall(
+               first.manifest_.app_id_, snapshot.inventory_revision_, snapshot)
+               .code_ == status_code::ok);
+    assert(snapshot.associations_.size() == 1U &&
+        snapshot.associations_[0].app_id_ == g_second_app_id);
+    assert(std::any_of(snapshot.associations_[0].components_.begin(),
+        snapshot.associations_[0].components_.end(),
+        [&shared_digest](const auto& _component) {
+            return _component.artifact_sha256_ == shared_digest;
+        }));
+
+    assert(inventory.vqec_vision_ai_ports_apinv_uninstall(
+               g_second_app_id, snapshot.inventory_revision_, snapshot)
+               .code_ == status_code::ok);
+    assert(snapshot.associations_.empty());
+}
+
+void vqec_vision_ai_unit_saitst_wait_for_crash(pid_t _child) {
+    int child_status = 0;
+    assert(::waitpid(_child, &child_status, 0) == _child);
+    assert(WIFSIGNALED(child_status));
+    assert(WTERMSIG(child_status) == SIGKILL);
+}
+
+void vqec_vision_ai_unit_saitst_test_install_crash_recovery() {
+    constexpr std::array<sqlite_app_inventory_checkpoint, 4> g_checkpoints{
+        sqlite_app_inventory_checkpoint::install_application_written,
+        sqlite_app_inventory_checkpoint::install_sources_written,
+        sqlite_app_inventory_checkpoint::install_components_written,
+        sqlite_app_inventory_checkpoint::install_revision_written};
+    for (const auto checkpoint : g_checkpoints) {
+        test_database database;
+        {
+            sqlite_app_inventory inventory(
+                vqec_vision_ai_unit_saitst_config(database.path_));
+            assert(inventory.vqec_vision_ai_ports_apinv_open().code_ ==
+                status_code::ok);
+            runtime_control_snapshot snapshot;
+            auto authority = vqec_vision_ai_unit_saitst_authority();
+            assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
+                       authority, snapshot)
+                       .code_ == status_code::ok);
+        }
+        g_crash_checkpoint = checkpoint;
+        const pid_t child = ::fork();
+        assert(child >= 0);
+        if (child == 0) {
+            auto config = vqec_vision_ai_unit_saitst_config(database.path_);
+            config.checkpoint_observer_ =
+                vqec_vision_ai_unit_saitst_crash_at_checkpoint;
+            sqlite_app_inventory inventory(config);
+            if (inventory.vqec_vision_ai_ports_apinv_open().code_ != status_code::ok) {
+                ::_exit(90);
+            }
+            runtime_control_snapshot snapshot;
+            const auto request = vqec_vision_ai_unit_saitst_install_request();
+            (void)inventory.vqec_vision_ai_ports_apinv_install(request, snapshot);
+            ::_exit(91);
+        }
+        vqec_vision_ai_unit_saitst_wait_for_crash(child);
+        sqlite_app_inventory recovered(
+            vqec_vision_ai_unit_saitst_config(database.path_));
+        assert(recovered.vqec_vision_ai_ports_apinv_open().code_ == status_code::ok);
+        runtime_control_snapshot snapshot;
+        assert(recovered.vqec_vision_ai_ports_apinv_load_snapshot(snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.inventory_revision_ == 1 && snapshot.associations_.empty());
+        const auto request = vqec_vision_ai_unit_saitst_install_request();
+        assert(recovered.vqec_vision_ai_ports_apinv_install(request, snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.inventory_revision_ == 2 && snapshot.associations_.size() == 1U);
+    }
+}
+
+void vqec_vision_ai_unit_saitst_test_update_crash_recovery() {
+    constexpr std::array<sqlite_app_inventory_checkpoint, 4> g_checkpoints{
+        sqlite_app_inventory_checkpoint::update_rollback_written,
+        sqlite_app_inventory_checkpoint::update_application_written,
+        sqlite_app_inventory_checkpoint::update_components_written,
+        sqlite_app_inventory_checkpoint::update_revision_written};
+    for (const auto checkpoint : g_checkpoints) {
+        test_database database;
+        {
+            sqlite_app_inventory inventory(
+                vqec_vision_ai_unit_saitst_config(database.path_));
+            assert(inventory.vqec_vision_ai_ports_apinv_open().code_ ==
+                status_code::ok);
+            runtime_control_snapshot snapshot;
+            auto authority = vqec_vision_ai_unit_saitst_authority();
+            assert(inventory.vqec_vision_ai_ports_apinv_update_authority(
+                       authority, snapshot)
+                       .code_ == status_code::ok);
+            const auto install = vqec_vision_ai_unit_saitst_install_request();
+            assert(inventory.vqec_vision_ai_ports_apinv_install(
+                       install, snapshot)
+                       .code_ == status_code::ok);
+        }
+        g_crash_checkpoint = checkpoint;
+        const pid_t child = ::fork();
+        assert(child >= 0);
+        if (child == 0) {
+            auto config = vqec_vision_ai_unit_saitst_config(database.path_);
+            config.checkpoint_observer_ =
+                vqec_vision_ai_unit_saitst_crash_at_checkpoint;
+            sqlite_app_inventory inventory(config);
+            if (inventory.vqec_vision_ai_ports_apinv_open().code_ != status_code::ok) {
+                ::_exit(92);
+            }
+            runtime_control_snapshot snapshot;
+            const auto update = vqec_vision_ai_unit_saitst_update_request(2);
+            (void)inventory.vqec_vision_ai_ports_apinv_update(update, snapshot);
+            ::_exit(93);
+        }
+        vqec_vision_ai_unit_saitst_wait_for_crash(child);
+        sqlite_app_inventory recovered(
+            vqec_vision_ai_unit_saitst_config(database.path_));
+        assert(recovered.vqec_vision_ai_ports_apinv_open().code_ == status_code::ok);
+        runtime_control_snapshot snapshot;
+        assert(recovered.vqec_vision_ai_ports_apinv_load_snapshot(snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.inventory_revision_ == 2 && snapshot.associations_.size() == 1U);
+        assert(snapshot.associations_[0].app_version_ == "1.0.0" &&
+            snapshot.associations_[0].release_sequence_ == 1);
+        const auto update = vqec_vision_ai_unit_saitst_update_request(2);
+        assert(recovered.vqec_vision_ai_ports_apinv_update(update, snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.inventory_revision_ == 3 &&
+            snapshot.associations_[0].app_version_ == "1.1.0");
+    }
 }
 
 void vqec_vision_ai_unit_saitst_test_lifecycle_and_restart() {
@@ -305,6 +507,9 @@ void vqec_vision_ai_unit_saitst_test_storage_security_and_corruption() {
 
 int main() {
     vqec_vision_ai_unit_saitst_test_lifecycle_and_restart();
+    vqec_vision_ai_unit_saitst_test_shared_component_reference_lifecycle();
+    vqec_vision_ai_unit_saitst_test_install_crash_recovery();
+    vqec_vision_ai_unit_saitst_test_update_crash_recovery();
     vqec_vision_ai_unit_saitst_test_scope_and_revision_fail_closed();
     vqec_vision_ai_unit_saitst_test_storage_security_and_corruption();
     return 0;

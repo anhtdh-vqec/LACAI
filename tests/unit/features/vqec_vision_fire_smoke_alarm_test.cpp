@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "vqec_vision_fire_smoke_factory.hpp"
 
@@ -230,6 +232,63 @@ void vqec_vision_ai_unit_fsatst_test_failure_preserves_output() {
     assert(output.frame_.frame_id_ == 99);
 }
 
+std::vector<feature_event> vqec_vision_ai_unit_fsatst_replay_golden_sequence() {
+    fire_smoke_factory factory;
+    std::unique_ptr<feature_processor_port> processor;
+    const auto feature = vqec_vision_ai_unit_fsatst_catalog_entry();
+    const auto config = vqec_vision_ai_unit_fsatst_processor_config();
+    const auto configuration = vqec_vision_ai_unit_fsatst_configuration();
+    assert(factory.vqec_vision_ai_ports_ftfac_create_processor(
+        feature, config, configuration, processor).code_ == status_code::ok);
+    assert(processor->vqec_vision_ai_ports_ftpro_reset_epoch(7).code_ ==
+        status_code::ok);
+    std::vector<feature_event> replay;
+    const std::vector<std::pair<std::uint64_t, bool>> sequence{
+        {1000000ULL, true}, {2000000ULL, true}, {102000000ULL, true},
+        {102500000ULL, false}, {104000000ULL, false}};
+    for (std::size_t index = 0; index < sequence.size(); ++index) {
+        auto input = vqec_vision_ai_unit_fsatst_batch(
+            index + 1U, sequence[index].first, sequence[index].second);
+        input.frame_.source_epoch_ = 7;
+        for (auto& observation : input.observations_) {
+            observation.frame_ = input.frame_;
+        }
+        feature_event_batch events;
+        assert(processor->vqec_vision_ai_ports_ftpro_process_observations(
+                   input, sequence[index].first, false, events)
+                   .code_ == status_code::ok);
+        replay.insert(replay.end(), events.events_.begin(), events.events_.end());
+    }
+    return replay;
+}
+
+void vqec_vision_ai_unit_fsatst_test_restart_replay_is_deterministic() {
+    const auto first = vqec_vision_ai_unit_fsatst_replay_golden_sequence();
+    const auto restarted = vqec_vision_ai_unit_fsatst_replay_golden_sequence();
+    assert(first.size() == 3U && restarted.size() == first.size());
+    for (std::size_t index = 0; index < first.size(); ++index) {
+        const auto& expected = first[index];
+        const auto& actual = restarted[index];
+        assert(actual.event_id_ == expected.event_id_);
+        assert(actual.evidence_request_id_ == expected.evidence_request_id_);
+        assert(actual.kind_ == expected.kind_);
+        assert(actual.frame_.frame_id_ == expected.frame_.frame_id_);
+        assert(actual.frame_.source_pts_ns_ == expected.frame_.source_pts_ns_);
+        assert(actual.episode_revision_ == expected.episode_revision_);
+        assert(actual.supersedes_episode_revision_ ==
+            expected.supersedes_episode_revision_);
+        assert(actual.episode_begin_ns_ == expected.episode_begin_ns_);
+        assert(actual.fields_.size() == expected.fields_.size());
+        for (std::size_t field = 0; field < expected.fields_.size(); ++field) {
+            assert(actual.fields_[field].schema_id_ ==
+                expected.fields_[field].schema_id_);
+            assert(actual.fields_[field].value_ == expected.fields_[field].value_);
+            assert(actual.fields_[field].confidence_ ==
+                expected.fields_[field].confidence_);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -238,5 +297,6 @@ int main() {
     vqec_vision_ai_unit_fsatst_test_gap_interrupts_once();
     vqec_vision_ai_unit_fsatst_test_one_confirmation_per_frame();
     vqec_vision_ai_unit_fsatst_test_failure_preserves_output();
+    vqec_vision_ai_unit_fsatst_test_restart_replay_is_deterministic();
     return 0;
 }

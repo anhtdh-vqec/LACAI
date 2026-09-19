@@ -428,14 +428,15 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 - [x] Wrong D-Bus sender/UID, stale revision, expired/revoked grant và app chưa installed không thể
   stage/install/configure/enable bằng direct call.
 - [ ] Power loss ở mỗi install/update commit point phục hồi current inventory hoặc candidate rõ,
-  không half-installed state.
+  không half-installed state. Tám checkpoint đã pass bằng process `SIGKILL` + reopen/retry dưới
+  WAL `synchronous=FULL`; electrical power-cut trên storage thật vẫn cần rig/owner test riêng.
 - [x] Disk full, FD close/change, App Manager/runtime restart, duplicate/reordered signal không mất
   committed operation hoặc tạo generation mơ hồ.
 - [x] Entitlement/config revision thay đổi chặn output đúng thời điểm và drain an toàn.
 
 ### 9.2. S04 functional và data
 
-- [ ] Cùng golden sequence tạo cùng incident lifecycle/event revisions sau restart/replay.
+- [x] Cùng golden sequence tạo cùng incident lifecycle/event revisions sau restart/replay.
 - [x] Thay alarm threshold/confirmation/clear/ROI/evidence policy qua App Manager có hiệu lực ở
   generation revision mới, không rebuild binary và không parse JSON trên hot path.
 - [x] Fire-only, smoke-only, đồng thời, flicker, overlap, source gap, epoch reset, config/model swap,
@@ -454,7 +455,7 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 - [x] Shared component reference count không unload/xóa blob còn generation/rollback khác dùng.
 - [ ] App Manager nạp được catalog đủ S01-S18, hiển thị đúng unsupported/not-installed/locked state
   và không có nhánh logic hardcode S04 trong resolver, inventory, D-Bus hoặc reconciler.
-- [ ] Hai fixture app dùng chung component chứng minh dependency/refcount generic; unknown app hoặc
+- [x] Hai fixture app dùng chung component chứng minh dependency/refcount generic; unknown app hoặc
   package tự khai capability bị từ chối theo registry authority.
 
 ### 9.4. Event/evidence

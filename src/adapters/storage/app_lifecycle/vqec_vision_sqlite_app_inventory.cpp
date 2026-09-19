@@ -616,6 +616,13 @@ sqlite_app_inventory::~sqlite_app_inventory() {
     }
 }
 
+void sqlite_app_inventory::vqec_vision_ai_stor_apinv_observe_checkpoint(
+    sqlite_app_inventory_checkpoint _checkpoint) const noexcept {
+    if (config_.checkpoint_observer_ != nullptr) {
+        config_.checkpoint_observer_(_checkpoint);
+    }
+}
+
 status sqlite_app_inventory::vqec_vision_ai_ports_apinv_open() {
     if (database_ != nullptr) {
         return {};
@@ -1036,6 +1043,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
         return !app_bound ? status{status_code::resource_exhausted,
             "app install binding failed"} : current;
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::install_application_written);
     for (std::size_t source_index = 0;
          source_index < _request.manifest_.requested_scopes_.sources_.size();
          ++source_index) {
@@ -1069,6 +1078,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
                 status{status_code::io_error, "app source binding failed"} : current;
         }
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::install_sources_written);
     for (const auto& installed_component : _request.components_) {
         const auto& component = installed_component.manifest_;
         const auto declared = std::find_if(_request.manifest_.components_.begin(),
@@ -1152,6 +1163,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
                 "app component detail binding failed"} : current;
         }
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::install_components_written);
     current = vqec_vision_ai_stor_apinv_update_revisions(database_,
         snapshot_revision + 1U, inventory_revision + 1U,
         entitlement_revision, desired_revision);
@@ -1159,6 +1172,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current;
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::install_revision_written);
     return vqec_vision_ai_stor_apinv_finish_mutation(database_, _snapshot);
 }
 
@@ -1384,6 +1399,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return {status_code::io_error, "cannot retain rollback component generation"};
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::update_rollback_written);
     sqlite_statement clear_current_components;
     current = vqec_vision_ai_stor_apinv_prepare(database_,
         "DELETE FROM app_components WHERE app_id=?", clear_current_components);
@@ -1443,6 +1460,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return {status_code::io_error, "cannot publish updated application generation"};
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::update_application_written);
     for (const auto& installed_component : _request.components_) {
         const auto& component = installed_component.manifest_;
         sqlite_statement component_statement;
@@ -1543,6 +1562,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current;
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::update_components_written);
     current = vqec_vision_ai_stor_apinv_update_revisions(database_,
         snapshot_revision + 1U, inventory_revision + 1U,
         entitlement_revision, desired_revision);
@@ -1550,6 +1571,8 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current;
     }
+    vqec_vision_ai_stor_apinv_observe_checkpoint(
+        sqlite_app_inventory_checkpoint::update_revision_written);
     return vqec_vision_ai_stor_apinv_finish_mutation(database_, _snapshot);
 }
 

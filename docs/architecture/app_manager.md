@@ -81,6 +81,13 @@ grant, expiry, source and requested-output subset before reading any large compo
 inventory repeats the same checks inside the install commit transaction. Consequently knowledge
 of a package path or direct D-Bus access cannot populate the private model store before grant.
 
+The SQLite adapter exposes an adapter-private, null-by-default mutation checkpoint observer only
+for deterministic crash testing. The recovery test kills its own process with `SIGKILL` after the
+application, source/component, rollback-generation and revision writes for both install and
+update. Reopen must recover the previous committed revision, after which the same mutation must
+commit normally. This establishes process-crash atomicity under WAL plus `synchronous=FULL`; it is
+not evidence for an electrical power cut on a particular storage device.
+
 ## Runtime snapshot
 
 The runtime snapshot is complete, bounded and revisioned. Each association carries app/source

@@ -286,7 +286,9 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: the expanded eSDK/QEMU suite passes 167/167 CTest. On board `.102`, the
+Current evidence: the expanded eSDK/QEMU suite passes 168/168 CTest, including the bounded
+S01–S18 catalog, deterministic S04 replay, two-app shared-component lifecycle and eight
+install/update process-crash checkpoints. On board `.102`, the
 S04/App Manager/output candidate passes nine focused native tests, the asynchronous
 install/update/rollback/uninstall/reinstall lifecycle and ten five-second disable/enable cycles.
 The current workload publishes H.264 1920x1080 at 30.124 FPS. Over the final five-minute sample,
