@@ -61,6 +61,7 @@ same API counts as one owner. Do not reuse an exported prefix for a different me
 | src/features/heatmap | heat |
 | src/features/counting | count |
 | src/features/traffic | traff |
+| src/features/fire_smoke | fires |
 | tests/unit | unit |
 | tests/contract | ctest |
 | tests/golden | gold |
@@ -613,6 +614,17 @@ Source perception factory registrations (source delivered):
 | tests/contract/application/vqec_vision_source_perception_factory_test.cpp | spfct | vqec_vision_ai_ctest_spfct_ |
 
 Runtime composition factory registrations (source delivered):
+
+Fire/smoke feature registrations (source delivered):
+
+| Logical owner path | file_id | Prefix |
+|---|---|---|
+| src/features/fire_smoke/vqec_vision_fire_smoke_alarm.hpp | fsalm | vqec_vision_ai_fires_fsalm_ |
+| src/features/fire_smoke/vqec_vision_fire_smoke_alarm.cpp | fsalm | vqec_vision_ai_fires_fsalm_ |
+| src/features/fire_smoke/vqec_vision_fire_smoke_factory.hpp | fsfac | vqec_vision_ai_fires_fsfac_ |
+| src/features/fire_smoke/vqec_vision_fire_smoke_factory.cpp | fsfac | vqec_vision_ai_fires_fsfac_ |
+| tests/unit/features/vqec_vision_fire_smoke_alarm_test.cpp | fsatst | vqec_vision_ai_unit_fsatst_ |
+
 
 | Logical owner path | file_id | Prefix |
 |---|---|---|

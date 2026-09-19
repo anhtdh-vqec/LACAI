@@ -19,7 +19,7 @@ include_root_list=(include src
     src/runtime/model_registry src/runtime/feature_manager
     src/runtime/scheduler src/runtime/admission src/runtime/lifecycle
     src/perception/detection src/perception/tracking src/perception/attributes
-    src/perception/embedding src/adapters/zvec)
+    src/perception/embedding src/features/fire_smoke src/adapters/zvec)
 
 issues=0
 count=0

@@ -39,6 +39,14 @@ endif()
 
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
+    add_executable(vqec_vision_ai_fire_smoke_alarm_test
+        unit/features/vqec_vision_fire_smoke_alarm_test.cpp)
+    target_link_libraries(vqec_vision_ai_fire_smoke_alarm_test
+        PRIVATE vqec_vision_ai_fire_smoke_feature)
+    set_target_properties(vqec_vision_ai_fire_smoke_alarm_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME fire_smoke_alarm_lifecycle
+        COMMAND vqec_vision_ai_fire_smoke_alarm_test)
     target_link_libraries(vqec_vision_ai_feature_processor_registry_test
         PRIVATE vqec_vision_ai_feature_runtime)
     set_target_properties(vqec_vision_ai_feature_processor_registry_test

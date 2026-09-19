@@ -1,5 +1,10 @@
 {
   "schema_version": 1,
+  "identity": {
+    "app_id": "security.fire_smoke_detection",
+    "expected_model_id": "yolo11n_fire_smoke",
+    "expected_model_version": "1.0"
+  },
   "classes": {
     "fire_enabled": true,
     "smoke_enabled": true,
@@ -44,4 +49,3 @@
     "aggregation_dimensions": ["class", "severity", "source", "zone", "hour", "day", "month"]
   }
 }
-

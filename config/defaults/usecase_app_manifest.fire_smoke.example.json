@@ -33,8 +33,8 @@
       "component_version": "1.0",
       "component_type": "configuration",
       "target_id": "qcs6490_qlinux_1_8",
-      "artifact_sha256": "0544d053af2f8d995ebe9bea61521c3937bb5312dbc6966a803a249f7fc73366",
-      "semantic_contract_sha256": "7134f4783dc72e8c6acccb7a9826a180eae84e78f896bd534c91e9ce04916be7",
+      "artifact_sha256": "07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935",
+      "semantic_contract_sha256": "564e5afc67dc595def9bf20552dee1526dcf4985ef37275bf643a79aa19e9405",
       "required": true
     }
   ],
@@ -48,7 +48,7 @@
   "configuration": {
     "schema_id": "security.fire_smoke.configuration",
     "schema_version": 1,
-    "defaults_sha256": "0544d053af2f8d995ebe9bea61521c3937bb5312dbc6966a803a249f7fc73366"
+    "defaults_sha256": "07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935"
   },
   "requested_scopes": {
     "sources": ["camera_front"],

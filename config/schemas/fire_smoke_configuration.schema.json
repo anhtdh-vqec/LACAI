@@ -4,9 +4,18 @@
   "title": "Fire and smoke application configuration v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "classes", "temporal", "spatial", "incident", "severity", "evidence", "metadata"],
+  "required": ["schema_version", "identity", "classes", "temporal", "spatial", "incident", "severity", "evidence", "metadata"],
   "properties": {
     "schema_version": {"const": 1},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["app_id", "expected_model_id", "expected_model_version"],
+      "properties": {
+        "app_id": {"const": "security.fire_smoke_detection"},
+        "expected_model_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "expected_model_version": {"type": "string", "minLength": 1, "maxLength": 64}
+      }
+    },
     "classes": {
       "type": "object", "additionalProperties": false,
       "required": ["fire_enabled", "smoke_enabled", "fire_alarm_confidence", "smoke_alarm_confidence", "minimum_region_area_ratio"],
@@ -81,4 +90,3 @@
     }
   }
 }
-

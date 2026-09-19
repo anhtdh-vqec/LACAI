@@ -87,6 +87,8 @@ endif()
 
 add_subdirectory(src/core)
 
+add_subdirectory(src/features)
+
 add_subdirectory(src/perception)
 if(VQEC_VISION_AI_ENABLE_ZVEC)
     add_subdirectory(src/adapters/zvec)

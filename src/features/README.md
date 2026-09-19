@@ -18,6 +18,7 @@ Business-capability packages that consume neutral perception and emit bounded fe
 
 | Path | Purpose |
 |---|---|
+| `fire_smoke/` | S04 typed temporal fire/smoke incident processor |
 | `abandoned_object/` through `suspicious_object/` | Security-camera feature packages |
 | `traffic/` | Traffic-camera feature family boundary |
 
