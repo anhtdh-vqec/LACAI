@@ -99,6 +99,12 @@ trước khi overwrite. Không dùng video ring shared như metadata command ABI
 
 ## 6. Task thực hiện
 
+Usecase product đầu tiên đi qua E01–E07 là `security.fire_smoke_detection`. Envelope, outbox,
+ACK và transport vẫn generic; chỉ S04 payload mapping được enable trong lát cắt đầu tiên. Chi tiết
+thứ tự tích hợp App Manager, S04 event episode, P2 metadata và reference/FW receiver nằm tại
+[kế hoạch product slice khói/lửa](fire_smoke_product_slice_plan.md). Reference receiver chỉ tạo
+bằng chứng AI-side, không thay released-FW acceptance ở E07.
+
 | Task | Owner | Đầu ra | Tiêu chí kết thúc |
 |---|---|---|---|
 | E01 | AI APP + BSP+FW | C07 wire schema/ACK/error/state RFC | Hai lead ký envelope, max bounds và version policy |
@@ -137,6 +143,7 @@ E07 là input integration plan; chỉ sau released-FW receipt mới đóng C07.
 
 ## See also
 
+- [Fire/smoke product slice](fire_smoke_product_slice_plan.md)
 - [Architecture improvement master plan](README.md)
 - [Contract and team scope plan](contract_and_team_scope.md)
 - [Feature event dispatch](../../architecture/feature_event_dispatch.md)

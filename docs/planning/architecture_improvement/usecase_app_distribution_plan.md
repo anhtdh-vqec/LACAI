@@ -357,6 +357,12 @@ Backend/UI dùng `ListApplications` làm product view theo stable `app_id`; khô
 
 ## 8. Kế hoạch triển khai
 
+Lát cắt triển khai đầu tiên là `security.fire_smoke_detection`. Trình tự tách service main,
+đưa configuration payload vào processor, xây App Manager production và kiểm thử end-to-end
+được khóa tại [kế hoạch product slice khói/lửa](fire_smoke_product_slice_plan.md). UAP-01–UAP-10
+vẫn là contract tổng quát cho S01-S18; việc S04 pass không được dùng để bỏ các gate supply-chain,
+recovery hoặc shared-dependency bên dưới.
+
 | Task | Owner | Đầu ra | Tiêu chí hoàn thành |
 |---|---|---|---|
 | UAP-01 | AI APP lead | ADR app-as-SKU/shared-runtime, D-Bus facade, authority matrix và backend conformance profile | AI APP khóa owner, non-goals, peer auth, trust/rollback decision; backend không có quyền đổi semantics |
@@ -407,7 +413,8 @@ giả trước khi authority/state machine được duyệt.
 
 ### Product và board
 
-- [ ] Install/enable/disable/update/uninstall chạy trên `.98` với exact digests và audit revisions.
+- [ ] Install/enable/disable/update/uninstall chạy trên QCS6490 được xác thực theo board record,
+  với exact digests và audit revisions.
 - [ ] Test ít nhất một cặp app chia sẻ detector và một app cascade; model load/unload khớp expectation.
 - [ ] Long soak theo release workload không tăng RSS/FD/thread, không orphan staging/receipt và không
   làm giảm FPS/CPU gate đã ký ngoài budget mới được chấp thuận.
@@ -441,6 +448,7 @@ giả trước khi authority/state machine được duyệt.
 
 ## See also
 
+- [Fire/smoke product slice](fire_smoke_product_slice_plan.md)
 - [Contract và phạm vi ba team](contract_and_team_scope.md)
 - [Integration contract registry](../../contracts/integration_contract_registry.md)
 - [Current usecase activation seam](../../contracts/fw_usecase_control.md)

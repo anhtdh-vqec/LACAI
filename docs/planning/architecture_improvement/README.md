@@ -1225,6 +1225,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
 | [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | Plan 1 accepted | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control; backend là peer theo contract AI APP |
+| [1B. Product slice khói/lửa và App Manager](fire_smoke_product_slice_plan.md) | AI APP lead | Plan 0/1 accepted; thực hiện M0 refactor trước functional work | Tách service main, App Manager production dùng chung S01-S18 và S04 end-to-end qua config/event/metadata/evidence |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | **Accepted 2026-09-19**; ADR 0009 accepted | Composed v1 service, receipt-safe retention, board fault gates, 142/142 eSDK và exact 5-minute candidate pass |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
@@ -1237,9 +1238,9 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Plan 1 và scope Plan 4 đã accepted theo gate riêng. Plan 2 đã có service, trajectory shards,
-  episode/rollup và concurrent board evidence nhưng chưa đóng vì composition, retention và fault
-  gates; event/integration vẫn là đề xuất.
+- Plan 1, Plan 2 và scope Plan 4 đã accepted theo gate riêng. Plan 1A/1B và event/integration
+  vẫn là đề xuất; S04 detector chạy được không đồng nghĩa App Manager, semantic alarm hoặc
+  evidence đã production-ready.
 - Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
   vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
 - SQLite packed shards + materialized rollup đã qua workload `FULL` 5 phút và là lựa chọn edge v1;

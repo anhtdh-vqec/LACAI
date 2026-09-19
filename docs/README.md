@@ -67,6 +67,9 @@ unfinished work and do not carry current-capability claims.
   portable DSP offload with validation gates.
 - [Usecase app distribution plan](planning/architecture_improvement/usecase_app_distribution_plan.md):
   app-as-SKU/shared-runtime packaging, entitlement-gated download and atomic install lifecycle.
+- [Fire/smoke product slice plan](planning/architecture_improvement/fire_smoke_product_slice_plan.md):
+  detailed sequence to split the service main, deliver the AI-owned App Manager and productize
+  S04 through configuration, metadata and evidence.
 
 ## Testing
 
