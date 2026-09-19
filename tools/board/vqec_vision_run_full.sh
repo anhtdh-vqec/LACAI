@@ -24,6 +24,7 @@ g_runtime_step_interval_us=${LACAI_RUNTIME_STEP_INTERVAL_US:-8000}
 g_service=${LACAI_SERVICE:-$g_root/bin/vqec_ai_vision_applications}
 g_app_manager=${LACAI_APP_MANAGER:-$g_root/bin/vqec_vision_app_manager}
 g_app_control=${LACAI_APP_CONTROL:-$g_root/bin/vqec_vision_app_manager_control}
+g_evidence_probe=${LACAI_EVIDENCE_PROBE:-$g_root/bin/vqec_vision_evidence_probe}
 g_dsp_v1_dir=${LACAI_DSP_V1_DIR:-$g_root/dsp/v1}
 g_deployment=${LACAI_DEPLOYMENT:-$g_root/config/deployment_full.json}
 g_model_catalog=${LACAI_MODEL_CATALOG:-$g_root/config/model_catalog.json}
@@ -347,6 +348,68 @@ vqec_vision_ai_tools_rnful_stress_toggle() {
          "baseline_rss_kib=$baseline_rss_kib final_rss_kib=$final_rss_kib"
 }
 
+vqec_vision_ai_tools_rnful_configure() {
+    vqec_vision_ai_tools_rnful_require_file "$g_app_control"
+    vqec_vision_ai_tools_rnful_require_file "$g_app_configuration"
+    vqec_vision_ai_tools_rnful_require_file "$g_run_dir/app_bus.address"
+    DBUS_SESSION_BUS_ADDRESS=$(sed -n '1p' "$g_run_dir/app_bus.address")
+    export DBUS_SESSION_BUS_ADDRESS
+    service_pid=$(sed -n '1p' "$g_run_dir/service.pid" 2>/dev/null || true)
+    app_manager_pid=$(sed -n '1p' "$g_run_dir/app_manager.pid" 2>/dev/null || true)
+    if [ -z "$service_pid" ] || ! kill -0 "$service_pid" 2>/dev/null ||
+       [ -z "$app_manager_pid" ] || ! kill -0 "$app_manager_pid" 2>/dev/null; then
+        echo "service and App Manager must be running before configure" >&2
+        return 1
+    fi
+    vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
+    expected_revision=$(vqec_vision_ai_tools_rnful_association_field configuration_revision)
+    expected_digest=$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)
+    before=$(vqec_vision_ai_tools_rnful_ring_sequence 2>/dev/null || true)
+    before=${before:-0}
+    vqec_vision_ai_tools_rnful_control configure --app-id "$g_app_id" \
+        --configuration "$g_app_configuration" \
+        --configuration-sha256 "$expected_digest" \
+        --expected-revision "$expected_revision" >/dev/null
+    expected_revision=$((expected_revision + 1))
+    wait_count=0
+    wait_limit=$((g_preview_ready_timeout_seconds * 10))
+    while [ "$wait_count" -lt "$wait_limit" ]; do
+        vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
+        current_revision=$(vqec_vision_ai_tools_rnful_association_field configuration_revision)
+        current_digest=$(vqec_vision_ai_tools_rnful_association_field configuration_sha256)
+        after=$(vqec_vision_ai_tools_rnful_ring_sequence 2>/dev/null || true)
+        after=${after:-0}
+        if [ "$current_revision" = "$expected_revision" ] &&
+           [ "$current_digest" = "$expected_digest" ] &&
+           [ "$after" -gt "$before" ]; then
+            echo "configuration_revision=$current_revision digest=$current_digest "\
+                 "ring_before=$before ring_after=$after"
+            return 0
+        fi
+        if ! kill -0 "$service_pid" 2>/dev/null; then
+            echo "service stopped while applying configuration" >&2
+            return 1
+        fi
+        sleep 0.1
+        wait_count=$((wait_count + 1))
+    done
+    echo "configuration committed but runtime preview did not reconcile in time" >&2
+    return 1
+}
+
+vqec_vision_ai_tools_rnful_probe_evidence() {
+    vqec_vision_ai_tools_rnful_require_file "$g_evidence_probe"
+    if [ ! -S "$g_evidence_socket" ]; then
+        echo "evidence receiver socket is unavailable: $g_evidence_socket" >&2
+        return 1
+    fi
+    request_id="evidence.probe.$(date +%s)"
+    "$g_evidence_probe" --socket "$g_evidence_socket" \
+        --outbox "$g_run_dir/evidence_probe.db" \
+        --source-id "$g_app_source_id" --request-id "$request_id" \
+        --peer-uid "$g_evidence_peer_uid" --timeout-ms 5000
+}
+
 case "$g_action" in
     stop)
         vqec_vision_ai_tools_rnful_stop_all
@@ -368,13 +431,23 @@ case "$g_action" in
         echo "LACAI App Manager toggle stress passed"
         exit 0
         ;;
+    configure)
+        vqec_vision_ai_tools_rnful_configure
+        echo "LACAI App Manager configuration reconcile passed"
+        exit 0
+        ;;
+    evidence-probe)
+        vqec_vision_ai_tools_rnful_probe_evidence
+        echo "LACAI evidence reference flow passed"
+        exit 0
+        ;;
     restart)
         vqec_vision_ai_tools_rnful_stop_all
         ;;
     start)
         ;;
     *)
-        echo "usage: $0 [start|stop|restart|status|logs|stress]" >&2
+        echo "usage: $0 [start|stop|restart|status|logs|stress|configure|evidence-probe]" >&2
         exit 2
         ;;
 esac

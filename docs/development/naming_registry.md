@@ -691,6 +691,7 @@ App lifecycle registrations (source delivered):
 | src/app/management/vqec_vision_app_manager_main.cpp | amain | `main` entrypoint only |
 | tests/unit/application/vqec_vision_app_manager_options_test.cpp | amotst | vqec_vision_ai_unit_amotst_ |
 | tools/diagnostics/vqec_vision_app_manager_control.cpp | amctl | vqec_vision_ai_tools_amctl_ (`main` entrypoint exception) |
+| tools/diagnostics/vqec_vision_evidence_probe.cpp | evprb | vqec_vision_ai_tools_evprb_ (`main` entrypoint exception) |
 | tools/fixtures/vqec_vision_sign_app_fixture.py | apsig | vqec_vision_ai_tools_apsig_ |
 | tools/fixtures/vqec_vision_evidence_receiver.py | evrcv | vqec_vision_ai_tools_evrcv_ |
 

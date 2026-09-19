@@ -130,6 +130,18 @@ target_link_libraries(vqec_vision_ai_service_output_runtime PUBLIC
 set_target_properties(vqec_vision_ai_service_output_runtime
     PROPERTIES CXX_EXTENSIONS OFF)
 
+add_executable(vqec_vision_evidence_probe
+    ${CMAKE_SOURCE_DIR}/tools/diagnostics/vqec_vision_evidence_probe.cpp)
+target_include_directories(vqec_vision_evidence_probe PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_output>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
+target_link_libraries(vqec_vision_evidence_probe PRIVATE
+    vqec_vision_ai_evidence_service
+    vqec_vision_ai_sqlite_evidence_outbox
+    vqec_vision_ai_evidence_uds_client)
+set_target_properties(vqec_vision_evidence_probe PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     pipeline/vqec_vision_camera_graph_pump.cpp
     session/vqec_vision_camera_session.cpp)
