@@ -605,6 +605,7 @@ modify the repository.
 | tests/contract/adapters/qualcomm/vqec_vision_plugin_graph_test.cpp | pgtst | vqec_vision_ai_ctest_pgtst_ |
 | tests/contract/adapters/qualcomm/vqec_vision_graph_lifecycle_test.cpp | gltst | vqec_vision_ai_ctest_gltst_ |
 | tests/unit/adapters/camera/vqec_vision_camera_control_test.cpp | cctst | vqec_vision_ai_unit_cctst_ |
+| tests/unit/adapters/camera/vqec_vision_dbus_rpc_test.cpp | dbrst | vqec_vision_ai_unit_dbrst_ |
 | tests/unit/adapters/camera/vqec_vision_raw_source_resolver_test.cpp | rsrst | vqec_vision_ai_unit_rsrst_ |
 
 vqec_vision_frame_source.cpp activates the reserved camer/frsrc owner. The received_frame

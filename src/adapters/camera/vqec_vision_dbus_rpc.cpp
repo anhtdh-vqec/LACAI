@@ -44,6 +44,13 @@ status vqec_vision_ai_camer_dbrpc_map_error(const GError* _error) {
             g_error_matches(_error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED)) {
             return {status_code::unauthorized, "Camera D-Bus access denied"};
         }
+        if (g_error_matches(_error, G_DBUS_ERROR, G_DBUS_ERROR_SERVICE_UNKNOWN) ||
+            g_error_matches(_error, G_DBUS_ERROR, G_DBUS_ERROR_NAME_HAS_NO_OWNER)) {
+            // The bus proved that no Camera Service owner received the mutation. This is a
+            // recoverable dependency outage, not an ambiguous I/O failure that must drain
+            // the acquisition cycle.
+            return {status_code::source_lost, "Camera D-Bus service has no owner"};
+        }
     }
     return {status_code::io_error, "Camera D-Bus operation failed; reconcile pending mutation"};
 }

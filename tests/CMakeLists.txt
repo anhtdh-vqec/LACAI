@@ -972,6 +972,17 @@ add_test(NAME app_manager_options
     target_link_libraries(vqec_vision_ai_camera_control_test PRIVATE vqec_vision_ai_camera_control)
     set_target_properties(vqec_vision_ai_camera_control_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME camera_control_state COMMAND vqec_vision_ai_camera_control_test)
+    if(TARGET vqec_vision_ai_camera_dbus)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(camera_dbus_test_gio REQUIRED IMPORTED_TARGET gio-2.0)
+        add_executable(vqec_vision_ai_dbus_rpc_test
+            unit/adapters/camera/vqec_vision_dbus_rpc_test.cpp)
+        target_link_libraries(vqec_vision_ai_dbus_rpc_test
+            PRIVATE vqec_vision_ai_camera_dbus PkgConfig::camera_dbus_test_gio)
+        set_target_properties(vqec_vision_ai_dbus_rpc_test PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME camera_dbus_ownerless_retry COMMAND vqec_vision_ai_dbus_rpc_test)
+        set_tests_properties(camera_dbus_ownerless_retry PROPERTIES TIMEOUT 5)
+    endif()
     if(TARGET vqec_vision_ai_gst_frame_bridge)
         find_package(Threads REQUIRED)
         # Separate binary: fixture entrypoint cannot be linked into the production backend.
