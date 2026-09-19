@@ -51,7 +51,9 @@ src/
 ├── app/
 │   ├── cascade  composition  pipeline  platform  service  session  supervision
 └── adapters/
-    ├── camera  fw_control  fw_output  storage  zvec  reference
+    ├── camera  fw_output  zvec  reference
+    ├── fw_control/{app_manager,enrollment,usecase}
+    ├── storage/{app_lifecycle,evidence,identity,metadata}
     ├── qualcomm/
     │   ├── dsp/host  dsp/v1  dsp/legacy  gstreamer  media  qnn
     └── <future vendor adapter only after its SDK and contract are in scope>
@@ -86,6 +88,21 @@ Within `src/adapters/qualcomm/`:
 | `dsp/host/` | ARM-side FastRPC transport, shared-buffer lifetime and port adapters |
 | `dsp/v1/` | Canonical LACAI v1 generic DSP wire/service/skeleton |
 | `dsp/legacy/` | Frozen pre-baseline compatibility material pending removal/owner decision |
+
+Within the non-vendor integration adapters:
+
+| Directory | Owns |
+|---|---|
+| `storage/app_lifecycle/` | Immutable application content and transactional lifecycle inventory |
+| `storage/metadata/` | Transactional metadata plus high-rate spatiotemporal detail and projections |
+| `storage/evidence/` | Durable evidence command/receipt outbox |
+| `storage/identity/` | Encrypted authoritative face-gallery persistence |
+| `fw_control/app_manager/` | AI-owned application lifecycle D-Bus facade |
+| `fw_control/enrollment/` | Enrollment D-Bus and authorized image-FD acquisition |
+| `fw_control/usecase/` | Legacy desired-state compatibility D-Bus facade |
+
+These leaf directories are physical ownership boundaries. Existing `stor` and `fwctl` symbol
+prefixes remain stable; a physical move does not create a new public ABI or rename functions.
 
 ## Dependency direction
 
@@ -141,6 +158,9 @@ Before adding a file:
   released-FW, DSP deployment, accuracy, thermal or long-run acceptance.
 - `include/` remains intentionally grouped by public API kind to avoid gratuitous include-path
   breakage. A future split requires an approved compatibility/migration decision.
+- The large SQLite implementations remain isolated behind narrow ports, but splitting their SQL,
+  migration and projection internals is separate behavior-sensitive work; directory cleanup does
+  not pretend that such a split has already happened.
 - Tool filenames remain stable, while role directories make host-only checks, reproducible
   builds, target probes, optional diagnostics and compatibility fixtures distinguishable.
 - The Qualcomm legacy DSP subtree is isolated but not approved as a production generic ABI.

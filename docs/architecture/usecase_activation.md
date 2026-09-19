@@ -12,7 +12,7 @@ observation remain open. **Layer:** runtime.
 **Source:** `src/core/features/vqec_vision_usecase_activation.cpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_config.{hpp,cpp}`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.{hpp,cpp}`,
-`src/adapters/fw_control/vqec_vision_usecase_control_dbus.{hpp,cpp}`.
+`src/adapters/fw_control/usecase/vqec_vision_usecase_control_dbus.{hpp,cpp}`.
 
 ## Responsibility
 

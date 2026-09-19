@@ -3,8 +3,8 @@
 Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata,
 version 1 sharded spatiotemporal store and application lifecycle state/content.
 
-- **Status:** logic-tested — metadata v1 is accepted; gallery, application inventory and immutable
-  application content keep their own board/release gates
+- **Status:** logic-tested — metadata v1 is accepted; lifecycle, evidence, identity and metadata
+  implementations are physically isolated behind their neutral ports
 - **Layer:** adapters
 - **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`, `apinv`, `apcst`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
@@ -30,15 +30,12 @@ version 1 sharded spatiotemporal store and application lifecycle state/content.
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_encrypted_face_gallery_store.cpp` | OpenSSL AES-256-GCM store, key lifecycle, lock/CAS and atomic replacement |
-| `vqec_vision_encrypted_face_gallery_store.hpp` | Adapter-private configuration and neutral store implementation |
-| `vqec_vision_sqlite_metadata_store.cpp` | SQLite WAL record/outbox transaction and authorized query facade |
-| `vqec_vision_sqlite_evidence_outbox.cpp` | Durable deduplicated evidence command and receipt journal |
-| `vqec_vision_sqlite_metadata_store.hpp` | Adapter configuration and blocking storage API |
-| `vqec_vision_spatiotemporal_store.cpp` | SQLite catalog, packed detail shards, association revisions, recovery and bounded queries |
-| `vqec_vision_spatiotemporal_store.hpp` | Store configuration, quota, stats and blocking storage API |
-| `vqec_vision_sqlite_app_inventory.*` | Transactional app/config/authority/desired inventory and runtime snapshot |
-| `vqec_vision_app_content_store.*` | Bounded SHA-256-addressed immutable blob staging, recovery and removal |
+| `identity/vqec_vision_encrypted_face_gallery_store.*` | AES-256-GCM gallery store, key lifecycle, lock/CAS and atomic replacement |
+| `metadata/vqec_vision_sqlite_metadata_store.*` | SQLite WAL record/outbox transaction and authorized query facade |
+| `metadata/vqec_vision_spatiotemporal_store*` | Catalog, packed detail shards, associations, projections and bounded queries |
+| `evidence/vqec_vision_sqlite_evidence_outbox.*` | Durable deduplicated evidence command and receipt journal |
+| `app_lifecycle/vqec_vision_sqlite_app_inventory.*` | Transactional app/config/authority/desired inventory and operation journal |
+| `app_lifecycle/vqec_vision_app_content_store.*` | Bounded SHA-256-addressed immutable blob staging, recovery and removal |
 
 ## Key and file layout
 
@@ -64,10 +61,9 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - Spatiotemporal shards use source PTS partitions and blocking calls behind the single metadata
   worker. Episode/contribution projections and materialized rollups are delivered. SIGKILL,
   disk-full, corruption and cancellation pass; long power/flash/thermal soak remains release work.
-- The content store has direct eSDK/QEMU atomicity, digest, quota, restart and permission coverage,
-  but App Manager package ingest and inventory generation references are not wired yet. Only the
-  inventory owner may request removal after proving no current or rollback generation refers to a
-  blob.
+- The content store is wired to App Manager package ingest and inventory generation references.
+  Safe garbage collection still requires the inventory owner to prove no current or rollback
+  generation refers to a blob.
 
 ## See also
 

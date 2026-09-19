@@ -83,6 +83,8 @@ logical symbol owner. They do not create a second prefix or rename existing func
 | `src/core/{configuration,features,inference,media,memory,output,perception}` | `core` |
 | `src/app/{cascade,composition,pipeline,platform,service,session,supervision}` | `appl` |
 | `src/outputs/{events,media}` | `outpt` |
+| `src/adapters/storage/{app_lifecycle,evidence,identity,metadata}` | `stor` |
+| `src/adapters/fw_control/{app_manager,enrollment,usecase}` | `fwctl` |
 | `src/adapters/qualcomm/{dsp/host,dsp/v1,dsp/legacy,gstreamer,media,qnn}` | `qcom` |
 | `tests/unit/{core,application,runtime,perception,adapters/**}` | `unit` |
 | `tests/contract/{core,application,runtime,perception,outputs,adapters/**}` | `ctest` |
@@ -177,7 +179,7 @@ Usecase-control port
 interface prefix `vqec_vision_ai_ports_ucctl_`. Serialized manager
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp` uses file_id `ucmgr`,
 prefix `vqec_vision_ai_ftmgr_ucmgr_`; its unit test uses file_id `ucmtst`. D-Bus v1 adapter
-`src/adapters/fw_control/vqec_vision_usecase_control_dbus.cpp` uses file_id `ucdbs`, prefix
+`src/adapters/fw_control/usecase/vqec_vision_usecase_control_dbus.cpp` uses file_id `ucdbs`, prefix
 `vqec_vision_ai_fwctl_ucdbs_`; its private-bus wire test uses file_id `ucdtst`.
 Runtime D-Bus integration tool `tools/fixtures/vqec_vision_usecase_runtime_dbus_test.py`
 uses file_id `ucrtst`, prefix `vqec_vision_ai_tools_ucrtst_`.
@@ -228,7 +230,7 @@ Image path authorization port
 and interface prefix `vqec_vision_ai_ports_ipath_`. Face image detector/cascade interfaces
 use prefixes `vqec_vision_ai_ports_fidet_` and `vqec_vision_ai_ports_ficas_`.
 POSIX enrollment image authorizer
-`src/adapters/fw_control/vqec_vision_image_path_authorizer.cpp` uses file_id `ipath`,
+`src/adapters/fw_control/enrollment/vqec_vision_image_path_authorizer.cpp` uses file_id `ipath`,
 prefix `vqec_vision_ai_fwctl_ipath_`; its test uses file_id `ipatst`.
 
 Recognition policy contract: `include/vqec/vision/ai/contracts/perception/vqec_vision_recognition.hpp`.
@@ -249,7 +251,7 @@ controller `src/perception/embedding/vqec_vision_face_enrollment_controller.cpp`
 file_id `fenrc`, prefix `vqec_vision_ai_embed_fenrc_`; DBus adapters must remain behind
 this port.
 
-DBus server `src/adapters/fw_control/vqec_vision_face_enrollment_dbus.cpp` uses file_id
+DBus server `src/adapters/fw_control/enrollment/vqec_vision_face_enrollment_dbus.cpp` uses file_id
 `fedbs`, prefix `vqec_vision_ai_fwctl_fedbs_`. Its private-bus integration test
 `tests/unit/adapters/fw_control/vqec_vision_face_enrollment_dbus_test.cpp` uses file_id `fdbst`, prefix
 `vqec_vision_ai_unit_fdbst_`; GIO callback signatures and `main` retain external spelling.
@@ -380,8 +382,8 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | include/vqec/vision/ai/ports/output/vqec_vision_evidence_transport.hpp | evtrn | vqec_vision_ai_ports_evtrn_ |
 | tests/unit/core/vqec_vision_evidence_transport_test.cpp | evtst | vqec_vision_ai_unit_evtst_ |
 | include/vqec/vision/ai/ports/output/vqec_vision_evidence_outbox.hpp | evobx | vqec_vision_ai_ports_evobx_ |
-| src/adapters/storage/vqec_vision_sqlite_evidence_outbox.hpp | evobx | overrides retain ports prefix |
-| src/adapters/storage/vqec_vision_sqlite_evidence_outbox.cpp | evobx | vqec_vision_ai_stor_evobx_ |
+| src/adapters/storage/evidence/vqec_vision_sqlite_evidence_outbox.hpp | evobx | overrides retain ports prefix |
+| src/adapters/storage/evidence/vqec_vision_sqlite_evidence_outbox.cpp | evobx | vqec_vision_ai_stor_evobx_ |
 | tests/unit/adapters/storage/vqec_vision_sqlite_evidence_outbox_test.cpp | seotst | vqec_vision_ai_unit_seotst_ |
 | src/adapters/fw_output/vqec_vision_evidence_uds_client.hpp | evuds | vqec_vision_ai_fwout_evuds_ |
 | src/adapters/fw_output/vqec_vision_evidence_uds_client.cpp | evuds | vqec_vision_ai_fwout_evuds_ (port override retains `vqec_vision_ai_ports_evtrn_`) |
@@ -519,7 +521,7 @@ Metadata/query neutral contract
 `src/core/output/vqec_vision_metadata_query.cpp` use file_id `mdqry`, with declaration prefix
 `vqec_vision_ai_cntr_mdqry_` retained by the implementation.
 
-SQLite metadata baseline `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp` uses file_id
+SQLite metadata baseline `src/adapters/storage/metadata/vqec_vision_sqlite_metadata_store.cpp` uses file_id
 `mdsql`, prefix `vqec_vision_ai_stor_mdsql_`.
 Its unit test `tests/unit/adapters/storage/vqec_vision_sqlite_metadata_store_test.cpp` uses file_id
 `mdstst`, prefix `vqec_vision_ai_unit_mdstst_`; `main` retains the language entrypoint spelling.
@@ -541,9 +543,9 @@ Packed trajectory codec
 `vqec_vision_ai_unit_tctst_`; `main` retains the language entrypoint spelling.
 
 SQLite spatiotemporal catalog/detail store
-`src/adapters/storage/vqec_vision_spatiotemporal_store.cpp` uses file_id `stsql`, prefix
+`src/adapters/storage/metadata/vqec_vision_spatiotemporal_store.cpp` uses file_id `stsql`, prefix
 `vqec_vision_ai_stor_stsql_`; its paired private header and
-`src/adapters/storage/vqec_vision_spatiotemporal_store_projection.cpp` implementation split
+`src/adapters/storage/metadata/vqec_vision_spatiotemporal_store_projection.cpp` implementation split
 have the same logical owner. Unit test
 `tests/unit/adapters/storage/vqec_vision_spatiotemporal_store_test.cpp` uses file_id `ststst`,
 prefix `vqec_vision_ai_unit_ststst_`; `main` retains the language entrypoint spelling.
@@ -654,12 +656,12 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_app_manifest.cpp | apmft | vqec_vision_ai_lifec_apmft_ |
 | tests/unit/runtime/vqec_vision_app_manifest_test.cpp | apmtst | vqec_vision_ai_unit_apmtst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp | apinv | vqec_vision_ai_ports_apinv_ |
-| src/adapters/storage/vqec_vision_sqlite_app_inventory.hpp | apinv | overrides retain ports prefix |
-| src/adapters/storage/vqec_vision_sqlite_app_inventory.cpp | apinv | vqec_vision_ai_stor_apinv_ |
+| src/adapters/storage/app_lifecycle/vqec_vision_sqlite_app_inventory.hpp | apinv | overrides retain ports prefix |
+| src/adapters/storage/app_lifecycle/vqec_vision_sqlite_app_inventory.cpp | apinv | vqec_vision_ai_stor_apinv_ |
 | tests/unit/adapters/storage/vqec_vision_sqlite_app_inventory_test.cpp | saitst | vqec_vision_ai_unit_saitst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_content_store.hpp | apcst | vqec_vision_ai_ports_apcst_ |
-| src/adapters/storage/vqec_vision_app_content_store.hpp | apcst | overrides retain ports prefix |
-| src/adapters/storage/vqec_vision_app_content_store.cpp | apcst | vqec_vision_ai_stor_apcst_ |
+| src/adapters/storage/app_lifecycle/vqec_vision_app_content_store.hpp | apcst | overrides retain ports prefix |
+| src/adapters/storage/app_lifecycle/vqec_vision_app_content_store.cpp | apcst | vqec_vision_ai_stor_apcst_ |
 | tests/unit/adapters/storage/vqec_vision_app_content_store_test.cpp | acstst | vqec_vision_ai_unit_acstst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_configuration.hpp | apcfg | vqec_vision_ai_ports_apcfg_ |
 | src/app/management/vqec_vision_app_configuration_registry.hpp | apcrg | vqec_vision_ai_appl_apcrg_ |
@@ -676,8 +678,8 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.cpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | tests/unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp | rcstst | vqec_vision_ai_unit_rcstst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_manager.hpp | apmgr | vqec_vision_ai_ports_apmgr_ |
-| src/adapters/fw_control/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
-| src/adapters/fw_control/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
+| src/adapters/fw_control/app_manager/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
+| src/adapters/fw_control/app_manager/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
 | tests/unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp | amdtst | vqec_vision_ai_unit_amdtst_ |
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.hpp | edver | vqec_vision_ai_secad_edver_ |
 | src/adapters/security/vqec_vision_ed25519_app_package_verifier.cpp | edver | vqec_vision_ai_secad_edver_ (port override retains `vqec_vision_ai_ports_apver_`) |
@@ -751,7 +753,7 @@ Cascade frame store: `src/runtime/scheduler/vqec_vision_cascade_frame_store.hpp`
 file_id `cfstr`, prefix `vqec_vision_ai_sched_cfstr_` (header-only).
 Test `tests/unit/application/vqec_vision_cascade_frame_store_test.cpp`, file_id `cfst`.
 
-AI-owned encrypted gallery store `src/adapters/storage/vqec_vision_encrypted_face_gallery_store.cpp`
+AI-owned encrypted gallery store `src/adapters/storage/identity/vqec_vision_encrypted_face_gallery_store.cpp`
 uses file_id `efgal`, prefix `vqec_vision_ai_stor_efgal_`. Its unit test
 `tests/unit/adapters/storage/vqec_vision_encrypted_face_gallery_store_test.cpp` uses file_id `efgtst`,
 prefix `vqec_vision_ai_unit_efgtst_`; `main` retains the language entrypoint spelling.

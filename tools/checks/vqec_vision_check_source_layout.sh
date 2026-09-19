@@ -17,7 +17,10 @@ include_root_list=(include src
     src/adapters/qualcomm/dsp/legacy src/adapters/qualcomm/dsp/v1
     src/adapters/qualcomm/gstreamer src/adapters/qualcomm/media
     src/adapters/qualcomm/qnn src/adapters/fw_output
-    src/adapters/reference src/adapters/fw_control src/adapters/security src/adapters/storage
+    src/adapters/reference src/adapters/fw_control src/adapters/fw_control/app_manager
+    src/adapters/fw_control/enrollment src/adapters/fw_control/usecase
+    src/adapters/security src/adapters/storage src/adapters/storage/app_lifecycle
+    src/adapters/storage/evidence src/adapters/storage/identity src/adapters/storage/metadata
     src/runtime/model_registry src/runtime/feature_manager
     src/runtime/scheduler src/runtime/admission src/runtime/lifecycle
     src/perception/detection src/perception/tracking src/perception/attributes

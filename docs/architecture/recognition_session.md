@@ -9,7 +9,7 @@ Zvec adapter source exist. **Layer:** perception.
 **Source:** `src/perception/embedding/vqec_vision_recognition_session.{hpp,cpp}`,
 `src/perception/embedding/vqec_vision_recognition_policy.cpp`,
 `src/adapters/zvec/vqec_vision_zvec_embedding_index.{hpp,cpp}`,
-`src/adapters/storage/vqec_vision_encrypted_face_gallery_store.{hpp,cpp}`.
+`src/adapters/storage/identity/vqec_vision_encrypted_face_gallery_store.{hpp,cpp}`.
 
 ## Responsibility
 

@@ -1,15 +1,12 @@
-# fw_control
+# FW control adapters
 
 Private adapter reserved for the legacy AI D-Bus compatibility server
 (`SetModelEnabled`, `QueryModel`, `ListModels`, `ModelStateChanged`) and separately reviewed
 future config/entitlement/health bindings.
 
-- **Status:** face-enrollment DBus adapter is source-delivered behind
+- **Status:** logic-tested — application-manager, face-enrollment and usecase-control D-Bus
+  adapters are isolated by authority domain and covered by their eSDK test targets
 - **Layer:** adapters
-  `VQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS`. The usecase-control v1 adapter is
-  source-delivered behind `VQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS`; service-level live
-  generation replacement remains pending. Legacy model-toggle compatibility methods
-  remain planned.
 - **Naming registry:** `fwctl`
 - **Depends on:** [FW release compatibility](../../../docs/contracts/fw_release_compatibility.md)
 - **Used by:** service control plane (future)
@@ -23,9 +20,10 @@ future config/entitlement/health bindings.
 
 | Path | Purpose |
 |---|---|
-| `vqec_vision_face_enrollment_dbus.cpp` | Session-bus face-enrollment server delegating to `face_enrollment_port` |
-| `vqec_vision_usecase_control_dbus.cpp` | Usecase-control D-Bus v1 adapter over `usecase_control_port` |
-| `vqec_vision_image_path_authorizer.cpp` | POSIX enrollment image-path authorization (retained FD, root rejection) |
+| `app_manager/vqec_vision_app_manager_dbus.*` | Authenticated AI-owned application lifecycle facade |
+| `enrollment/vqec_vision_face_enrollment_dbus.*` | Face-enrollment server delegating to `face_enrollment_port` |
+| `enrollment/vqec_vision_image_path_authorizer.*` | POSIX enrollment image authorization with retained FD |
+| `usecase/vqec_vision_usecase_control_dbus.*` | Compatibility desired-state facade over `usecase_control_port` |
 
 ## Limits and next work
 
