@@ -414,8 +414,41 @@ int main() {
     query.budget_.deadline_ns_ = vqec_vision_ai_unit_ststst_get_deadline_ns();
     assert(recovered.vqec_vision_ai_stor_stsql_query(query, page).code_ == status_code::ok);
     assert(page.trajectory_chunks_.size() == 2U);
+    query.budget_.deadline_ns_ = 1U;
+    assert(recovered.vqec_vision_ai_stor_stsql_query(query, page).code_ == status_code::ok);
+    assert(page.completeness_ == spatiotemporal_result_completeness::budget_exceeded);
+    assert(page.has_more_);
     assert(recovered.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
 
+    assert(std::filesystem::remove(root / "detail_0_1.db"));
+    sqlite_spatiotemporal_store missing_shard(config);
+    assert(missing_shard.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+    query.budget_.deadline_ns_ = vqec_vision_ai_unit_ststst_get_deadline_ns();
+    assert(missing_shard.vqec_vision_ai_stor_stsql_query(query, page).code_ ==
+           status_code::ok);
+    assert(page.has_coverage_gap_);
+    assert(page.completeness_ == spatiotemporal_result_completeness::partial);
+    assert(page.trajectory_chunks_.size() == 1U);
+    assert(page.trajectory_chunks_.front().chunk_id_ == "chunk.b");
+    assert(missing_shard.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+
     std::filesystem::remove_all(root);
+
+    char quota_directory_template[] = "/tmp/vqec_vision_spatiotemporal_quota_XXXXXX";
+    const auto* quota_created = mkdtemp(quota_directory_template);
+    assert(quota_created != nullptr);
+    const std::filesystem::path quota_root(quota_created);
+    auto quota_config = config;
+    quota_config.root_directory_ = quota_root.string();
+    quota_config.maximum_store_bytes_ = 4096U;
+    quota_config.reserve_free_bytes_ = 1U;
+    sqlite_spatiotemporal_store quota_store(quota_config);
+    assert(quota_store.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+    assert(quota_store.vqec_vision_ai_stor_stsql_ingest_trajectory(exact, {}).code_ ==
+           status_code::resource_exhausted);
+    assert(quota_store.vqec_vision_ai_stor_stsql_get_stats(stats).code_ == status_code::ok);
+    assert(stats.rejected_quota_writes_ == 1U);
+    assert(quota_store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+    std::filesystem::remove_all(quota_root);
     return 0;
 }
