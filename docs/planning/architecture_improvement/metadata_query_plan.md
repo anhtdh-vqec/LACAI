@@ -3,7 +3,10 @@
 Plan 2 xây metadata service đủ cho footprint realtime/lịch sử, truy vết liên camera, tìm kiếm
 sự kiện và thống kê dài hạn của 18 usecase security cùng traffic mở rộng.
 
-**Status:** planned — mở lại ngày 2026-09-19; SQLite transactional prototype đã có nhưng chưa đủ điều kiện đóng P2. **Layer:** docs. **Source:** `docs/architecture/spatiotemporal_metadata.md`, `docs/adr/0009_spatiotemporal_metadata_tiering.md`.
+**Status:** board-smoke — M01–M05 có source/eSDK evidence và M07 qua workload 5 phút trên
+QCS6490 ngày 2026-09-19; P2 chưa đóng vì M06/M08 và fault/retention gate còn mở.
+**Layer:** docs. **Source:** `docs/architecture/spatiotemporal_metadata.md`,
+`docs/adr/0009_spatiotemporal_metadata_tiering.md`.
 
 ## 1. Kết luận thiết kế
 
@@ -69,6 +72,19 @@ Tất cả phải có positive, negative, unknown, unsupported, expired; bổ su
 budget-exceeded, corrected và association-ambiguous cho contract mới.
 
 ## 4. Kế hoạch thực hiện
+
+Trạng thái được chốt theo bằng chứng hiện có, không suy rộng từ việc build pass:
+
+| Mốc | Trạng thái | Bằng chứng / khoảng trống |
+|---|---|---|
+| M01 | logic-tested | Contract v1, codec và validation có unit test; version lấy từ registry |
+| M02 | logic-tested một phần | Generator có 27 profile S01–S18 + 9 traffic và oracle aggregate; chưa có golden đầy đủ cho từng họ query/correction |
+| M03 | logic-tested | Catalog, packed shard, manifest/seal/recovery/quota và atomic outbox đã có |
+| M04 | logic-tested một phần | Bounded query, exact spatial, snapshot/delta RAM đã có; chưa có cancellable async history job |
+| M05 | logic-tested | Episode revision, contribution correction/retract và materialized rollup đã có; producer từng usecase vẫn fail closed khi chưa tích hợp |
+| M06 | quyết định v1 | Giữ SQLite packed shards; không thêm edge Parquet/DuckDB khi eSDK chưa có package được review và workload hiện tại chưa cần |
+| M07 | board-smoke | 5 phút concurrent pass; power-cut, disk-full, cancellation và retention capacity chưa pass |
+| M08 | chưa đạt | Service chưa compose vào executable; purge phụ thuộc outbox receipt P3; producer/capability wiring thuộc P5 |
 
 ### M01 — Chốt logical contracts v1
 
@@ -176,6 +192,10 @@ Nghiệm thu đóng P2:
 - 5 phút concurrent device test pass functional/performance gate; soak dài vẫn là release gate;
 - không claim cross-device path, year-scale local retention hoặc exact replay ngoài profile đã đo.
 
+Phân ranh kế hoạch: Kafka/ACK/export transport thuộc P3; composition usecase producer và release
+rollout thuộc P5. P2 vẫn phải cung cấp lifecycle/config hook và retention primitive để hai plan đó
+không mở file DB trực tiếp. Không chuyển đầu việc sang P3/P5 để hợp thức hóa việc đóng P2 sớm.
+
 ## 5. Bằng chứng prototype được giữ lại
 
 Ngày 2026-09-19, SQLite prototype `synchronous=FULL`, một transaction/record, Q08 page 128 đã
@@ -190,10 +210,47 @@ chạy native trên QCS6490:
 trajectory points, cross-camera footprint, concurrent compaction, month query hoặc cardinality
 18-usecase, nên không còn là bằng chứng đóng P2.
 
-## 6. Thứ tự triển khai
+## 6. Bằng chứng implementation workload
 
-Thực hiện M01 → M02 → M03/M04 → M05 → M06 → M07 → M08. M03 và M04 chỉ song song sau khi M01
-freeze internal contract; M06 dùng codec/fixture của M02/M03 để so sánh công bằng.
+Candidate packed-shard/materialized-rollup có SHA-256
+`c9945697b847ae64c8bb664011579c38ef3bdf03ebede76f2418907456a22190`, chạy trên board có
+machine ID `09c89b1858f54955a3d13f2767622448` qua alias `lacai-home`.
+
+| Thuộc tính | Kết quả 300 giây |
+|---|---:|
+| Profile | 27 security/traffic scenario, 4 source, 50 set/s, `FULL` sync, Kafka offline outbox |
+| Durable ingest | 15.027 set / 45.081 record; reject/fail = 0 |
+| Query/oracle | 9.952 query; query fail/oracle fail = 0 |
+| Query p50/p95/p99 | 2,688 / 12,454 / 18,546 ms |
+| Metadata CPU/RSS | 30,110% một core / 37.120 KiB max RSS |
+| Store | 32.567.296 byte (`catalog.db` 25.542.656; detail 7.024.640) |
+| AI APP đồng thời | 12,88% một core, RSS trung bình 371.233 KiB |
+| Preview sau workload | H.264 1920x1080, 30,000 packet-PTS FPS; overlay person review pass |
+
+Thiết kế cũ query-time scan cùng cardinality dùng trung bình 46,56% metadata CPU và tăng theo
+lịch sử. Vì vậy source đã chuyển latest-corrected aggregate sang rollup materialized giao dịch;
+as-observed/as-known-at vẫn đọc revision history có budget.
+
+Phép đo tăng khoảng 32,57 MB/5 phút, tương đương xấp xỉ 391 MB/giờ nếu giữ nguyên workload tổng
+hợp. Đây là capacity evidence để buộc cấu hình retention; không được ngoại suy thành cam kết lưu
+một tháng vì chưa có purge/ACK và cardinality production của 18 app.
+
+## 7. Điều kiện còn lại để đóng
+
+P2 chỉ chuyển `accepted` khi hoàn thành cả bốn mục sau:
+
+1. compose metadata service bằng cấu hình validated trong executable và chứng minh start/drain;
+2. nối producer tối thiểu trajectory + episode/rollup qua authorization, fixture thiếu capability
+   phải trả `unsupported`;
+3. bổ sung retention/purge không xóa outbox chưa ACK, rồi chạy restart/disk-full/corruption và
+   query cancellation trên board;
+4. chạy lại eSDK toàn bộ + workload 5 phút từ exact composed candidate, ghi digest và profile.
+
+## 8. Thứ tự triển khai
+
+Phần còn lại thực hiện M08 lifecycle/composition → retention/fault gate → M02 oracle mở rộng →
+M07 rerun. P3 chỉ cung cấp receipt/ACK transport; P5 chỉ wiring producer/package và không được mở
+SQLite trực tiếp.
 
 Không thêm DuckDB/Arrow/Parquet vào production CMake trước M06. Không freeze C++ prototype thành
 ABI đích trước approval ADR 0009. Mỗi source step phải có focused commit, eSDK build/test và không

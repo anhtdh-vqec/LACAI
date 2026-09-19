@@ -7,7 +7,7 @@ prototype and version 1 sharded spatiotemporal store.
 - **Layer:** adapters
 - **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
-- **Used by:** recognition composition and the planned metadata output service
+- **Used by:** recognition composition and the source-delivered bounded metadata service
 
 ## Responsibility
 
@@ -53,11 +53,11 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - `flock` is advisory; a process that ignores it is not blocked. The directory permission
   and ownership checks are the primary defence.
 - Key rotation is not implemented.
-- The metadata adapter is not wired into the service output path. Retention/purge workers,
-  Kafka delivery and a possible cold columnar tier remain separate capabilities.
-- Spatiotemporal shards currently use source PTS partitions and blocking calls. The bounded
-  asynchronous service, episode/aggregate projections, purge and concurrent board benchmark
-  remain P2 work.
+- The metadata adapter is not wired into the production service output path. Retention/purge and
+  Kafka delivery remain separate capabilities; Parquet is not a version 1 edge dependency.
+- Spatiotemporal shards use source PTS partitions and blocking calls behind the single metadata
+  worker. Episode/contribution projections and materialized rollups are delivered. The 2026-09-19
+  five-minute board workload is capacity evidence, not power-cut or disk-full qualification.
 
 ## See also
 

@@ -139,6 +139,16 @@ This accepts the AI APP lead's explicit five-minute, 30 FPS, average-CPU-below-1
 completion, independent model quality, reset-under-load and product thermal/long-soak evidence
 remain owned release gates rather than hidden claims of this result.
 
+The 2026-09-19 Plan 2 metadata candidate ran on the same physical board at its current `.102`
+address while that full AI workload remained active. Benchmark SHA-256
+`c9945697b847ae64c8bb664011579c38ef3bdf03ebede76f2418907456a22190` committed 45,081
+records and completed 9,952 aggregate queries over 300 seconds with no reject, write, query or
+oracle failure. Metadata p50/p95/p99 was 2.688/12.454/18.546 ms, CPU was 30.110% of one core,
+maximum RSS was 37,120 KiB and the store was 32,567,296 bytes. Concurrent AI APP CPU averaged
+12.88% of one core. A post-run capture measured H.264 1920x1080 at 30.000 packet-PTS FPS; its
+four-frame contact sheet showed a correctly aligned current person box/label with no stale box.
+This is P2 board-smoke, not retention, disk-full, power-cut or production-composition acceptance.
+
 ## Evidence record
 
 Every new board result records:

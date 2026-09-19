@@ -3,7 +3,11 @@
 This document defines the target AI APP metadata subsystem for live and historical object
 footprints, cross-camera paths, event analytics and long-retention security/traffic queries.
 
-**Status:** planned — redesign proposal; the current SQLite prototype implements only a transactional slice. **Layer:** app. **Source:** `n/a`.
+**Status:** board-smoke — version 1 contracts, packed SQLite shards, correction-aware rollups
+and the bounded service passed the 2026-09-19 eSDK and QCS6490 workload; production composition
+and retention remain open. **Layer:** app. **Source:**
+`include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp`,
+`src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`.
 
 ## Responsibility
 
@@ -150,19 +154,17 @@ High-rate observations and trajectory chunks are partitioned by bounded time win
 group. The active shard is writable; sealed shards are immutable and opened read-only. Partition
 duration, maximum bytes and source grouping come from a measured storage profile.
 
-Version 1 should first benchmark SQLite shards containing packed trajectory BLOBs and typed chunk
-indexes. This reuses transactions/recovery without paying one SQL row per point. Candidate chunk
-indexes include source/time, track/time, frame range and spatial bounds. SQLite R-tree is optional
-only after target support is proven; it narrows candidates and never replaces exact polyline
-verification.
+Version 1 uses SQLite shards containing packed trajectory BLOBs and typed chunk indexes. This
+reuses transactions/recovery without paying one SQL row per point. Current indexes cover
+source/time, subject/time, frame range and spatial bounds; exact polyline verification follows
+candidate filtering. SQLite R-tree remains optional and cannot replace exact verification.
 
 ### Cold columnar history
 
-Parquet is the preferred cold and center interchange candidate because immutable row groups,
-column statistics and projection/filter pushdown match long-range scan/aggregate workloads.
-DuckDB through its C API is the preferred spike reader because it can query Parquet without
-exposing C++ types to neutral code. Neither is selected for production until a pinned version
-cross-builds with the eSDK and passes package, license, RSS, concurrency and board benchmarks.
+Parquet remains the preferred center interchange candidate because immutable row groups, column
+statistics and projection/filter pushdown match long-range scan/aggregate workloads. It is not a
+version 1 edge runtime dependency: the approved eSDK has no reviewed DuckDB/Arrow/Parquet package,
+and the measured packed-shard path meets the current five-minute gate without one.
 
 The manifest, not filesystem globbing, publishes a cold generation. A file manifest records
 schema, checksum, source/time/sequence bounds, row-group stats and predecessor generation.
@@ -303,34 +305,37 @@ whose worst-case active data plus compaction and reserve exceeds the assigned qu
 
 | Candidate | Role | Gate |
 |---|---|---|
-| SQLite WAL | Catalog, hot facts, manifests, outbox and first detail-shard prototype | Concurrent ingest/query/checkpoint, R-tree capability and power-loss tests |
+| SQLite WAL | Selected v1 catalog, hot facts, manifests, outbox and detail shards | Production retention, power-loss and disk-full qualification remain |
 | Packed trajectory chunk | High-rate edge point encoding inside a transactional shard | Golden codec, corruption/overflow tests, compression and exact/error-bound replay |
-| Parquet | Immutable cold history and center interchange | Pinned eSDK writer/reader, package/license/SBOM, row-group layout and crash-safe manifest |
-| DuckDB C API | Single-process cold query worker | Cross-build, extension bundling without network install, bounded RSS/threads/temp disk and cancellation |
+| Parquet | Center interchange; optional future immutable cold history | Add only after a pinned eSDK package/license/SBOM and measured edge benefit |
+| DuckDB C API | Optional future cold query worker | Add only with bounded RSS/threads/temp disk/cancellation evidence |
 | Arrow C++ | Alternative Parquet batch adapter | Only if its package/RSS benefit beats DuckDB or a smaller writer |
 | RocksDB/LMDB | Not selected | Reconsider only if measured key-write pressure exceeds SQLite and secondary-query cost is funded |
 | ClickHouse/Timescale | Center/server reference only | Never deploy on the camera without a separate product/operations decision |
 
-## Acceptance gates
+## Measured implementation evidence
 
-Before implementation replaces the prototype:
+The 2026-09-19 `FULL`-sync QCS6490 run used 27 deterministic security/traffic scenario profiles,
+four sources, 50 record sets/s and an offline outbox while the full AI preview workload ran. In
+300 seconds it committed 45,081 records with no rejection, write/query failure or oracle failure.
+There were 9,952 concurrent aggregate queries: p50 2.688 ms, p95 12.454 ms and p99 18.546 ms.
+The metadata process used 30.110% of one core and 37,120 KiB maximum RSS; its store reached
+32,567,296 bytes. The AI process averaged 12.88% of one core. RTSP remained H.264 1920x1080 at
+30.000 packet-PTS FPS, and the reviewed contact sheet showed current person overlays.
 
-1. approve the query primitive schema, frame locator, trajectory chunk and association contracts;
-2. define exact/footprint/episode/aggregate retention and error budgets per source profile;
-3. generate representative S01–S18 plus traffic datasets at admitted cardinality;
-4. benchmark ingest with simultaneous live, selective, month-scan, compaction and Kafka-offline
-   load on QCS6490;
-5. report FPS impact, CPU, RSS, write amplification, flash bytes, p50/p95/p99, rows/bytes scanned,
-   result exactness and recovery gaps;
-6. accept one physical tiering option through ADR 0009 before changing the public contract.
+The materialized corrected rollup replaced a first implementation that scanned all contribution
+revisions. That earlier run used 46.56% metadata CPU and its query cost grew with history. Keeping
+the failed comparison prevents the optimized result from hiding the rejected design.
 
 ## Limits and next work
 
-- Current source has no detail shard, chunk codec, query planner, live subscription, cross-camera
-  association store or columnar adapter.
-- Current Q01–Q30 C++ request is too flat for sequences, geometry, aggregation and resolution;
-  it remains a prototype and must not become a released ABI.
-- Current eSDK lacks reviewed DuckDB/Arrow/Parquet packages.
+- The service library is not composed into `vqec_ai_vision_applications`; usecase producers do
+  not yet feed production observation/event batches into it.
+- Retention/purge cannot retire data until the Plan 3 outbox exposes durable sink receipts.
+- Board power-cut, disk-full, restart and long-query cancellation evidence is still missing.
+- Q01–Q30 remain capability groups; the new typed query implements tracklet, association,
+  episode and aggregate slices and rejects unsupported collections explicitly.
+- The current eSDK lacks reviewed DuckDB/Arrow/Parquet packages; no edge cold-tier claim is made.
 - Cross-device footprint and year-scale analytics normally belong to the center tier even when
   one device keeps a bounded local history.
 

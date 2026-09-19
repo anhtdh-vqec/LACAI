@@ -1,6 +1,6 @@
 # ADR 0009 — Spatiotemporal metadata tiering
 
-Status: proposed — requires AI APP lead approval after representative QCS6490 benchmark.
+Status: proposed — physical v1 choice has board evidence, but retention and failure gates remain.
 Date: 2026-09-19.
 Owner: AI APP lead.
 
@@ -43,9 +43,10 @@ enforce entitlement and output isolation; they are not an at-rest sensitivity cl
 - Serve live footprint through bounded RAM snapshot-plus-delta. Serve selective history from the
   catalog and shards. Route large historical scans/recomputation through cancellable bounded
   jobs rather than long transactions on the active database.
-- Keep Parquet as the preferred immutable cold/center interchange candidate and DuckDB C API as
-  the preferred cold-reader spike. Production selection requires pinned eSDK packaging, license,
-  SBOM, concurrency, RSS and QCS6490 evidence. A committed manifest publishes each generation.
+- Select packed SQLite detail shards for the version 1 edge tier. Keep Parquet as center
+  interchange and an optional future cold tier; do not add DuckDB/Arrow/Parquet to the edge build
+  without a pinned eSDK package and a measured benefit. A committed manifest publishes every
+  future cold generation.
 - Treat Q01–Q30 as stable capability groups implemented by a bounded typed query algebra, not as
   thirty fixed SQL statements or a natural-language-to-SQL boundary.
 - Configure and admit separate exact-observation, footprint, episode, aggregate, evidence and
@@ -94,8 +95,21 @@ supersedes its assumption that the generic single-file adapter is a complete P2 
    Kafka-offline outbox pressure, including CPU, RSS, latency, flash bytes and FPS impact.
 4. Retention profiles fit the assigned quota with WAL, active shards, compaction, spool and
    reserve included.
-5. The chosen detail/cold implementation passes crash, corruption, disk-full and reader-drain
-   tests before this ADR changes to accepted.
+5. The selected detail implementation passes crash, corruption, disk-full and reader-drain tests
+   before this ADR changes to accepted.
+
+## Current evidence
+
+On 2026-09-19 the packed-shard implementation passed 106/106 eSDK tests. A five-minute native
+QCS6490 run committed 45,081 records for 27 security/traffic scenario profiles with no rejected
+record, failed query or oracle failure while the full AI workload ran. Aggregate query p50/p95/p99
+was 2.688/12.454/18.546 ms; metadata used 30.110% of one core, 37,120 KiB maximum RSS and
+32,567,296 store bytes. The exact benchmark binary SHA-256 was
+`c9945697b847ae64c8bb664011579c38ef3bdf03ebede76f2418907456a22190`.
+
+This satisfies the representative physical-tier comparison needed to reject an additional edge
+columnar dependency for v1. It does not satisfy retention sizing, power interruption, disk-full,
+reader-drain or production composition gates, so this ADR remains `proposed`.
 
 ## See also
 

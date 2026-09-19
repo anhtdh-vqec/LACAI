@@ -1,15 +1,15 @@
 # Implementation status — 2026-09-19
 
-2026-09-19 metadata/query transactional prototype (Plan 2: **REOPENED**):
+2026-09-19 spatiotemporal metadata implementation (Plan 2: **BOARD-SMOKE, OPEN**):
 
-- P2 M01 now has neutral version 1 frame-locator, local-track, trajectory-chunk,
-  association-revision and composable-query contracts. The bounded delta/varint trajectory codec
-  rejects corrupt checksums, trailing data, overflow and fabricated endpoints. Approved eSDK/QEMU
-  contract and codec tests pass; no storage/service or board claim follows from this step.
-- P2 M03 now has an eSDK-tested SQLite catalog plus time-sharded packed trajectory detail,
-  stable snapshot sequence, quota rejection, outbox rows colocated with the chunk, shard sealing,
-  startup index repair, exact gap-aware path intersection and append-only cross-camera association
-  revisions. It is a blocking adapter and is not yet production-service wiring or board evidence.
+- M01–M05 now deliver neutral version 1 frame/track/trajectory, association, episode, aggregate,
+  live snapshot/delta and typed-query contracts; checked packed trajectory codec; SQLite WAL
+  catalog plus time shards; stable snapshots; quota rejection; atomic outbox; seal/recovery;
+  exact gap-aware spatial verification; revisioned cross-camera associations; episode correction;
+  contribution retract and materialized latest-corrected rollups.
+- A bounded service owns one blocking writer thread, projection batches and bounded live state.
+  Producers receive explicit `resource_exhausted`; query work is serialized outside frame/DSP
+  threads. The service is source-delivered but not composed into the production executable.
 - Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
   mappings, nine traffic extension profiles and five outcome classes per query. The checker
   cross-validates the stable usecase identities against the three-team registry.
@@ -17,15 +17,16 @@
   fact with its outbox rows, reject conflicting retries, authorize scopes and projections,
   preserve snapshot/keyset paging, evaluate source coverage and recover after reopen. Q02
   checks attribute validity at passage time and requires both attribute and trajectory scopes.
-- The approved eSDK neutral suite passes 102/102 under QEMU. The 2026-09-19 native QCS6490
-  contract test passes through the user-authorized `lacai-home` target. A 20,000-record,
-  500-query `FULL`-sync fixture measured 15,048 inserts/s, Q08 p99 16.731 ms, 7,040 KiB
-  maximum RSS and 6,651,904 database bytes.
-- SQLite is accepted as transaction/outbox evidence and remains the catalog/detail-shard baseline
-  candidate. The current generic table and flat query request do not cover live footprint,
-  packed trajectories, cross-camera association, concurrent history scans or correction-aware
-  long-range rollups. ADR 0009 and the redesigned P2 plan must qualify the physical tier using a
-  representative workload before P2 can close. Parquet/DuckDB remain unqualified candidates.
+- The approved eSDK suite passes 106/106 under QEMU. The exact QCS6490 benchmark candidate
+  (`c9945697…a22190`) ran `FULL` sync for 300 seconds beside the full AI workload: 45,081 durable
+  records, 9,952 queries and zero reject/write/query/oracle failure across 27 security/traffic
+  profiles. Query p50/p95/p99 was 2.688/12.454/18.546 ms; metadata used 30.110% of one core,
+  37,120 KiB maximum RSS and 32,567,296 bytes. AI APP averaged 12.88% of one core. H.264 preview
+  measured 30.000 packet-PTS FPS and the current overlay contact sheet passed visual review.
+- Packed SQLite shards are the v1 edge choice; Parquet is center interchange/future cold-tier work,
+  not an unreviewed edge dependency. ADR 0009 remains proposed because production composition,
+  retention tied to outbox receipts, board power-cut/disk-full/cancellation and capacity profiles
+  are not complete. P2 therefore remains open under its own acceptance criteria.
 
 2026-09-18 three-team contract baseline (Plan 1: **ACCEPTED**):
 
