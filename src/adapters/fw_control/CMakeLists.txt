@@ -31,3 +31,16 @@ if(VQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS)
         vqec_vision_ai_core PkgConfig::usecase_control_gio)
     set_target_properties(vqec_vision_ai_usecase_control_dbus PROPERTIES CXX_EXTENSIONS OFF)
 endif()
+
+if(VQEC_VISION_AI_ENABLE_APP_MANAGER_DBUS)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(app_manager_gio REQUIRED IMPORTED_TARGET gio-unix-2.0)
+    add_library(vqec_vision_ai_app_manager_dbus STATIC
+        vqec_vision_app_manager_dbus.cpp)
+    target_include_directories(vqec_vision_ai_app_manager_dbus PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>)
+    target_link_libraries(vqec_vision_ai_app_manager_dbus PUBLIC
+        vqec_vision_ai_app_manifest PkgConfig::app_manager_gio)
+    set_target_properties(vqec_vision_ai_app_manager_dbus PROPERTIES CXX_EXTENSIONS OFF)
+endif()

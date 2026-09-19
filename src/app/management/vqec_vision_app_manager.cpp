@@ -221,4 +221,40 @@ status app_manager::vqec_vision_ai_appl_appmn_get_snapshot(
     return inventory_.vqec_vision_ai_ports_apinv_load_snapshot(_snapshot);
 }
 
+status app_manager::vqec_vision_ai_ports_apmgr_install(
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_install(
+        _candidate, _expected_inventory_revision, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_update_configuration(
+    const std::string& _app_id, std::uint64_t _expected_configuration_revision,
+    const std::vector<std::uint8_t>& _configuration_payload,
+    const std::string& _configuration_sha256,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_update_configuration(_app_id,
+        _expected_configuration_revision, _configuration_payload,
+        _configuration_sha256, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_set_desired(
+    const app_desired_update& _update,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_set_desired(_update, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_uninstall(
+    const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_uninstall(
+        _app_id, _expected_inventory_revision, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_get_snapshot(
+    runtime_control_snapshot& _snapshot) const {
+    return vqec_vision_ai_appl_appmn_get_snapshot(_snapshot);
+}
+
 }  // namespace vqec::vision::ai

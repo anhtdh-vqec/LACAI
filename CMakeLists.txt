@@ -25,6 +25,7 @@ set(VQEC_VISION_AI_ZVEC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zvec/sdk" 
     "External Zvec installation root (contains include/zvec and lib)")
 option(VQEC_VISION_AI_BUILD_MANIFEST_CHECK "Build read-only model metadata checker" OFF)
 option(VQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST "Enable bounded artifact SHA-256 comparison" OFF)
+option(VQEC_VISION_AI_ENABLE_APP_MANAGER_DBUS "Enable the AI-owned App Manager D-Bus facade" OFF)
 option(VQEC_VISION_AI_WERROR "Treat project warnings as errors" ON)
 option(VQEC_VISION_AI_BUILD_FUZZERS "Build libFuzzer harnesses (host Clang, not eSDK)" OFF)
 option(VQEC_VISION_AI_SANITIZE "Build with ASan+UBSan (host toolchain, not eSDK)" OFF)

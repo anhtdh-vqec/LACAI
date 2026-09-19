@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "vqec/vision/ai/ports/vqec_vision_app_inventory.hpp"
+#include "vqec/vision/ai/ports/vqec_vision_app_manager.hpp"
 #include "vqec/vision/ai/ports/vqec_vision_app_package_verifier.hpp"
 #include "vqec_vision_app_configuration_registry.hpp"
 
@@ -16,7 +17,7 @@ struct app_manager_config {
     std::string target_id_;
 };
 
-class app_manager final {
+class app_manager final : public app_manager_port {
 public:
     app_manager(app_manager_config _config, app_package_verifier_port& _package_verifier,
         app_configuration_registry& _configuration_registry,
@@ -44,6 +45,24 @@ public:
         runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_get_snapshot(
         runtime_control_snapshot& _snapshot) const;
+
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_install(
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_update_configuration(
+        const std::string& _app_id, std::uint64_t _expected_configuration_revision,
+        const std::vector<std::uint8_t>& _configuration_payload,
+        const std::string& _configuration_sha256,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_set_desired(
+        const app_desired_update& _update,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_uninstall(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_get_snapshot(
+        runtime_control_snapshot& _snapshot) const override;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_appmn_verify_configuration_digest(

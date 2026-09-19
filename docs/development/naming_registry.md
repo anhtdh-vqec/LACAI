@@ -652,6 +652,10 @@ App lifecycle registrations (source delivered):
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.hpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.cpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
 | tests/unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp | rcstst | vqec_vision_ai_unit_rcstst_ |
+| include/vqec/vision/ai/ports/vqec_vision_app_manager.hpp | apmgr | vqec_vision_ai_ports_apmgr_ |
+| src/adapters/fw_control/vqec_vision_app_manager_dbus.hpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
+| src/adapters/fw_control/vqec_vision_app_manager_dbus.cpp | amdbs | vqec_vision_ai_fwctl_amdbs_ |
+| tests/unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp | amdtst | vqec_vision_ai_unit_amdtst_ |
 
 
 | Logical owner path | file_id | Prefix |

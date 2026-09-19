@@ -37,6 +37,17 @@ if(integration_contract_python)
             --self-test)
 endif()
 
+if(TARGET vqec_vision_ai_app_manager_dbus)
+    add_executable(vqec_vision_ai_app_manager_dbus_test
+        unit/adapters/fw_control/vqec_vision_app_manager_dbus_test.cpp)
+    target_link_libraries(vqec_vision_ai_app_manager_dbus_test PRIVATE
+        vqec_vision_ai_app_manager_dbus)
+    set_target_properties(vqec_vision_ai_app_manager_dbus_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME app_manager_dbus_wire
+        COMMAND vqec_vision_ai_app_manager_dbus_test)
+endif()
+
     add_executable(vqec_vision_ai_feature_processor_registry_test
         contract/runtime/vqec_vision_feature_processor_registry_test.cpp)
     add_executable(vqec_vision_ai_fire_smoke_alarm_test
