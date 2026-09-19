@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <limits>
 #include <map>
+#include <new>
 #include <sstream>
 #include <utility>
 
@@ -376,7 +377,7 @@ status vqec_vision_ai_stor_stsql_open_database(
 }
 
 status vqec_vision_ai_stor_stsql_reserve_sequence(
-    sqlite3* _catalog, std::uint64_t& _sequence) {
+    sqlite3* _catalog, std::uint64_t& _sequence, bool _keep_transaction_open = false) {
     auto result = vqec_vision_ai_stor_stsql_execute(_catalog, "BEGIN IMMEDIATE;");
     if (result.code_ != status_code::ok) {
         return result;
@@ -401,7 +402,9 @@ status vqec_vision_ai_stor_stsql_reserve_sequence(
         (void)vqec_vision_ai_stor_stsql_execute(_catalog, "ROLLBACK;");
         return vqec_vision_ai_stor_stsql_make_error(_catalog, "finish metadata sequence");
     }
-    result = vqec_vision_ai_stor_stsql_execute(_catalog, "COMMIT;");
+    if (!_keep_transaction_open) {
+        result = vqec_vision_ai_stor_stsql_execute(_catalog, "COMMIT;");
+    }
     if (result.code_ == status_code::ok) {
         _sequence = static_cast<std::uint64_t>(value);
     }
@@ -983,14 +986,25 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_open() {
 }
 
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_close() noexcept {
-    if (catalog_ == nullptr) {
+    if (catalog_ == nullptr && detail_writers_.empty()) {
         return {};
+    }
+    status result;
+    for (auto& entry : detail_writers_) {
+        if (entry.second != nullptr && sqlite3_close(entry.second) != SQLITE_OK &&
+            result.code_ == status_code::ok) {
+            result = {status_code::io_error, "close trajectory detail writer failed"};
+        }
+    }
+    detail_writers_.clear();
+    if (catalog_ == nullptr) {
+        return result;
     }
     if (sqlite3_close(catalog_) != SQLITE_OK) {
         return vqec_vision_ai_stor_stsql_make_error(catalog_, "close spatiotemporal catalog");
     }
     catalog_ = nullptr;
-    return {};
+    return result;
 }
 
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_trajectory(
@@ -1071,30 +1085,55 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_trajectory(
     }
     const auto detail_path = (root / shard.relative_path_).string();
     sqlite3* detail = nullptr;
-    result = vqec_vision_ai_stor_stsql_open_database(detail_path, config_,
-        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, detail);
-    if (result.code_ != status_code::ok) {
-        return result;
+    const auto existing_writer = detail_writers_.find(shard.relative_path_);
+    if (existing_writer != detail_writers_.end()) {
+        detail = existing_writer->second;
+    } else {
+        result = vqec_vision_ai_stor_stsql_open_database(detail_path, config_,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, detail);
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        result = vqec_vision_ai_stor_stsql_execute(detail, g_spatiotemporal_detail_schema_sql);
+        if (result.code_ == status_code::ok) {
+            try {
+                detail_writers_.emplace(shard.relative_path_, detail);
+            } catch (const std::bad_alloc&) {
+                sqlite3_close(detail);
+                return {status_code::resource_exhausted,
+                    "trajectory detail writer registry allocation failed"};
+            }
+        } else {
+            sqlite3_close(detail);
+            return result;
+        }
     }
-    result = vqec_vision_ai_stor_stsql_execute(detail, g_spatiotemporal_detail_schema_sql);
     std::uint64_t global_sequence = 0U;
     if (result.code_ == status_code::ok) {
-        result = vqec_vision_ai_stor_stsql_reserve_sequence(catalog_, global_sequence);
+        result = vqec_vision_ai_stor_stsql_reserve_sequence(
+            catalog_, global_sequence, true);
     }
     if (result.code_ == status_code::ok) {
         result = vqec_vision_ai_stor_stsql_insert_detail(
             detail, _chunk, encoded, global_sequence, _outbox_sinks);
     }
-    const auto detail_close = sqlite3_close(detail);
-    if (result.code_ == status_code::ok && detail_close != SQLITE_OK) {
-        result = {status_code::io_error, "close trajectory detail shard failed"};
-    }
     if (result.code_ != status_code::ok) {
+        if (sqlite3_get_autocommit(catalog_) == 0) {
+            (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+        }
         return result;
     }
     result = vqec_vision_ai_stor_stsql_insert_chunk_index(
         catalog_, _chunk, encoded, global_sequence, shard);
+    if (result.code_ == status_code::ok) {
+        result = vqec_vision_ai_stor_stsql_execute(catalog_, "COMMIT;");
+    } else if (sqlite3_get_autocommit(catalog_) == 0) {
+        (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+    }
     if (result.code_ != status_code::ok) {
+        if (sqlite3_get_autocommit(catalog_) == 0) {
+            (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+        }
         return result;
     }
     ++stats_.committed_chunks_;
@@ -1485,6 +1524,14 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_seal_before(
         paths.push_back(vqec_vision_ai_stor_stsql_read_text(path_query, 0));
     }
     for (const auto& relative_path : paths) {
+        const auto writer = detail_writers_.find(relative_path);
+        if (writer != detail_writers_.end()) {
+            if (sqlite3_close(writer->second) != SQLITE_OK) {
+                return {status_code::io_error,
+                    "close trajectory detail writer before seal failed"};
+            }
+            detail_writers_.erase(writer);
+        }
         sqlite3* detail = nullptr;
         const auto full_path =
             (std::filesystem::path(config_.root_directory_) / relative_path).string();

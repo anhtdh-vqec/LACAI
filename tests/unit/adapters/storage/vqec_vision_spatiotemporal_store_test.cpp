@@ -338,6 +338,16 @@ int main() {
     assert(page.episodes_.size() == 2U);
     assert(page.episodes_.front().revision_ == 1U);
 
+    const auto fire_c_v1 = vqec_vision_ai_unit_ststst_make_fire_episode(
+        "fire.c", 1U, 0U, 700000, "grid_4_4");
+    assert(store.vqec_vision_ai_stor_stsql_ingest_projection_batch(
+               {fire_c_v1, conflicting_episode}, {}, {}).code_ ==
+           status_code::invalid_argument);
+    episode_query.budget_.deadline_ns_ = vqec_vision_ai_unit_ststst_get_deadline_ns();
+    assert(store.vqec_vision_ai_stor_stsql_query(episode_query, page).code_ ==
+           status_code::ok);
+    assert(page.episodes_.size() == 2U);
+
     auto contribution_a = vqec_vision_ai_unit_ststst_make_fire_contribution(
         "fire.contribution.a", "fire.a", 1U, 0U, "grid_3_4");
     auto contribution_b = vqec_vision_ai_unit_ststst_make_fire_contribution(

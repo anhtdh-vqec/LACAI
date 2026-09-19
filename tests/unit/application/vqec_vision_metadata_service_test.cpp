@@ -21,6 +21,7 @@ constexpr std::uint32_t g_fixture_checkpoint_pages = 32U;
 constexpr std::size_t g_fixture_queue_capacity = 8U;
 constexpr std::size_t g_fixture_live_tracks = 1U;
 constexpr std::size_t g_fixture_live_deltas = 2U;
+constexpr std::size_t g_fixture_batch_records = 4U;
 
 std::uint64_t vqec_vision_ai_unit_mdsvt_get_deadline_ns() {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -90,6 +91,7 @@ metadata_service_config vqec_vision_ai_unit_mdsvt_make_config(
     config.queue_capacity_ = g_fixture_queue_capacity;
     config.maximum_live_tracks_ = g_fixture_live_tracks;
     config.maximum_live_deltas_ = g_fixture_live_deltas;
+    config.maximum_batch_records_ = g_fixture_batch_records;
     config.outbox_sinks_ = {"kafka.metadata"};
     return config;
 }

@@ -46,6 +46,7 @@ struct benchmark_options {
     std::uint64_t duration_seconds_{g_default_duration_seconds};
     std::uint64_t sets_per_second_{g_default_sets_per_second};
     std::size_t source_count_{g_default_source_count};
+    bool is_full_sync_{true};
 };
 
 struct benchmark_result {
@@ -77,6 +78,15 @@ bool vqec_vision_ai_board_stben_parse(
         std::uint64_t parsed = 0U;
         if (option == "--root") {
             _options.root_ = value;
+        } else if (option == "--sync") {
+            const std::string sync = value;
+            if (sync == "full") {
+                _options.is_full_sync_ = true;
+            } else if (sync == "normal") {
+                _options.is_full_sync_ = false;
+            } else {
+                return false;
+            }
         } else if (option == "--duration-seconds" &&
                    vqec_vision_ai_board_stben_parse_u64(value, parsed)) {
             _options.duration_seconds_ = parsed;
@@ -233,9 +243,11 @@ metadata_service_config vqec_vision_ai_board_stben_config(
     config.store_.maximum_query_results_ = 4096U;
     config.store_.busy_timeout_ms_ = 1000U;
     config.store_.wal_autocheckpoint_pages_ = 1000U;
+    config.store_.is_full_sync_ = _options.is_full_sync_;
     config.queue_capacity_ = 4096U;
     config.maximum_live_tracks_ = 4096U;
     config.maximum_live_deltas_ = 16384U;
+    config.maximum_batch_records_ = 128U;
     config.outbox_sinks_ = {"kafka.offline"};
     return config;
 }
@@ -300,6 +312,23 @@ int vqec_vision_ai_board_stben_run(const benchmark_options& _options) {
         return 3;
     }
     benchmark_result result;
+    std::uint64_t sequence = 0U;
+    for (; sequence < g_fixture_scenarios.size(); ++sequence) {
+        const auto source = vqec_vision_ai_board_stben_source(
+            static_cast<std::size_t>(sequence % _options.source_count_));
+        const auto episode = vqec_vision_ai_board_stben_episode(
+            sequence, source, g_fixture_scenarios[sequence]);
+        const auto contribution = vqec_vision_ai_board_stben_contribution(sequence, episode);
+        const auto chunk = vqec_vision_ai_board_stben_chunk(sequence, source);
+        ++result.attempted_sets_;
+        if (service.vqec_vision_ai_appl_mdsvc_submit_episode(episode).code_ != status_code::ok ||
+            service.vqec_vision_ai_appl_mdsvc_submit_aggregate_contribution(
+                contribution).code_ != status_code::ok ||
+            service.vqec_vision_ai_appl_mdsvc_submit_trajectory(chunk).code_ !=
+                status_code::ok) {
+            ++result.rejected_records_;
+        }
+    }
     std::atomic<bool> stop_queries{false};
     std::thread reader([&]() {
         std::size_t index = 0U;
@@ -324,7 +353,6 @@ int vqec_vision_ai_board_stben_run(const benchmark_options& _options) {
     const auto wall_deadline = wall_begin + _options.duration_seconds_ * g_nanoseconds_per_second;
     const auto interval_ns = g_nanoseconds_per_second / _options.sets_per_second_;
     auto next_ns = wall_begin;
-    std::uint64_t sequence = 0U;
     while (vqec_vision_ai_board_stben_steady_ns() < wall_deadline) {
         const auto source = vqec_vision_ai_board_stben_source(
             static_cast<std::size_t>(sequence % _options.source_count_));
@@ -415,7 +443,7 @@ int main(int argc, char** argv) {
     if (!vqec_vision_ai_board_stben_parse(argc, argv, options)) {
         std::fprintf(stderr,
             "usage: %s --root PATH [--duration-seconds N] [--sets-per-second N] "
-            "[--sources 1..16]\n", argv[0]);
+            "[--sources 1..16] [--sync full|normal]\n", argv[0]);
         return 1;
     }
     return vqec_vision_ai_board_stben_run(options);

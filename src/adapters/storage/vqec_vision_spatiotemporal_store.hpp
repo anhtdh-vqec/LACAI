@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -61,6 +62,14 @@ public:
         const aggregate_contribution_revision& _contribution,
         const std::vector<std::string>& _outbox_sinks);
 
+    // Commits one bounded projection batch and all outbox rows atomically. The caller retains
+    // record order within each revision chain and must keep trajectory chunks in their detail
+    // shard path rather than mixing them into this catalog transaction.
+    [[nodiscard]] status vqec_vision_ai_stor_stsql_ingest_projection_batch(
+        const std::vector<event_episode_revision>& _episodes,
+        const std::vector<aggregate_contribution_revision>& _contributions,
+        const std::vector<std::string>& _outbox_sinks);
+
     [[nodiscard]] status vqec_vision_ai_stor_stsql_query(
         const spatiotemporal_query& _query, spatiotemporal_query_page& _page);
 
@@ -78,6 +87,7 @@ private:
 
     spatiotemporal_store_config config_;
     sqlite3* catalog_{nullptr};
+    std::map<std::string, sqlite3*> detail_writers_;
     mutable spatiotemporal_store_stats stats_;
 };
 

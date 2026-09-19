@@ -52,6 +52,8 @@ bool vqec_vision_ai_appl_mdsvc_is_service_config_valid(
         _config.maximum_live_tracks_ > metadata_service_limits::g_maximum_live_tracks ||
         _config.maximum_live_deltas_ == 0U ||
         _config.maximum_live_deltas_ > metadata_service_limits::g_maximum_live_deltas ||
+        _config.maximum_batch_records_ == 0U ||
+        _config.maximum_batch_records_ > metadata_service_limits::g_maximum_batch_records ||
         _config.outbox_sinks_.size() > g_spatiotemporal_max_outbox_sinks) {
         return false;
     }
@@ -62,6 +64,12 @@ bool vqec_vision_ai_appl_mdsvc_is_service_config_valid(
             return vqec_vision_ai_cntr_ident_is_valid(
                 _sink, g_spatiotemporal_max_identifier_bytes);
         });
+}
+
+bool vqec_vision_ai_appl_mdsvc_is_projection_work(
+    const metadata_work_item& _item) {
+    return std::holds_alternative<event_episode_revision>(_item.payload_) ||
+        std::holds_alternative<aggregate_contribution_revision>(_item.payload_);
 }
 
 bool vqec_vision_ai_appl_mdsvc_is_authorized(
@@ -444,9 +452,54 @@ private:
             store_.vqec_vision_ai_stor_stsql_get_stats(store_stats_).code_ == status_code::ok;
     }
 
+    void vqec_vision_ai_appl_mdsvc_process_projection_batch(
+        std::vector<metadata_work_item> _items) {
+        std::vector<event_episode_revision> episodes;
+        std::vector<aggregate_contribution_revision> contributions;
+        try {
+            episodes.reserve(_items.size());
+            contributions.reserve(_items.size());
+            for (auto& item : _items) {
+                if (auto* episode = std::get_if<event_episode_revision>(&item.payload_)) {
+                    episodes.push_back(std::move(*episode));
+                } else if (auto* contribution =
+                               std::get_if<aggregate_contribution_revision>(&item.payload_)) {
+                    contributions.push_back(std::move(*contribution));
+                }
+            }
+        } catch (const std::bad_alloc&) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stats_.failed_records_ += _items.size();
+            return;
+        }
+        const auto result = store_.vqec_vision_ai_stor_stsql_ingest_projection_batch(
+            episodes, contributions, config_.outbox_sinks_);
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (result.code_ == status_code::ok) {
+            stats_.committed_records_ += _items.size();
+        } else {
+            stats_.failed_records_ += _items.size();
+        }
+        has_store_stats_ =
+            store_.vqec_vision_ai_stor_stsql_get_stats(store_stats_).code_ == status_code::ok;
+    }
+
     void vqec_vision_ai_appl_mdsvc_run() noexcept {
+        std::vector<metadata_work_item> projection_batch;
+        try {
+            projection_batch.reserve(config_.maximum_batch_records_);
+        } catch (const std::bad_alloc&) {
+            const auto close_result = store_.vqec_vision_ai_stor_stsql_close();
+            std::lock_guard<std::mutex> lock(mutex_);
+            worker_result_ = close_result.code_ == status_code::ok
+                ? status{status_code::resource_exhausted,
+                      "metadata batch allocation failed"}
+                : close_result;
+            return;
+        }
         for (;;) {
             metadata_work_item item;
+            projection_batch.clear();
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 condition_.wait(lock,
@@ -456,10 +509,24 @@ private:
                 }
                 item = std::move(queue_.front());
                 queue_.pop_front();
+                if (vqec_vision_ai_appl_mdsvc_is_projection_work(item)) {
+                    projection_batch.push_back(std::move(item));
+                    while (!queue_.empty() &&
+                           projection_batch.size() < config_.maximum_batch_records_ &&
+                           vqec_vision_ai_appl_mdsvc_is_projection_work(queue_.front())) {
+                        projection_batch.push_back(std::move(queue_.front()));
+                        queue_.pop_front();
+                    }
+                }
                 stats_.queue_depth_ = queue_.size();
             }
             try {
-                vqec_vision_ai_appl_mdsvc_process(std::move(item));
+                if (!projection_batch.empty()) {
+                    vqec_vision_ai_appl_mdsvc_process_projection_batch(
+                        std::move(projection_batch));
+                } else {
+                    vqec_vision_ai_appl_mdsvc_process(std::move(item));
+                }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 ++stats_.failed_records_;

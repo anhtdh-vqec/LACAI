@@ -296,9 +296,13 @@ bool vqec_vision_ai_stor_stsql_validate_projection_sinks(
 
 status vqec_vision_ai_stor_stsql_begin_projection(
     sqlite3* _catalog, std::uint64_t& _sequence) {
-    auto result = vqec_vision_ai_stor_stsql_execute_projection(_catalog, "BEGIN IMMEDIATE;");
-    if (result.code_ != status_code::ok) {
-        return result;
+    status result;
+    if (sqlite3_get_autocommit(_catalog) != 0) {
+        result = vqec_vision_ai_stor_stsql_execute_projection(
+            _catalog, "BEGIN IMMEDIATE;");
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
     }
     projection_statement statement;
     result = vqec_vision_ai_stor_stsql_prepare_projection(_catalog,
@@ -435,6 +439,7 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_episode(
     if (result.code_ != status_code::ok || is_idempotent) {
         return result;
     }
+    const bool owns_transaction = sqlite3_get_autocommit(catalog_) != 0;
     std::uint64_t sequence = 0U;
     result = vqec_vision_ai_stor_stsql_begin_projection(catalog_, sequence);
     if (result.code_ != status_code::ok) {
@@ -477,7 +482,9 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_episode(
     result = vqec_vision_ai_stor_stsql_insert_projection_outbox(catalog_, _outbox_sinks,
         g_spatiotemporal_episode_family, _episode.episode_id_, _episode.revision_);
     if (result.code_ == status_code::ok) {
-        result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
+        if (owns_transaction) {
+            result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
+        }
     } else {
         (void)vqec_vision_ai_stor_stsql_execute_projection(catalog_, "ROLLBACK;");
     }
@@ -514,6 +521,7 @@ vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
     if (result.code_ != status_code::ok || is_idempotent) {
         return result;
     }
+    const bool owns_transaction = sqlite3_get_autocommit(catalog_) != 0;
     std::uint64_t sequence = 0U;
     result = vqec_vision_ai_stor_stsql_begin_projection(catalog_, sequence);
     if (result.code_ != status_code::ok) {
@@ -561,12 +569,60 @@ vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
         g_spatiotemporal_aggregate_family, _contribution.contribution_id_,
         _contribution.revision_);
     if (result.code_ == status_code::ok) {
-        result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
+        if (owns_transaction) {
+            result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
+        }
     } else {
         (void)vqec_vision_ai_stor_stsql_execute_projection(catalog_, "ROLLBACK;");
     }
     if (result.code_ == status_code::ok) {
         ++stats_.committed_aggregate_revisions_;
+    }
+    return result;
+}
+
+status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_ingest_projection_batch(
+    const std::vector<event_episode_revision>& _episodes,
+    const std::vector<aggregate_contribution_revision>& _contributions,
+    const std::vector<std::string>& _outbox_sinks) {
+    if (catalog_ == nullptr) {
+        return {status_code::invalid_state, "spatiotemporal store is not open"};
+    }
+    if (_episodes.empty() && _contributions.empty()) {
+        return {status_code::invalid_argument, "metadata projection batch is empty"};
+    }
+    if (_episodes.size() > std::numeric_limits<std::size_t>::max() -
+            _contributions.size()) {
+        return {status_code::invalid_argument, "metadata projection batch size overflows"};
+    }
+    const auto stats_before = stats_;
+    auto result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "BEGIN IMMEDIATE;");
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
+    for (const auto& episode : _episodes) {
+        result = vqec_vision_ai_stor_stsql_ingest_episode(episode, _outbox_sinks);
+        if (result.code_ != status_code::ok) {
+            break;
+        }
+    }
+    if (result.code_ == status_code::ok) {
+        for (const auto& contribution : _contributions) {
+            result = vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+                contribution, _outbox_sinks);
+            if (result.code_ != status_code::ok) {
+                break;
+            }
+        }
+    }
+    if (result.code_ == status_code::ok) {
+        result = vqec_vision_ai_stor_stsql_execute_projection(catalog_, "COMMIT;");
+    }
+    if (result.code_ != status_code::ok) {
+        if (sqlite3_get_autocommit(catalog_) == 0) {
+            (void)vqec_vision_ai_stor_stsql_execute_projection(catalog_, "ROLLBACK;");
+        }
+        stats_ = stats_before;
     }
     return result;
 }

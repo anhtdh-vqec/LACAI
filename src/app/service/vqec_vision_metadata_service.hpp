@@ -14,6 +14,7 @@ namespace metadata_service_limits {
 inline constexpr std::size_t g_maximum_queue_capacity = 4096U;
 inline constexpr std::size_t g_maximum_live_tracks = 4096U;
 inline constexpr std::size_t g_maximum_live_deltas = 16384U;
+inline constexpr std::size_t g_maximum_batch_records = 256U;
 }  // namespace metadata_service_limits
 
 struct metadata_service_config {
@@ -21,6 +22,7 @@ struct metadata_service_config {
     std::size_t queue_capacity_{0};
     std::size_t maximum_live_tracks_{0};
     std::size_t maximum_live_deltas_{0};
+    std::size_t maximum_batch_records_{0};
     std::vector<std::string> outbox_sinks_;
 };
 
