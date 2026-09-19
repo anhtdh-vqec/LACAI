@@ -25,7 +25,7 @@
 #include <vector>
 #include <unistd.h>
 
-#include "vqec_vision_service_runtime.hpp"
+#include "vqec_vision_service_generation.hpp"
 
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
@@ -74,10 +74,7 @@
 #include "vqec_vision_app_manager_dbus.hpp"
 #endif
 #include "vqec_vision_event_delivery_seam.hpp"
-#include "vqec_vision_evidence_service.hpp"
-#include "vqec_vision_evidence_uds_client.hpp"
-#include "vqec_vision_metadata_runtime.hpp"
-#include "vqec_vision_sqlite_evidence_outbox.hpp"
+#include "vqec_vision_service_output_runtime.hpp"
 
 using namespace vqec::vision::ai;
 
@@ -93,22 +90,21 @@ constexpr int g_recovery_required_exit_code = 5;
 constexpr std::size_t g_max_active_track_labels = 256;
 constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
 constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
-constexpr std::uint64_t g_nanoseconds_per_millisecond = 1000000ULL;
 constexpr std::uint64_t g_stop_drain_final_observation_steps = 1U;
 
-void vqec_vision_ai_appl_svcmn_on_signal(int) {
+void vqec_vision_ai_appl_svgen_on_signal(int) {
     g_stop_requested = 1;
 }
 
 // Real monotonic clock for the executor loop. Never UTC; never a fabricated counter.
-std::uint64_t vqec_vision_ai_appl_svcmn_monotonic_ns() noexcept {
+std::uint64_t vqec_vision_ai_appl_svgen_monotonic_ns() noexcept {
     return static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count());
 }
 
-hardware_admission_profile vqec_vision_ai_appl_svcmn_make_fixture_hardware_profile() {
+hardware_admission_profile vqec_vision_ai_appl_svgen_make_fixture_hardware_profile() {
     hardware_admission_profile profile;
     profile.profile_id_ = "device_free_test_fixture";
     profile.target_id_ = "qcs6490_qlinux_1_8";
@@ -126,7 +122,7 @@ hardware_admission_profile vqec_vision_ai_appl_svcmn_make_fixture_hardware_profi
     return profile;
 }
 
-status vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
+status vqec_vision_ai_appl_svgen_resolve_hardware_profile(
     const parsed_arguments& _args, bool _use_production_platform,
     hardware_admission_profile& _profile) {
     if (_args.hardware_profile_path.empty()) {
@@ -134,7 +130,7 @@ status vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
             return {status_code::unsupported,
                 "Qualcomm production requires --hardware-profile"};
         }
-        _profile = vqec_vision_ai_appl_svcmn_make_fixture_hardware_profile();
+        _profile = vqec_vision_ai_appl_svgen_make_fixture_hardware_profile();
         return {};
     }
     std::ifstream stream(_args.hardware_profile_path, std::ios::binary);
@@ -144,14 +140,14 @@ status vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
     return vqec_vision_ai_admis_hwprf_load(stream, _profile);
 }
 
-std::string vqec_vision_ai_appl_svcmn_dev_model_path(
+std::string vqec_vision_ai_appl_svgen_dev_model_path(
     const std::string& _model_root, const std::string& _model_id) {
     return _model_root + _model_id + ".bin";
 }
 
 // Builds the parsed output metadata the runtime validates against the catalog identity.
 // Device-free harness only; a real deployment reads the model package output manifest.
-model_outputs vqec_vision_ai_appl_svcmn_synthetic_outputs(const model_catalog_entry& _model) {
+model_outputs vqec_vision_ai_appl_svgen_synthetic_outputs(const model_catalog_entry& _model) {
     model_outputs outputs;
     outputs.model_id_ = _model.model_id_;
     outputs.model_version_ = _model.model_version_;
@@ -163,7 +159,7 @@ model_outputs vqec_vision_ai_appl_svcmn_synthetic_outputs(const model_catalog_en
     return outputs;
 }
 
-std::uint16_t vqec_vision_ai_appl_svcmn_model_slot(
+std::uint16_t vqec_vision_ai_appl_svgen_model_slot(
     const source_deployment_config& _source, const std::string& _model_id) {
     for (std::uint16_t slot = 0; slot < _source.model_ids_.size(); ++slot) {
         if (_source.model_ids_[slot] == _model_id) {
@@ -173,7 +169,7 @@ std::uint16_t vqec_vision_ai_appl_svcmn_model_slot(
     return g_invalid_model_slot;
 }
 
-const model_catalog_entry* vqec_vision_ai_appl_svcmn_find_model(
+const model_catalog_entry* vqec_vision_ai_appl_svgen_find_model(
     const model_catalog& _catalog, const std::string& _model_id) {
     for (const auto& model : _catalog.models_) {
         if (model.model_id_ == _model_id) {
@@ -186,7 +182,7 @@ const model_catalog_entry* vqec_vision_ai_appl_svcmn_find_model(
 using model_observation_cache =
     std::array<observation_batch, deployment_limits::g_max_models_per_source>;
 
-void vqec_vision_ai_appl_svcmn_merge_observations(
+void vqec_vision_ai_appl_svgen_merge_observations(
     const model_observation_cache& _models, std::uint16_t _model_count,
     std::uint64_t _now_ns, std::uint64_t _max_age_ns,
     observation_batch& _merged) {
@@ -225,11 +221,19 @@ void vqec_vision_ai_appl_svcmn_merge_observations(
 
 }  // namespace
 
+std::uint64_t vqec_vision_ai_appl_svgen_current_monotonic_ns() noexcept {
+    return vqec_vision_ai_appl_svgen_monotonic_ns();
+}
+
+bool vqec_vision_ai_appl_svgen_is_stop_requested() noexcept {
+    return g_stop_requested != 0;
+}
+
 // Prints the end-of-generation metrics/report and decides the process exit code. Kept out
 // of run_generation so the report policy is reviewable on its own. route_latency_* is the
 // steady-clock interval from job reservation to result routing; it is not camera-to-output
 // latency and excludes FW capture and preview encode.
-int vqec_vision_ai_appl_svcmn_report_and_decide(const runtime_executor_metrics& _metrics,
+int vqec_vision_ai_appl_svgen_report_and_decide(const runtime_executor_metrics& _metrics,
     bool _stopped, bool _enrollment_ok, bool _cascade_ok, std::uint32_t _routed_sources,
     bool _generation_published, status_code _first_error_code, bool _reconcile_requested,
     std::uint32_t _require_sources) {
@@ -273,7 +277,7 @@ int vqec_vision_ai_appl_svcmn_report_and_decide(const runtime_executor_metrics& 
 // the reference graph vector are borrowed here and must outlive the runtime bundle; this
 // function only assigns pointers/metadata into _activation. Returns a status; detailed
 // diagnostics are printed at the point of failure.
-status vqec_vision_ai_appl_svcmn_build_model_activations(
+status vqec_vision_ai_appl_svgen_build_model_activations(
     const parsed_arguments& _args, const deployment_config& _deployment,
     const model_catalog& _catalog, production_platform& _production,
     const std::vector<raw_source_port*>& _sources, bool _use_production_platform,
@@ -290,7 +294,7 @@ status vqec_vision_ai_appl_svcmn_build_model_activations(
             static_cast<std::uint16_t>(source.model_ids_.size());
         for (std::uint16_t model_slot = 0; model_slot < source_activation.model_count_;
              ++model_slot) {
-            const auto* model = vqec_vision_ai_appl_svcmn_find_model(
+            const auto* model = vqec_vision_ai_appl_svgen_find_model(
                 _catalog, source.model_ids_[model_slot]);
             if (model == nullptr) {
                 std::fprintf(stderr, "deployment references unknown model: %s\n",
@@ -325,7 +329,7 @@ status vqec_vision_ai_appl_svcmn_build_model_activations(
                 model_activation.paths_.target_id_ = model->target_id_;
                 model_activation.paths_.artifact_ref_ = model->artifact_ref_;
                 model_activation.paths_.model_path_ =
-                    vqec_vision_ai_appl_svcmn_dev_model_path(
+                    vqec_vision_ai_appl_svgen_dev_model_path(
                         _args.model_root.empty() ? service_harness::g_fixture_model_root
                                                  : _args.model_root,
                         model->model_id_);
@@ -341,7 +345,7 @@ status vqec_vision_ai_appl_svcmn_build_model_activations(
                         ? service_harness::g_fixture_system_library
                         : _args.qnn_system_library;
                 model_activation.outputs_ =
-                    vqec_vision_ai_appl_svcmn_synthetic_outputs(*model);
+                    vqec_vision_ai_appl_svgen_synthetic_outputs(*model);
             }
             model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
             model_activation.tracker_contract_ = _tracker_contract;
@@ -367,7 +371,7 @@ status vqec_vision_ai_appl_svcmn_build_model_activations(
     return {};
 }
 
-status vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
+status vqec_vision_ai_appl_svgen_resolve_runtime_feature_configuration(
     const service_startup_resolution& _startup, const std::string& _source_id,
     const feature_catalog_entry& _feature, feature_configuration& _configuration,
     std::vector<std::string>& _output_scopes) {
@@ -420,7 +424,7 @@ status vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
 
 // Appends one FR output-scope rule per deployment source. Shared by the feature-wiring and
 // FR-only policy paths so the FR entitlement rule is defined once.
-void vqec_vision_ai_appl_svcmn_append_fr_policy_rules(output_policy& _policy,
+void vqec_vision_ai_appl_svgen_append_fr_policy_rules(output_policy& _policy,
     const deployment_config& _deployment, const std::string& _feature_id,
     const std::string& _attribute_id) {
     for (const auto& source : _deployment.sources_) {
@@ -432,7 +436,7 @@ void vqec_vision_ai_appl_svcmn_append_fr_policy_rules(output_policy& _policy,
     }
 }
 
-int vqec_vision_ai_appl_svcmn_run_generation(
+int vqec_vision_ai_appl_svgen_run_generation(
     int _argc, char** _argv, const deployment_config* _effective_deployment,
     const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
@@ -477,39 +481,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             "--enrollment-transform-engine <engine>]]\n");
         return 2;
     }
-    const bool evidence_configured = !args.evidence_socket_path.empty() ||
-        !args.evidence_outbox_path.empty() || args.evidence_peer_uid_set ||
-        args.evidence_io_timeout_ms != 0 ||
-        args.evidence_outbox_busy_timeout_ms != 0 ||
-        args.evidence_outbox_max_bytes != 0U || args.evidence_initial_retry_ms != 0U ||
-        args.evidence_maximum_retry_ms != 0U || args.evidence_idle_poll_ms != 0U ||
-        args.evidence_stop_drain_ms != 0U || args.evidence_maximum_attempts != 0U;
-    if (evidence_configured &&
-        (!args.production_mode || args.evidence_socket_path.empty() ||
-         args.evidence_outbox_path.empty() || !args.evidence_peer_uid_set ||
-         args.evidence_io_timeout_ms <= 0 ||
-         args.evidence_outbox_busy_timeout_ms <= 0 ||
-         args.evidence_outbox_max_bytes == 0U ||
-         args.evidence_outbox_max_bytes >
-             service_options_limits::g_max_evidence_outbox_bytes ||
-         args.evidence_initial_retry_ms == 0U ||
-         args.evidence_maximum_retry_ms < args.evidence_initial_retry_ms ||
-         args.evidence_maximum_retry_ms >
-             service_options_limits::g_max_evidence_interval_ms ||
-         args.evidence_idle_poll_ms == 0U ||
-         args.evidence_idle_poll_ms >
-             service_options_limits::g_max_evidence_interval_ms ||
-         args.evidence_stop_drain_ms == 0U ||
-         args.evidence_stop_drain_ms >
-             service_options_limits::g_max_evidence_interval_ms ||
-         args.evidence_maximum_attempts == 0U ||
-         args.evidence_maximum_attempts > evidence_transport_limits::g_max_attempts)) {
-        std::fprintf(stderr,
-            "evidence transport requires a complete bounded production configuration\n");
-        return 2;
-    }
-    std::signal(SIGINT, vqec_vision_ai_appl_svcmn_on_signal);
-    std::signal(SIGTERM, vqec_vision_ai_appl_svcmn_on_signal);
+    std::signal(SIGINT, vqec_vision_ai_appl_svgen_on_signal);
+    std::signal(SIGTERM, vqec_vision_ai_appl_svgen_on_signal);
 
     auto startup = vqec_vision_ai_appl_svstr_resolve_startup(
         args, _effective_deployment, _runtime_control, _control_manager, _poll_control,
@@ -691,65 +664,24 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 
     // Output boundary for the harness: a permissive-but-explicit policy plus
     // either a neutral event delivery seam for production or a development reference sink.
-    output_gate output_policy_gate;
     reference_event_sink reference_sink;
     event_delivery_seam production_seam;
-    std::unique_ptr<sqlite_evidence_outbox> evidence_outbox;
-    std::unique_ptr<evidence_uds_client> evidence_transport;
-    std::unique_ptr<evidence_service> evidence;
-    if (evidence_configured) {
-        evidence_outbox = std::make_unique<sqlite_evidence_outbox>(
-            sqlite_evidence_outbox_config{args.evidence_outbox_path,
-                args.evidence_outbox_max_bytes,
-                args.evidence_outbox_busy_timeout_ms});
-        evidence_transport = std::make_unique<evidence_uds_client>(
-            evidence_uds_client_config{args.evidence_socket_path,
-                args.evidence_peer_uid, args.evidence_io_timeout_ms});
-        evidence = std::make_unique<evidence_service>(evidence_service_config{
-            static_cast<std::uint64_t>(args.evidence_initial_retry_ms) *
-                g_nanoseconds_per_millisecond,
-            static_cast<std::uint64_t>(args.evidence_maximum_retry_ms) *
-                g_nanoseconds_per_millisecond,
-            static_cast<std::uint64_t>(args.evidence_idle_poll_ms) *
-                g_nanoseconds_per_millisecond,
-            static_cast<std::uint64_t>(args.evidence_stop_drain_ms) *
-                g_nanoseconds_per_millisecond,
-            args.evidence_maximum_attempts},
-            *evidence_outbox, *evidence_transport, output_policy_gate);
+    feature_event_sink_port& fallback_event_sink = use_production_platform
+        ? static_cast<feature_event_sink_port&>(production_seam)
+        : static_cast<feature_event_sink_port&>(reference_sink);
+    service_output_runtime output_runtime;
+    const auto output_started = output_runtime.vqec_vision_ai_appl_svout_start(
+        args, deployment, fallback_event_sink);
+    if (output_started.code_ != status_code::ok) {
+        std::fprintf(stderr, "service output startup failed (%d): %s\n",
+            static_cast<int>(output_started.code_), output_started.message_.c_str());
+        return output_started.code_ == status_code::invalid_argument ? 2 : 1;
     }
-    feature_event_sink_port& downstream_event_sink =
-        evidence != nullptr
-            ? static_cast<feature_event_sink_port&>(*evidence)
-            : use_production_platform
-            ? static_cast<feature_event_sink_port&>(production_seam)
-            : static_cast<feature_event_sink_port&>(reference_sink);
-    std::unique_ptr<metadata_runtime> metadata;
-    bool metadata_required = false;
-    if (!args.metadata_profile_path.empty()) {
-        std::ifstream metadata_profile(args.metadata_profile_path, std::ios::binary);
-        metadata_runtime_config metadata_config;
-        const auto loaded = metadata_profile
-            ? vqec_vision_ai_appl_mdrun_load_config(
-                  metadata_profile, deployment, metadata_config)
-            : status{status_code::io_error, "cannot open metadata runtime profile"};
-        if (loaded.code_ != status_code::ok) {
-            std::fprintf(stderr, "metadata profile failed (%d): %s\n",
-                static_cast<int>(loaded.code_), loaded.message_.c_str());
-            return 1;
-        }
-        metadata_required = metadata_config.required_;
-        metadata = std::make_unique<metadata_runtime>(
-            std::move(metadata_config), downstream_event_sink);
-        const auto started = metadata->vqec_vision_ai_appl_mdrun_start();
-        if (started.code_ != status_code::ok) {
-            std::fprintf(stderr, "metadata runtime start failed (%d): %s\n",
-                static_cast<int>(started.code_), started.message_.c_str());
-            return 1;
-        }
-    }
-    feature_event_sink_port& active_event_sink = metadata != nullptr
-        ? static_cast<feature_event_sink_port&>(*metadata)
-        : downstream_event_sink;
+    auto& output_policy_gate = output_runtime.vqec_vision_ai_appl_svout_get_gate();
+    auto* metadata = output_runtime.vqec_vision_ai_appl_svout_get_metadata();
+    const bool metadata_required =
+        output_runtime.vqec_vision_ai_appl_svout_is_metadata_required();
+    auto& active_event_sink = output_runtime.vqec_vision_ai_appl_svout_get_sink();
 
     // Platform owners: production adapters or the device-free reference backend.
     std::vector<std::unique_ptr<reference_raw_source>> reference_sources;
@@ -784,14 +716,14 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
     activation.use_session_workers_ = args.use_session_workers;
     activation.use_model_workers_ = args.use_model_workers;
-    const auto resolved_profile = vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
+    const auto resolved_profile = vqec_vision_ai_appl_svgen_resolve_hardware_profile(
         args, use_production_platform, activation.hardware_profile_);
     if (resolved_profile.code_ != status_code::ok) {
         std::fprintf(stderr, "hardware admission profile failed (%d): %s\n",
             static_cast<int>(resolved_profile.code_), resolved_profile.message_.c_str());
         return 1;
     }
-    const auto built_activations = vqec_vision_ai_appl_svcmn_build_model_activations(
+    const auto built_activations = vqec_vision_ai_appl_svgen_build_model_activations(
         args, deployment, catalog, production, sources, use_production_platform,
         tracker_contract, reference_graphs, activation);
     if (built_activations.code_ != status_code::ok) {
@@ -832,7 +764,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     feature.model_dependencies_.size() != 1) {
                     continue;
                 }
-                const auto slot = vqec_vision_ai_appl_svcmn_model_slot(
+                const auto slot = vqec_vision_ai_appl_svgen_model_slot(
                     source, feature.model_dependencies_[0].model_id_);
                 if (slot == g_invalid_model_slot) {
                     continue;
@@ -868,7 +800,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 if (startup.has_runtime_control && request.desired_enabled_ &&
                     request.entitlement_granted_ && request.resource_admitted_) {
                     const auto resolved =
-                        vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
+                        vqec_vision_ai_appl_svgen_resolve_runtime_feature_configuration(
                             startup, source.source_id_, feature,
                             request.configuration_, authorized_output_scopes[request_count]);
                     if (resolved.code_ != status_code::ok) {
@@ -929,7 +861,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 policy.rules_.push_back(std::move(preview_rule));
             }
             if (fr_effectively_enabled) {
-                vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
+                vqec_vision_ai_appl_svgen_append_fr_policy_rules(
                     policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
             }
             const auto applied =
@@ -1004,7 +936,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             preview_rule.attributes_.push_back("overlay");
             policy.rules_.push_back(std::move(preview_rule));
         }
-        vqec_vision_ai_appl_svcmn_append_fr_policy_rules(
+        vqec_vision_ai_appl_svgen_append_fr_policy_rules(
             policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
         const auto applied =
             output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
@@ -1044,14 +976,13 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         output_policy_applied = true;
     }
 
-    if (evidence != nullptr) {
-        const auto evidence_started = evidence->vqec_vision_ai_appl_evsvc_start();
-        if (evidence_started.code_ != status_code::ok) {
-            std::fprintf(stderr, "evidence service start failed (%d): %s\n",
-                static_cast<int>(evidence_started.code_),
-                evidence_started.message_.c_str());
-            return 1;
-        }
+    const auto delivery_started =
+        output_runtime.vqec_vision_ai_appl_svout_start_delivery();
+    if (delivery_started.code_ != status_code::ok) {
+        std::fprintf(stderr, "service output delivery start failed (%d): %s\n",
+            static_cast<int>(delivery_started.code_),
+            delivery_started.message_.c_str());
+        return 1;
     }
 
 
@@ -1256,7 +1187,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             const auto* secondary_model = recognition_owner->model_;
             const auto* primary_model = secondary_model != nullptr &&
                     secondary_model->depends_on_.size() == 1U ?
-                vqec_vision_ai_appl_svcmn_find_model(
+                vqec_vision_ai_appl_svgen_find_model(
                     catalog, secondary_model->depends_on_[0].model_id_) : nullptr;
             if (primary_model == nullptr || secondary_model == nullptr) {
                 std::fprintf(stderr, "enrollment model dependency is incomplete\n");
@@ -1309,7 +1240,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             detector_config.geometry_ = {source.profile_.width_, source.profile_.height_};
             detector_config.camera_id_ = source.camera_id_;
             detector_config.channel_id_ = source.channel_id_;
-            detector_config.cycle_id_ = vqec_vision_ai_appl_svcmn_monotonic_ns();
+            detector_config.cycle_id_ = vqec_vision_ai_appl_svgen_monotonic_ns();
             detector_config.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
             prepared = enrollment_detector->vqec_vision_ai_appl_siinf_configure(
                 detector_config);
@@ -1417,7 +1348,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         return 1;
     }
 
-    std::uint64_t now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+    std::uint64_t now_ns = vqec_vision_ai_appl_svgen_monotonic_ns();
     std::uint64_t steps = 0;
     std::uint32_t routed_source_mask = 0;
     status_code first_error_code = status_code::ok;
@@ -1444,7 +1375,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             reconcile_requested = true;
             break;
         }
-        const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        const auto clock_now = vqec_vision_ai_appl_svgen_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now :
             now_ns + args.runtime_step_interval_ns;
         runtime_executor_report report;
@@ -1586,7 +1517,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     const auto* profile = metadata->vqec_vision_ai_appl_mdrun_find_source(
                         metadata_source.source_id_);
                     const auto* model = taken.model_slot_ < metadata_source.model_ids_.size()
-                        ? vqec_vision_ai_appl_svcmn_find_model(
+                        ? vqec_vision_ai_appl_svgen_find_model(
                               catalog, metadata_source.model_ids_[taken.model_slot_])
                         : nullptr;
                     if (profile != nullptr && model != nullptr &&
@@ -1648,7 +1579,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     }
                     latest_model_observations[taken.source_index_][taken.model_slot_] =
                         std::move(tracked[taken.model_slot_]);
-                    vqec_vision_ai_appl_svcmn_merge_observations(
+                    vqec_vision_ai_appl_svgen_merge_observations(
                         latest_model_observations[taken.source_index_],
                         static_cast<std::uint16_t>(
                             deployment.sources_[taken.source_index_].model_ids_.size()),
@@ -1813,7 +1744,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         }
         // Pace the supervisor loop to wall time so camera frames, model cadence and the
         // AI-owned output stage progress at the source rate instead of spinning.
-        const auto step_end_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        const auto step_end_ns = vqec_vision_ai_appl_svgen_monotonic_ns();
         const auto step_cost_ns = step_end_ns > clock_now ?
             step_end_ns - clock_now : 0U;
         if (step_cost_ns < args.runtime_step_interval_ns) {
@@ -1843,7 +1774,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
             executor->vqec_vision_ai_appl_rtexe_discard_pending();
         }
-        const auto clock_now = vqec_vision_ai_appl_svcmn_monotonic_ns();
+        const auto clock_now = vqec_vision_ai_appl_svgen_monotonic_ns();
         now_ns = clock_now > now_ns ? clock_now :
             now_ns + args.runtime_step_interval_ns;
         std::this_thread::sleep_for(
@@ -1881,26 +1812,23 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
     }
-    if (metadata != nullptr) {
-        const auto metadata_stopped = metadata->vqec_vision_ai_appl_mdrun_stop(true);
-        if (metadata_stopped.code_ != status_code::ok &&
-            first_error_code == status_code::ok) {
-            first_error_code = metadata_stopped.code_;
-        }
-        const auto metadata_stats = metadata->vqec_vision_ai_appl_mdrun_get_stats();
+    service_output_runtime_report output_report;
+    const auto output_stopped =
+        output_runtime.vqec_vision_ai_appl_svout_stop(true, output_report);
+    if (output_stopped.code_ != status_code::ok &&
+        first_error_code == status_code::ok) {
+        first_error_code = output_stopped.code_;
+    }
+    if (output_report.has_metadata_) {
+        const auto& metadata_stats = output_report.metadata_;
         std::printf("metadata accepted=%llu committed=%llu rejected=%llu failed=%llu\n",
             static_cast<unsigned long long>(metadata_stats.accepted_records_),
             static_cast<unsigned long long>(metadata_stats.committed_records_),
             static_cast<unsigned long long>(metadata_stats.rejected_records_),
             static_cast<unsigned long long>(metadata_stats.failed_records_));
     }
-    if (evidence != nullptr) {
-        const auto evidence_stopped = evidence->vqec_vision_ai_appl_evsvc_stop(true);
-        if (evidence_stopped.code_ != status_code::ok &&
-            first_error_code == status_code::ok) {
-            first_error_code = evidence_stopped.code_;
-        }
-        const auto evidence_stats = evidence->vqec_vision_ai_appl_evsvc_get_stats();
+    if (output_report.has_evidence_) {
+        const auto& evidence_stats = output_report.evidence_;
         std::printf("evidence durable=%llu retried=%llu completed=%llu rejected=%llu "
             "exhausted=%llu transport_failures=%llu\n",
             static_cast<unsigned long long>(evidence_stats.commands_durable_),
@@ -1915,230 +1843,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         production_seam.vqec_vision_ai_outpt_evdsm_request_stop();
         production_seam.vqec_vision_ai_outpt_evdsm_discard_pending();
     }
-    return vqec_vision_ai_appl_svcmn_report_and_decide(metrics, stopped,
+    return vqec_vision_ai_appl_svgen_report_and_decide(metrics, stopped,
         enrollment_stopped.code_ == status_code::ok,
         cascade_stopped.code_ == status_code::ok, routed_sources, generation_published,
         first_error_code, reconcile_requested, args.require_sources);
-}
-
-int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
-    parsed_arguments args;
-    if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
-        return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
-    }
-    if (!args.app_manager_dbus &&
-        (!args.app_manager_service_name.empty() ||
-            !args.app_manager_client_name.empty() ||
-            !args.app_manager_object_path.empty() ||
-            args.app_manager_rpc_timeout_ms != 0 ||
-            args.app_manager_poll_interval_ms != 0)) {
-        std::fprintf(stderr,
-            "app manager DBus settings require --app-manager-dbus\n");
-        return 2;
-    }
-    if (args.app_manager_dbus) {
-        if (args.usecase_dbus || !args.production_mode ||
-            args.usecase_snapshot_path.empty() || args.feature_catalog_path.empty() ||
-            args.app_manager_service_name.empty() ||
-            args.app_manager_client_name.empty() ||
-            args.app_manager_object_path.empty() ||
-            args.app_manager_rpc_timeout_ms <= 0 ||
-            args.app_manager_poll_interval_ms == 0 ||
-            args.app_manager_poll_interval_ms >
-                service_options_limits::g_max_app_manager_poll_interval_ms) {
-            std::fprintf(stderr,
-                "app manager runtime control requires production mode, usecase and "
-                "feature catalogs, service/object names and RPC timeout; it cannot be "
-                "combined with legacy usecase DBus\n");
-            return 2;
-        }
-#if !defined(VQEC_VISION_AI_HAS_APP_MANAGER_DBUS)
-        std::fprintf(stderr,
-            "app manager DBus was requested but adapter is not built\n");
-        return 2;
-#else
-        app_manager_dbus_client client;
-        runtime_control_snapshot runtime_control;
-        runtime_control.schema_version_ = app_lifecycle_limits::g_schema_version;
-        runtime_control.snapshot_revision_ = 1;
-        runtime_control.inventory_revision_ = 1;
-        runtime_control.entitlement_revision_ = 1;
-        runtime_control.desired_revision_ = 1;
-        const app_manager_dbus_client_config client_config{
-            args.app_manager_service_name, args.app_manager_client_name,
-            args.app_manager_object_path,
-            args.app_manager_rpc_timeout_ms,
-            args.app_manager_dbus_session_bus};
-        runtime_control_snapshot fetched_snapshot;
-        const auto fetched = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
-            client_config, fetched_snapshot);
-        if (fetched.code_ == status_code::ok) {
-            runtime_control = std::move(fetched_snapshot);
-        } else {
-            std::fprintf(stderr,
-                "app manager unavailable at startup; runtime remains disabled (%d): %s\n",
-                static_cast<int>(fetched.code_), fetched.message_.c_str());
-        }
-        std::uint64_t generation = 1;
-        for (;;) {
-            bool reconcile = false;
-            runtime_control_snapshot pending = runtime_control;
-            std::uint64_t next_poll_ns = 0;
-            const std::function<void()> poll_control = [&]() {
-                const auto now = vqec_vision_ai_appl_svcmn_monotonic_ns();
-                const auto interval_ns = static_cast<std::uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::milliseconds(args.app_manager_poll_interval_ms)).count());
-                if (next_poll_ns != 0 && now < next_poll_ns) {
-                    return;
-                }
-                next_poll_ns = now <= UINT64_MAX - interval_ns ? now + interval_ns : UINT64_MAX;
-                runtime_control_snapshot candidate;
-                const auto refreshed = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
-                    client_config, candidate);
-                if (refreshed.code_ == status_code::ok &&
-                    candidate.snapshot_revision_ > runtime_control.snapshot_revision_) {
-                    pending = std::move(candidate);
-                    reconcile = true;
-                    return;
-                }
-                const auto utc_now_ns = static_cast<std::uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::system_clock::now().time_since_epoch()).count());
-                pending = runtime_control;
-                for (auto& association : pending.associations_) {
-                    if (association.entitled_ &&
-                        association.entitlement_expires_utc_ns_ != 0 &&
-                        association.entitlement_expires_utc_ns_ <= utc_now_ns) {
-                        association.entitled_ = false;
-                        association.reason_code_ = "entitlement_expired";
-                        reconcile = true;
-                    }
-                }
-            };
-            const std::function<bool()> is_reconcile_requested = [&]() {
-                return reconcile;
-            };
-            const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
-                _argc, _argv, nullptr, &runtime_control, nullptr, poll_control,
-                is_reconcile_requested, generation, 0);
-            if (outcome == g_reconcile_generation_exit_code && reconcile &&
-                generation != UINT64_MAX) {
-                runtime_control = std::move(pending);
-                ++generation;
-                continue;
-            }
-            return outcome;
-        }
-#endif
-    }
-    if (!args.usecase_dbus) {
-        if (!args.usecase_service_name.empty() || !args.usecase_object_path.empty() ||
-            !args.usecase_peer_name.empty() || args.usecase_rpc_timeout_ms != 0 ||
-            args.usecase_callbacks_per_poll != 0) {
-            std::fprintf(stderr, "usecase DBus settings require --usecase-dbus\n");
-            return 2;
-        }
-        return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
-    }
-#if !defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
-    std::fprintf(stderr, "usecase DBus was requested but adapter is not built\n");
-    return 2;
-#else
-    if (!args.production_mode || args.usecase_snapshot_path.empty() ||
-        args.usecase_service_name.empty() || args.usecase_object_path.empty() ||
-        args.usecase_peer_name.empty() || args.usecase_rpc_timeout_ms <= 0 ||
-        args.usecase_callbacks_per_poll == 0) {
-        std::fprintf(stderr, "usecase DBus requires production mode, trusted snapshot, "
-            "service/object/peer names, RPC timeout and callback budget\n");
-        return 2;
-    }
-    model_catalog catalog;
-    deployment_config base_deployment;
-    usecase_control_snapshot trusted;
-    if (!vqec_vision_ai_appl_svstr_load_model_catalog(args.catalog_path, catalog) ||
-        !vqec_vision_ai_appl_svstr_load_deployment(
-            args.deployment_path, base_deployment) ||
-        !vqec_vision_ai_appl_svstr_load_usecase_snapshot(
-            args.usecase_snapshot_path, trusted)) {
-        return 1;
-    }
-    usecase_control_manager manager;
-    const auto configured = manager.vqec_vision_ai_ftmgr_ucmgr_configure(
-        trusted, base_deployment, catalog);
-    if (configured.code_ != status_code::ok) {
-        std::fprintf(stderr, "usecase control configuration failed (%d): %s\n",
-            static_cast<int>(configured.code_), configured.message_.c_str());
-        return 1;
-    }
-    usecase_activation_snapshot activation;
-    deployment_config current_deployment;
-    const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
-        base_deployment, catalog, trusted.catalog_, trusted.requests_,
-        activation, current_deployment);
-    if (composed.code_ != status_code::ok) {
-        std::fprintf(stderr, "initial usecase deployment failed (%d): %s\n",
-            static_cast<int>(composed.code_), composed.message_.c_str());
-        return 1;
-    }
-    usecase_control_dbus_server control_dbus;
-    const usecase_control_dbus_config dbus_config{
-        args.usecase_service_name, args.usecase_object_path,
-        args.usecase_peer_name, args.usecase_rpc_timeout_ms,
-        args.usecase_callbacks_per_poll, args.usecase_dbus_session_bus};
-    const auto opened = control_dbus.vqec_vision_ai_fwctl_ucdbs_open(
-        manager, dbus_config);
-    if (opened.code_ != status_code::ok) {
-        std::fprintf(stderr, "usecase DBus failed (%d): %s\n",
-            static_cast<int>(opened.code_), opened.message_.c_str());
-        return 1;
-    }
-    const std::function<void()> poll_control = [&control_dbus]() {
-        control_dbus.vqec_vision_ai_fwctl_ucdbs_poll();
-    };
-    deployment_config last_published_deployment = current_deployment;
-    std::uint64_t generation = 1;
-    std::uint64_t pending_revision = 0;
-    for (;;) {
-        const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, &current_deployment, nullptr, &manager, poll_control,
-            {}, generation, pending_revision);
-        if (outcome == g_reconcile_generation_exit_code) {
-            last_published_deployment = current_deployment;
-            usecase_control_snapshot pending;
-            deployment_config candidate;
-            const auto fetched = manager.vqec_vision_ai_ftmgr_ucmgr_get_pending(
-                pending, candidate);
-            if (fetched.code_ != status_code::ok ||
-                generation == UINT64_MAX) {
-                std::fprintf(stderr, "cannot fetch pending usecase generation\n");
-                return 1;
-            }
-            current_deployment = std::move(candidate);
-            pending_revision = pending.control_revision_;
-            ++generation;
-            continue;
-        }
-        if (outcome == g_recovery_required_exit_code) {
-            std::fprintf(stderr, "runtime drain requires recovery; replacement blocked\n");
-            return outcome;
-        }
-        if (pending_revision != 0 && manager.vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
-            const auto failed = manager.vqec_vision_ai_ftmgr_ucmgr_fail_pending(
-                pending_revision, status_code::invalid_state);
-            if (failed.code_ != status_code::ok) {
-                return 1;
-            }
-            current_deployment = last_published_deployment;
-            pending_revision = 0;
-            if (g_stop_requested) {
-                return outcome;
-            }
-            continue;
-        }
-        return outcome;
-    }
-#endif
 }

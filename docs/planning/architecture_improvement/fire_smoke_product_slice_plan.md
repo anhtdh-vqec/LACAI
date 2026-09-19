@@ -9,7 +9,7 @@ trong plan phân phối app, metadata và event/evidence vẫn là authority.
 runtime snapshot, AppManager1 source, Ed25519 verifier, daemon bootstrap và metadata hotspot đã
 được triển khai; signed entitlement/admission reconcile, operation/content-store lifecycle và
 evidence UDS/outbox còn mở. **Layer:** docs.
-**Source:** `src/app/service/vqec_vision_service_main.cpp`,
+**Source:** `src/app/service/bootstrap/vqec_vision_service_main.cpp`,
 `src/runtime/feature_manager/`, `manifests/models/yolo11n_fire_smoke/`,
 `docs/planning/architecture_improvement/usecase_app_distribution_plan.md`,
 `docs/planning/architecture_improvement/event_evidence_transport_plan.md`.

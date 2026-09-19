@@ -67,16 +67,16 @@ endif()
 # Cold-path startup option parsing, split out of the service main translation unit so it
 # can be unit-tested without building the full executable.
 add_library(vqec_vision_ai_service_options STATIC
-    service/vqec_vision_service_options.cpp)
+    service/bootstrap/vqec_vision_service_options.cpp)
 target_include_directories(vqec_vision_ai_service_options PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>)
 target_link_libraries(vqec_vision_ai_service_options PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_service_options PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_service_startup STATIC
-    service/vqec_vision_service_startup.cpp)
+    service/bootstrap/vqec_vision_service_startup.cpp)
 target_include_directories(vqec_vision_ai_service_startup PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>)
@@ -90,29 +90,45 @@ target_link_libraries(vqec_vision_ai_service_startup PUBLIC
 set_target_properties(vqec_vision_ai_service_startup PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_metadata_service STATIC
-    service/vqec_vision_metadata_service.cpp)
+    service/output/vqec_vision_metadata_service.cpp)
 target_include_directories(vqec_vision_ai_metadata_service PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
 target_link_libraries(vqec_vision_ai_metadata_service PUBLIC
     vqec_vision_ai_spatiotemporal_store Threads::Threads)
 set_target_properties(vqec_vision_ai_metadata_service PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_metadata_runtime STATIC
-    service/vqec_vision_metadata_runtime.cpp)
+    service/output/vqec_vision_metadata_runtime.cpp)
 target_include_directories(vqec_vision_ai_metadata_runtime PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>)
 target_link_libraries(vqec_vision_ai_metadata_runtime PUBLIC
     vqec_vision_ai_metadata_service nlohmann_json::nlohmann_json)
 set_target_properties(vqec_vision_ai_metadata_runtime PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_evidence_service STATIC
-    service/vqec_vision_evidence_service.cpp)
+    service/output/vqec_vision_evidence_service.cpp)
 target_include_directories(vqec_vision_ai_evidence_service PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>)
 target_link_libraries(vqec_vision_ai_evidence_service PUBLIC
     vqec_vision_ai_core Threads::Threads)
 set_target_properties(vqec_vision_ai_evidence_service PROPERTIES CXX_EXTENSIONS OFF)
+
+add_library(vqec_vision_ai_service_output_runtime STATIC
+    service/output/vqec_vision_service_output_runtime.cpp)
+target_include_directories(vqec_vision_ai_service_output_runtime PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
+    PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_output>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
+target_link_libraries(vqec_vision_ai_service_output_runtime PUBLIC
+    vqec_vision_ai_metadata_runtime
+    vqec_vision_ai_evidence_service
+    vqec_vision_ai_sqlite_evidence_outbox
+    vqec_vision_ai_evidence_uds_client)
+set_target_properties(vqec_vision_ai_service_output_runtime
+    PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_camera_graph_pump STATIC
     pipeline/vqec_vision_camera_graph_pump.cpp
@@ -329,7 +345,8 @@ if(TARGET vqec_vision_ai_production_platform)
     target_include_directories(vqec_vision_ai_service_cascade_runtime PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cascade>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/session>)
     target_link_libraries(vqec_vision_ai_service_cascade_runtime PUBLIC
         vqec_vision_ai_production_platform
@@ -347,8 +364,9 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
    TARGET vqec_vision_ai_model_catalog_config AND TARGET vqec_vision_ai_feature_catalog_config AND
    TARGET vqec_vision_ai_usecase_config)
     add_executable(vqec_ai_vision_applications
-        service/vqec_vision_service_main.cpp
-        service/vqec_vision_service_runtime.cpp
+        service/bootstrap/vqec_vision_service_main.cpp
+        service/bootstrap/vqec_vision_service_runtime.cpp
+        service/generation/vqec_vision_service_generation.cpp
         platform/vqec_vision_fake_platform.cpp
         platform/vqec_vision_reference_platform.cpp
         platform/vqec_vision_fixture_detector.cpp)
@@ -358,6 +376,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_evidence_service
+        vqec_vision_ai_service_output_runtime
         vqec_vision_ai_sqlite_evidence_outbox
         vqec_vision_ai_evidence_uds_client
         vqec_vision_ai_admission
@@ -380,7 +399,9 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_overlay_preparation
         vqec_vision_ai_event_delivery_seam)
     target_include_directories(vqec_ai_vision_applications PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/events>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/outputs/media>

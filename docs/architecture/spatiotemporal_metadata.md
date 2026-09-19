@@ -7,8 +7,8 @@ footprints, cross-camera paths, event analytics and long-retention security/traf
 receipt-safe retention, fault recovery and exact composed QCS6490 evidence close P2.
 **Layer:** app. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp`,
-`src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`,
-`src/app/service/vqec_vision_metadata_runtime.cpp`.
+`src/adapters/storage/`, `src/app/service/output/vqec_vision_metadata_service.cpp`,
+`src/app/service/output/vqec_vision_metadata_runtime.cpp`.
 
 ## Responsibility
 

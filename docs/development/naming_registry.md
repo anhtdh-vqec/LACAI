@@ -386,8 +386,11 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | src/adapters/fw_output/vqec_vision_evidence_uds_client.hpp | evuds | vqec_vision_ai_fwout_evuds_ |
 | src/adapters/fw_output/vqec_vision_evidence_uds_client.cpp | evuds | vqec_vision_ai_fwout_evuds_ (port override retains `vqec_vision_ai_ports_evtrn_`) |
 | tests/unit/adapters/fw_output/vqec_vision_evidence_uds_client_test.cpp | euctst | vqec_vision_ai_unit_euctst_ |
-| src/app/service/vqec_vision_evidence_service.hpp | evsvc | vqec_vision_ai_appl_evsvc_ |
-| src/app/service/vqec_vision_evidence_service.cpp | evsvc | vqec_vision_ai_appl_evsvc_ (sink override retains `vqec_vision_ai_ports_fesnk_`) |
+| src/app/service/output/vqec_vision_evidence_service.hpp | evsvc | vqec_vision_ai_appl_evsvc_ |
+| src/app/service/output/vqec_vision_evidence_service.cpp | evsvc | vqec_vision_ai_appl_evsvc_ (sink override retains `vqec_vision_ai_ports_fesnk_`) |
+| src/app/service/output/vqec_vision_service_output_runtime.hpp | svout | vqec_vision_ai_appl_svout_ |
+| src/app/service/output/vqec_vision_service_output_runtime.cpp | svout | vqec_vision_ai_appl_svout_ |
+| tests/unit/application/vqec_vision_service_output_runtime_test.cpp | svotst | vqec_vision_ai_unit_svotst_ |
 | tests/unit/application/vqec_vision_evidence_service_test.cpp | evstst | vqec_vision_ai_unit_evstst_ |
 | tests/contract/outputs/vqec_vision_event_delivery_seam_test.cpp | edsct | vqec_vision_ai_ctest_edsct_ |
 | tests/unit/core/vqec_vision_output_gate_test.cpp | ogtst | vqec_vision_ai_unit_ogtst_ |
@@ -546,10 +549,10 @@ have the same logical owner. Unit test
 prefix `vqec_vision_ai_unit_ststst_`; `main` retains the language entrypoint spelling.
 
 Bounded metadata service
-`src/app/service/vqec_vision_metadata_service.cpp` uses file_id `mdsvc`, prefix
+`src/app/service/output/vqec_vision_metadata_service.cpp` uses file_id `mdsvc`, prefix
 `vqec_vision_ai_appl_mdsvc_`; its paired private header has the same owner. Unit test
 `tests/unit/application/vqec_vision_metadata_service_test.cpp` uses file_id `mdsvt`, prefix
-`vqec_vision_ai_unit_mdsvt_`. `src/app/service/vqec_vision_metadata_runtime.cpp` uses file_id
+`vqec_vision_ai_unit_mdsvt_`. `src/app/service/output/vqec_vision_metadata_runtime.cpp` uses file_id
 `mdrun`, prefix `vqec_vision_ai_appl_mdrun_`; its paired header has the same owner. Unit test
 `tests/unit/application/vqec_vision_metadata_runtime_test.cpp` uses file_id `mdrut`, prefix
 `vqec_vision_ai_unit_mdrut_`; both test entrypoints retain the language spelling `main`.
@@ -697,16 +700,18 @@ App lifecycle registrations (source delivered):
 | src/app/composition/vqec_vision_runtime_composition_factory.cpp | rcfac | vqec_vision_ai_appl_rcfac_ |
 | tests/contract/application/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
 | src/app/supervision/vqec_vision_runtime_executor.cpp | rtexe | vqec_vision_ai_appl_rtexe_ |
-| src/app/service/vqec_vision_service_main.cpp | main | C++ language entrypoint only |
-| src/app/service/vqec_vision_service_runtime.hpp | svcmn | vqec_vision_ai_appl_svcmn_ |
-| src/app/service/vqec_vision_service_runtime.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
-| src/app/service/vqec_vision_service_startup.hpp | svstr | vqec_vision_ai_appl_svstr_ |
-| src/app/service/vqec_vision_service_startup.cpp | svstr | vqec_vision_ai_appl_svstr_ |
-| src/app/service/vqec_vision_service_fixture.hpp | svfix | constants only |
+| src/app/service/bootstrap/vqec_vision_service_main.cpp | main | C++ language entrypoint only |
+| src/app/service/bootstrap/vqec_vision_service_runtime.hpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/service/bootstrap/vqec_vision_service_runtime.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/service/generation/vqec_vision_service_generation.hpp | svgen | vqec_vision_ai_appl_svgen_ |
+| src/app/service/generation/vqec_vision_service_generation.cpp | svgen | vqec_vision_ai_appl_svgen_ |
+| src/app/service/bootstrap/vqec_vision_service_startup.hpp | svstr | vqec_vision_ai_appl_svstr_ |
+| src/app/service/bootstrap/vqec_vision_service_startup.cpp | svstr | vqec_vision_ai_appl_svstr_ |
+| src/app/service/generation/vqec_vision_service_fixture.hpp | svfix | constants only |
 | src/app/cascade/vqec_vision_service_cascade_runtime.hpp | svcsc | vqec_vision_ai_appl_svcsc_ |
 | src/app/cascade/vqec_vision_service_cascade_runtime.cpp | svcsc | vqec_vision_ai_appl_svcsc_ |
-| src/app/service/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
-| src/app/service/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
+| src/app/service/bootstrap/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
+| src/app/service/bootstrap/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
 | tests/unit/application/vqec_vision_service_options_test.cpp | sotst | vqec_vision_ai_unit_sotst_ |
 | src/app/platform/vqec_vision_fake_platform.cpp | fkplt | vqec_vision_ai_appl_fkplt_ |
 | src/app/platform/vqec_vision_reference_platform.cpp | rplat | vqec_vision_ai_appl_rplat_ |

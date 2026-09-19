@@ -181,7 +181,7 @@ Phát hiện hành vi bất thường (ẩu đả, xung đột)in.cpp:509–532`
 | A16 | P2 | Một số trang mô tả thiếu renderer trong khi source đã có; status helper và production dễ bị gộp | Mỗi capability ghi rõ source, wired, logic-tested, board-smoke, accepted; một đầu mối status và link bằng chứng |
 
 Các file source chính để sửa sau review:
-[service main](../../../src/app/service/vqec_vision_service_main.cpp),
+[service main](../../../src/app/service/bootstrap/vqec_vision_service_main.cpp),
 [production platform](../../../src/app/platform/vqec_vision_production_platform.cpp),
 [composition factory](../../../src/app/composition/vqec_vision_runtime_composition_factory.cpp),
 [renderer](../../../src/adapters/qualcomm/media/vqec_vision_qtiv_renderer.cpp),

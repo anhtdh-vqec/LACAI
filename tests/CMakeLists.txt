@@ -679,6 +679,14 @@ add_test(NAME app_manager_options
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME evidence_service_retry_and_revoke
         COMMAND vqec_vision_ai_evidence_service_test)
+    add_executable(vqec_vision_ai_service_output_runtime_test
+        unit/application/vqec_vision_service_output_runtime_test.cpp)
+    target_link_libraries(vqec_vision_ai_service_output_runtime_test PRIVATE
+        vqec_vision_ai_service_output_runtime)
+    set_target_properties(vqec_vision_ai_service_output_runtime_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_output_runtime_lifecycle
+        COMMAND vqec_vision_ai_service_output_runtime_test)
     add_executable(vqec_vision_ai_metadata_runtime_test
         unit/application/vqec_vision_metadata_runtime_test.cpp)
     target_link_libraries(vqec_vision_ai_metadata_runtime_test

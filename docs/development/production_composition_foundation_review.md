@@ -6,7 +6,7 @@ model quality and independent owner sign-off.
 
 **Status:** board-smoke — approved eSDK/QEMU 127/127 and QCS6490 native 121/121; live
 single-source production candidate drains cleanly. **Layer:** docs.
-**Source:** `src/app/service/vqec_vision_service_main.cpp`,
+**Source:** `src/app/service/bootstrap/vqec_vision_service_main.cpp`,
 `src/app/supervision/vqec_vision_runtime_executor.cpp`,
 `src/app/cascade/vqec_vision_cascade_execution_worker.cpp`,
 `src/app/session/vqec_vision_multi_model_session.cpp`,
