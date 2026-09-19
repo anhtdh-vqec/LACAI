@@ -165,6 +165,39 @@ int main() {
                unsupported, page).code_ == status_code::unsupported);
     assert(page.completeness_ == metadata_query_completeness::unsupported);
 
+    auto plate = vqec_vision_ai_unit_mdstst_make_record(
+        "plate.1", metadata_record_family::plate_read_consensus, metadata_scope::plate,
+        "vehicle.1", "normalized_plate", "51A12345", 200, 250);
+    auto vehicle_flow = vqec_vision_ai_unit_mdstst_make_record(
+        "aggregate.1", metadata_record_family::aggregate_bucket, metadata_scope::aggregate,
+        "lane.north", "vehicle_flow", "count:1", 200, 300);
+    assert(store.vqec_vision_ai_stor_mdsql_ingest_record(plate, {}).code_ == status_code::ok);
+    assert(store.vqec_vision_ai_stor_mdsql_ingest_record(vehicle_flow, {}).code_ == status_code::ok);
+
+    auto plate_search = vqec_vision_ai_unit_mdstst_make_request(
+        "Q12", metadata_query_kind::q12_plate_search,
+        vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::plate));
+    plate_search.semantic_type_ = "normalized_plate";
+    plate_search.typed_value_ = "51A12345";
+    assert(store.vqec_vision_ai_stor_mdsql_query_records(plate_search, page).code_ ==
+           status_code::ok);
+    assert(page.records_.size() == 1U && page.records_.front().record_id_ == "plate.1");
+
+    auto traffic_flow = vqec_vision_ai_unit_mdstst_make_request(
+        "Q18", metadata_query_kind::q18_vehicle_flow,
+        vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::aggregate));
+    traffic_flow.semantic_type_ = "vehicle_flow";
+    assert(store.vqec_vision_ai_stor_mdsql_query_records(traffic_flow, page).code_ ==
+           status_code::ok);
+    assert(page.records_.size() == 1U && page.records_.front().record_id_ == "aggregate.1");
+
+    auto coverage_gap = traffic_flow;
+    coverage_gap.source_ids_.push_back("camera.unavailable");
+    assert(store.vqec_vision_ai_stor_mdsql_query_records(coverage_gap, page).code_ ==
+           status_code::ok);
+    assert(page.completeness_ == metadata_query_completeness::partial);
+    assert(page.coverage_state_ == "coverage_gap");
+
     auto event_one = vqec_vision_ai_unit_mdstst_make_record(
         "event.1", metadata_record_family::event_episode, metadata_scope::object,
         "scene", "fire_smoke", "active", 300, 400);
