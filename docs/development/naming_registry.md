@@ -624,6 +624,9 @@ Runtime composition factory registrations (source delivered):
 | src/app/service/vqec_vision_service_runtime.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
 | src/app/service/vqec_vision_service_startup.hpp | svstr | vqec_vision_ai_appl_svstr_ |
 | src/app/service/vqec_vision_service_startup.cpp | svstr | vqec_vision_ai_appl_svstr_ |
+| src/app/service/vqec_vision_service_fixture.hpp | svfix | constants only |
+| src/app/cascade/vqec_vision_service_cascade_runtime.hpp | svcsc | vqec_vision_ai_appl_svcsc_ |
+| src/app/cascade/vqec_vision_service_cascade_runtime.cpp | svcsc | vqec_vision_ai_appl_svcsc_ |
 | src/app/service/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
 | src/app/service/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
 | tests/unit/application/vqec_vision_service_options_test.cpp | sotst | vqec_vision_ai_unit_sotst_ |

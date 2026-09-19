@@ -27,11 +27,13 @@
 #include "vqec_vision_service_runtime.hpp"
 
 #include "vqec_vision_service_options.hpp"
+#include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_startup.hpp"
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_cascade_execution_worker.hpp"
 #include "vqec_vision_cascade_graph_session.hpp"
+#include "vqec_vision_service_cascade_runtime.hpp"
 #include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
 #include "vqec_vision_usecase_config.hpp"
@@ -70,36 +72,6 @@
 #include "vqec_vision_metadata_runtime.hpp"
 
 using namespace vqec::vision::ai;
-
-namespace service_harness {
-// Development-harness constants. Production values are supplied by validated deployment/
-// model/feature catalogs and a trusted resolver; these are not product defaults.
-inline constexpr std::uint64_t g_default_startup_timeout_ns = 30000000000ULL;
-inline constexpr std::uint64_t g_default_stop_timeout_ns = 10000000000ULL;
-inline constexpr int g_default_rpc_timeout_ms = 1000;
-inline constexpr std::uint64_t g_cycle_id_stride = 100;
-inline constexpr std::uint64_t g_policy_revision = 1;
-inline constexpr std::uint64_t g_config_revision = 1;
-inline constexpr std::uint64_t g_policy_expiry_ns = 1000000000000000000ULL;
-inline constexpr std::uint64_t g_initial_gallery_revision = 1;
-inline constexpr std::size_t g_fr_max_subjects = recognition_limits::g_max_subjects;
-inline constexpr std::uint64_t g_overlay_max_age_ns = 2000000000ULL;
-// Device-free harness fixture values only. They are used to synthesize reference-model
-// outputs for `--platform reference` and are never read by the Qualcomm production path.
-inline constexpr std::uint64_t g_output_bytes = 16;
-inline constexpr char g_box_tensor_name[] = "boxes";
-inline constexpr std::uint32_t g_box_elements = 4;
-// Absolute placeholder paths so the neutral plan validator accepts device-free reference
-// graphs. They are deliberately non-existent: no harness run loads a vendor library or a
-// model artifact, and the Qualcomm production path requires explicit configuration.
-inline constexpr char g_fixture_model_root[] = "/nonexistent/lacai-harness/models/";
-inline constexpr char g_fixture_backend_library[] = "/nonexistent/lacai-harness/libQnnHtp.so";
-inline constexpr char g_fixture_system_library[] =
-    "/nonexistent/lacai-harness/libQnnSystem.so";
-// Released FW/AI memory contract identifiers: named protocol constants, not policy.
-inline constexpr char g_fw_dmabuf_contract[] = "fw.dmabuf.v1";
-inline constexpr char g_qcom_dmabuf_contract[] = "qcom.dmabuf.v1";
-}  // namespace service_harness
 
 namespace {
 
@@ -161,309 +133,6 @@ status vqec_vision_ai_appl_svcmn_resolve_hardware_profile(
         return {status_code::io_error, "cannot open hardware admission profile"};
     }
     return vqec_vision_ai_admis_hwprf_load(stream, _profile);
-}
-
-struct service_cascade_owner {
-    production_cascade_binding binding_;
-    const model_catalog_entry* model_{nullptr};
-    std::unique_ptr<cascade_graph_session> graph_session_;
-    std::unique_ptr<cascade_coordinator> coordinator_;
-    std::unique_ptr<cascade_execution_worker> worker_;
-    std::uint16_t root_model_slot_{g_invalid_model_slot};
-};
-
-status vqec_vision_ai_appl_svcmn_start_graph_sessions(
-    const std::array<cascade_graph_session*, 2>& _sessions) {
-    bool all_running = false;
-    while (!all_running) {
-        all_running = true;
-        const auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        for (auto* session : _sessions) {
-            if (session == nullptr || session->vqec_vision_ai_appl_cgses_get_state() ==
-                    cascade_graph_session_state::running) {
-                continue;
-            }
-            all_running = false;
-            const auto stepped = session->vqec_vision_ai_appl_cgses_step(now_ns);
-            if (stepped.code_ != status_code::ok && stepped.code_ != status_code::pending) {
-                return stepped;
-            }
-        }
-        if (!all_running) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-        }
-    }
-    return {};
-}
-
-status vqec_vision_ai_appl_svcmn_stop_graph_sessions(
-    const std::array<cascade_graph_session*, 2>& _sessions) {
-    status first_error;
-    auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-    for (auto* session : _sessions) {
-        if (session == nullptr) {
-            continue;
-        }
-        const auto requested = session->vqec_vision_ai_appl_cgses_request_stop(now_ns);
-        if (requested.code_ != status_code::ok && first_error.code_ == status_code::ok) {
-            first_error = requested;
-        }
-    }
-    bool all_stopped = false;
-    while (!all_stopped) {
-        all_stopped = true;
-        now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        for (auto* session : _sessions) {
-            if (session == nullptr) {
-                continue;
-            }
-            const auto state = session->vqec_vision_ai_appl_cgses_get_state();
-            if (state == cascade_graph_session_state::stopped ||
-                state == cascade_graph_session_state::faulted) {
-                continue;
-            }
-            all_stopped = false;
-            const auto stepped = session->vqec_vision_ai_appl_cgses_step(now_ns);
-            if (stepped.code_ != status_code::ok && stepped.code_ != status_code::pending &&
-                first_error.code_ == status_code::ok) {
-                first_error = stepped;
-            }
-        }
-        if (!all_stopped) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-        }
-    }
-    return first_error;
-}
-
-status vqec_vision_ai_appl_svcmn_make_source_binding(
-    const source_deployment_config& _source, const model_catalog_entry& _model,
-    source_binding& _binding) {
-    source_color_profile color_profile{source_color_profile::unspecified};
-    if (_model.preprocess_.matrix_ == color_matrix::bt601 &&
-        _model.preprocess_.range_ == color_range::limited) {
-        color_profile = source_color_profile::bt601_limited;
-    } else if (_model.preprocess_.matrix_ == color_matrix::bt709 &&
-               _model.preprocess_.range_ == color_range::limited) {
-        color_profile = source_color_profile::bt709_limited;
-    } else {
-        return {status_code::unsupported,
-            "source binding requires a supported limited-range color profile"};
-    }
-    source_binding candidate;
-    candidate.width_ = _source.profile_.width_;
-    candidate.height_ = _source.profile_.height_;
-    candidate.fps_numerator_ = _source.profile_.fps_numerator_;
-    candidate.fps_denominator_ = _source.profile_.fps_denominator_;
-    candidate.memory_kind_ = source_memory_kind::dmabuf;
-    candidate.layout_ = source_memory_layout::linear_nv12;
-    candidate.sync_mode_ = source_sync_mode::implicit_ready;
-    candidate.color_profile_ = color_profile;
-    candidate.chroma_site_ = source_chroma_site::mpeg2;
-    candidate.fw_memory_contract_ = service_harness::g_fw_dmabuf_contract;
-    candidate.backend_memory_contract_ = service_harness::g_qcom_dmabuf_contract;
-    candidate.preprocess_contract_ = _model.preprocess_contract_;
-    _binding = std::move(candidate);
-    return {};
-}
-
-status vqec_vision_ai_appl_svcmn_make_offline_graph_session(
-    const source_deployment_config& _source, const model_catalog_entry& _model,
-    production_offline_model& _offline,
-    std::unique_ptr<cascade_graph_session>& _session) {
-    const auto& binding = _offline.vqec_vision_ai_appl_pdplt_get_binding();
-    cascade_graph_session_config config;
-    config.graph_ = _offline.vqec_vision_ai_appl_pdplt_get_graph();
-    config.plan_ = binding.plan_;
-    config.outputs_ = binding.outputs_;
-    config.max_output_bytes_ = binding.max_output_bytes_;
-    config.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
-    config.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
-    const auto bound = vqec_vision_ai_appl_svcmn_make_source_binding(
-        _source, _model, config.binding_);
-    if (bound.code_ != status_code::ok) {
-        return bound;
-    }
-    if (config.graph_ == nullptr || config.plan_.model_path_.empty() ||
-        config.outputs_.empty() || config.max_output_bytes_ == 0) {
-        return {status_code::invalid_state, "offline graph binding is incomplete"};
-    }
-    _session = std::make_unique<cascade_graph_session>(std::move(config));
-    return {};
-}
-
-status vqec_vision_ai_appl_svcmn_prepare_cascade_owners(
-    const deployment_config& _deployment, const model_catalog& _catalog,
-    production_platform& _platform,
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
-    for (std::uint16_t source_slot = 0; source_slot < _deployment.sources_.size();
-         ++source_slot) {
-        const auto& source = _deployment.sources_[source_slot];
-        const model_catalog_entry* secondary = nullptr;
-        for (const auto& model : _catalog.models_) {
-            if (model.role_ != model_role::secondary ||
-                !vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {
-                continue;
-            }
-            if (secondary != nullptr) {
-                return {status_code::unsupported,
-                    "one source currently supports one active secondary model"};
-            }
-            secondary = &model;
-        }
-        if (secondary == nullptr) {
-            continue;
-        }
-        if (secondary->depends_on_.size() != 1U) {
-            return {status_code::unsupported,
-                "cascade coordinator currently requires one primary dependency"};
-        }
-        std::uint16_t root_slot = g_invalid_model_slot;
-        for (std::uint16_t model_slot = 0; model_slot < source.model_ids_.size();
-             ++model_slot) {
-            if (source.model_ids_[model_slot] == secondary->depends_on_[0].model_id_) {
-                root_slot = model_slot;
-                break;
-            }
-        }
-        if (root_slot == g_invalid_model_slot) {
-            return {status_code::invalid_argument,
-                "secondary dependency has no primary source slot"};
-        }
-        production_cascade_binding binding;
-        const auto resolved = _platform.vqec_vision_ai_appl_pdplt_cascade_binding(
-            source_slot, secondary->model_id_, binding);
-        if (resolved.code_ != status_code::ok) {
-            return resolved;
-        }
-        cascade_graph_session_config graph_config;
-        graph_config.graph_ = binding.graph_;
-        graph_config.plan_ = binding.plan_;
-        graph_config.outputs_ = binding.outputs_;
-        graph_config.max_output_bytes_ = binding.max_output_bytes_;
-        graph_config.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
-        graph_config.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
-        const auto source_bound = vqec_vision_ai_appl_svcmn_make_source_binding(
-            source, *secondary, graph_config.binding_);
-        if (source_bound.code_ != status_code::ok) {
-            return source_bound;
-        }
-        auto& owner = _owners[source_slot];
-        owner.binding_ = std::move(binding);
-        owner.model_ = secondary;
-        owner.root_model_slot_ = root_slot;
-        owner.graph_session_ =
-            std::make_unique<cascade_graph_session>(std::move(graph_config));
-    }
-    return {};
-}
-
-status vqec_vision_ai_appl_svcmn_start_cascade_graphs(
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
-    bool all_running = false;
-    while (!all_running) {
-        all_running = true;
-        const auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        for (auto& owner : _owners) {
-            if (owner.graph_session_ == nullptr ||
-                owner.graph_session_->vqec_vision_ai_appl_cgses_get_state() ==
-                    cascade_graph_session_state::running) {
-                continue;
-            }
-            all_running = false;
-            const auto stepped =
-                owner.graph_session_->vqec_vision_ai_appl_cgses_step(now_ns);
-            if (stepped.code_ != status_code::ok &&
-                stepped.code_ != status_code::pending) {
-                return stepped;
-            }
-        }
-        if (!all_running) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-        }
-    }
-    return {};
-}
-
-status vqec_vision_ai_appl_svcmn_stop_cascade_graphs(
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners) {
-    auto now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-    status first_error;
-    for (auto& owner : _owners) {
-        if (owner.worker_ == nullptr) {
-            continue;
-        }
-        (void)owner.worker_->vqec_vision_ai_appl_cxwrk_request_stop(now_ns);
-        const auto drained = owner.worker_->vqec_vision_ai_appl_cxwrk_drain_and_join(
-            service_harness::g_default_stop_timeout_ns);
-        if (drained.code_ != status_code::ok) {
-            // The graph and source owners are still borrowed by the live worker. Do not
-            // unload them after an incomplete drain; the supervisor must recover us.
-            return drained;
-        }
-    }
-    for (auto& owner : _owners) {
-        if (owner.graph_session_ == nullptr) {
-            continue;
-        }
-        const auto requested =
-            owner.graph_session_->vqec_vision_ai_appl_cgses_request_stop(now_ns);
-        if (requested.code_ != status_code::ok && first_error.code_ == status_code::ok) {
-            first_error = requested;
-        }
-    }
-    bool all_stopped = false;
-    while (!all_stopped) {
-        all_stopped = true;
-        now_ns = vqec_vision_ai_appl_svcmn_monotonic_ns();
-        for (auto& owner : _owners) {
-            if (owner.graph_session_ == nullptr) {
-                continue;
-            }
-            const auto state =
-                owner.graph_session_->vqec_vision_ai_appl_cgses_get_state();
-            if (state == cascade_graph_session_state::stopped ||
-                state == cascade_graph_session_state::faulted) {
-                continue;
-            }
-            all_stopped = false;
-            const auto stepped =
-                owner.graph_session_->vqec_vision_ai_appl_cgses_step(now_ns);
-            if (stepped.code_ != status_code::ok &&
-                stepped.code_ != status_code::pending) {
-                if (first_error.code_ == status_code::ok) {
-                    first_error = stepped;
-                }
-            }
-        }
-        if (!all_stopped) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(g_step_interval_ns));
-        }
-    }
-    return first_error;
-}
-
-status vqec_vision_ai_appl_svcmn_drain_cascade_workers(
-    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
-    std::uint64_t _steady_now_ns) {
-    status first_error;
-    for (auto& owner : _owners) {
-        if (owner.worker_ == nullptr) {
-            continue;
-        }
-        (void)owner.worker_->vqec_vision_ai_appl_cxwrk_request_stop(_steady_now_ns);
-    }
-    for (auto& owner : _owners) {
-        if (owner.worker_ == nullptr) {
-            continue;
-        }
-        const auto drained = owner.worker_->vqec_vision_ai_appl_cxwrk_drain_and_join(
-            service_harness::g_default_stop_timeout_ns);
-        if (drained.code_ != status_code::ok && first_error.code_ == status_code::ok) {
-            first_error = drained;
-        }
-    }
-    return first_error;
 }
 
 std::string vqec_vision_ai_appl_svcmn_dev_model_path(
@@ -1252,7 +921,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     std::unique_ptr<face_enrollment_image_pipeline> enrollment_image_pipeline;
     face_enrollment_port* enrollment_port = nullptr;
     const auto stop_enrollment_graphs = [&]() {
-        return vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+            return vqec_vision_ai_appl_svcsc_stop_graph_sessions(
             std::array<cascade_graph_session*, 2>{
                 enrollment_detector_graph_session.get(),
                 enrollment_embedding_graph_session.get()});
@@ -1262,7 +931,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
 #endif
     bool recognition_enabled = false;
     if (use_production_platform) {
-        const auto cascade_prepared = vqec_vision_ai_appl_svcmn_prepare_cascade_owners(
+        const auto cascade_prepared = vqec_vision_ai_appl_svcsc_prepare_owners(
             deployment, catalog, production, cascade_owners);
         if (cascade_prepared.code_ != status_code::ok) {
             std::fprintf(stderr, "cascade preparation failed (%d): %s\n",
@@ -1271,12 +940,12 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             return 1;
         }
         const auto cascade_started =
-            vqec_vision_ai_appl_svcmn_start_cascade_graphs(cascade_owners);
+            vqec_vision_ai_appl_svcsc_start_graphs(cascade_owners);
         if (cascade_started.code_ != status_code::ok) {
             std::fprintf(stderr, "cascade graph startup failed (%d): %s\n",
                 static_cast<int>(cascade_started.code_),
                 cascade_started.message_.c_str());
-            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
             return 1;
         }
         for (std::uint16_t source_slot = 0; source_slot < deployment.sources_.size();
@@ -1289,7 +958,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
             if (source_session == nullptr || owner.model_ == nullptr) {
                 std::fprintf(stderr, "cascade source owner is incomplete\n");
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
             cascade_coordinator_config coordinator_config;
@@ -1318,14 +987,14 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 std::fprintf(stderr, "cascade worker configure failed (%d): %s\n",
                     static_cast<int>(worker_configured.code_),
                     worker_configured.message_.c_str());
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
             const auto worker_started = owner.worker_->vqec_vision_ai_appl_cxwrk_start();
             if (worker_started.code_ != status_code::ok) {
                 std::fprintf(stderr, "cascade worker start failed (%d): %s\n",
                     static_cast<int>(worker_started.code_), worker_started.message_.c_str());
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
             const auto cascade_bound =
@@ -1335,7 +1004,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 std::fprintf(stderr, "runtime cascade binding failed (%d): %s\n",
                     static_cast<int>(cascade_bound.code_),
                     cascade_bound.message_.c_str());
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
         }
@@ -1354,7 +1023,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         }
         if (recognition_owner == nullptr) {
             std::fprintf(stderr, "FR configuration requires an active embedding model\n");
-            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
             return 1;
         }
 #if defined(VQEC_VISION_AI_HAS_ZVEC)
@@ -1373,7 +1042,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         if (args.fr_max_templates > face_gallery_limits::g_max_records /
                 service_harness::g_fr_max_subjects) {
             std::fprintf(stderr, "FR gallery capacity overflows the supported bound\n");
-            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
             return 1;
         }
         recognition_config.index_.capacity_ = args.fr_max_templates *
@@ -1410,7 +1079,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             std::fprintf(stderr, "FR configuration failed (%d): %s\n",
                 static_cast<int>(recognition_configured.code_),
                 recognition_configured.message_.c_str());
-            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
             return 1;
         }
         enrollment_controller = std::make_unique<face_enrollment_controller>(recognition);
@@ -1424,7 +1093,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     catalog, secondary_model->depends_on_[0].model_id_) : nullptr;
             if (primary_model == nullptr || secondary_model == nullptr) {
                 std::fprintf(stderr, "enrollment model dependency is incomplete\n");
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
             auto prepared = production.vqec_vision_ai_appl_pdplt_create_offline_model(
@@ -1435,12 +1104,12 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                     enrollment_embedding_model);
             }
             if (prepared.code_ == status_code::ok) {
-                prepared = vqec_vision_ai_appl_svcmn_make_offline_graph_session(
+                prepared = vqec_vision_ai_appl_svcsc_make_offline_graph_session(
                     source, *primary_model, *enrollment_detector_model,
                     enrollment_detector_graph_session);
             }
             if (prepared.code_ == status_code::ok) {
-                prepared = vqec_vision_ai_appl_svcmn_make_offline_graph_session(
+                prepared = vqec_vision_ai_appl_svcsc_make_offline_graph_session(
                     source, *secondary_model, *enrollment_embedding_model,
                     enrollment_embedding_graph_session);
             }
@@ -1448,15 +1117,15 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 enrollment_detector_graph_session.get(),
                 enrollment_embedding_graph_session.get()};
             if (prepared.code_ == status_code::ok) {
-                prepared = vqec_vision_ai_appl_svcmn_start_graph_sessions(
+                prepared = vqec_vision_ai_appl_svcsc_start_graph_sessions(
                     enrollment_graph_sessions);
             }
             if (prepared.code_ != status_code::ok) {
                 std::fprintf(stderr, "enrollment graph startup failed (%d): %s\n",
                     static_cast<int>(prepared.code_), prepared.message_.c_str());
-                (void)vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+                (void)vqec_vision_ai_appl_svcsc_stop_graph_sessions(
                     enrollment_graph_sessions);
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
 
@@ -1531,9 +1200,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             if (prepared.code_ != status_code::ok) {
                 std::fprintf(stderr, "enrollment image pipeline failed (%d): %s\n",
                     static_cast<int>(prepared.code_), prepared.message_.c_str());
-                (void)vqec_vision_ai_appl_svcmn_stop_graph_sessions(
+                (void)vqec_vision_ai_appl_svcsc_stop_graph_sessions(
                     enrollment_graph_sessions);
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
             enrollment_port = enrollment_image_pipeline.get();
@@ -1552,7 +1221,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 std::fprintf(stderr, "face enrollment DBus failed (%d): %s\n",
                     static_cast<int>(opened.code_), opened.message_.c_str());
                 (void)stop_enrollment_graphs();
-                (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+                (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
         }
@@ -1561,7 +1230,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             std::fprintf(stderr,
                 "face enrollment DBus was requested but adapter is not built\n");
             (void)stop_enrollment_graphs();
-            (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
             return 1;
         }
 #endif
@@ -1577,7 +1246,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         std::fprintf(stderr, "composition activation failed (%d): %s\n",
             static_cast<int>(activated.code_), activated.message_.c_str());
         (void)stop_enrollment_graphs();
-        (void)vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+        (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
         return 1;
     }
 
@@ -1985,7 +1654,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     const auto stop = executor->vqec_vision_ai_appl_rtexe_request_stop(now_ns);
     (void)stop;
     const auto cascade_workers_drained =
-        vqec_vision_ai_appl_svcmn_drain_cascade_workers(cascade_owners, now_ns);
+        vqec_vision_ai_appl_svcsc_drain_workers(cascade_owners, now_ns);
     if (cascade_workers_drained.code_ != status_code::ok &&
         first_error_code == status_code::ok) {
         first_error_code = cascade_workers_drained.code_;
@@ -2036,7 +1705,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         first_error_code = enrollment_stopped.code_;
     }
     const auto cascade_stopped =
-        vqec_vision_ai_appl_svcmn_stop_cascade_graphs(cascade_owners);
+        vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
     if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
         first_error_code = cascade_stopped.code_;
     }

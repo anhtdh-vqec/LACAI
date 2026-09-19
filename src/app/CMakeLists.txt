@@ -243,6 +243,24 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
     set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+# Service-owned cascade graph/session lifecycle, separated from the generation controller.
+if(TARGET vqec_vision_ai_production_platform)
+    add_library(vqec_vision_ai_service_cascade_runtime STATIC
+        cascade/vqec_vision_service_cascade_runtime.cpp)
+    target_include_directories(vqec_vision_ai_service_cascade_runtime PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cascade>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/session>)
+    target_link_libraries(vqec_vision_ai_service_cascade_runtime PUBLIC
+        vqec_vision_ai_production_platform
+        vqec_vision_ai_cascade_graph_session
+        vqec_vision_ai_cascade_coordinator
+        vqec_vision_ai_service_options)
+    set_target_properties(vqec_vision_ai_service_cascade_runtime
+        PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # Required external service executable. Built only when the JSON loaders and the
 # device-free reference backend are available; otherwise there is no runnable harness.
 if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference AND
@@ -258,6 +276,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_service_options
         vqec_vision_ai_service_startup
+        vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_admission
         vqec_vision_ai_production_platform
