@@ -4,7 +4,11 @@ This document records the implemented AI APP-owned version 1 transactional proto
 measured boundary. The target security/traffic metadata subsystem is defined by the
 spatiotemporal metadata architecture.
 
-**Status:** board-smoke — isolated prototype passed eSDK and QCS6490 native tests on 2026-09-19; it is not the accepted P2 target. **Layer:** adapters. **Source:** `include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp`, `src/core/output/vqec_vision_metadata_query.cpp`, `src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp`.
+**Status:** accepted — the transactional prototype remains the compatibility layer inside the
+accepted P2 spatiotemporal runtime; it is not the complete P2 query surface. **Layer:** adapters.
+**Source:** `include/vqec/vision/ai/contracts/vqec_vision_metadata_query.hpp`,
+`src/core/output/vqec_vision_metadata_query.cpp`,
+`src/adapters/storage/vqec_vision_sqlite_metadata_store.cpp`.
 
 ## Responsibility
 
@@ -97,10 +101,28 @@ not compared as if it existed. The numbers above do not validate high-rate traje
 cross-camera footprints, concurrent readers/compaction or month/year analytics. ADR 0009 must
 select the physical tier after a representative eSDK/board benchmark.
 
+## Fire and smoke projection
+
+The product S04 feature identity is `fire_smoke_alarm` and its event schema is
+`security.fire_smoke.event`. The composed metadata runtime records the stable incident episode
+and one correction-aware contribution for the first event revision. An idempotent retry of the
+same event revision does not increment the rollup.
+
+Each S04 contribution carries source, scene, class, severity and a configured spatial grid cell.
+The grid dimensions are deployment policy, while the source width and height come from the
+validated deployment profile; neither is inferred from a model tensor. The exact event region is
+stored as an identifier-safe millipixel claim and the aggregate grid cell is derived from its
+center. This keeps month/year class and hotspot rollups bounded without storing one aggregate row
+per detection frame.
+
+The example QCS6490 profile uses a 16 by 9 grid. Product profiles must choose a grid against query
+resolution, retention and cardinality budgets. A grid change is a configuration/scene boundary;
+old and new cells must not be compared without their recorded revisions.
+
 ## Limits and next work
 
-- The adapter is not yet composed into the service event/output path; the current board run
-  qualifies the isolated native boundary, not live inference FPS impact.
+- The compatibility adapter and spatiotemporal runtime are composed into the optional service
+  metadata path. A profile marked `required` fails closed when projection or persistence fails.
 - Query cases define all five required outcome classes for Q01–Q30, but model-quality golden
   data and producer-specific calibration remain activation gates for each usecase.
 - The prototype has no frame locator contract, packed trajectory chunks, detail shard lifecycle,

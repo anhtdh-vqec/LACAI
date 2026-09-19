@@ -3,6 +3,8 @@
   "device_id": "qcs6490_camera_01",
   "required": true,
   "aggregate_bucket_ns": 3600000000000,
+  "hotspot_grid_columns": 16,
+  "hotspot_grid_rows": 9,
   "service": {
     "queue_capacity": 4096,
     "maximum_live_tracks": 4096,
@@ -48,7 +50,7 @@
         {"feature_id": "smoking", "access_domains": ["object", "visual_attribute"]},
         {"feature_id": "suspicious_object", "access_domains": ["object", "visual_attribute"]},
         {"feature_id": "ppe", "access_domains": ["object", "visual_attribute"]},
-        {"feature_id": "fire_smoke", "access_domains": ["object", "visual_attribute"]},
+        {"feature_id": "fire_smoke_alarm", "access_domains": ["object", "visual_attribute"]},
         {"feature_id": "blacklist", "access_domains": ["object", "identity"]},
         {"feature_id": "attendance", "access_domains": ["object", "identity"]},
         {"feature_id": "demographics", "access_domains": ["object", "visual_attribute"]},

@@ -1,7 +1,9 @@
 #include "vqec_vision_metadata_runtime.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -37,6 +39,8 @@ std::string vqec_vision_ai_unit_mdrut_profile(const std::string& _root,
   "device_id": "device.fixture",
   "required": true,
   "aggregate_bucket_ns": 1000000,
+  "hotspot_grid_columns": 16,
+  "hotspot_grid_rows": 9,
   "service": {
     "queue_capacity": 32,
     "maximum_live_tracks": 16,
@@ -78,7 +82,7 @@ std::string vqec_vision_ai_unit_mdrut_profile(const std::string& _root,
     "trajectory_authorization_feature_id": "person_tracking",
     "trajectory_authorization_attribute_id": "trajectory",
     "event_access_rules": [{
-      "feature_id": "fire_smoke",
+      "feature_id": "fire_smoke_alarm",
       "access_domains": ["object", "visual_attribute"]
     }]
   }]
@@ -129,6 +133,8 @@ int main() {
     deployment.revision_ = 1U;
     source_deployment_config source;
     source.source_id_ = "camera.a";
+    source.profile_.width_ = 640U;
+    source.profile_.height_ = 360U;
     source.model_ids_ = {"person_detector"};
     deployment.sources_.push_back(source);
 
@@ -160,16 +166,21 @@ int main() {
     feature_event event;
     event.frame_ = second.frame_;
     event.source_id_ = "camera.a";
-    event.feature_id_ = "fire_smoke";
+    event.feature_id_ = "fire_smoke_alarm";
     event.event_id_ = "fire.episode.1";
-    event.event_schema_id_ = "fire_smoke";
+    event.event_schema_id_ = "security.fire_smoke.event";
     event.event_schema_version_ = "1";
     event.kind_ = feature_event_kind::snapshot;
     event.occurred_at_ns_ = second.frame_.source_pts_ns_;
     event.config_revision_ = 1U;
     event.track_ids_ = {7U};
-    event.fields_ = {{"hotspot_cell", "1", "grid_1_1", 0.9F,
-        observation_quality::high}};
+    event.fields_ = {
+        {"security.fire_smoke.class", "1", "fire", 0.9F,
+            observation_quality::high},
+        {"security.fire_smoke.severity", "1", "critical", 0.9F,
+            observation_quality::high},
+        {"security.fire_smoke.region", "1", "300.0,160.0,40.0,40.0", 0.9F,
+            observation_quality::high}};
     event.episode_revision_ = 1U;
     event.episode_begin_ns_ = event.occurred_at_ns_;
     auto unsupported_event = event;
@@ -177,9 +188,16 @@ int main() {
     assert(runtime.vqec_vision_ai_ports_fesnk_deliver_event(unsupported_event).code_ ==
            status_code::unsupported);
     assert(sink.deliveries_ == 0U);
+    const auto event_status =
+        runtime.vqec_vision_ai_ports_fesnk_deliver_event(event);
+    if (event_status.code_ != status_code::ok) {
+        std::fprintf(stderr, "metadata event projection failed: %s\n",
+            event_status.message_.c_str());
+    }
+    assert(event_status.code_ == status_code::ok);
     assert(runtime.vqec_vision_ai_ports_fesnk_deliver_event(event).code_ ==
            status_code::ok);
-    assert(sink.deliveries_ == 1U && sink.last_event_id_ == event.event_id_);
+    assert(sink.deliveries_ == 2U && sink.last_event_id_ == event.event_id_);
     const observation_batch stale_frame{
         {1U, 0U, 1U, 3U, 1300000U}, {640U, 360U}, {}};
     assert(runtime.vqec_vision_ai_appl_mdrun_submit_observations(
@@ -233,6 +251,16 @@ int main() {
     assert(store.vqec_vision_ai_stor_stsql_query(query, page).code_ == status_code::ok);
     assert(page.aggregate_buckets_.size() == 1U &&
            page.aggregate_buckets_.front().contribution_count_ == 1U);
+    const auto& dimensions = page.aggregate_buckets_.front().dimensions_;
+    assert(std::find_if(dimensions.begin(), dimensions.end(), [](const auto& item) {
+        return item.key_ == "class" && item.value_ == "fire";
+    }) != dimensions.end());
+    assert(std::find_if(dimensions.begin(), dimensions.end(), [](const auto& item) {
+        return item.key_ == "severity" && item.value_ == "critical";
+    }) != dimensions.end());
+    assert(std::find_if(dimensions.begin(), dimensions.end(), [](const auto& item) {
+        return item.key_ == "hotspot_cell" && item.value_ == "x8_y4";
+    }) != dimensions.end());
     assert(store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
     std::filesystem::remove_all(root);
     return 0;

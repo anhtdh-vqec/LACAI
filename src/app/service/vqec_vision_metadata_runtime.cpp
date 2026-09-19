@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -24,6 +25,10 @@ using json = nlohmann::json;
 constexpr const char* g_boot_id_path = "/proc/sys/kernel/random/boot_id";
 constexpr const char* g_runtime_id_path = "/proc/sys/kernel/random/uuid";
 constexpr std::uint64_t g_microunits_per_event = 1000000U;
+constexpr char g_fire_smoke_class_field[] = "security.fire_smoke.class";
+constexpr char g_fire_smoke_severity_field[] = "security.fire_smoke.severity";
+constexpr char g_fire_smoke_zone_field[] = "security.fire_smoke.zone";
+constexpr char g_fire_smoke_region_field[] = "security.fire_smoke.region";
 
 bool vqec_vision_ai_appl_mdrun_read_u64(
     const json& _object, const char* _key, std::uint64_t& _value) {
@@ -131,6 +136,129 @@ bool vqec_vision_ai_appl_mdrun_round_i32(float _value, std::int32_t& _output) {
     return true;
 }
 
+const feature_event_field* vqec_vision_ai_appl_mdrun_find_field(
+    const feature_event& _event, const char* _schema_id) noexcept {
+    const auto found = std::find_if(_event.fields_.begin(), _event.fields_.end(),
+        [_schema_id](const auto& _field) {
+            return _field.schema_id_ == _schema_id;
+        });
+    return found == _event.fields_.end() ? nullptr : &*found;
+}
+
+bool vqec_vision_ai_appl_mdrun_append_dimension(
+    std::vector<spatiotemporal_dimension>& _dimensions,
+    const std::string& _key, const std::string& _value) {
+    if (!vqec_vision_ai_appl_mdrun_is_identifier(_key) ||
+        !vqec_vision_ai_appl_mdrun_is_identifier(_value) ||
+        std::find_if(_dimensions.begin(), _dimensions.end(),
+            [&_key](const auto& _dimension) {
+                return _dimension.key_ == _key;
+            }) != _dimensions.end()) {
+        return false;
+    }
+    _dimensions.push_back({_key, _value});
+    return true;
+}
+
+bool vqec_vision_ai_appl_mdrun_append_fire_smoke_dimensions(
+    const feature_event& _event, const metadata_source_profile& _profile,
+    std::uint32_t _grid_columns, std::uint32_t _grid_rows,
+    std::vector<spatiotemporal_dimension>& _dimensions) {
+    const auto* class_field = vqec_vision_ai_appl_mdrun_find_field(
+        _event, g_fire_smoke_class_field);
+    const auto* severity_field = vqec_vision_ai_appl_mdrun_find_field(
+        _event, g_fire_smoke_severity_field);
+    const auto* zone_field = vqec_vision_ai_appl_mdrun_find_field(
+        _event, g_fire_smoke_zone_field);
+    if (class_field == nullptr || severity_field == nullptr ||
+        !vqec_vision_ai_appl_mdrun_append_dimension(
+            _dimensions, "class", class_field->value_) ||
+        !vqec_vision_ai_appl_mdrun_append_dimension(
+            _dimensions, "severity", severity_field->value_)) {
+        return false;
+    }
+    if (zone_field != nullptr &&
+        !vqec_vision_ai_appl_mdrun_append_dimension(
+            _dimensions, "zone", zone_field->value_)) {
+        return false;
+    }
+    const auto* region_field = vqec_vision_ai_appl_mdrun_find_field(
+        _event, g_fire_smoke_region_field);
+    if (region_field == nullptr || _profile.source_width_ == 0 ||
+        _profile.source_height_ == 0 || _grid_columns == 0 || _grid_rows == 0) {
+        return false;
+    }
+    float x = 0.0F;
+    float y = 0.0F;
+    float width = 0.0F;
+    float height = 0.0F;
+    char trailing = 0;
+    if (std::sscanf(region_field->value_.c_str(), "%f,%f,%f,%f%c",
+            &x, &y, &width, &height, &trailing) != 4 ||
+        !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) ||
+        !std::isfinite(height) || width <= 0.0F || height <= 0.0F) {
+        return false;
+    }
+    const auto center_x = std::clamp(x + width / 2.0F, 0.0F,
+        static_cast<float>(_profile.source_width_ - 1U));
+    const auto center_y = std::clamp(y + height / 2.0F, 0.0F,
+        static_cast<float>(_profile.source_height_ - 1U));
+    const auto column = std::min<std::uint32_t>(_grid_columns - 1U,
+        static_cast<std::uint32_t>(center_x * _grid_columns /
+            static_cast<float>(_profile.source_width_)));
+    const auto row = std::min<std::uint32_t>(_grid_rows - 1U,
+        static_cast<std::uint32_t>(center_y * _grid_rows /
+            static_cast<float>(_profile.source_height_)));
+    return vqec_vision_ai_appl_mdrun_append_dimension(_dimensions,
+        "hotspot_cell", "x" + std::to_string(column) + "_y" +
+            std::to_string(row));
+}
+
+bool vqec_vision_ai_appl_mdrun_append_event_claim(
+    const feature_event_field& _field,
+    std::vector<spatiotemporal_dimension>& _claims) {
+    if (_field.schema_id_ != g_fire_smoke_region_field) {
+        return vqec_vision_ai_appl_mdrun_append_dimension(
+            _claims, _field.schema_id_, _field.value_);
+    }
+    float x = 0.0F;
+    float y = 0.0F;
+    float width = 0.0F;
+    float height = 0.0F;
+    char trailing = 0;
+    if (std::sscanf(_field.value_.c_str(), "%f,%f,%f,%f%c",
+            &x, &y, &width, &height, &trailing) != 4 ||
+        !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) ||
+        !std::isfinite(height)) {
+        return false;
+    }
+    const auto encode_millipixels = [](float _value, std::int64_t& _encoded) {
+        constexpr double g_millipixels_per_pixel = 1000.0;
+        const auto scaled = static_cast<double>(_value) * g_millipixels_per_pixel;
+        if (scaled < static_cast<double>(std::numeric_limits<std::int64_t>::min()) ||
+            scaled > static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+            return false;
+        }
+        _encoded = static_cast<std::int64_t>(std::llround(scaled));
+        return true;
+    };
+    std::int64_t encoded_x = 0;
+    std::int64_t encoded_y = 0;
+    std::int64_t encoded_width = 0;
+    std::int64_t encoded_height = 0;
+    if (!encode_millipixels(x, encoded_x) ||
+        !encode_millipixels(y, encoded_y) ||
+        !encode_millipixels(width, encoded_width) ||
+        !encode_millipixels(height, encoded_height)) {
+        return false;
+    }
+    const auto encoded = "x" + std::to_string(encoded_x) + "_y" +
+        std::to_string(encoded_y) + "_w" + std::to_string(encoded_width) + "_h" +
+        std::to_string(encoded_height);
+    return vqec_vision_ai_appl_mdrun_append_dimension(
+        _claims, _field.schema_id_, encoded);
+}
+
 }  // namespace
 
 status vqec_vision_ai_appl_mdrun_load_config(
@@ -221,6 +349,8 @@ status vqec_vision_ai_appl_mdrun_load_config(
     const auto trajectory = document.find("trajectory");
     const auto retention = document.find("retention");
     std::uint64_t aggregate_bucket_ns = 0U;
+    std::uint64_t hotspot_grid_columns = 0U;
+    std::uint64_t hotspot_grid_rows = 0U;
     if (trajectory == document.end() || !trajectory->is_object() ||
         retention == document.end() || !retention->is_object() ||
         !vqec_vision_ai_appl_mdrun_read_size(*trajectory, "maximum_points_per_chunk",
@@ -233,6 +363,12 @@ status vqec_vision_ai_appl_mdrun_load_config(
             *trajectory, "stale_track_ns", parsed.stale_track_ns_) ||
         !vqec_vision_ai_appl_mdrun_read_u64(
             document, "aggregate_bucket_ns", aggregate_bucket_ns) ||
+        !vqec_vision_ai_appl_mdrun_read_u64(
+            document, "hotspot_grid_columns", hotspot_grid_columns) ||
+        !vqec_vision_ai_appl_mdrun_read_u64(
+            document, "hotspot_grid_rows", hotspot_grid_rows) ||
+        hotspot_grid_columns == 0U || hotspot_grid_columns > 64U ||
+        hotspot_grid_rows == 0U || hotspot_grid_rows > 64U ||
         aggregate_bucket_ns >
             static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         !vqec_vision_ai_appl_mdrun_read_u64(*retention, "maintenance_interval_ns",
@@ -254,6 +390,8 @@ status vqec_vision_ai_appl_mdrun_load_config(
         return {status_code::invalid_argument, "metadata trajectory or retention is invalid"};
     }
     parsed.aggregate_bucket_ns_ = static_cast<std::int64_t>(aggregate_bucket_ns);
+    parsed.hotspot_grid_columns_ = static_cast<std::uint32_t>(hotspot_grid_columns);
+    parsed.hotspot_grid_rows_ = static_cast<std::uint32_t>(hotspot_grid_rows);
     const auto sources = document.find("sources");
     if (sources == document.end() || !sources->is_array() || sources->empty() ||
         sources->size() > metadata_runtime_limits::g_maximum_sources) {
@@ -290,6 +428,18 @@ status vqec_vision_ai_appl_mdrun_load_config(
             !source_ids.insert(source.source_id_).second) {
             return {status_code::invalid_argument, "metadata source identity is invalid"};
         }
+        const auto deployment_source = std::find_if(_deployment.sources_.begin(),
+            _deployment.sources_.end(), [&source](const auto& _candidate) {
+                return _candidate.source_id_ == source.source_id_;
+            });
+        if (deployment_source == _deployment.sources_.end() ||
+            deployment_source->profile_.width_ == 0 ||
+            deployment_source->profile_.height_ == 0) {
+            return {status_code::invalid_argument,
+                "metadata source geometry is absent from deployment"};
+        }
+        source.source_width_ = deployment_source->profile_.width_;
+        source.source_height_ = deployment_source->profile_.height_;
         const auto rules = item.find("event_access_rules");
         if (rules == item.end() || !rules->is_array() || rules->empty() ||
             rules->size() > metadata_runtime_limits::g_maximum_event_access_rules) {
@@ -618,7 +768,11 @@ public:
         }
         episode.required_access_domain_mask_ = access_rule->access_domain_mask_;
         for (const auto& field : _event.fields_) {
-            episode.claims_.push_back({field.schema_id_, field.value_});
+            if (!vqec_vision_ai_appl_mdrun_append_event_claim(
+                    field, episode.claims_)) {
+                return {status_code::invalid_argument,
+                    "event field cannot be represented as a metadata claim"};
+            }
             const auto scaled = static_cast<std::uint32_t>(
                 std::lround(field.confidence_ * g_spatiotemporal_score_scale_ppm));
             episode.severity_ppm_ = std::max(episode.severity_ppm_, scaled);
@@ -658,6 +812,15 @@ public:
                 vqec_vision_ai_cntr_stmet_get_access_domain_mask(
                     spatiotemporal_access_domain::aggregate);
             contribution.dimensions_.push_back({"semantic_type", _event.event_schema_id_});
+            contribution.dimensions_.push_back({"source", _event.source_id_});
+            contribution.dimensions_.push_back({"scene", profile->scene_revision_});
+            if (_event.event_schema_id_ == "security.fire_smoke.event" &&
+                !vqec_vision_ai_appl_mdrun_append_fire_smoke_dimensions(
+                    _event, *profile, config_.hotspot_grid_columns_,
+                    config_.hotspot_grid_rows_, contribution.dimensions_)) {
+                return {status_code::invalid_argument,
+                    "fire/smoke aggregate dimensions are incomplete"};
+            }
         }
         const auto accepted = service_.vqec_vision_ai_appl_mdsvc_submit_projection(
             episode, contributes ? &contribution : nullptr);

@@ -34,6 +34,8 @@ struct metadata_source_profile {
     std::string trajectory_model_id_;
     std::string trajectory_authorization_feature_id_;
     std::string trajectory_authorization_attribute_id_;
+    std::uint32_t source_width_{0};
+    std::uint32_t source_height_{0};
     std::vector<metadata_event_access_rule> event_access_rules_;
 };
 
@@ -47,6 +49,8 @@ struct metadata_runtime_config {
     std::uint64_t minimum_sample_interval_ns_{0};
     std::uint64_t stale_track_ns_{0};
     std::int64_t aggregate_bucket_ns_{0};
+    std::uint32_t hotspot_grid_columns_{0};
+    std::uint32_t hotspot_grid_rows_{0};
     std::uint64_t maintenance_interval_ns_{0};
     std::uint64_t trajectory_retention_ns_{0};
     std::uint64_t episode_retention_ns_{0};
