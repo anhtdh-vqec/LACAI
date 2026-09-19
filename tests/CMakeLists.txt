@@ -96,6 +96,17 @@ if(TARGET vqec_vision_ai_service_shutdown)
         COMMAND vqec_vision_ai_service_shutdown_test)
 endif()
 
+if(TARGET vqec_vision_ai_service_execution_loop)
+    add_executable(vqec_vision_ai_service_execution_loop_test
+        unit/application/vqec_vision_service_execution_loop_test.cpp)
+    target_link_libraries(vqec_vision_ai_service_execution_loop_test PRIVATE
+        vqec_vision_ai_service_execution_loop)
+    set_target_properties(vqec_vision_ai_service_execution_loop_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_execution_loop_owner
+        COMMAND vqec_vision_ai_service_execution_loop_test)
+endif()
+
 if(TARGET vqec_vision_ai_ed25519_app_package_verifier)
     add_executable(vqec_vision_ai_ed25519_app_package_verifier_test
         unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp)

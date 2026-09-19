@@ -10,19 +10,13 @@
 
 #include <array>
 #include <chrono>
-#include <thread>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
-#include <fstream>
 #include <functional>
-#include <limits>
 #include <memory>
-#include <new>
 #include <string>
 #include <utility>
-#include <vector>
 #include <unistd.h>
 
 #include "vqec_vision_service_generation.hpp"
@@ -30,6 +24,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_feature_activation.hpp"
+#include "vqec_vision_service_execution_loop.hpp"
 #include "vqec_vision_service_platform.hpp"
 #include "vqec_vision_service_shutdown.hpp"
 #include "vqec_vision_service_enrollment_runtime.hpp"
@@ -37,31 +32,18 @@
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_cascade_execution_worker.hpp"
-#include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_service_cascade_runtime.hpp"
-#include "vqec_vision_feature_activation_manager.hpp"
 #include "vqec_vision_feature_catalog.hpp"
-#include "vqec_vision_usecase_config.hpp"
-#include "vqec_vision_usecase_control_manager.hpp"
-#include "vqec_vision_feature_fanout.hpp"
-#include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
 #include "vqec_vision_model_package_registry.hpp"
 #include "vqec_vision_reference_sink.hpp"
 #include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
-#include "vqec_vision_overlay_preparation.hpp"
 #include "vqec_vision_exact_embedding_index.hpp"
 #include "vqec_vision_recognition_session.hpp"
 #include "vqec_vision_encrypted_face_gallery_store.hpp"
 #if defined(VQEC_VISION_AI_HAS_ZVEC)
 #include "vqec_vision_zvec_embedding_index.hpp"
-#endif
-#if defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
-#include "vqec_vision_usecase_control_dbus.hpp"
-#endif
-#if defined(VQEC_VISION_AI_HAS_APP_MANAGER_DBUS)
-#include "vqec_vision_app_manager_dbus.hpp"
 #endif
 #include "vqec_vision_event_delivery_seam.hpp"
 #include "vqec_vision_service_output_runtime.hpp"
@@ -75,9 +57,6 @@ constexpr std::uint64_t g_step_interval_ns =
     service_options_limits::g_default_runtime_step_interval_ns;
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
 constexpr int g_reconcile_generation_exit_code = 4;
-constexpr std::size_t g_max_active_track_labels = 256;
-constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
-constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
 
 void vqec_vision_ai_appl_svgen_on_signal(int) {
     g_stop_requested = 1;
@@ -89,56 +68,6 @@ std::uint64_t vqec_vision_ai_appl_svgen_monotonic_ns() noexcept {
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count());
-}
-
-const model_catalog_entry* vqec_vision_ai_appl_svgen_find_model(
-    const model_catalog& _catalog, const std::string& _model_id) {
-    for (const auto& model : _catalog.models_) {
-        if (model.model_id_ == _model_id) {
-            return &model;
-        }
-    }
-    return nullptr;
-}
-
-using model_observation_cache =
-    std::array<observation_batch, deployment_limits::g_max_models_per_source>;
-
-void vqec_vision_ai_appl_svgen_merge_observations(
-    const model_observation_cache& _models, std::uint16_t _model_count,
-    std::uint64_t _now_ns, std::uint64_t _max_age_ns,
-    observation_batch& _merged) {
-    (void)_now_ns;
-    (void)_max_age_ns;
-    observation_batch merged;
-    for (std::uint16_t slot = 0;
-         slot < _model_count && slot < deployment_limits::g_max_models_per_source;
-         ++slot) {
-        const auto& batch = _models[slot];
-        if (batch.frame_.source_epoch_ == 0) {
-            continue;
-        }
-        if (merged.frame_.source_epoch_ == 0) {
-            merged.frame_ = batch.frame_;
-            merged.geometry_ = batch.geometry_;
-        } else if (merged.frame_.source_epoch_ != batch.frame_.source_epoch_) {
-            continue;
-        }
-        for (const auto& item : batch.observations_) {
-            if (merged.observations_.size() >= observation_limits::g_max_observations) {
-                break;
-            }
-            auto merged_item = item;
-            merged_item.frame_ = merged.frame_;
-            if (merged_item.track_id_ != 0) {
-                merged_item.track_id_ =
-                    (static_cast<std::uint64_t>(slot + 1) << 32) |
-                    (merged_item.track_id_ & 0xFFFFFFFFULL);
-            }
-            merged.observations_.push_back(std::move(merged_item));
-        }
-    }
-    _merged = std::move(merged);
 }
 
 }  // namespace
@@ -471,428 +400,44 @@ int vqec_vision_ai_appl_svgen_run_generation(
         return 1;
     }
 
-    std::uint64_t now_ns = vqec_vision_ai_appl_svgen_monotonic_ns();
-    std::uint64_t steps = 0;
-    std::uint32_t routed_source_mask = 0;
-    status_code first_error_code = status_code::ok;
-    std::array<model_observation_cache, deployment_limits::g_max_sources>
-        latest_model_observations;
-    std::array<observation_batch, deployment_limits::g_max_sources>
-        latest_overlay_observations;
-    std::array<bool, deployment_limits::g_max_sources> cascade_error_reported{};
-    std::array<std::unordered_map<std::uint64_t, std::string>, deployment_limits::g_max_sources>
-        active_track_labels;
-    bool reconcile_requested = false;
-    bool generation_published = _control_manager == nullptr;
-    while (!g_stop_requested && (args.max_steps == 0 || steps < args.max_steps)) {
-        if (_poll_control) {
-            _poll_control();
-        }
-        if (_is_runtime_reconcile_requested &&
-            _is_runtime_reconcile_requested()) {
-            reconcile_requested = true;
-            break;
-        }
-        if (_control_manager != nullptr && generation_published &&
-            _control_manager->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
-            reconcile_requested = true;
-            break;
-        }
-        const auto clock_now = vqec_vision_ai_appl_svgen_monotonic_ns();
-        now_ns = clock_now > now_ns ? clock_now :
-            now_ns + args.runtime_step_interval_ns;
-        if (use_production_platform) {
-            std::array<bool, deployment_limits::g_max_sources> cascade_source_ready{};
-            for (std::uint16_t source_slot = 0;
-                 source_slot < deployment.sources_.size(); ++source_slot) {
-                const auto* session =
-                    bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
-                if (session == nullptr) {
-                    continue;
-                }
-                const auto state = session->vqec_vision_ai_appl_mmses_get_snapshot().session_state_;
-                cascade_source_ready[source_slot] =
-                    state == multi_model_session_state::configuring ||
-                    state == multi_model_session_state::loading ||
-                    state == multi_model_session_state::binding ||
-                    state == multi_model_session_state::starting ||
-                    state == multi_model_session_state::running;
-            }
-            const auto cascades_started =
-                vqec_vision_ai_appl_svcsc_start_ready_graphs(
-                    cascade_owners, cascade_source_ready);
-            if (cascades_started.code_ != status_code::ok) {
-                first_error_code = cascades_started.code_;
-                std::fprintf(stderr, "cascade graph startup failed (%d): %s\n",
-                    static_cast<int>(cascades_started.code_),
-                    cascades_started.message_.c_str());
-                break;
-            }
-        }
-        runtime_executor_report report;
-        const auto stepped = executor->vqec_vision_ai_appl_rtexe_step(now_ns, report);
-        // In threaded source mode an OK step consumed the worker completion and did not
-        // enqueue a replacement in the same call. Session-owned preview/cascade state is
-        // therefore quiescent until the next loop iteration. Pending can mean a worker is
-        // active, so the control/output thread must not touch the session mailbox then.
-        const bool source_session_quiescent =
-            stepped.code_ == status_code::ok && !report.has_cascade_;
-        if (report.first_error_code_ != status_code::ok && first_error_code == status_code::ok) {
-            first_error_code = report.first_error_code_;
-        }
-        if (!generation_published && first_error_code == status_code::ok) {
-            bool all_sources_running = true;
-            for (std::uint16_t source_slot = 0;
-                 source_slot < deployment.sources_.size(); ++source_slot) {
-                const auto* session = bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
-                if (session == nullptr ||
-                    session->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
-                        source_session_phase::running) {
-                    all_sources_running = false;
-                    break;
-                }
-            }
-            if (all_sources_running) {
-                const auto published = _pending_control_revision == 0
-                    ? (_runtime_generation == 1
-                        ? _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_initial(
-                              _runtime_generation)
-                        : status{})
-                    : _control_manager->vqec_vision_ai_ftmgr_ucmgr_publish_pending(
-                          _pending_control_revision, _runtime_generation);
-                if (published.code_ != status_code::ok) {
-                    first_error_code = published.code_;
-                    break;
-                }
-                generation_published = true;
-            }
-        }
-        if (stepped.code_ == status_code::ok) {
-            std::array<observation_batch, deployment_limits::g_max_models_per_source> tracked;
-            std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages> events;
-            std::vector<embedding_result> embeddings;
-            if (recognition_enabled) {
-                embeddings.reserve(observation_limits::g_max_observations);
-            }
-            runtime_executor_report taken;
-            const auto taken_status = recognition_enabled
-                ? executor->vqec_vision_ai_appl_rtexe_take_result_with_embeddings(
-                    tracked, events, embeddings, taken)
-                : executor->vqec_vision_ai_appl_rtexe_take_result(
-                    tracked, events, taken);
-            if (taken_status.code_ == status_code::ok) {
-                routed_source_mask |= 1U << taken.source_index_;
-                feature_dispatch_report dispatch_report;
-                if (taken.has_feature_fanout_ && feature_wiring != nullptr) {
-                    const auto dispatched =
-                        executor->vqec_vision_ai_appl_rtexe_dispatch_events(
-                            events, taken.source_index_, taken.model_slot_,
-                            taken.captured_policy_revision_, taken.features_.processed_mask_,
-                            now_ns, dispatch_report);
-                    if (dispatched.code_ != status_code::ok) {
-                        std::fprintf(stderr, "event delivery rejected: %s\n",
-                            dispatched.message_.c_str());
-                        if (metadata_required) {
-                            first_error_code = dispatched.code_;
-                            break;
-                        }
-                    }
-                }
-                if (recognition_enabled && !embeddings.empty() &&
-                    taken.source_index_ < deployment_limits::g_max_sources) {
-                    if (enrollment_port != nullptr) {
-                        face_enrollment_status enrollment_status;
-                        const auto root_slot = cascade_owners[taken.source_index_].root_model_slot_;
-                        const auto face_count = root_slot < tracked.size()
-                            ? tracked[root_slot].observations_.size() : 0;
-                        const auto accepted = enrollment_port->
-                            vqec_vision_ai_ports_fenrl_accept_batch(
-                                deployment.sources_[taken.source_index_].source_id_,
-                                embeddings, face_count, enrollment_status);
-                        if (accepted.code_ != status_code::ok &&
-                            accepted.code_ != status_code::pending &&
-                            accepted.code_ != status_code::invalid_argument &&
-                            accepted.code_ != status_code::invalid_state) {
-                            std::fprintf(stderr, "FR enrollment failed (%d): %s\n",
-                                static_cast<int>(accepted.code_), accepted.message_.c_str());
-                        }
-                    }
-                    std::vector<recognition_match_result> recognition_results;
-                    recognition_results.reserve(embeddings.size());
-                    const auto recognized = recognition.vqec_vision_ai_embed_rcses_recognize_batch(
-                        embeddings, recognition_results);
-                    if (recognized.code_ != status_code::ok) {
-                        std::fprintf(stderr, "FR recognition failed (%d): %s\n",
-                            static_cast<int>(recognized.code_), recognized.message_.c_str());
-                    } else {
-                        const auto& owner = cascade_owners[taken.source_index_];
-                        if (owner.root_model_slot_ < deployment_limits::g_max_models_per_source) {
-                            const output_authorization identity_scope{
-                                taken.captured_policy_revision_,
-                                deployment.sources_[taken.source_index_].source_id_,
-                                args.fr_feature_id, {args.fr_identity_attribute}};
-                            const auto authorized = output_policy_gate
-                                .vqec_vision_ai_core_otgat_authorize(identity_scope, now_ns);
-                            if (authorized.code_ != status_code::ok) {
-                                std::fprintf(stderr,
-                                    "FR identity output denied (%d): %s "
-                                    "(captured_policy=%llu active_policy=%llu)\n",
-                                    static_cast<int>(authorized.code_), authorized.message_.c_str(),
-                                    static_cast<unsigned long long>(taken.captured_policy_revision_),
-                                    static_cast<unsigned long long>(output_policy_gate
-                                        .vqec_vision_ai_core_otgat_get_revision()));
-                            } else {
-                                const auto labelled = recognition
-                                    .vqec_vision_ai_embed_rcses_apply_labels(
-                                        recognition_results, tracked[owner.root_model_slot_]);
-                                if (labelled.code_ != status_code::ok) {
-                                    std::fprintf(stderr, "FR label correlation failed (%d): %s\n",
-                                        static_cast<int>(labelled.code_), labelled.message_.c_str());
-                                } else {
-                                    for (const auto& match : recognition_results) {
-                                        if (match.decision_ == recognition_decision::known &&
-                                            !match.subject_ref_.empty()) {
-                                            active_track_labels[taken.source_index_][match.track_id_] =
-                                                match.subject_ref_;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (metadata != nullptr &&
-                    taken.source_index_ < deployment.sources_.size() &&
-                    taken.model_slot_ < tracked.size()) {
-                    const auto& metadata_source = deployment.sources_[taken.source_index_];
-                    const auto* profile = metadata->vqec_vision_ai_appl_mdrun_find_source(
-                        metadata_source.source_id_);
-                    const auto* model = taken.model_slot_ < metadata_source.model_ids_.size()
-                        ? vqec_vision_ai_appl_svgen_find_model(
-                              catalog, metadata_source.model_ids_[taken.model_slot_])
-                        : nullptr;
-                    if (profile != nullptr && model != nullptr &&
-                        profile->trajectory_model_id_ == model->model_id_) {
-                        const output_authorization trajectory_scope{
-                            taken.captured_policy_revision_, metadata_source.source_id_,
-                            profile->trajectory_authorization_feature_id_,
-                            {profile->trajectory_authorization_attribute_id_}};
-                        const bool trajectory_authorized = output_policy_gate
-                            .vqec_vision_ai_core_otgat_authorize(
-                                trajectory_scope, now_ns).code_ == status_code::ok;
-                        const auto submitted = metadata->
-                            vqec_vision_ai_appl_mdrun_submit_observations(
-                                metadata_source.source_id_,
-                                model->model_id_ + "." + model->model_version_,
-                                tracker_contract, tracked[taken.model_slot_],
-                                trajectory_authorized);
-                        if (submitted.code_ != status_code::ok &&
-                            submitted.code_ != status_code::unauthorized &&
-                            submitted.code_ != status_code::unsupported) {
-                            std::fprintf(stderr, "metadata trajectory failed (%d): %s\n",
-                                static_cast<int>(submitted.code_),
-                                submitted.message_.c_str());
-                            if (metadata_required) {
-                                first_error_code = submitted.code_;
-                                break;
-                            }
-                        }
-                        const auto maintained = metadata->vqec_vision_ai_appl_mdrun_maintain(
-                            tracked[taken.model_slot_].frame_.source_pts_ns_);
-                        if (maintained.code_ != status_code::ok) {
-                            std::fprintf(stderr, "metadata maintenance failed (%d): %s\n",
-                                static_cast<int>(maintained.code_),
-                                maintained.message_.c_str());
-                            if (metadata_required) {
-                                first_error_code = maintained.code_;
-                                break;
-                            }
-                        }
-                    }
-                }
-                const auto tracked_count = tracked[taken.model_slot_].observations_.size();
-                if (use_production_platform &&
-                    taken.source_index_ < deployment_limits::g_max_sources &&
-                    taken.model_slot_ < deployment_limits::g_max_models_per_source) {
-                    const auto& cascade_owner = cascade_owners[taken.source_index_];
-                    if (taken.model_slot_ == cascade_owner.root_model_slot_) {
-                        for (auto& obs : tracked[taken.model_slot_].observations_) {
-                            if (obs.box_.label_.empty()) {
-                                const auto it = active_track_labels[taken.source_index_].find(obs.track_id_);
-                                if (it != active_track_labels[taken.source_index_].end()) {
-                                    obs.box_.label_ = it->second;
-                                }
-                            }
-                        }
-                        if (active_track_labels[taken.source_index_].size() > g_max_active_track_labels) {
-                            active_track_labels[taken.source_index_].clear();
-                        }
-                    }
-                    latest_model_observations[taken.source_index_][taken.model_slot_] =
-                        std::move(tracked[taken.model_slot_]);
-                    vqec_vision_ai_appl_svgen_merge_observations(
-                        latest_model_observations[taken.source_index_],
-                        static_cast<std::uint16_t>(
-                            deployment.sources_[taken.source_index_].model_ids_.size()),
-                        now_ns, service_harness::g_overlay_max_age_ns,
-                        latest_overlay_observations[taken.source_index_]);
-                }
-                static std::uint64_t s_last_routed_log_ns = 0;
-                if (now_ns - s_last_routed_log_ns >= g_routed_log_interval_ns) {
-                    std::printf("routed source=%u model=%u tracked=%zu accepted=%u "
-                        "cascade_accepted=%u embedded=%u cascade_failed=%u\n",
-                        static_cast<unsigned>(taken.source_index_),
-                        static_cast<unsigned>(taken.model_slot_),
-                        tracked_count,
-                        static_cast<unsigned>(dispatch_report.accepted_),
-                        static_cast<unsigned>(taken.cascade_.accepted_),
-                        static_cast<unsigned>(taken.cascade_.embedded_),
-                        static_cast<unsigned>(taken.cascade_.failed_));
-                    s_last_routed_log_ns = now_ns;
-                }
-                if (taken.cascade_.failed_ != 0 &&
-                    taken.source_index_ < cascade_owners.size() &&
-                    !cascade_error_reported[taken.source_index_] &&
-                    cascade_owners[taken.source_index_].coordinator_ != nullptr) {
-                    const auto& cascade_error = cascade_owners[taken.source_index_]
-                        .coordinator_->vqec_vision_ai_appl_cscrd_get_last_task_error();
-                    std::fprintf(stderr, "cascade task failed (%d): %s\n",
-                        static_cast<int>(cascade_error.code_), cascade_error.message_.c_str());
-                    cascade_error_reported[taken.source_index_] = true;
-                }
-            }
-        } else if (stepped.code_ != status_code::pending) {
-            if (first_error_code == status_code::ok) {
-                first_error_code = stepped.code_;
-            }
-            std::fprintf(stderr, "executor step failed (%d): %s\n",
-                static_cast<int>(stepped.code_), stepped.message_.c_str());
-            break;
-        }
-        if (recognition_enabled) {
-            const auto enrolled =
-                enrollment_runtime.vqec_vision_ai_appl_svenr_poll(now_ns);
-            if (enrolled.code_ != status_code::ok &&
-                enrolled.code_ != status_code::pending) {
-                std::fprintf(stderr, "enrollment runtime poll failed (%d): %s\n",
-                    static_cast<int>(enrolled.code_), enrolled.message_.c_str());
-            }
-        }
-        if (use_production_platform &&
-            (!args.use_session_workers || source_session_quiescent)) {
-            for (std::uint16_t source_slot = 0;
-                 source_slot < deployment.sources_.size(); ++source_slot) {
-                auto* session = bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot);
-                raw_frame preview_frame;
-                if (session == nullptr ||
-                    session->vqec_vision_ai_appl_mmses_take_preview_frame(preview_frame)
-                            .code_ != status_code::ok ||
-                    !preview_frame.owner_) {
-                    continue;
-                }
-                static std::uint32_t s_preview_phase[deployment_limits::g_max_sources] = {0};
-                static bool s_preview_phase_init[deployment_limits::g_max_sources] = {false};
-                const std::uint32_t source_fps =
-                    (source_slot < deployment.sources_.size() &&
-                     deployment.sources_[source_slot].profile_.fps_numerator_ > 0) ?
-                        deployment.sources_[source_slot].profile_.fps_numerator_ : 30U;
-                if (args.output_fps > 0 && args.output_fps < source_fps &&
-                    source_slot < deployment_limits::g_max_sources) {
-                    if (!s_preview_phase_init[source_slot]) {
-                        s_preview_phase[source_slot] = source_fps;
-                        s_preview_phase_init[source_slot] = true;
-                    }
-                    s_preview_phase[source_slot] += static_cast<std::uint32_t>(args.output_fps);
-                    if (s_preview_phase[source_slot] >= source_fps) {
-                        s_preview_phase[source_slot] -= source_fps;
-                    } else {
-                        continue;
-                    }
-                }
-                auto& overlay = latest_overlay_observations[source_slot];
-                if (overlay.frame_.source_epoch_ != 0 &&
-                    overlay.frame_.source_epoch_ !=
-                        preview_frame.descriptor_.session_epoch_) {
-                    latest_model_observations[source_slot] = {};
-                    overlay = {};
-                }
-                if (overlay.frame_.source_pts_ns_ != UINT64_MAX &&
-                    preview_frame.descriptor_.pts_ns_ != UINT64_MAX &&
-                    preview_frame.descriptor_.pts_ns_ != 0 &&
-                    preview_frame.descriptor_.pts_ns_ > overlay.frame_.source_pts_ns_ &&
-                    preview_frame.descriptor_.pts_ns_ - overlay.frame_.source_pts_ns_ > service_harness::g_overlay_max_age_ns) {
-                    static std::uint64_t s_last_pts_drop_ns = 0;
-                    if (now_ns - s_last_pts_drop_ns > 2000000000ULL) {
-                        std::fprintf(stderr, "overlay dropped due to PTS delta > %llums (preview_pts=%llu, overlay_pts=%llu)\n",
-                            static_cast<unsigned long long>(service_harness::g_overlay_max_age_ns / 1000000ULL),
-                            static_cast<unsigned long long>(preview_frame.descriptor_.pts_ns_),
-                            static_cast<unsigned long long>(overlay.frame_.source_pts_ns_));
-                        s_last_pts_drop_ns = now_ns;
-                    }
-                    overlay = {};
-                }
-                prepared_overlay prepared;
-                observation_batch render_observations = overlay;
-                if (render_observations.frame_.source_epoch_ == 0) {
-                    render_observations.frame_.camera_id_ =
-                        deployment.sources_[source_slot].camera_id_;
-                    render_observations.frame_.channel_id_ =
-                        deployment.sources_[source_slot].channel_id_;
-                    render_observations.frame_.source_epoch_ =
-                        preview_frame.descriptor_.session_epoch_;
-                    render_observations.frame_.frame_id_ =
-                        preview_frame.descriptor_.buffer_id_;
-                    render_observations.frame_.source_pts_ns_ =
-                        preview_frame.descriptor_.pts_ns_;
-                    render_observations.geometry_.width_ =
-                        preview_frame.descriptor_.width_;
-                    render_observations.geometry_.height_ =
-                        preview_frame.descriptor_.height_;
-                }
-                {
-                    overlay_preparation_context prep_ctx;
-                    prep_ctx.source_id_ = deployment.sources_[source_slot].source_id_;
-                    prep_ctx.feature_id_ = "preview";
-                    prep_ctx.policy_revision_ =
-                        output_policy_gate.vqec_vision_ai_core_otgat_get_revision();
-                    prep_ctx.prepared_monotonic_ns_ = now_ns;
-                    prep_ctx.max_age_ns_ = service_harness::g_overlay_max_age_ns;
-                    prep_ctx.attributes_ = {"overlay"};
-                    const auto prep_status = vqec_vision_ai_outpt_ovrpr_prepare_authorized(
-                        render_observations, prep_ctx, output_policy_gate, prepared);
-                    if (prep_status.code_ != status_code::ok) {
-                        static std::uint64_t s_last_prep_fail_ns = 0;
-                        if (now_ns - s_last_prep_fail_ns > 2000000000ULL) {
-                            std::fprintf(stderr, "overlay prepare failed (%d): %s\n",
-                                static_cast<int>(prep_status.code_), prep_status.message_.c_str());
-                            s_last_prep_fail_ns = now_ns;
-                        }
-                        continue;
-                    }
-                }
-                const auto rendered = production.vqec_vision_ai_appl_pdplt_render(
-                    source_slot, preview_frame, prepared);
-                if (rendered.code_ != status_code::ok &&
-                    rendered.code_ != status_code::pending) {
-                    std::fprintf(stderr, "render failed (%d): %s\n",
-                        static_cast<int>(rendered.code_), rendered.message_.c_str());
-                }
-            }
-        }
-        ++steps;
-        // Asynchronous cascade completions drain immediately without consuming a frame period.
-        if (report.has_cascade_) {
-            continue;
-        }
-        // Pace the supervisor loop to wall time so camera frames, model cadence and the
-        // AI-owned output stage progress at the source rate instead of spinning.
-        const auto step_end_ns = vqec_vision_ai_appl_svgen_monotonic_ns();
-        const auto step_cost_ns = step_end_ns > clock_now ?
-            step_end_ns - clock_now : 0U;
-        if (step_cost_ns < args.runtime_step_interval_ns) {
-            std::this_thread::sleep_for(
-                std::chrono::nanoseconds(args.runtime_step_interval_ns - step_cost_ns));
-        }
+    service_execution_context execution;
+    execution.arguments_ = &args;
+    execution.deployment_ = &deployment;
+    execution.catalog_ = &catalog;
+    execution.tracker_contract_ = &tracker_contract;
+    execution.bundle_ = bundle.get();
+    execution.executor_ = executor;
+    execution.production_ = &production;
+    execution.output_policy_gate_ = &output_policy_gate;
+    execution.metadata_ = metadata;
+    execution.recognition_ = &recognition;
+    execution.enrollment_ = &enrollment_runtime;
+    execution.enrollment_port_ = enrollment_port;
+    execution.cascade_owners_ = &cascade_owners;
+    execution.control_manager_ = _control_manager;
+    execution.feature_wiring_ = feature_wiring;
+    execution.poll_control_ = _poll_control;
+    execution.reconcile_requested_ = _is_runtime_reconcile_requested;
+    execution.stop_requested_ = []() noexcept {
+        return g_stop_requested != 0;
+    };
+    execution.runtime_generation_ = _runtime_generation;
+    execution.pending_control_revision_ = _pending_control_revision;
+    execution.production_platform_enabled_ = use_production_platform;
+    execution.recognition_enabled_ = recognition_enabled;
+    execution.metadata_required_ = metadata_required;
+
+    service_execution_result execution_result;
+    const auto executed =
+        vqec_vision_ai_appl_svxlp_run(execution, execution_result);
+    if (executed.code_ != status_code::ok) {
+        std::fprintf(stderr, "service execution loop failed (%d): %s\n",
+            static_cast<int>(executed.code_), executed.message_.c_str());
+        execution_result.steady_now_ns_ =
+            vqec_vision_ai_appl_svgen_monotonic_ns();
+        execution_result.first_error_code_ = executed.code_;
+        execution_result.generation_published_ =
+            _control_manager == nullptr;
     }
 
     service_shutdown_context shutdown;
@@ -902,13 +447,13 @@ int vqec_vision_ai_appl_svgen_run_generation(
     shutdown.enrollment_ = &enrollment_runtime;
     shutdown.output_ = &output_runtime;
     shutdown.production_seam_ = &production_seam;
-    shutdown.steady_now_ns_ = now_ns;
-    shutdown.steps_ = steps;
-    shutdown.routed_source_mask_ = routed_source_mask;
-    shutdown.first_error_code_ = first_error_code;
+    shutdown.steady_now_ns_ = execution_result.steady_now_ns_;
+    shutdown.steps_ = execution_result.steps_;
+    shutdown.routed_source_mask_ = execution_result.routed_source_mask_;
+    shutdown.first_error_code_ = execution_result.first_error_code_;
     shutdown.recognition_enabled_ = recognition_enabled;
     shutdown.production_platform_ = use_production_platform;
-    shutdown.generation_published_ = generation_published;
-    shutdown.reconcile_requested_ = reconcile_requested;
+    shutdown.generation_published_ = execution_result.generation_published_;
+    shutdown.reconcile_requested_ = execution_result.reconcile_requested_;
     return vqec_vision_ai_appl_svshd_stop_and_report(shutdown);
 }
