@@ -61,6 +61,19 @@ if(TARGET vqec_vision_ai_service_feature_activation)
         COMMAND vqec_vision_ai_service_feature_activation_test)
 endif()
 
+if(TARGET vqec_vision_ai_service_platform)
+    add_executable(vqec_vision_ai_service_platform_test
+        unit/application/vqec_vision_service_platform_test.cpp)
+    target_include_directories(vqec_vision_ai_service_platform_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/app/service/generation)
+    target_link_libraries(vqec_vision_ai_service_platform_test PRIVATE
+        vqec_vision_ai_service_platform)
+    set_target_properties(vqec_vision_ai_service_platform_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_platform_owner
+        COMMAND vqec_vision_ai_service_platform_test)
+endif()
+
 if(TARGET vqec_vision_ai_ed25519_app_package_verifier)
     add_executable(vqec_vision_ai_ed25519_app_package_verifier_test
         unit/adapters/security/vqec_vision_ed25519_app_package_verifier_test.cpp)

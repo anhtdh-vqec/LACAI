@@ -30,8 +30,8 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_feature_activation.hpp"
+#include "vqec_vision_service_platform.hpp"
 #include "vqec_vision_service_startup.hpp"
-#include "vqec_vision_service_feature_registry.hpp"
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_cascade_execution_worker.hpp"
@@ -45,14 +45,9 @@
 #include "vqec_vision_feature_processor_registry.hpp"
 #include "vqec_vision_model_catalog.hpp"
 #include "vqec_vision_model_package_registry.hpp"
-#include "vqec_vision_reference_graph.hpp"
 #include "vqec_vision_reference_sink.hpp"
-#include "vqec_vision_reference_source.hpp"
-#include "vqec_vision_fake_platform.hpp"
 #include "vqec_vision_production_platform.hpp"
-#include "vqec_vision_reference_platform.hpp"
 #include "vqec_vision_runtime_composition_factory.hpp"
-#include "vqec_vision_hardware_admission_profile.hpp"
 #include "vqec_vision_overlay_preparation.hpp"
 #include "vqec_vision_exact_embedding_index.hpp"
 #include "vqec_vision_recognition_session.hpp"
@@ -82,7 +77,6 @@ using namespace vqec::vision::ai;
 namespace {
 
 volatile std::sig_atomic_t g_stop_requested = 0;
-constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
 constexpr std::uint64_t g_step_interval_ns =
     service_options_limits::g_default_runtime_step_interval_ns;
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
@@ -103,61 +97,6 @@ std::uint64_t vqec_vision_ai_appl_svgen_monotonic_ns() noexcept {
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count());
-}
-
-hardware_admission_profile vqec_vision_ai_appl_svgen_make_fixture_hardware_profile() {
-    hardware_admission_profile profile;
-    profile.profile_id_ = "device_free_test_fixture";
-    profile.target_id_ = "qcs6490_qlinux_1_8";
-    profile.measurement_reference_ = "fixture-only-not-a-board-measurement";
-    profile.revision_ = 1;
-    profile.max_total_resident_bytes_ = 4096ULL * g_mib;
-    profile.max_frame_pool_bytes_ = 1024ULL * g_mib;
-    profile.max_tensor_pool_bytes_ = 1024ULL * g_mib;
-    profile.max_encoder_pool_bytes_ = 512ULL * g_mib;
-    profile.max_cascade_roi_bytes_ = 512ULL * g_mib;
-    profile.max_ddr_bandwidth_mbps_ = 12000;
-    profile.max_fw_concurrency_slots_ = 16;
-    profile.max_worker_concurrency_ = 64;
-    profile.min_thermal_headroom_pct_ = 10;
-    return profile;
-}
-
-status vqec_vision_ai_appl_svgen_resolve_hardware_profile(
-    const parsed_arguments& _args, bool _use_production_platform,
-    hardware_admission_profile& _profile) {
-    if (_args.hardware_profile_path.empty()) {
-        if (_use_production_platform) {
-            return {status_code::unsupported,
-                "Qualcomm production requires --hardware-profile"};
-        }
-        _profile = vqec_vision_ai_appl_svgen_make_fixture_hardware_profile();
-        return {};
-    }
-    std::ifstream stream(_args.hardware_profile_path, std::ios::binary);
-    if (!stream) {
-        return {status_code::io_error, "cannot open hardware admission profile"};
-    }
-    return vqec_vision_ai_admis_hwprf_load(stream, _profile);
-}
-
-std::string vqec_vision_ai_appl_svgen_dev_model_path(
-    const std::string& _model_root, const std::string& _model_id) {
-    return _model_root + _model_id + ".bin";
-}
-
-// Builds the parsed output metadata the runtime validates against the catalog identity.
-// Device-free harness only; a real deployment reads the model package output manifest.
-model_outputs vqec_vision_ai_appl_svgen_synthetic_outputs(const model_catalog_entry& _model) {
-    model_outputs outputs;
-    outputs.model_id_ = _model.model_id_;
-    outputs.model_version_ = _model.model_version_;
-    outputs.artifact_sha256_ = _model.artifact_sha256_;
-    outputs.decoder_contract_ = _model.decoder_contract_;
-    outputs.max_output_bytes_ = service_harness::g_output_bytes;
-    outputs.outputs_.push_back({service_harness::g_box_tensor_name,
-        {1, service_harness::g_box_elements}, tensor_element_type::float32, {}});
-    return outputs;
 }
 
 const model_catalog_entry* vqec_vision_ai_appl_svgen_find_model(
@@ -264,104 +203,6 @@ int vqec_vision_ai_appl_svgen_report_and_decide(const runtime_executor_metrics& 
     return _routed_sources >= _require_sources ? 0 : 1;
 }
 
-// Fills the runtime activation entries for every source/model slot. The platform owners and
-// the reference graph vector are borrowed here and must outlive the runtime bundle; this
-// function only assigns pointers/metadata into _activation. Returns a status; detailed
-// diagnostics are printed at the point of failure.
-status vqec_vision_ai_appl_svgen_build_model_activations(
-    const parsed_arguments& _args, const deployment_config& _deployment,
-    const model_catalog& _catalog, production_platform& _production,
-    const std::vector<raw_source_port*>& _sources, bool _use_production_platform,
-    const std::string& _tracker_contract,
-    std::vector<std::unique_ptr<reference_inference_graph>>& _reference_graphs,
-    runtime_composition_activation& _activation) {
-    for (std::uint16_t source_slot = 0; source_slot < _activation.source_count_;
-         ++source_slot) {
-        const auto& source = _deployment.sources_[source_slot];
-        auto& source_activation = _activation.sources_[source_slot];
-        source_activation.source_id_ = source.source_id_;
-        source_activation.source_ = _sources[source_slot];
-        source_activation.model_count_ =
-            static_cast<std::uint16_t>(source.model_ids_.size());
-        for (std::uint16_t model_slot = 0; model_slot < source_activation.model_count_;
-             ++model_slot) {
-            const auto* model = vqec_vision_ai_appl_svgen_find_model(
-                _catalog, source.model_ids_[model_slot]);
-            if (model == nullptr) {
-                std::fprintf(stderr, "deployment references unknown model: %s\n",
-                    source.model_ids_[model_slot].c_str());
-                return {status_code::invalid_argument, "unknown deployment model"};
-            }
-            auto& model_activation = source_activation.models_[model_slot];
-            model_activation.model_id_ = model->model_id_;
-            if (_use_production_platform) {
-                inference_graph_port* graph =
-                    _production.vqec_vision_ai_appl_pdplt_graph(
-                        source_slot, model->model_id_);
-                image_processor_port* processor =
-                    _production.vqec_vision_ai_appl_pdplt_processor(
-                        source_slot, model->model_id_);
-                const model_outputs* outputs =
-                    _production.vqec_vision_ai_appl_pdplt_outputs(model->model_id_);
-                if (graph == nullptr || processor == nullptr || outputs == nullptr) {
-                    std::fprintf(stderr, "production platform has no graph for model %s\n",
-                        model->model_id_.c_str());
-                    return {status_code::invalid_argument, "missing production model graph"};
-                }
-                model_activation.graph_ = graph;
-                model_activation.processor_ = processor;
-                model_activation.outputs_ = *outputs;
-                model_activation.paths_ =
-                    _production.vqec_vision_ai_appl_pdplt_paths(model->model_id_);
-            } else {
-                _reference_graphs.push_back(std::make_unique<reference_inference_graph>());
-                model_activation.graph_ = _reference_graphs.back().get();
-                model_activation.paths_.model_id_ = model->model_id_;
-                model_activation.paths_.target_id_ = model->target_id_;
-                model_activation.paths_.artifact_ref_ = model->artifact_ref_;
-                model_activation.paths_.model_path_ =
-                    vqec_vision_ai_appl_svgen_dev_model_path(
-                        _args.model_root.empty() ? service_harness::g_fixture_model_root
-                                                 : _args.model_root,
-                        model->model_id_);
-                // Reference platform only records the configured paths; the reference graph
-                // loads no vendor library. Missing values fall back to device-free fixture
-                // placeholders and never to a production default.
-                model_activation.paths_.backend_path_ =
-                    _args.qnn_backend_library.empty()
-                        ? service_harness::g_fixture_backend_library
-                        : _args.qnn_backend_library;
-                model_activation.paths_.system_path_ =
-                    _args.qnn_system_library.empty()
-                        ? service_harness::g_fixture_system_library
-                        : _args.qnn_system_library;
-                model_activation.outputs_ =
-                    vqec_vision_ai_appl_svgen_synthetic_outputs(*model);
-            }
-            model_activation.resolved_output_manifest_ref_ = model->output_manifest_ref_;
-            model_activation.tracker_contract_ = _tracker_contract;
-            model_activation.binding_.width_ = source.profile_.width_;
-            model_activation.binding_.height_ = source.profile_.height_;
-            model_activation.binding_.fps_numerator_ = source.profile_.fps_numerator_;
-            model_activation.binding_.fps_denominator_ = source.profile_.fps_denominator_;
-            model_activation.binding_.memory_kind_ = source_memory_kind::dmabuf;
-            model_activation.binding_.layout_ = source_memory_layout::linear_nv12;
-            model_activation.binding_.sync_mode_ = source_sync_mode::implicit_ready;
-            model_activation.binding_.color_profile_ = source_color_profile::bt709_limited;
-            model_activation.binding_.chroma_site_ = source_chroma_site::mpeg2;
-            model_activation.binding_.fw_memory_contract_ =
-                service_harness::g_fw_dmabuf_contract;
-            model_activation.binding_.backend_memory_contract_ =
-                service_harness::g_qcom_dmabuf_contract;
-            model_activation.binding_.preprocess_contract_ = model->preprocess_contract_;
-            model_activation.cycle_id_ = static_cast<std::uint64_t>(source_slot) *
-                    service_harness::g_cycle_id_stride + model_slot + 1U;
-            model_activation.job_timeout_ns_ = submission_limits::g_default_job_timeout_ns;
-        }
-    }
-    return {};
-}
-
 int vqec_vision_ai_appl_svgen_run_generation(
     int _argc, char** _argv, const deployment_config* _effective_deployment,
     const runtime_control_snapshot* _runtime_control,
@@ -426,167 +267,25 @@ int vqec_vision_ai_appl_svgen_run_generation(
     const bool use_reference_platform = startup.use_reference_platform;
     const bool use_production_platform = startup.use_production_platform;
     const bool fr_effectively_enabled = startup.fr_effectively_enabled;
-    if (use_production_platform && !args.output_ring_id.empty()) {
-        for (const auto& source : deployment.sources_) {
-            if (args.output_surface_count != source.memory_.preview_surface_count_) {
-                std::fprintf(stderr,
-                    "preview surface count differs from admitted deployment envelope\n");
-                return 1;
-            }
-        }
-    }
-    // Platform owners: registered for every catalog contract so the composition has a
-    // concrete decoder/tracker/feature set. Selected explicitly, never implicitly.
-    const auto source_width = deployment.sources_.front().profile_.width_;
-    const auto source_height = deployment.sources_.front().profile_.height_;
-    fake_platform platform;
-    reference_platform reference;
-    production_platform production;
-    model_decoder_registry decoders;
-    tracker_registry trackers;
-    feature_processor_registry feature_registry;
-    service_feature_registry compiled_feature_factories;
-    feature_catalog platform_features;
-    const auto compiled_feature_registration =
-        compiled_feature_factories.vqec_vision_ai_appl_sfreg_register_compiled(
-            features, feature_registry, platform_features);
-    if (compiled_feature_registration.code_ != status_code::ok) {
-        std::fprintf(stderr, "compiled feature registration failed (%d): %s\n",
-            static_cast<int>(compiled_feature_registration.code_),
-            compiled_feature_registration.message_.c_str());
+    service_platform platform;
+    const auto platform_prepared = platform.vqec_vision_ai_appl_svplt_prepare(
+        args, deployment, catalog, features, model_packages,
+        use_reference_platform, use_production_platform);
+    if (platform_prepared.code_ != status_code::ok) {
+        std::fprintf(stderr, "service platform preparation failed (%d): %s\n",
+            static_cast<int>(platform_prepared.code_),
+            platform_prepared.message_.c_str());
         return 1;
     }
-    std::string tracker_contract;
-    std::string attribute_schema_id;
-    if (use_production_platform) {
-        production_platform_config production_config;
-        production_config.model_packages_ = model_packages;
-        production_config.execution_policy_ = args.execution_policy;
-        production_config.backend_library_ = args.qnn_backend_library;
-        production_config.system_library_ = args.qnn_system_library;
-        production_config.allow_qaic_copy_input_ = args.allow_qaic_copy_input;
-        production_config.model_root_ = args.model_root;
-        production_config.dsp_v1_skel_dir_ = args.dsp_v1_skel_dir;
-        production_config.dsp_legacy_skel_dir_ = args.dsp_legacy_skel_dir;
-        production_config.dsp_legacy_clock_corner_ = args.dsp_legacy_clock_corner;
-        production_config.dsp_legacy_latency_us_ = args.dsp_legacy_latency_us;
-        production_config.dsp_enable_unsigned_pd_ = args.dsp_enable_unsigned_pd;
-        production_config.max_artifact_bytes_ = args.max_artifact_bytes > 0
-            ? args.max_artifact_bytes
-            : production_platform_limits::g_default_max_artifact_bytes;
-        production_config.socket_dir_ = args.camera_socket_dir;
-        production_config.producer_uid_ = args.camera_producer_uid;
-        production_config.nv12_format_value_ = args.nv12_format_value;
-        production_config.preprocess_output_timeout_ns_ =
-            submission_limits::g_default_job_timeout_ns;
-        production_config.tracker_contract_ = args.tracker_contract;
-        production_config.event_schema_id_ = args.event_schema_id;
-        production_config.event_schema_version_ = args.event_schema_version;
-        production_config.consumer_id_prefix_ = args.consumer_id_prefix;
-        production_config.output_ring_id_ = args.output_ring_id;
-        production_config.output_fps_ = args.output_fps;
-        production_config.output_bitrate_bps_ = args.output_bitrate_bps;
-        production_config.output_keyframe_interval_frames_ =
-            args.output_keyframe_interval_frames;
-        production_config.output_box_color_rgba_ = args.output_box_color_rgba;
-        production_config.output_surface_count_ = args.output_surface_count;
-        production_config.output_colorimetry_ = args.output_colorimetry;
-        production_config.output_interlace_mode_ = args.output_interlace_mode;
-        const auto configured = production.vqec_vision_ai_appl_pdplt_configure(production_config);
-        if (configured.code_ != status_code::ok) {
-            std::fprintf(stderr, "production platform configure failed (%d): %s\n",
-                static_cast<int>(configured.code_), configured.message_.c_str());
-            return 1;
-        }
-        const auto prepared = production.vqec_vision_ai_appl_pdplt_prepare(deployment, catalog);
-        if (prepared.code_ != status_code::ok) {
-            std::fprintf(stderr, "production platform prepare failed (%d): %s\n",
-                static_cast<int>(prepared.code_), prepared.message_.c_str());
-            return 1;
-        }
-        if (production.vqec_vision_ai_appl_pdplt_register_decoders(catalog, decoders).code_ !=
-                status_code::ok ||
-            production.vqec_vision_ai_appl_pdplt_register_tracker(trackers).code_ !=
-                status_code::ok ||
-            production.vqec_vision_ai_appl_pdplt_register_features(
-                platform_features, feature_registry)
-                    .code_ != status_code::ok) {
-            std::fprintf(stderr, "production platform registration failed\n");
-            return 1;
-        }
-        tracker_contract = production.vqec_vision_ai_appl_pdplt_get_tracker_contract();
-        attribute_schema_id = production.vqec_vision_ai_appl_pdplt_get_attribute_schema_id();
-    } else if (use_reference_platform) {
-        const auto configured = reference.vqec_vision_ai_appl_rplat_configure(
-            {source_width, source_height});
-        if (configured.code_ != status_code::ok) {
-            std::fprintf(stderr, "reference platform configure failed (%d): %s\n",
-                static_cast<int>(configured.code_), configured.message_.c_str());
-            return 1;
-        }
-        const auto registered_decoders =
-            reference.vqec_vision_ai_appl_rplat_register_decoders(catalog, decoders);
-        if (registered_decoders.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register reference platform decoders (%d): %s\n",
-                static_cast<int>(registered_decoders.code_),
-                registered_decoders.message_.c_str());
-            return 1;
-        }
-        const auto registered_tracker =
-            reference.vqec_vision_ai_appl_rplat_register_tracker(trackers);
-        if (registered_tracker.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register reference platform tracker (%d): %s\n",
-                static_cast<int>(registered_tracker.code_),
-                registered_tracker.message_.c_str());
-            return 1;
-        }
-        const auto registered_features =
-            reference.vqec_vision_ai_appl_rplat_register_features(
-                platform_features, feature_registry);
-        if (registered_features.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register reference platform features (%d): %s\n",
-                static_cast<int>(registered_features.code_),
-                registered_features.message_.c_str());
-            return 1;
-        }
-        tracker_contract = reference.vqec_vision_ai_appl_rplat_get_tracker_contract();
-        attribute_schema_id = reference.vqec_vision_ai_appl_rplat_get_attribute_schema_id();
-    } else {
-        const auto configured = platform.vqec_vision_ai_appl_fkplt_configure(
-            {source_width, source_height});
-        if (configured.code_ != status_code::ok) {
-            std::fprintf(stderr, "fake platform configure failed (%d): %s\n",
-                static_cast<int>(configured.code_), configured.message_.c_str());
-            return 1;
-        }
-        const auto registered_decoders =
-            platform.vqec_vision_ai_appl_fkplt_register_decoders(catalog, decoders);
-        if (registered_decoders.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register fake platform decoders (%d): %s\n",
-                static_cast<int>(registered_decoders.code_),
-                registered_decoders.message_.c_str());
-            return 1;
-        }
-        const auto registered_tracker =
-            platform.vqec_vision_ai_appl_fkplt_register_tracker(trackers);
-        if (registered_tracker.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register fake platform tracker (%d): %s\n",
-                static_cast<int>(registered_tracker.code_),
-                registered_tracker.message_.c_str());
-            return 1;
-        }
-        const auto registered_features =
-            platform.vqec_vision_ai_appl_fkplt_register_features(
-                platform_features, feature_registry);
-        if (registered_features.code_ != status_code::ok) {
-            std::fprintf(stderr, "cannot register fake platform features (%d): %s\n",
-                static_cast<int>(registered_features.code_),
-                registered_features.message_.c_str());
-            return 1;
-        }
-        tracker_contract = platform.vqec_vision_ai_appl_fkplt_get_tracker_contract();
-        attribute_schema_id = platform.vqec_vision_ai_appl_fkplt_get_config().attribute_schema_id_;
-    }
+    auto& production = platform.vqec_vision_ai_appl_svplt_get_production();
+    auto& decoders = platform.vqec_vision_ai_appl_svplt_get_decoders();
+    auto& trackers = platform.vqec_vision_ai_appl_svplt_get_trackers();
+    auto& feature_registry = platform.vqec_vision_ai_appl_svplt_get_features();
+    auto& activation = platform.vqec_vision_ai_appl_svplt_get_activation();
+    const auto& tracker_contract =
+        platform.vqec_vision_ai_appl_svplt_get_tracker_contract();
+    const auto& attribute_schema_id =
+        platform.vqec_vision_ai_appl_svplt_get_attribute_schema();
 
     // Output boundary for the harness: a permissive-but-explicit policy plus
     // either a neutral event delivery seam for production or a development reference sink.
@@ -609,59 +308,12 @@ int vqec_vision_ai_appl_svgen_run_generation(
         output_runtime.vqec_vision_ai_appl_svout_is_metadata_required();
     auto& active_event_sink = output_runtime.vqec_vision_ai_appl_svout_get_sink();
 
-    // Platform owners: production adapters or the device-free reference backend.
-    std::vector<std::unique_ptr<reference_raw_source>> reference_sources;
-    std::vector<std::unique_ptr<reference_inference_graph>> reference_graphs;
-    std::vector<raw_source_port*> sources;
-    std::vector<inference_graph_port*> graphs;
-    sources.reserve(deployment.sources_.size());
-    graphs.reserve(deployment.sources_.size() * deployment_limits::g_max_models_per_source);
-    if (use_production_platform) {
-        for (std::uint16_t slot = 0; slot < deployment.sources_.size(); ++slot) {
-            raw_source_port* source = production.vqec_vision_ai_appl_pdplt_source(slot);
-            if (source == nullptr) {
-                std::fprintf(stderr, "production platform has no source for slot %u\n",
-                    static_cast<unsigned>(slot));
-                return 1;
-            }
-            sources.push_back(source);
-        }
-    } else {
-        for (const auto& source : deployment.sources_) {
-            reference_sources.push_back(std::make_unique<reference_raw_source>(
-                reference_source_config{source.profile_.width_, source.profile_.height_,
-                    source.profile_.fps_numerator_, source.profile_.fps_denominator_}));
-            sources.push_back(reference_sources.back().get());
-        }
-    }
-
-    runtime_composition_activation activation;
-    activation.source_count_ = static_cast<std::uint16_t>(deployment.sources_.size());
-    activation.startup_timeout_ns_ = service_harness::g_default_startup_timeout_ns;
-    activation.stop_timeout_ns_ = service_harness::g_default_stop_timeout_ns;
-    activation.rpc_timeout_ms_ = service_harness::g_default_rpc_timeout_ms;
-    activation.use_session_workers_ = args.use_session_workers;
-    activation.use_model_workers_ = args.use_model_workers;
-    const auto resolved_profile = vqec_vision_ai_appl_svgen_resolve_hardware_profile(
-        args, use_production_platform, activation.hardware_profile_);
-    if (resolved_profile.code_ != status_code::ok) {
-        std::fprintf(stderr, "hardware admission profile failed (%d): %s\n",
-            static_cast<int>(resolved_profile.code_), resolved_profile.message_.c_str());
-        return 1;
-    }
-    const auto built_activations = vqec_vision_ai_appl_svgen_build_model_activations(
-        args, deployment, catalog, production, sources, use_production_platform,
-        tracker_contract, reference_graphs, activation);
-    if (built_activations.code_ != status_code::ok) {
-        return 1;
-    }
-
     service_feature_activation feature_activation;
     const auto feature_configured = feature_activation.vqec_vision_ai_appl_svfac_configure(
         startup, args, deployment, catalog, features, feature_registry,
         attribute_schema_id, output_policy_gate, activation.source_count_);
     if (feature_configured.code_ != status_code::ok) {
-        std::fprintf(stderr, "service feature activation failed (%d): %s\\n",
+        std::fprintf(stderr, "service feature activation failed (%d): %s\n",
             static_cast<int>(feature_configured.code_),
             feature_configured.message_.c_str());
         return 1;
