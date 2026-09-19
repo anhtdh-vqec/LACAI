@@ -14,31 +14,6 @@ namespace vqec::vision::ai {
 class app_manager_port {
 public:
     virtual ~app_manager_port() = default;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_install(
-        const app_package_candidate& _candidate,
-        std::uint64_t _expected_inventory_revision,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_update(
-        const app_package_candidate& _candidate,
-        std::uint64_t _expected_inventory_revision,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_rollback(
-        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_update_configuration(
-        const std::string& _app_id, std::uint64_t _expected_configuration_revision,
-        const std::vector<std::uint8_t>& _configuration_payload,
-        const std::string& _configuration_sha256,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_apply_entitlement(
-        const app_entitlement_candidate& _candidate,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_set_desired(
-        const app_desired_update& _update,
-        runtime_control_snapshot& _snapshot) = 0;
-    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_uninstall(
-        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
-        runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_list_applications(
@@ -55,6 +30,24 @@ public:
         std::uint64_t _expected_inventory_revision,
         app_operation_record& _operation) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_rollback(
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_configuration(
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_configuration_revision,
+        const std::vector<std::uint8_t>& _configuration_payload,
+        const std::string& _configuration_sha256,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_entitlement(
+        const app_operation_request& _operation_request,
+        const app_entitlement_candidate& _candidate,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_desired(
+        const app_operation_request& _operation_request,
+        const app_desired_update& _update,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_uninstall(
         const app_operation_request& _operation_request,
         std::uint64_t _expected_inventory_revision,
         app_operation_record& _operation) = 0;

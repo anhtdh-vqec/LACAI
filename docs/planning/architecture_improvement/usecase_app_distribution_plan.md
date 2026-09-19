@@ -8,7 +8,7 @@ accelerator.
 
 **Status:** board-smoke — App Manager, D-Bus v1, declarative S04 manifest, Ed25519 package/grant
 verification, persistent inventory/content, asynchronous install/update/rollback, idempotency,
-uninstall/reinstall và config/enable/disable đã chạy board; catalog/download, remaining mutation
+uninstall/reinstall và config/enable/disable đã chạy board; catalog/download, full async mutation
 migration và backend conformance còn mở.
 **Layer:** docs. **Source:**
 `include/vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp`,

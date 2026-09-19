@@ -31,88 +31,6 @@ constexpr guint g_request_name_do_not_queue = 4U;
 
 class fake_app_manager final : public app_manager_port {
 public:
-    status vqec_vision_ai_ports_apmgr_install(const app_package_candidate&,
-        std::uint64_t, runtime_control_snapshot&) override {
-        return {status_code::unsupported, "install not exercised by this wire test"};
-    }
-    status vqec_vision_ai_ports_apmgr_update(const app_package_candidate& _candidate,
-        std::uint64_t _expected_revision,
-        runtime_control_snapshot& _snapshot) override {
-        if (_expected_revision != 2 ||
-            _candidate.manifest_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
-            _candidate.configuration_payload_ !=
-                std::vector<std::uint8_t>{'{', '}'} ||
-            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
-            _candidate.components_.size() != 1 ||
-            _candidate.components_[0].descriptor_ < 0) {
-            return {status_code::invalid_argument, "unexpected update candidate"};
-        }
-        update_called_ = true;
-        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
-        _snapshot.snapshot_revision_ = 5;
-        return {};
-    }
-    status vqec_vision_ai_ports_apmgr_rollback(const std::string& _app_id,
-        std::uint64_t _expected_revision,
-        runtime_control_snapshot& _snapshot) override {
-        if (_app_id != "security.fire_smoke_detection" || _expected_revision != 3) {
-            return {status_code::invalid_argument, "unexpected rollback request"};
-        }
-        rollback_called_ = true;
-        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
-        _snapshot.snapshot_revision_ = 5;
-        return {};
-    }
-    status vqec_vision_ai_ports_apmgr_update_configuration(const std::string& _app_id,
-        std::uint64_t _expected_revision,
-        const std::vector<std::uint8_t>& _configuration,
-        const std::string& _configuration_sha256,
-        runtime_control_snapshot& _snapshot) override {
-        if (_app_id != "security.fire_smoke_detection" || _expected_revision != 1 ||
-            _configuration != std::vector<std::uint8_t>{'{', '}'} ||
-            _configuration_sha256 !=
-                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") {
-            return {status_code::invalid_argument, "unexpected configuration update"};
-        }
-        configuration_called_ = true;
-        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
-        _snapshot.snapshot_revision_ = 5;
-        _snapshot.associations_[0].configuration_revision_ = 2;
-        _snapshot.associations_[0].configuration_sha256_ = _configuration_sha256;
-        return {};
-    }
-    status vqec_vision_ai_ports_apmgr_apply_entitlement(
-        const app_entitlement_candidate& _candidate,
-        runtime_control_snapshot& _snapshot) override {
-        if (_candidate.grant_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
-            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
-            _candidate.grant_sha256_ !=
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") {
-            return {status_code::invalid_argument, "unexpected entitlement candidate"};
-        }
-        entitlement_called_ = true;
-        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
-        _snapshot.snapshot_revision_ = 5;
-        return {};
-    }
-    status vqec_vision_ai_ports_apmgr_set_desired(const app_desired_update& _update,
-        runtime_control_snapshot& _snapshot) override {
-        if (_update.app_id_ != "security.fire_smoke_detection" ||
-            _update.source_id_ != "camera_front" ||
-            _update.expected_desired_revision_ != 4 || !_update.desired_) {
-            return {status_code::invalid_argument, "unexpected desired update"};
-        }
-        desired_called_ = true;
-        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
-        _snapshot.snapshot_revision_ = 5;
-        _snapshot.desired_revision_ = 5;
-        _snapshot.associations_[0].desired_ = true;
-        return {};
-    }
-    status vqec_vision_ai_ports_apmgr_uninstall(const std::string&,
-        std::uint64_t, runtime_control_snapshot&) override {
-        return {status_code::unsupported, "uninstall not exercised by this wire test"};
-    }
     status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const override {
         vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
@@ -136,19 +54,29 @@ public:
         return {};
     }
     status vqec_vision_ai_ports_apmgr_submit_install(
-        const app_operation_request&, const app_package_candidate&,
-        std::uint64_t, app_operation_record&) override {
-        return {status_code::unsupported, "submit install not exercised"};
+        const app_operation_request& _request, const app_package_candidate&,
+        std::uint64_t, app_operation_record& _operation) override {
+        if (_request.kind_ != app_operation_kind::install) {
+            return {status_code::invalid_argument, "unexpected install operation"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::committed, status_code::ok, {}, 5};
+        submit_install_called_ = true;
+        return {};
     }
     status vqec_vision_ai_ports_apmgr_submit_update(
         const app_operation_request& _request,
         const app_package_candidate& _candidate,
         std::uint64_t _expected_revision,
         app_operation_record& _operation) override {
-        runtime_control_snapshot snapshot;
-        const auto updated = vqec_vision_ai_ports_apmgr_update(
-            _candidate, _expected_revision, snapshot);
-        if (updated.code_ != status_code::ok ||
+        if (_expected_revision != 2 ||
+            _candidate.manifest_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.configuration_payload_ !=
+                std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
+            _candidate.components_.size() != 1 ||
+            _candidate.components_[0].descriptor_ < 0 ||
             _request.idempotency_key_ != "update_wire_001" ||
             _request.payload_sha256_ !=
                 "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" ||
@@ -160,15 +88,98 @@ public:
         _operation = {_request.idempotency_key_, _request.idempotency_key_,
             _request.payload_sha256_, _request.app_id_, _request.kind_,
             app_operation_state::committed, status_code::ok, {},
-            snapshot.snapshot_revision_};
+            5};
         operation_ = _operation;
+        update_called_ = true;
         submit_update_called_ = true;
         return {};
     }
     status vqec_vision_ai_ports_apmgr_submit_rollback(
-        const app_operation_request&, std::uint64_t,
-        app_operation_record&) override {
-        return {status_code::unsupported, "submit rollback not exercised"};
+        const app_operation_request& _request, std::uint64_t _expected_revision,
+        app_operation_record& _operation) override {
+        if (_request.app_id_ != "security.fire_smoke_detection" ||
+            _expected_revision != 3 ||
+            _request.kind_ != app_operation_kind::rollback) {
+            return {status_code::invalid_argument,
+                "unexpected rollback operation submission"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::rolled_back, status_code::ok, {},
+            5};
+        rollback_called_ = true;
+        submit_rollback_called_ = true;
+        return {};
+    }
+    status vqec_vision_ai_ports_apmgr_submit_configuration(
+        const app_operation_request& _request, std::uint64_t _expected_revision,
+        const std::vector<std::uint8_t>& _configuration,
+        const std::string& _configuration_sha256,
+        app_operation_record& _operation) override {
+        if (_request.app_id_ != "security.fire_smoke_detection" ||
+            _expected_revision != 1 ||
+            _configuration != std::vector<std::uint8_t>{'{', '}'} ||
+            _configuration_sha256 !=
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ||
+            _request.kind_ != app_operation_kind::configure) {
+            return {status_code::invalid_argument,
+                "unexpected configuration operation submission"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::committed, status_code::ok, {},
+            5};
+        configuration_called_ = true;
+        return {};
+    }
+    status vqec_vision_ai_ports_apmgr_submit_entitlement(
+        const app_operation_request& _request,
+        const app_entitlement_candidate& _candidate,
+        app_operation_record& _operation) override {
+        if (_candidate.grant_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
+            _candidate.grant_sha256_ !=
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ||
+            _request.kind_ != app_operation_kind::entitlement) {
+            return {status_code::invalid_argument,
+                "unexpected entitlement operation submission"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::committed, status_code::ok, {},
+            5};
+        entitlement_called_ = true;
+        return {};
+    }
+    status vqec_vision_ai_ports_apmgr_submit_desired(
+        const app_operation_request& _request, const app_desired_update& _update,
+        app_operation_record& _operation) override {
+        if (_update.app_id_ != "security.fire_smoke_detection" ||
+            _update.source_id_ != "camera_front" ||
+            _update.expected_desired_revision_ != 4 || !_update.desired_ ||
+            _request.kind_ != app_operation_kind::desired) {
+            return {status_code::invalid_argument,
+                "unexpected desired operation submission"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::committed, status_code::ok, {},
+            5};
+        desired_called_ = true;
+        return {};
+    }
+    status vqec_vision_ai_ports_apmgr_submit_uninstall(
+        const app_operation_request& _request, std::uint64_t,
+        app_operation_record& _operation) override {
+        if (_request.kind_ != app_operation_kind::uninstall) {
+            return {status_code::invalid_argument,
+                "unexpected uninstall operation submission"};
+        }
+        _operation = {_request.idempotency_key_, _request.idempotency_key_,
+            _request.payload_sha256_, _request.app_id_, _request.kind_,
+            app_operation_state::committed, status_code::ok, {}, 5};
+        uninstall_called_ = true;
+        return {};
     }
     status vqec_vision_ai_ports_apmgr_get_operation(
         const std::string& _operation_id,
@@ -235,6 +246,9 @@ public:
     bool update_called_{false};
     bool rollback_called_{false};
     bool submit_update_called_{false};
+    bool submit_install_called_{false};
+    bool submit_rollback_called_{false};
+    bool uninstall_called_{false};
     bool cancel_called_{false};
     app_operation_record operation_;
 };
@@ -351,16 +365,20 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         g_variant_unref(snapshot_reply);
 
         auto desired_future = vqec_vision_ai_unit_amdtst_call(peer,
-            app_manager_dbus_protocol::g_desired_method,
-            g_variant_new("(sstb)", "security.fire_smoke_detection", "camera_front",
-                static_cast<guint64>(4), TRUE), G_VARIANT_TYPE("(t)"));
+            app_manager_dbus_protocol::g_submit_desired_method,
+            g_variant_new("(sstbss)", "security.fire_smoke_detection", "camera_front",
+                static_cast<guint64>(4), TRUE, "desired_wire_001",
+                "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+            G_VARIANT_TYPE("(s)"));
         GVariant* desired_reply =
             vqec_vision_ai_unit_amdtst_wait(server, desired_future);
-        guint64 revision = 0;
-        g_variant_get(desired_reply, "(t)", &revision);
+        const gchar* desired_operation_id = nullptr;
+        g_variant_get(desired_reply, "(&s)", &desired_operation_id);
+        const std::string desired_operation = desired_operation_id == nullptr ?
+            "" : desired_operation_id;
         g_variant_unref(desired_reply);
-        if (revision != 5 || !port.desired_called_) {
-            throw std::runtime_error("SetDesired wire reply is invalid");
+        if (desired_operation != "desired_wire_001" || !port.desired_called_) {
+            throw std::runtime_error("SubmitDesired wire reply is invalid");
         }
 
         vqec_vision_ai_unit_amdtst_release_name(peer, g_backend_name);
@@ -423,14 +441,19 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         const std::vector<std::uint8_t> configuration{'{', '}'};
         auto configuration_call = std::async(std::launch::async,
             [&client, &client_config, &configuration]() {
-                std::uint64_t revision = 0;
+                const app_operation_request request{
+                    "configuration_wire_001",
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "security.fire_smoke_detection", app_operation_kind::configure};
+                std::string operation_id;
                 const auto applied =
-                    client.vqec_vision_ai_fwctl_amdbs_apply_configuration(
-                        client_config, "security.fire_smoke_detection", 1,
+                    client.vqec_vision_ai_fwctl_amdbs_submit_configuration(
+                        client_config, request, 1,
                         configuration,
                         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                        revision);
-                return applied.code_ == status_code::ok && revision == 5;
+                        operation_id);
+                return applied.code_ == status_code::ok &&
+                    operation_id == "configuration_wire_001";
             });
         for (std::size_t iteration = 0;
              iteration < g_max_poll_iterations &&
@@ -452,11 +475,16 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         auto entitlement_call = std::async(std::launch::async,
             [&client, &client_config, &entitlement]() {
-                std::uint64_t revision = 0;
+                const app_operation_request request{
+                    "entitlement_wire_001",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "security.fire_smoke_detection", app_operation_kind::entitlement};
+                std::string operation_id;
                 const auto applied =
-                    client.vqec_vision_ai_fwctl_amdbs_apply_entitlement(
-                        client_config, entitlement, revision);
-                return applied.code_ == status_code::ok && revision == 5;
+                    client.vqec_vision_ai_fwctl_amdbs_submit_entitlement(
+                        client_config, request, entitlement, operation_id);
+                return applied.code_ == status_code::ok &&
+                    operation_id == "entitlement_wire_001";
             });
         for (std::size_t iteration = 0;
              iteration < g_max_poll_iterations &&
@@ -484,27 +512,35 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
             throw std::runtime_error("cannot open component descriptor fixture");
         }
         update.components_.push_back({component_descriptor});
-        auto update_call = std::async(std::launch::async,
-            [&client, &client_config, &update]() {
-                std::uint64_t revision = 0;
-                const auto applied = client.vqec_vision_ai_fwctl_amdbs_update(
-                    client_config, update, 2, revision);
-                return applied.code_ == status_code::ok && revision == 5;
+        const app_operation_request install_operation_request{
+            "install_wire_001",
+            "9999999999999999999999999999999999999999999999999999999999999999",
+            "security.fire_smoke_detection", app_operation_kind::install};
+        auto submit_install_call = std::async(std::launch::async,
+            [&client, &client_config, &install_operation_request, &update]() {
+                std::string operation_id;
+                const auto submitted =
+                    client.vqec_vision_ai_fwctl_amdbs_submit_install(
+                        client_config, install_operation_request, update, 2,
+                        operation_id);
+                return submitted.code_ == status_code::ok &&
+                    operation_id == "install_wire_001";
             });
         for (std::size_t iteration = 0;
              iteration < g_max_poll_iterations &&
-             update_call.wait_for(std::chrono::milliseconds(0)) !=
+             submit_install_call.wait_for(std::chrono::milliseconds(0)) !=
                  std::future_status::ready;
              ++iteration) {
             server.vqec_vision_ai_fwctl_amdbs_poll();
             std::this_thread::sleep_for(g_poll_interval);
         }
-        const bool update_passed =
-            update_call.wait_for(std::chrono::milliseconds(0)) ==
-                std::future_status::ready && update_call.get();
+        const bool submit_install_passed =
+            submit_install_call.wait_for(std::chrono::milliseconds(0)) ==
+                std::future_status::ready && submit_install_call.get();
         (void)::close(component_descriptor);
-        if (!update_passed || !port.update_called_) {
-            throw std::runtime_error("App Manager update FD wire is invalid");
+        if (!submit_install_passed || !port.submit_install_called_) {
+            throw std::runtime_error(
+                "App Manager submitted install wire is invalid");
         }
         const int submitted_component_descriptor =
             ::open("/dev/null", O_RDONLY | O_CLOEXEC);
@@ -591,10 +627,16 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         }
         auto rollback_call = std::async(std::launch::async,
             [&client, &client_config]() {
-                std::uint64_t revision = 0;
-                const auto restored = client.vqec_vision_ai_fwctl_amdbs_rollback(
-                    client_config, "security.fire_smoke_detection", 3, revision);
-                return restored.code_ == status_code::ok && revision == 5;
+                const app_operation_request request{
+                    "rollback_wire_001",
+                    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                    "security.fire_smoke_detection", app_operation_kind::rollback};
+                std::string operation_id;
+                const auto restored =
+                    client.vqec_vision_ai_fwctl_amdbs_submit_rollback(
+                        client_config, request, 3, operation_id);
+                return restored.code_ == status_code::ok &&
+                    operation_id == "rollback_wire_001";
             });
         for (std::size_t iteration = 0;
              iteration < g_max_poll_iterations &&
@@ -606,8 +648,34 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         }
         if (rollback_call.wait_for(std::chrono::milliseconds(0)) !=
                 std::future_status::ready || !rollback_call.get() ||
-            !port.rollback_called_) {
+            !port.rollback_called_ || !port.submit_rollback_called_) {
             throw std::runtime_error("App Manager rollback wire is invalid");
+        }
+        auto uninstall_call = std::async(std::launch::async,
+            [&client, &client_config]() {
+                const app_operation_request request{
+                    "uninstall_wire_001",
+                    "7777777777777777777777777777777777777777777777777777777777777777",
+                    "security.fire_smoke_detection", app_operation_kind::uninstall};
+                std::string operation_id;
+                const auto removed =
+                    client.vqec_vision_ai_fwctl_amdbs_submit_uninstall(
+                        client_config, request, 3, operation_id);
+                return removed.code_ == status_code::ok &&
+                    operation_id == "uninstall_wire_001";
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             uninstall_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (uninstall_call.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready || !uninstall_call.get() ||
+            !port.uninstall_called_) {
+            throw std::runtime_error("App Manager uninstall wire is invalid");
         }
         app_manager_dbus_client runtime_client;
         const app_manager_dbus_client_config runtime_config{
@@ -633,11 +701,16 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         }
         auto unauthorized_mutation = std::async(std::launch::async,
             [&runtime_client, &runtime_config]() {
-                std::uint64_t revision = 0;
                 const app_desired_update update{
                     "security.fire_smoke_detection", "camera_front", 4, true};
-                return runtime_client.vqec_vision_ai_fwctl_amdbs_set_desired(
-                           runtime_config, update, revision).code_ != status_code::ok;
+                const app_operation_request request{
+                    "unauthorized_desired_wire_001",
+                    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "security.fire_smoke_detection", app_operation_kind::desired};
+                std::string operation_id;
+                return runtime_client.vqec_vision_ai_fwctl_amdbs_submit_desired(
+                           runtime_config, request, update, operation_id)
+                           .code_ != status_code::ok;
             });
         for (std::size_t iteration = 0;
              iteration < g_max_poll_iterations &&

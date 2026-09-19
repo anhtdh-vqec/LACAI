@@ -3,10 +3,11 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** board-smoke — signed asynchronous install, update and rollback, entitlement,
-configuration CAS, desired-state reconcile, persistent inventory, D-Bus facade, idempotency and
-startup-order independence passed on the recorded QCS6490 candidate. Backend implementation
-conformance and asynchronous conversion of the remaining mutations remain open.
+**Status:** logic-tested — the complete version 1 asynchronous mutation contract and wire pass the
+170-test eSDK/QEMU suite. The earlier QCS6490 candidate proved install/update/rollback plus
+synchronous entitlement, configuration, desired and uninstall; complete asynchronous board
+evidence is required before restoring `board-smoke`. Backend implementation conformance remains
+open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -57,19 +58,20 @@ JSON per frame.
 
 ## Operation and recovery contract
 
-Package install, update and rollback use a durable bounded operation journal. Submission first
+Every external mutation uses one durable bounded operation journal. Submission first
 persists `queued` with an idempotency key, request digest, app identity and operation kind, then
-duplicates every component FD with close-on-exec ownership and enqueues one of at most 16 pending
-jobs. A single worker serializes package verification, immutable staging and inventory commit.
-The D-Bus submission returns only the operation ID; at that point the application is not implied to
-be installed or running. The journal retains at most 1,024 records and fails closed when full.
+retains all request bytes and duplicates every component FD with close-on-exec ownership before
+enqueuing one of at most 16 pending jobs. A single worker serializes entitlement, package,
+configuration, desired-state and uninstall commits. The D-Bus submission returns only the
+operation ID; at that point no requested state is implied to be effective. The journal retains at
+most 1,024 records and fails closed when full.
 
 The same idempotency key with the same request identity returns the existing record without
 re-execution. Reusing it with another digest, app or kind is a conflict. On restart, any queued or
 non-terminal row becomes `recovery_required`; current inventory remains the last atomic committed
-revision. Cancellation is best-effort and only succeeds before a job becomes terminal. Legacy
-synchronous methods remain temporarily for migration and the board runner; configuration,
-entitlement, desired state and uninstall still use synchronous CAS transactions in this baseline.
+revision. Cancellation is best-effort and only succeeds before a job starts committing. No
+version 1 D-Bus mutation returns a snapshot revision directly; callers query `GetOperation` and
+then fetch the complete snapshot named by its terminal revision.
 
 Package ingest copies exactly the declared bytes from a read-only FD into a private staging file
 while calculating the digest. Commit order is payload fsync, candidate receipt fsync and atomic
@@ -113,12 +115,26 @@ to their unique owners on every request. Only the backend peer may mutate lifecy
 runtime peer may only call `GetSnapshot`; backend may also read it for status/revision handling.
 The daemon can start while either peer is offline, and a restart does not retain authority from a
 previous unique owner. The two names must be different. The source-delivered facade provides
-FD-based signed install/update, rollback, package operation submission/query/cancel, FD-based signed
-entitlement, configuration apply, desired state, uninstall and complete snapshot reads. Large
-package/grant data never travels as a byte array.
+asynchronous FD-based signed entitlement/install/update, rollback, FD-based configuration,
+desired state and uninstall plus operation query/cancel and complete snapshot reads. Large
+package/grant/configuration data never travels as a byte array.
 Wrong sender, stale revision, invalid/expired/device-mismatched grant or not-installed enable fails
 closed even if the UI hides an action. Per-app attributed metrics remain product work and must not
 be inferred from the current interface.
+
+| Version 1 method | Authority and result |
+|---|---|
+| `SubmitEntitlement` | Signed grant FD + signature FD; returns `operation_id` |
+| `SubmitInstall` / `SubmitUpdate` | Signed manifest/configuration/component FDs; returns `operation_id` |
+| `SubmitRollback` / `SubmitUninstall` | Inventory CAS request; returns `operation_id` |
+| `SubmitConfiguration` | Configuration FD + configuration CAS; returns `operation_id` |
+| `SubmitDesired` | Source-scoped desired-state CAS; returns `operation_id` |
+| `GetOperation` / `CancelOperation` | Query terminal receipt or best-effort cancel before commit |
+| `GetSnapshot` / `ListApplications` | Complete revisioned state and catalog view; never mutate |
+
+There are no synchronous mutation methods in the product introspection. A client timeout after
+submission is resolved by retrying the same idempotency key and querying the returned operation;
+it must never guess from the timeout whether state changed.
 
 The catalog boundary is a bounded version 1 product document, independent of installed package
 directories. `ListApplications(source_id)` joins its entries with compiled processor support and
@@ -170,14 +186,14 @@ configured App Manager resource capacity. These booleans are never accepted from
   this baseline intentionally accepts one configured Ed25519 public key.
 - Content-addressed component FD staging is bound to signed manifest digest/size and install
   authority. Package generation history, rollback and the bounded operation journal are delivered;
-  safe garbage collection policy, async conversion of the remaining mutations, D-Bus/backend
-  implementation conformance, electrical power-cut qualification and release acceptance remain
-  open. Deterministic install/update process-crash injection is delivered.
+  safe garbage collection policy, D-Bus/backend implementation conformance, electrical power-cut
+  qualification and release acceptance remain open. Deterministic install/update process-crash
+  injection is delivered.
 - Released FW evidence service is a separate contract and does not affect install authority.
-- `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and `GetOperation` passed the complete S04
-  board lifecycle, including duplicate idempotency keys. Entitlement, configuration, desired state
-  and uninstall remain synchronous CAS calls in version 1; backend implementation conformance and
-  conversion of those methods remain follow-up work.
+- The earlier candidate proved `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and
+  `GetOperation`, including duplicate idempotency keys. The complete asynchronous version 1 wire
+  still needs eSDK/QEMU and recorded-board validation before this document returns to
+  `board-smoke`; real backend conformance remains an external gate.
 
 ## See also
 

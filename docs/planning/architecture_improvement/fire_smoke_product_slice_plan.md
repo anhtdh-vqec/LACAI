@@ -59,7 +59,7 @@ Raw acceptance boundary và số đo nằm tại
 | Package update/rollback | Đóng ở mức board-smoke: journal, content generation, idempotency và rollback 1.0.1 → 1.0.0 đã chạy |
 | Qualcomm cold start | Mở: first-frame safety đạt, synchronous `GraphPrepare` peak chưa giảm |
 | Released-FW evidence | Mở ngoài AI APP: chưa có receiver/media receipt C07 |
-| Backend/API conformance | Mở ngoài candidate AI: backend thật chưa chạy bộ conformance; entitlement/config/desired/uninstall vẫn là synchronous CAS |
+| Backend/API conformance | Mở ngoài candidate AI: backend thật chưa chạy bộ conformance; AI wire toàn bộ mutation đã logic-tested nhưng chưa chạy lại board |
 
 Phần triển khai và kiểm thử AI-owned của plan đã đóng ở mức `board-smoke`. Tài liệu không được đổi
 thành `accepted` vì model-quality, backend/released-FW và release-soak cần đúng owner/evidence riêng.

@@ -3,7 +3,7 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the role-oriented tree passed eSDK 168/168; the prior clean-layout
+**Status:** board-smoke — the role-oriented tree passed eSDK 170/170; the prior clean-layout
 QCS6490 run passed 128/128 native executables. Current S04 catalog/lifecycle behavior passed the
 exact-candidate board gate; release acceptance remains open. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.

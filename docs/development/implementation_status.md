@@ -286,9 +286,9 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: the expanded eSDK/QEMU suite passes 168/168 CTest, including the bounded
-S01–S18 catalog, deterministic S04 replay, two-app shared-component lifecycle and eight
-install/update process-crash checkpoints. On board `.102`, the
+Current evidence: the expanded eSDK/QEMU suite passes 170/170 CTest, including the bounded
+S01–S18 catalog, complete asynchronous mutation wire, deterministic S04 replay, two-app
+shared-component lifecycle and eight install/update process-crash checkpoints. On board `.102`, the
 S04/App Manager/output candidate passes nine focused native tests, the asynchronous
 install/update/rollback/uninstall/reinstall lifecycle and ten five-second disable/enable cycles.
 The current workload publishes H.264 1920x1080 at 30.124 FPS. Over the final five-minute sample,
@@ -440,7 +440,7 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The expanded eSDK configuration passes 168/168 CTest tests under SDK QEMU (2026-09-20).
+- The expanded eSDK configuration passes 170/170 CTest tests under SDK QEMU (2026-09-20).
   Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
   this focused rerun is not a new full native-suite count.
 - Deterministic S04 semantic replay is delivered. Model-quality golden and live released-FW/model

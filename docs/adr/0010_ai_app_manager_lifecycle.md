@@ -49,12 +49,14 @@ the real-time frame path.
   distinguishable. Unknown package application IDs fail closed.
 - Inventory and operation journals are separate from business metadata. Content blobs are
   immutable and digest-addressed; a database never stores model binary payloads.
-- Package install, update and rollback use bounded asynchronous idempotent operation journaling:
-  accepted means durably queued, never installed or running. One serialized worker owns retained
-  component descriptors and publishes only an atomic old or new inventory revision. A restart
-  marks interrupted rows `recovery_required`; it never infers installation from a half-staged
-  directory. The remaining configuration/control mutations retain synchronous CAS methods during
-  migration and must move behind the same operation contract before remote rollout is accepted.
+- Every externally callable mutation uses bounded asynchronous idempotent operation journaling:
+  entitlement, install, update, rollback, configuration, desired state and uninstall all return an
+  `operation_id`. Accepted means durably queued, never entitled, installed, configured, enabled or
+  running. One serialized worker owns retained component descriptors and immutable request data and
+  publishes only an atomic old or new inventory revision. A restart marks interrupted rows
+  `recovery_required`; it never infers success from a half-staged directory or an RPC timeout.
+  Synchronous mutation functions are App Manager implementation details and are not version 1
+  D-Bus methods.
 - Every LACAI-owned schema and D-Bus contract starts at version 1 and uses the canonical version
   registry. A version increment needs a migration ADR.
 

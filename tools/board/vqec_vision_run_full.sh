@@ -72,7 +72,6 @@ g_app_target_id=${LACAI_APP_TARGET_ID:-qcs6490_qlinux_1_8}
 g_app_key_id=${LACAI_APP_KEY_ID:-vqec_product_signing_key}
 g_app_rpc_timeout_ms=${LACAI_APP_RPC_TIMEOUT_MS:-5000}
 g_app_poll_interval_ms=${LACAI_APP_POLL_INTERVAL_MS:-100}
-g_app_async_package_operations=${LACAI_APP_ASYNC_PACKAGE_OPERATIONS:-1}
 g_toggle_interval_seconds=${LACAI_TOGGLE_INTERVAL_SECONDS:-5}
 g_toggle_cycles=${LACAI_TOGGLE_CYCLES:-6}
 g_max_stress_fd_growth=${LACAI_MAX_STRESS_FD_GROWTH:-8}
@@ -104,10 +103,6 @@ done
 case "$g_evidence_reference_receiver" in
     0|1) ;;
     *) echo "LACAI_EVIDENCE_REFERENCE_RECEIVER must be 0 or 1" >&2; exit 2 ;;
-esac
-case "$g_app_async_package_operations" in
-    0|1) ;;
-    *) echo "LACAI_APP_ASYNC_PACKAGE_OPERATIONS must be 0 or 1" >&2; exit 2 ;;
 esac
 case "$g_evidence_peer_uid" in
     ''|*[!0-9]*) echo "evidence peer UID must be a non-negative integer" >&2; exit 2 ;;
@@ -215,6 +210,20 @@ vqec_vision_ai_tools_rnful_control() {
     "$g_app_control" "$@" --service-name "$g_app_service_name" \
         --client-name "$g_app_backend_name" --object-path "$g_app_object_path" \
         --rpc-timeout-ms "$g_app_rpc_timeout_ms" --session
+}
+
+vqec_vision_ai_tools_rnful_request_digest() {
+    printf '%s' "$1" | sha256sum | cut -d ' ' -f 1
+}
+
+vqec_vision_ai_tools_rnful_submit_operation() {
+    submission=$(vqec_vision_ai_tools_rnful_control "$@")
+    operation_id=$(printf '%s\n' "$submission" | sed -n 's/^operation_id=//p')
+    if [ -z "$operation_id" ]; then
+        echo "App Manager submission returned no operation ID" >&2
+        return 1
+    fi
+    printf '%s\n' "$operation_id"
 }
 
 vqec_vision_ai_tools_rnful_snapshot_field() {
@@ -338,9 +347,16 @@ vqec_vision_ai_tools_rnful_stress_toggle() {
         revision=$(vqec_vision_ai_tools_rnful_snapshot_field desired_revision)
         before=$(vqec_vision_ai_tools_rnful_ring_sequence 2>/dev/null || true)
         before=${before:-0}
-        vqec_vision_ai_tools_rnful_control desired --app-id "$g_app_id" \
+        operation_id="desired.disable.$revision.$cycle"
+        request_digest=$(vqec_vision_ai_tools_rnful_request_digest \
+            "$g_app_id|$g_app_source_id|$revision|false")
+        operation_id=$(vqec_vision_ai_tools_rnful_submit_operation desired \
+            --app-id "$g_app_id" \
             --source-id "$g_app_source_id" --expected-revision "$revision" \
-            --enabled false >/dev/null
+            --enabled false --idempotency-key "$operation_id" \
+            --request-sha256 "$request_digest")
+        vqec_vision_ai_tools_rnful_wait_operation \
+            "$operation_id" "$g_operation_state_committed" >/dev/null
         sleep "$g_toggle_interval_seconds"
         vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
         if [ "$(vqec_vision_ai_tools_rnful_association_field desired)" != "false" ]; then
@@ -348,9 +364,16 @@ vqec_vision_ai_tools_rnful_stress_toggle() {
             return 1
         fi
         revision=$(vqec_vision_ai_tools_rnful_snapshot_field desired_revision)
-        vqec_vision_ai_tools_rnful_control desired --app-id "$g_app_id" \
+        operation_id="desired.enable.$revision.$cycle"
+        request_digest=$(vqec_vision_ai_tools_rnful_request_digest \
+            "$g_app_id|$g_app_source_id|$revision|true")
+        operation_id=$(vqec_vision_ai_tools_rnful_submit_operation desired \
+            --app-id "$g_app_id" \
             --source-id "$g_app_source_id" --expected-revision "$revision" \
-            --enabled true >/dev/null
+            --enabled true --idempotency-key "$operation_id" \
+            --request-sha256 "$request_digest")
+        vqec_vision_ai_tools_rnful_wait_operation \
+            "$operation_id" "$g_operation_state_committed" >/dev/null
         sleep "$g_toggle_interval_seconds"
         vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
         if [ "$(vqec_vision_ai_tools_rnful_association_field desired)" != "true" ]; then
@@ -414,12 +437,18 @@ vqec_vision_ai_tools_rnful_configure() {
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
     expected_revision=$(vqec_vision_ai_tools_rnful_association_field configuration_revision)
     expected_digest=$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)
+    operation_id="configure.$expected_digest"
     before=$(vqec_vision_ai_tools_rnful_ring_sequence 2>/dev/null || true)
     before=${before:-0}
-    vqec_vision_ai_tools_rnful_control configure --app-id "$g_app_id" \
+    operation_id=$(vqec_vision_ai_tools_rnful_submit_operation configure \
+        --app-id "$g_app_id" \
         --configuration "$g_app_configuration" \
         --configuration-sha256 "$expected_digest" \
-        --expected-revision "$expected_revision" >/dev/null
+        --expected-revision "$expected_revision" \
+        --idempotency-key "$operation_id" \
+        --request-sha256 "$expected_digest")
+    vqec_vision_ai_tools_rnful_wait_operation \
+        "$operation_id" "$g_operation_state_committed" >/dev/null
     expected_revision=$((expected_revision + 1))
     wait_count=0
     wait_limit=$((g_preview_ready_timeout_seconds * 10))
@@ -699,45 +728,47 @@ if [ ! -s "$g_snapshot_path" ]; then
 fi
 
 if [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; then
-    vqec_vision_ai_tools_rnful_control entitlement \
+    g_entitlement_digest=$(sha256sum "$g_app_entitlement" | cut -d ' ' -f 1)
+    g_entitlement_operation="entitlement.$g_entitlement_digest"
+    g_entitlement_operation=$(vqec_vision_ai_tools_rnful_submit_operation entitlement \
         --grant "$g_app_entitlement" --signature "$g_app_entitlement_signature" \
-        --grant-sha256 "$(sha256sum "$g_app_entitlement" | cut -d ' ' -f 1)"
+        --grant-sha256 "$g_entitlement_digest" --app-id "$g_app_id" \
+        --idempotency-key "$g_entitlement_operation" \
+        --request-sha256 "$g_entitlement_digest")
+    vqec_vision_ai_tools_rnful_wait_operation \
+        "$g_entitlement_operation" "$g_operation_state_committed"
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
 fi
 if [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; then
     g_inventory_revision=$(vqec_vision_ai_tools_rnful_snapshot_field inventory_revision)
     g_manifest_digest=$(sha256sum "$g_app_manifest" | cut -d ' ' -f 1)
-    if [ "$g_app_async_package_operations" -eq 1 ]; then
-        g_install_operation="install.$g_manifest_digest"
-        vqec_vision_ai_tools_rnful_control submit-install \
-            --manifest "$g_app_manifest" --configuration "$g_app_configuration" \
-            --signature "$g_app_package_signature" \
-            --component "$g_app_model_component" \
-            --component "$g_app_labels_component" \
-            --manifest-sha256 "$g_manifest_digest" \
-            --configuration-sha256 "$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)" \
-            --app-id "$g_app_id" --idempotency-key "$g_install_operation" \
-            --request-sha256 "$g_manifest_digest" \
-            --expected-revision "$g_inventory_revision" >/dev/null
-        vqec_vision_ai_tools_rnful_wait_operation \
-            "$g_install_operation" "$g_operation_state_committed"
-    else
-        vqec_vision_ai_tools_rnful_control install \
-            --manifest "$g_app_manifest" --configuration "$g_app_configuration" \
-            --signature "$g_app_package_signature" \
-            --component "$g_app_model_component" \
-            --component "$g_app_labels_component" \
-            --manifest-sha256 "$g_manifest_digest" \
-            --configuration-sha256 "$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)" \
-            --expected-revision "$g_inventory_revision"
-    fi
+    g_install_operation="install.$g_manifest_digest"
+    g_install_operation=$(vqec_vision_ai_tools_rnful_submit_operation install \
+        --manifest "$g_app_manifest" --configuration "$g_app_configuration" \
+        --signature "$g_app_package_signature" \
+        --component "$g_app_model_component" \
+        --component "$g_app_labels_component" \
+        --manifest-sha256 "$g_manifest_digest" \
+        --configuration-sha256 "$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)" \
+        --app-id "$g_app_id" --idempotency-key "$g_install_operation" \
+        --request-sha256 "$g_manifest_digest" \
+        --expected-revision "$g_inventory_revision")
+    vqec_vision_ai_tools_rnful_wait_operation \
+        "$g_install_operation" "$g_operation_state_committed"
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
 fi
 if [ "$(vqec_vision_ai_tools_rnful_association_field desired)" != "true" ]; then
     g_desired_revision=$(vqec_vision_ai_tools_rnful_snapshot_field desired_revision)
-    vqec_vision_ai_tools_rnful_control desired --app-id "$g_app_id" \
+    g_desired_operation="desired.enable.$g_desired_revision.start"
+    g_desired_digest=$(vqec_vision_ai_tools_rnful_request_digest \
+        "$g_app_id|$g_app_source_id|$g_desired_revision|true")
+    g_desired_operation=$(vqec_vision_ai_tools_rnful_submit_operation desired \
+        --app-id "$g_app_id" \
         --source-id "$g_app_source_id" --expected-revision "$g_desired_revision" \
-        --enabled true
+        --enabled true --idempotency-key "$g_desired_operation" \
+        --request-sha256 "$g_desired_digest")
+    vqec_vision_ai_tools_rnful_wait_operation \
+        "$g_desired_operation" "$g_operation_state_committed"
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
 fi
 

@@ -310,11 +310,31 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         entitlement.grant_sha256_ =
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         entitlement.signature_payload_ = {'t', 'e', 's', 't'};
-        assert(manager.vqec_vision_ai_appl_appmn_apply_entitlement(
-                   entitlement, snapshot)
+        app_operation_record operation;
+        const app_operation_request entitlement_request{
+            "entitle_fire_smoke_001", entitlement.grant_sha256_,
+            "security.fire_smoke_detection", app_operation_kind::entitlement};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_entitlement(
+                   entitlement_request, entitlement, operation)
                    .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed &&
+            operation.result_code_ == status_code::ok);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(snapshot.associations_.empty() && snapshot.entitlement_revision_ == 2);
-        assert(manager.vqec_vision_ai_appl_appmn_install(candidate.value_, 1, snapshot).code_ ==
+        const app_operation_request install_request{
+            "install_fire_smoke_001",
+            "1111111111111111111111111111111111111111111111111111111111111111",
+            "security.fire_smoke_detection", app_operation_kind::install};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_package(install_request,
+                   candidate.value_, 1, false, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
             status_code::ok);
         assert(snapshot.associations_.size() == 1);
         assert(snapshot.associations_[0].installed_);
@@ -322,16 +342,36 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
 
         app_desired_update desired{"security.fire_smoke_detection", "camera_front",
             snapshot.desired_revision_, true};
-        assert(manager.vqec_vision_ai_appl_appmn_set_desired(desired, snapshot).code_ ==
+        const app_operation_request desired_request{
+            "enable_fire_smoke_001",
+            "2222222222222222222222222222222222222222222222222222222222222222",
+            "security.fire_smoke_detection", app_operation_kind::desired};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_desired(
+                   desired_request, desired, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
             status_code::ok);
         assert(snapshot.associations_[0].is_effective());
 
         auto invalid_configuration = candidate.value_.configuration_payload_;
         invalid_configuration.push_back('{');
-        assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
-                   "security.fire_smoke_detection", 1, invalid_configuration,
-                   candidate.value_.configuration_sha256_, snapshot)
-                   .code_ == status_code::protocol_error);
+        const app_operation_request invalid_configuration_request{
+            "invalid_config_fire_smoke_001",
+            candidate.value_.configuration_sha256_,
+            "security.fire_smoke_detection", app_operation_kind::configure};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_configuration(
+                   invalid_configuration_request, 1, invalid_configuration,
+                   candidate.value_.configuration_sha256_, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::failed &&
+            operation.result_code_ == status_code::protocol_error);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(snapshot.associations_[0].configuration_revision_ == 1);
 
         std::string updated_text(candidate.value_.configuration_payload_.begin(),
@@ -345,21 +385,38 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
             updated_text.begin(), updated_text.end());
         constexpr char updated_sha256[] =
             "f3155b44db80397765c5437cdb7e4023ef5ca7ff26682afd74a92f42f1742387";
-        assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
-                   "security.fire_smoke_detection", 1, updated_configuration,
-                   updated_sha256, snapshot)
+        const app_operation_request configuration_request{
+            "config_fire_smoke_001", updated_sha256,
+            "security.fire_smoke_detection", app_operation_kind::configure};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_configuration(
+                   configuration_request, 1, updated_configuration,
+                   updated_sha256, operation)
                    .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(snapshot.associations_[0].configuration_revision_ == 2);
         app_desired_update disable{"security.fire_smoke_detection", "camera_front",
             snapshot.desired_revision_, false};
-        assert(manager.vqec_vision_ai_appl_appmn_set_desired(disable, snapshot).code_ ==
+        const app_operation_request disable_request{
+            "disable_fire_smoke_001",
+            "3333333333333333333333333333333333333333333333333333333333333333",
+            "security.fire_smoke_detection", app_operation_kind::desired};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_desired(
+                   disable_request, disable, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
             status_code::ok);
         test_candidate update(database, true);
         app_operation_request update_request{
             "update_fire_smoke_001",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "security.fire_smoke_detection", app_operation_kind::update};
-        app_operation_record operation;
         assert(manager.vqec_vision_ai_appl_appmn_submit_package(update_request,
                    update.value_, snapshot.inventory_revision_, true, operation)
                    .code_ == status_code::ok);
@@ -430,9 +487,17 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         revocation.grant_sha256_ =
             "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
         revocation.signature_payload_ = {'d', 'e', 'n', 'y'};
-        assert(manager.vqec_vision_ai_appl_appmn_apply_entitlement(
-                   revocation, snapshot)
+        const app_operation_request revocation_request{
+            "revoke_fire_smoke_001", revocation.grant_sha256_,
+            "security.fire_smoke_detection", app_operation_kind::entitlement};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_entitlement(
+                   revocation_request, revocation, operation)
                    .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(!snapshot.associations_[0].entitled_);
         applications.clear();
         assert(manager.vqec_vision_ai_appl_appmn_list_applications(
@@ -456,6 +521,21 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         assert(snapshot.associations_[0].configuration_revision_ == 4);
         assert(snapshot.associations_[0].configuration_sha256_ ==
             "f3155b44db80397765c5437cdb7e4023ef5ca7ff26682afd74a92f42f1742387");
+        const app_operation_request uninstall_request{
+            "uninstall_fire_smoke_001",
+            "4444444444444444444444444444444444444444444444444444444444444444",
+            "security.fire_smoke_detection", app_operation_kind::uninstall};
+        app_operation_record operation;
+        assert(manager.vqec_vision_ai_appl_appmn_submit_uninstall(
+                   uninstall_request, snapshot.inventory_revision_, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::committed &&
+            operation.snapshot_revision_ != 0);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
+        assert(snapshot.associations_.empty());
     }
 }
 

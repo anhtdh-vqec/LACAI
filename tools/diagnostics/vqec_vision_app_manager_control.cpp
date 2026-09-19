@@ -240,7 +240,6 @@ int main(int argc, char** argv) {
     }
     app_manager_dbus_client client;
     status outcome;
-    std::uint64_t revision = 0;
     if (options.command_ == "snapshot") {
         runtime_control_snapshot snapshot;
         outcome = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
@@ -280,31 +279,21 @@ int main(int argc, char** argv) {
                 options.component_paths_, component_descriptors, candidate);
         }
         if (outcome.code_ == status_code::ok) {
-            if (options.command_ == "submit-install" ||
-                options.command_ == "submit-update") {
-                app_operation_request operation_request{
-                    options.idempotency_key_, options.request_sha256_, options.app_id_,
-                    options.command_ == "submit-update" ?
-                        app_operation_kind::update : app_operation_kind::install};
-                outcome = options.command_ == "submit-update" ?
-                    client.vqec_vision_ai_fwctl_amdbs_submit_update(options.dbus_,
-                        operation_request, candidate, options.expected_revision_,
-                        options.operation_id_) :
-                    client.vqec_vision_ai_fwctl_amdbs_submit_install(options.dbus_,
-                        operation_request, candidate, options.expected_revision_,
-                        options.operation_id_);
-            } else {
-                outcome = options.command_ == "update" ?
-                    client.vqec_vision_ai_fwctl_amdbs_update(options.dbus_, candidate,
-                        options.expected_revision_, revision) :
-                    client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
-                        options.expected_revision_, revision);
-            }
+            const bool is_update = options.command_ == "update" ||
+                options.command_ == "submit-update";
+            app_operation_request operation_request{
+                options.idempotency_key_, options.request_sha256_, options.app_id_,
+                is_update ? app_operation_kind::update : app_operation_kind::install};
+            outcome = is_update ?
+                client.vqec_vision_ai_fwctl_amdbs_submit_update(options.dbus_,
+                    operation_request, candidate, options.expected_revision_,
+                    options.operation_id_) :
+                client.vqec_vision_ai_fwctl_amdbs_submit_install(options.dbus_,
+                    operation_request, candidate, options.expected_revision_,
+                    options.operation_id_);
         }
-    } else if (options.command_ == "rollback") {
-        outcome = client.vqec_vision_ai_fwctl_amdbs_rollback(options.dbus_,
-            options.app_id_, options.expected_revision_, revision);
-    } else if (options.command_ == "submit-rollback") {
+    } else if (options.command_ == "rollback" ||
+               options.command_ == "submit-rollback") {
         const app_operation_request operation_request{
             options.idempotency_key_, options.request_sha256_, options.app_id_,
             app_operation_kind::rollback};
@@ -326,9 +315,12 @@ int main(int argc, char** argv) {
         outcome = vqec_vision_ai_tools_amctl_read_file(options.configuration_path_,
             app_lifecycle_limits::g_max_document_bytes, configuration);
         if (outcome.code_ == status_code::ok) {
-            outcome = client.vqec_vision_ai_fwctl_amdbs_apply_configuration(
-                options.dbus_, options.app_id_, options.expected_revision_,
-                configuration, options.configuration_sha256_, revision);
+            const app_operation_request operation_request{
+                options.idempotency_key_, options.request_sha256_, options.app_id_,
+                app_operation_kind::configure};
+            outcome = client.vqec_vision_ai_fwctl_amdbs_submit_configuration(
+                options.dbus_, operation_request, options.expected_revision_,
+                configuration, options.configuration_sha256_, options.operation_id_);
         }
     } else if (options.command_ == "entitlement") {
         app_entitlement_candidate candidate;
@@ -341,17 +333,26 @@ int main(int argc, char** argv) {
         }
         candidate.grant_sha256_ = options.grant_sha256_;
         if (outcome.code_ == status_code::ok) {
-            outcome = client.vqec_vision_ai_fwctl_amdbs_apply_entitlement(
-                options.dbus_, candidate, revision);
+            const app_operation_request operation_request{
+                options.idempotency_key_, options.request_sha256_, options.app_id_,
+                app_operation_kind::entitlement};
+            outcome = client.vqec_vision_ai_fwctl_amdbs_submit_entitlement(
+                options.dbus_, operation_request, candidate, options.operation_id_);
         }
     } else if (options.command_ == "desired" && options.has_desired_) {
         app_desired_update update{options.app_id_, options.source_id_,
             options.expected_revision_, options.desired_};
-        outcome = client.vqec_vision_ai_fwctl_amdbs_set_desired(
-            options.dbus_, update, revision);
+        const app_operation_request operation_request{
+            options.idempotency_key_, options.request_sha256_, options.app_id_,
+            app_operation_kind::desired};
+        outcome = client.vqec_vision_ai_fwctl_amdbs_submit_desired(
+            options.dbus_, operation_request, update, options.operation_id_);
     } else if (options.command_ == "uninstall") {
-        outcome = client.vqec_vision_ai_fwctl_amdbs_uninstall(options.dbus_,
-            options.app_id_, options.expected_revision_, revision);
+        const app_operation_request operation_request{
+            options.idempotency_key_, options.request_sha256_, options.app_id_,
+            app_operation_kind::uninstall};
+        outcome = client.vqec_vision_ai_fwctl_amdbs_submit_uninstall(options.dbus_,
+            operation_request, options.expected_revision_, options.operation_id_);
     } else {
         vqec_vision_ai_tools_amctl_usage();
         return 2;
@@ -361,11 +362,9 @@ int main(int argc, char** argv) {
                   << "): " << outcome.message_ << '\n';
         return 1;
     }
-    if (revision != 0) {
-        std::cout << "snapshot_revision=" << revision << '\n';
-    }
     if (!options.operation_id_.empty() &&
-        options.command_.rfind("submit-", 0) == 0) {
+        options.command_ != "operation" &&
+        options.command_ != "cancel-operation") {
         std::cout << "operation_id=" << options.operation_id_ << '\n';
     }
     return 0;
