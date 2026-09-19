@@ -1222,7 +1222,7 @@ output và acceptance riêng; status của một plan không tự nâng status c
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
 | [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | Plan 1 accepted | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control; backend là peer theo contract AI APP |
-| [2. Metadata và query](metadata_query_plan.md) | AI APP | Plan 0 + Plan 1; C03–C06 | D01–D18, Q01–Q30, SQLite baseline và storage decision |
+| [2. Metadata và query](metadata_query_plan.md) | AI APP | **Accepted 2026-09-19**; producer/capacity receipts theo từng app | D01–D18, Q01–Q30, SQLite transactional baseline và measured storage decision |
 | [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
 | [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1/1A–4 pass | Profiles, board/release acceptance |
@@ -1234,12 +1234,12 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Các plan metadata/event/integration vẫn là đề xuất; Plan 1 contract baseline và Plan 4 DSP
-  scope đã accepted theo gate riêng, không tự nâng status các plan còn lại.
+- Plan 1, Plan 2 và scope Plan 4 đã accepted theo gate riêng; event/integration vẫn là đề xuất
+  và không tự được nâng status theo các plan đã đóng.
 - Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
   vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
-- Chưa benchmark SQLite/DuckDB/Parquet/librdkafka trên target; lựa chọn là hướng spike có
-  điều kiện, không khẳng định dependency đã tương thích eSDK/production.
+- SQLite `FULL` đã có benchmark fixture QCS6490; DuckDB/Parquet/librdkafka chưa qua dependency
+  và target gate nên vẫn là spike có điều kiện, không được mô tả là production capability.
 - Chưa có sizing/SLO sản phẩm cuối cùng. Mọi queue, timeout, cadence, quota và retention
   phải từ cấu hình được validate; số minh họa trong tài liệu không thành default runtime.
 - Ưu tiên review R0/R1 và dựng benchmark R2; sau đó làm R3 và R4 thành hai vertical có

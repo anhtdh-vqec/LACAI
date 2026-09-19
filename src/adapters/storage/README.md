@@ -1,15 +1,13 @@
-# Encrypted face-gallery store adapter
+# Storage adapters
 
-Implements `face_gallery_store_port` over an AI-owned AES-256-GCM authenticated snapshot.
-It is the authoritative durable gallery; the Zvec index is derived from it and has no
-authority.
+Implements AI APP-owned durable adapters for the protected face gallery and the version 1
+transactional metadata/query baseline.
 
-- **Status:** source-delivered — encrypted restart recognition, stale CAS and tamper
+- **Status:** board-smoke — gallery and metadata native boundary tests pass on QCS6490
 - **Layer:** adapters
-  rejection pass eSDK/QEMU and on QCS6490 `.98`
-- **Naming registry:** `stor` (`eglry`)
-- **Depends on:** neutral contracts and OpenSSL 3.0 `libcrypto`
-- **Used by:** production recognition composition through `face_gallery_store_port`
+- **Naming registry:** `stor` (`eglry`, `mdsql`)
+- **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
+- **Used by:** recognition composition and the planned metadata output service
 
 ## Responsibility
 
@@ -19,6 +17,9 @@ authority.
   same-directory temp + fsync + atomic rename.
 - Enforce owner-only files (0600) and an owner-only directory (0700), rejecting symlinked
   or group/other-accessible paths.
+- Commit each metadata revision and its bounded delivery-outbox rows atomically, then serve
+  authorized prepared queries through stable snapshot/keyset paging.
+- Keep metadata I/O outside frame, inference, DSP and renderer workers.
 
 ## Contents
 
@@ -26,6 +27,8 @@ authority.
 |---|---|
 | `vqec_vision_encrypted_face_gallery_store.cpp` | OpenSSL AES-256-GCM store, key lifecycle, lock/CAS and atomic replacement |
 | `vqec_vision_encrypted_face_gallery_store.hpp` | Adapter-private configuration and neutral store implementation |
+| `vqec_vision_sqlite_metadata_store.cpp` | SQLite WAL record/outbox transaction and authorized query facade |
+| `vqec_vision_sqlite_metadata_store.hpp` | Adapter configuration and blocking storage API |
 
 ## Key and file layout
 
@@ -46,3 +49,10 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - `flock` is advisory; a process that ignores it is not blocked. The directory permission
   and ownership checks are the primary defence.
 - Key rotation is not implemented.
+- The metadata adapter is not wired into the service output path. Retention/purge workers,
+  Kafka delivery and a possible cold columnar tier remain separate capabilities.
+
+## See also
+
+- [Metadata query foundation](../../../docs/architecture/metadata_query.md)
+- [Face recognition validation](../../../docs/testing/face_recognition_production_validation.md)

@@ -1,4 +1,22 @@
-# Implementation status — 2026-09-18
+# Implementation status — 2026-09-19
+
+2026-09-19 metadata/query foundation (Plan 2: **ACCEPTED**):
+
+- Machine-readable version 1 coverage fixes D01–D18, Q01–Q30, all S01–S18 security
+  mappings, nine traffic extension profiles and five outcome classes per query. The checker
+  cross-validates the stable usecase identities against the three-team registry.
+- The neutral contract and SQLite WAL adapter validate append-only revisions, commit each
+  fact with its outbox rows, reject conflicting retries, authorize scopes and projections,
+  preserve snapshot/keyset paging, evaluate source coverage and recover after reopen. Q02
+  checks attribute validity at passage time and requires both attribute and trajectory scopes.
+- The approved eSDK neutral suite passes 102/102 under QEMU. The 2026-09-19 native QCS6490
+  contract test passes through the user-authorized `lacai-home` target. A 20,000-record,
+  500-query `FULL`-sync fixture measured 15,048 inserts/s, Q08 p99 16.731 ms, 7,040 KiB
+  maximum RSS and 6,651,904 database bytes.
+- SQLite is the accepted hot transactional baseline. Hybrid Parquet/DuckDB remains conditional:
+  the eSDK has no reviewed dependency and there is no representative product workload proving
+  that the added tier is required. This acceptance does not claim service wiring, model quality,
+  18-usecase sizing, Kafka delivery or physical purge execution.
 
 2026-09-18 three-team contract baseline (Plan 1: **ACCEPTED**):
 

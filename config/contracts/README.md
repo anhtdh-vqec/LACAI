@@ -1,15 +1,16 @@
-# Integration contract data
+# Contract data
 
-Machine-readable v1 registry and conformance cases for the BSP+FW, AI APP and AI Model boundary.
+Machine-readable version 1 integration and metadata/query catalogs with conformance cases.
 
-- **Status:** accepted — checked by the repository contract checker and eSDK CTest.
-- **Naming registry:** `tcont` (`icchk` checker owner)
+- **Status:** accepted — integration and metadata catalogs pass repository and eSDK checks
+- **Naming registry:** `tcont` (`icchk`, `mdqck` checker owners)
 - **Depends on:** canonical version registry and scoped contract documents
 - **Used by:** three-team handoff review and target/model conformance reports
 
 ## Responsibility
 
 - Store stable C01–C10 ownership/producer authority and S01–S18 product identities as reviewable data.
+- Map D01–D18 and Q01–Q30 across all S01–S18 security usecases and future traffic profiles.
 - Provide valid/rejected acceptance cases without embedding secrets, models or private SDK data.
 - Remain deployment-neutral; target values belong in signed/approved conformance receipts.
 
@@ -19,6 +20,8 @@ Machine-readable v1 registry and conformance cases for the BSP+FW, AI APP and AI
 |---|---|
 | `integration_contract_registry.json` | Normative owners, limits, semantics and usecase dependencies |
 | `integration_contract_cases.json` | One valid and one rejected baseline case per contract |
+| `metadata_query_catalog.json` | Record, query, usecase and traffic-extension authority |
+| `metadata_query_cases.json` | Required outcome-class matrix for every Q01–Q30 identity |
 
 ## Limits and next work
 
@@ -26,6 +29,7 @@ Machine-readable v1 registry and conformance cases for the BSP+FW, AI APP and AI
   model implementation.
 - Product receipts are external controlled artifacts and must not contain credentials, model
   binaries, biometric data or private SDK libraries in Git.
+- Metadata outcome rows are contract coverage, not product/model-quality golden data.
 - Receipts use `config/schemas/integration_contract_receipt.schema.json`; producers leave the
   AI APP-owned consumer disposition at `pending` when submitting a handoff.
 

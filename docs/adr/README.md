@@ -16,6 +16,7 @@ Architecture decisions with context, alternatives, consequences, owner and statu
 | [0005](0005_scalable_model_integration.md) | Scalable model integration (packages, roles, alignment) |
 | [0006](0006_unwired_execution_infrastructure.md) | Unwired execution infrastructure in the clean base |
 | [0007](0007_versioned_fastrpc_operations.md) | Versioned FastRPC operation protocol (proposed) |
+| [0008](0008_transactional_metadata_store.md) | Transactional metadata store baseline |
 
 New decisions follow the same template; a decision that changes a public boundary must be
 approved by the affected owner before implementation.

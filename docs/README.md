@@ -37,6 +37,8 @@ For production resource input, see the
 [hardware admission profile](architecture/hardware_admission_profile.md).
 For DSP ownership and the generic protocol requirements, see the
 [Qualcomm FastRPC adapter](architecture/qualcomm_fastrpc_adapter.md).
+For D01–D18 persistence, Q01–Q30 capability semantics and target measurements, see the
+[metadata query foundation](architecture/metadata_query.md).
 
 ## Contracts
 
@@ -80,7 +82,8 @@ upstream facts, not LACAI capability.
 
 `docs/adr/` records decisions in numeric order; ADR 0001 baseline, 0002 plugin backend,
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
-0006 unwired execution infrastructure, and proposed 0007 versioned FastRPC operations.
+0006 unwired execution infrastructure, proposed 0007 versioned FastRPC operations, and
+0008 transactional metadata store baseline.
 
 ## Operations
 
