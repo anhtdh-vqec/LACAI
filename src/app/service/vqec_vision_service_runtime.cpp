@@ -29,6 +29,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_startup.hpp"
+#include "vqec_vision_service_feature_registry.hpp"
 #include "vqec_vision_deployment_config.hpp"
 #include "vqec_vision_cascade_coordinator.hpp"
 #include "vqec_vision_cascade_execution_worker.hpp"
@@ -448,6 +449,17 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     model_decoder_registry decoders;
     tracker_registry trackers;
     feature_processor_registry feature_registry;
+    service_feature_registry compiled_feature_factories;
+    feature_catalog platform_features;
+    const auto compiled_feature_registration =
+        compiled_feature_factories.vqec_vision_ai_appl_sfreg_register_compiled(
+            features, feature_registry, platform_features);
+    if (compiled_feature_registration.code_ != status_code::ok) {
+        std::fprintf(stderr, "compiled feature registration failed (%d): %s\n",
+            static_cast<int>(compiled_feature_registration.code_),
+            compiled_feature_registration.message_.c_str());
+        return 1;
+    }
     std::string tracker_contract;
     std::string attribute_schema_id;
     if (use_production_platform) {
@@ -500,7 +512,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 status_code::ok ||
             production.vqec_vision_ai_appl_pdplt_register_tracker(trackers).code_ !=
                 status_code::ok ||
-            production.vqec_vision_ai_appl_pdplt_register_features(features, feature_registry)
+            production.vqec_vision_ai_appl_pdplt_register_features(
+                platform_features, feature_registry)
                     .code_ != status_code::ok) {
             std::fprintf(stderr, "production platform registration failed\n");
             return 1;
@@ -532,7 +545,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             return 1;
         }
         const auto registered_features =
-            reference.vqec_vision_ai_appl_rplat_register_features(features, feature_registry);
+            reference.vqec_vision_ai_appl_rplat_register_features(
+                platform_features, feature_registry);
         if (registered_features.code_ != status_code::ok) {
             std::fprintf(stderr, "cannot register reference platform features (%d): %s\n",
                 static_cast<int>(registered_features.code_),
@@ -566,7 +580,8 @@ int vqec_vision_ai_appl_svcmn_run_generation(
             return 1;
         }
         const auto registered_features =
-            platform.vqec_vision_ai_appl_fkplt_register_features(features, feature_registry);
+            platform.vqec_vision_ai_appl_fkplt_register_features(
+                platform_features, feature_registry);
         if (registered_features.code_ != status_code::ok) {
             std::fprintf(stderr, "cannot register fake platform features (%d): %s\n",
                 static_cast<int>(registered_features.code_),

@@ -153,6 +153,14 @@ target_include_directories(vqec_vision_ai_application_composition PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>)
 target_link_libraries(vqec_vision_ai_application_composition PUBLIC vqec_vision_ai_source_supervisor)
 set_target_properties(vqec_vision_ai_application_composition PROPERTIES CXX_EXTENSIONS OFF)
+add_library(vqec_vision_ai_service_feature_registry STATIC
+    composition/vqec_vision_service_feature_registry.cpp)
+target_include_directories(vqec_vision_ai_service_feature_registry PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>)
+target_link_libraries(vqec_vision_ai_service_feature_registry PUBLIC
+    vqec_vision_ai_feature_runtime vqec_vision_ai_fire_smoke_feature)
+set_target_properties(vqec_vision_ai_service_feature_registry
+    PROPERTIES CXX_EXTENSIONS OFF)
 add_library(vqec_vision_ai_perception_result_stage STATIC
     pipeline/vqec_vision_perception_result_stage.cpp
     composition/vqec_vision_perception_stage_factory.cpp)
@@ -308,6 +316,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_reference
         vqec_vision_ai_feature_fanout
         vqec_vision_ai_feature_runtime
+        vqec_vision_ai_service_feature_registry
         vqec_vision_ai_embedding
         vqec_vision_ai_deployment_config
         vqec_vision_ai_model_catalog_config

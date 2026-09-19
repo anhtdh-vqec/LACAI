@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "catalog_id": "features_fire_smoke_qcs6490_v1",
+  "model_catalog_ref": "models_person_face_qcs6490_v1",
+  "features": [
+    {
+      "feature_id": "fire_smoke_alarm",
+      "feature_version": "1.0.0",
+      "processor_contract": "fire_smoke_alarm",
+      "configuration_schema": "security.fire_smoke.configuration",
+      "input_mode": "single_model",
+      "model_dependencies": [
+        {
+          "role_id": "fire_smoke_candidates",
+          "model_id": "yolo11n_fire_smoke"
+        }
+      ],
+      "attribute_dependencies": [],
+      "resources": {
+        "max_temporal_bytes_per_source": 1048576,
+        "max_events_per_update": 8,
+        "max_track_references_per_event": 8,
+        "max_fields_per_event": 16
+      }
+    }
+  ]
+}

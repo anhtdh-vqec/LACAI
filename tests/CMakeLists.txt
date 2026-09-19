@@ -60,6 +60,14 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME app_configuration_registry
         COMMAND vqec_vision_ai_app_configuration_registry_test)
+    add_executable(vqec_vision_ai_service_feature_registry_test
+        unit/application/vqec_vision_service_feature_registry_test.cpp)
+    target_link_libraries(vqec_vision_ai_service_feature_registry_test PRIVATE
+        vqec_vision_ai_service_feature_registry)
+    set_target_properties(vqec_vision_ai_service_feature_registry_test
+        PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME service_feature_registry
+        COMMAND vqec_vision_ai_service_feature_registry_test)
     target_link_libraries(vqec_vision_ai_feature_processor_registry_test
         PRIVATE vqec_vision_ai_feature_runtime)
     set_target_properties(vqec_vision_ai_feature_processor_registry_test

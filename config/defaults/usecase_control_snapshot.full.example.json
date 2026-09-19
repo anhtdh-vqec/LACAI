@@ -22,10 +22,10 @@
         "feature_ids": ["face_recognition"]
       },
       {
-        "usecase_id": "fire_smoke_detection",
+        "usecase_id": "security.fire_smoke_detection",
         "usecase_version": "1.0",
         "root_model_ids": ["yolo11n_fire_smoke"],
-        "feature_ids": []
+        "feature_ids": ["fire_smoke_alarm"]
       }
     ]
   },
@@ -52,7 +52,7 @@
     },
     {
       "source_id": "camera_front",
-      "usecase_id": "fire_smoke_detection",
+      "usecase_id": "security.fire_smoke_detection",
       "desired": true,
       "installed": true,
       "entitled": true,
