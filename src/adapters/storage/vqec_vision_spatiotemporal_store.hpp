@@ -28,6 +28,8 @@ struct spatiotemporal_store_config {
 struct spatiotemporal_store_stats {
     std::uint64_t committed_chunks_{0};
     std::uint64_t committed_associations_{0};
+    std::uint64_t committed_episode_revisions_{0};
+    std::uint64_t committed_aggregate_revisions_{0};
     std::uint64_t sealed_shards_{0};
     std::uint64_t store_bytes_{0};
     std::uint64_t orphan_chunks_recovered_{0};
@@ -51,6 +53,14 @@ public:
     [[nodiscard]] status vqec_vision_ai_stor_stsql_ingest_association(
         const track_association_revision& _association);
 
+    [[nodiscard]] status vqec_vision_ai_stor_stsql_ingest_episode(
+        const event_episode_revision& _episode,
+        const std::vector<std::string>& _outbox_sinks);
+
+    [[nodiscard]] status vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+        const aggregate_contribution_revision& _contribution,
+        const std::vector<std::string>& _outbox_sinks);
+
     [[nodiscard]] status vqec_vision_ai_stor_stsql_query(
         const spatiotemporal_query& _query, spatiotemporal_query_page& _page);
 
@@ -62,6 +72,9 @@ public:
 
 private:
     [[nodiscard]] status vqec_vision_ai_stor_stsql_recover_index();
+    [[nodiscard]] status vqec_vision_ai_stor_stsql_query_projection(
+        const spatiotemporal_query& _query, std::uint64_t _snapshot_sequence,
+        spatiotemporal_query_page& _page);
 
     spatiotemporal_store_config config_;
     sqlite3* catalog_{nullptr};

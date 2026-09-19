@@ -86,6 +86,66 @@ CREATE TABLE IF NOT EXISTS association_revisions (
 );
 CREATE INDEX IF NOT EXISTS association_entity_time_idx
     ON association_revisions(entity_id,recorded_ns,global_sequence);
+CREATE TABLE IF NOT EXISTS episode_revisions (
+    global_sequence INTEGER PRIMARY KEY,
+    episode_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    supersedes_revision INTEGER NOT NULL,
+    source_id TEXT NOT NULL,
+    semantic_type TEXT NOT NULL,
+    subject_ref TEXT NOT NULL,
+    scene_revision TEXT NOT NULL,
+    rule_revision TEXT NOT NULL,
+    begin_ns INTEGER NOT NULL,
+    end_ns INTEGER NOT NULL,
+    recorded_ns INTEGER NOT NULL,
+    lifecycle INTEGER NOT NULL,
+    severity_ppm INTEGER NOT NULL,
+    required_access_mask INTEGER NOT NULL,
+    claims BLOB NOT NULL,
+    evidence_references BLOB NOT NULL,
+    canonical_payload BLOB NOT NULL,
+    UNIQUE(episode_id,revision)
+);
+CREATE INDEX IF NOT EXISTS episode_source_time_idx
+    ON episode_revisions(source_id,begin_ns,end_ns,global_sequence);
+CREATE INDEX IF NOT EXISTS episode_semantic_time_idx
+    ON episode_revisions(semantic_type,begin_ns,end_ns,global_sequence);
+CREATE TABLE IF NOT EXISTS aggregate_contribution_revisions (
+    global_sequence INTEGER PRIMARY KEY,
+    contribution_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    supersedes_revision INTEGER NOT NULL,
+    episode_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    aggregate_definition_id TEXT NOT NULL,
+    scene_revision TEXT NOT NULL,
+    definition_revision TEXT NOT NULL,
+    bucket_begin_ns INTEGER NOT NULL,
+    bucket_end_ns INTEGER NOT NULL,
+    recorded_ns INTEGER NOT NULL,
+    operation INTEGER NOT NULL,
+    numerator_microunits INTEGER NOT NULL,
+    denominator_microunits INTEGER NOT NULL,
+    observed_duration_ns INTEGER NOT NULL,
+    expected_duration_ns INTEGER NOT NULL,
+    required_access_mask INTEGER NOT NULL,
+    dimensions BLOB NOT NULL,
+    canonical_payload BLOB NOT NULL,
+    UNIQUE(contribution_id,revision)
+);
+CREATE INDEX IF NOT EXISTS aggregate_definition_time_idx
+    ON aggregate_contribution_revisions(
+        aggregate_definition_id,bucket_begin_ns,bucket_end_ns,global_sequence);
+CREATE TABLE IF NOT EXISTS metadata_outbox (
+    sink_id TEXT NOT NULL,
+    record_family TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    state TEXT NOT NULL,
+    attempt_revision INTEGER NOT NULL,
+    PRIMARY KEY(sink_id,record_family,record_id,revision)
+);
 )sql";
 
 constexpr const char* g_spatiotemporal_detail_schema_sql = R"sql(
@@ -1157,6 +1217,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
             sqlite3_column_int64(snapshot_statement.vqec_vision_ai_stor_stsql_get(), 0));
     }
     _page.snapshot_sequence_ = snapshot;
+    if (_query.collection_ == spatiotemporal_collection::episodes ||
+        _query.collection_ == spatiotemporal_collection::aggregates) {
+        return vqec_vision_ai_stor_stsql_query_projection(_query, snapshot, _page);
+    }
     if (_query.collection_ == spatiotemporal_collection::entities) {
         const auto identity_mask = vqec_vision_ai_cntr_stmet_get_access_domain_mask(
             spatiotemporal_access_domain::identity);

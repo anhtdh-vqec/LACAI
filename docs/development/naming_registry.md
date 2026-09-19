@@ -523,7 +523,9 @@ Packed trajectory codec
 
 SQLite spatiotemporal catalog/detail store
 `src/adapters/storage/vqec_vision_spatiotemporal_store.cpp` uses file_id `stsql`, prefix
-`vqec_vision_ai_stor_stsql_`; its paired private header has the same owner. Unit test
+`vqec_vision_ai_stor_stsql_`; its paired private header and
+`src/adapters/storage/vqec_vision_spatiotemporal_store_projection.cpp` implementation split
+have the same logical owner. Unit test
 `tests/unit/adapters/storage/vqec_vision_spatiotemporal_store_test.cpp` uses file_id `ststst`,
 prefix `vqec_vision_ai_unit_ststst_`; `main` retains the language entrypoint spelling.
 

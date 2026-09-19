@@ -20,7 +20,8 @@ set_target_properties(vqec_vision_ai_sqlite_metadata_store
     PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(vqec_vision_ai_spatiotemporal_store STATIC
-    vqec_vision_spatiotemporal_store.cpp)
+    vqec_vision_spatiotemporal_store.cpp
+    vqec_vision_spatiotemporal_store_projection.cpp)
 target_include_directories(vqec_vision_ai_spatiotemporal_store PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(vqec_vision_ai_spatiotemporal_store

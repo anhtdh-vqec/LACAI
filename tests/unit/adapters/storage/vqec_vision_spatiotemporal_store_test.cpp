@@ -119,6 +119,60 @@ spatiotemporal_query vqec_vision_ai_unit_ststst_make_query() {
     return query;
 }
 
+event_episode_revision vqec_vision_ai_unit_ststst_make_fire_episode(
+    const std::string& _episode_id, std::uint64_t _revision,
+    std::uint64_t _supersedes_revision, std::int64_t _begin_ns,
+    const std::string& _hotspot_cell) {
+    event_episode_revision episode;
+    episode.episode_id_ = _episode_id;
+    episode.revision_ = _revision;
+    episode.supersedes_revision_ = _supersedes_revision;
+    episode.source_id_ = "camera.a";
+    episode.semantic_type_ = "fire_smoke";
+    episode.scene_revision_ = "scene.v1";
+    episode.rule_revision_ = "fire_rule.v1";
+    episode.begin_ns_ = _begin_ns;
+    episode.end_ns_ = _begin_ns + 10000;
+    episode.recorded_ns_ = episode.end_ns_ + static_cast<std::int64_t>(_revision);
+    episode.lifecycle_ = _revision == 1U
+        ? episode_lifecycle::closed
+        : episode_lifecycle::corrected;
+    episode.severity_ppm_ = _revision == 1U ? 700000U : 800000U;
+    episode.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::object);
+    episode.claims_ = {{"hotspot_cell", _hotspot_cell}, {"event_kind", "fire"}};
+    episode.evidence_references_ = {"evidence." + _episode_id};
+    return episode;
+}
+
+aggregate_contribution_revision vqec_vision_ai_unit_ststst_make_fire_contribution(
+    const std::string& _contribution_id, const std::string& _episode_id,
+    std::uint64_t _revision, std::uint64_t _supersedes_revision,
+    const std::string& _hotspot_cell) {
+    aggregate_contribution_revision contribution;
+    contribution.contribution_id_ = _contribution_id;
+    contribution.revision_ = _revision;
+    contribution.supersedes_revision_ = _supersedes_revision;
+    contribution.episode_id_ = _episode_id;
+    contribution.source_id_ = "camera.a";
+    contribution.aggregate_definition_id_ = "fire.incident_count";
+    contribution.scene_revision_ = "scene.v1";
+    contribution.definition_revision_ = "fire_rollup.v1";
+    contribution.bucket_begin_ns_ = 0;
+    contribution.bucket_end_ns_ = 5000000;
+    contribution.recorded_ns_ = 4000000 + static_cast<std::int64_t>(_revision);
+    contribution.numerator_microunits_ = _revision == 1U ? 1000000 : 2000000;
+    contribution.denominator_microunits_ = 1000000;
+    contribution.observed_duration_ns_ = 4000000U;
+    contribution.expected_duration_ns_ = 5000000U;
+    contribution.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::aggregate);
+    contribution.dimensions_ = {{"hotspot_cell", _hotspot_cell}, {"event_kind", "fire"}};
+    return contribution;
+}
+
 void vqec_vision_ai_unit_ststst_require_ok(const status& _status) {
     if (_status.code_ != status_code::ok) {
         std::fprintf(stderr, "spatiotemporal store failure: %s\n", _status.message_.c_str());
@@ -246,10 +300,94 @@ int main() {
     assert(page.associations_.size() == 1U);
     assert(page.associations_.front().revision_ == 1U);
 
+    const auto fire_a_v1 = vqec_vision_ai_unit_ststst_make_fire_episode(
+        "fire.a", 1U, 0U, 300000, "grid_3_4");
+    auto fire_a_v2 = vqec_vision_ai_unit_ststst_make_fire_episode(
+        "fire.a", 2U, 1U, 300000, "grid_3_4");
+    const auto fire_b_v1 = vqec_vision_ai_unit_ststst_make_fire_episode(
+        "fire.b", 1U, 0U, 600000, "grid_3_4");
+    assert(store.vqec_vision_ai_stor_stsql_ingest_episode(
+               fire_a_v1, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(store.vqec_vision_ai_stor_stsql_ingest_episode(
+               fire_a_v2, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(store.vqec_vision_ai_stor_stsql_ingest_episode(
+               fire_a_v2, {"kafka.metadata"}).code_ == status_code::ok);
+    auto conflicting_episode = fire_a_v2;
+    conflicting_episode.severity_ppm_ = 900000U;
+    assert(store.vqec_vision_ai_stor_stsql_ingest_episode(
+               conflicting_episode, {}).code_ == status_code::invalid_argument);
+    assert(store.vqec_vision_ai_stor_stsql_ingest_episode(
+               fire_b_v1, {}).code_ == status_code::ok);
+
+    auto episode_query = vqec_vision_ai_unit_ststst_make_query();
+    episode_query.collection_ = spatiotemporal_collection::episodes;
+    episode_query.semantic_type_ = "fire_smoke";
+    episode_query.allowed_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::object);
+    assert(store.vqec_vision_ai_stor_stsql_query(episode_query, page).code_ ==
+           status_code::ok);
+    assert(page.episodes_.size() == 2U);
+    assert(page.episodes_.front().revision_ == 2U);
+    auto observed_episode_query = episode_query;
+    observed_episode_query.revision_view_ = spatiotemporal_revision_view::as_observed;
+    observed_episode_query.budget_.deadline_ns_ =
+        vqec_vision_ai_unit_ststst_get_deadline_ns();
+    assert(store.vqec_vision_ai_stor_stsql_query(observed_episode_query, page).code_ ==
+           status_code::ok);
+    assert(page.episodes_.size() == 2U);
+    assert(page.episodes_.front().revision_ == 1U);
+
+    auto contribution_a = vqec_vision_ai_unit_ststst_make_fire_contribution(
+        "fire.contribution.a", "fire.a", 1U, 0U, "grid_3_4");
+    auto contribution_b = vqec_vision_ai_unit_ststst_make_fire_contribution(
+        "fire.contribution.b", "fire.b", 1U, 0U, "grid_3_4");
+    assert(store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_a, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_b, {}).code_ == status_code::ok);
+    assert(store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_b, {}).code_ == status_code::ok);
+    auto contribution_a_v2 = contribution_a;
+    contribution_a_v2.revision_ = 2U;
+    contribution_a_v2.supersedes_revision_ = 1U;
+    contribution_a_v2.recorded_ns_ += 100U;
+    contribution_a_v2.numerator_microunits_ = 2000000;
+    assert(store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_a_v2, {}).code_ == status_code::ok);
+
+    auto aggregate_query = vqec_vision_ai_unit_ststst_make_query();
+    aggregate_query.collection_ = spatiotemporal_collection::aggregates;
+    aggregate_query.semantic_type_ = "fire.incident_count";
+    aggregate_query.allowed_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::aggregate);
+    assert(store.vqec_vision_ai_stor_stsql_query(aggregate_query, page).code_ ==
+           status_code::ok);
+    assert(page.aggregate_buckets_.size() == 1U);
+    assert(page.aggregate_buckets_.front().contribution_count_ == 2U);
+    assert(page.aggregate_buckets_.front().numerator_microunits_ == 3000000);
+
+    auto contribution_b_v2 = contribution_b;
+    contribution_b_v2.revision_ = 2U;
+    contribution_b_v2.supersedes_revision_ = 1U;
+    contribution_b_v2.recorded_ns_ += 100U;
+    contribution_b_v2.operation_ = aggregate_contribution_operation::retract;
+    assert(store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_b_v2, {}).code_ == status_code::ok);
+    aggregate_query.budget_.deadline_ns_ = vqec_vision_ai_unit_ststst_get_deadline_ns();
+    assert(store.vqec_vision_ai_stor_stsql_query(aggregate_query, page).code_ ==
+           status_code::ok);
+    assert(page.aggregate_buckets_.size() == 1U);
+    assert(page.aggregate_buckets_.front().contribution_count_ == 1U);
+    assert(page.aggregate_buckets_.front().numerator_microunits_ == 2000000);
+
     assert(store.vqec_vision_ai_stor_stsql_seal_before(1000000U).code_ == status_code::ok);
     spatiotemporal_store_stats stats;
     assert(store.vqec_vision_ai_stor_stsql_get_stats(stats).code_ == status_code::ok);
     assert(stats.committed_chunks_ == 3U && stats.committed_associations_ == 2U);
+    assert(stats.committed_episode_revisions_ == 3U);
+    assert(stats.committed_aggregate_revisions_ == 4U);
     assert(stats.sealed_shards_ == 1U);
     assert(store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
 
