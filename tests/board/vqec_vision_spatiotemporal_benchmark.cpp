@@ -45,8 +45,10 @@ struct benchmark_options {
     std::filesystem::path root_;
     std::uint64_t duration_seconds_{g_default_duration_seconds};
     std::uint64_t sets_per_second_{g_default_sets_per_second};
+    std::uint64_t sequence_base_{0U};
     std::size_t source_count_{g_default_source_count};
     bool is_full_sync_{true};
+    bool allow_existing_{false};
 };
 
 struct benchmark_result {
@@ -78,6 +80,15 @@ bool vqec_vision_ai_board_stben_parse(
         std::uint64_t parsed = 0U;
         if (option == "--root") {
             _options.root_ = value;
+        } else if (option == "--allow-existing") {
+            const std::string enabled = value;
+            if (enabled == "true") {
+                _options.allow_existing_ = true;
+            } else if (enabled == "false") {
+                _options.allow_existing_ = false;
+            } else {
+                return false;
+            }
         } else if (option == "--sync") {
             const std::string sync = value;
             if (sync == "full") {
@@ -93,6 +104,9 @@ bool vqec_vision_ai_board_stben_parse(
         } else if (option == "--sets-per-second" &&
                    vqec_vision_ai_board_stben_parse_u64(value, parsed)) {
             _options.sets_per_second_ = parsed;
+        } else if (option == "--sequence-base" &&
+                   vqec_vision_ai_board_stben_parse_u64(value, parsed)) {
+            _options.sequence_base_ = parsed;
         } else if (option == "--sources" &&
                    vqec_vision_ai_board_stben_parse_u64(value, parsed) &&
                    parsed <= g_maximum_source_count) {
@@ -298,7 +312,7 @@ std::uint64_t vqec_vision_ai_board_stben_store_bytes(
 
 int vqec_vision_ai_board_stben_run(const benchmark_options& _options) {
     std::error_code error;
-    if (std::filesystem::exists(_options.root_, error) &&
+    if (!_options.allow_existing_ && std::filesystem::exists(_options.root_, error) &&
         (!std::filesystem::is_directory(_options.root_, error) ||
             std::filesystem::directory_iterator(_options.root_, error) !=
                 std::filesystem::directory_iterator{})) {
@@ -312,12 +326,13 @@ int vqec_vision_ai_board_stben_run(const benchmark_options& _options) {
         return 3;
     }
     benchmark_result result;
-    std::uint64_t sequence = 0U;
-    for (; sequence < g_fixture_scenarios.size(); ++sequence) {
+    std::uint64_t sequence = _options.sequence_base_;
+    for (std::size_t scenario_index = 0U;
+         scenario_index < g_fixture_scenarios.size(); ++scenario_index, ++sequence) {
         const auto source = vqec_vision_ai_board_stben_source(
             static_cast<std::size_t>(sequence % _options.source_count_));
         const auto episode = vqec_vision_ai_board_stben_episode(
-            sequence, source, g_fixture_scenarios[sequence]);
+            sequence, source, g_fixture_scenarios[scenario_index]);
         const auto contribution = vqec_vision_ai_board_stben_contribution(sequence, episode);
         const auto chunk = vqec_vision_ai_board_stben_chunk(sequence, source);
         ++result.attempted_sets_;
@@ -443,7 +458,8 @@ int main(int argc, char** argv) {
     if (!vqec_vision_ai_board_stben_parse(argc, argv, options)) {
         std::fprintf(stderr,
             "usage: %s --root PATH [--duration-seconds N] [--sets-per-second N] "
-            "[--sources 1..16] [--sync full|normal]\n", argv[0]);
+            "[--sources 1..16] [--sync full|normal] "
+            "[--allow-existing true|false] [--sequence-base N]\n", argv[0]);
         return 1;
     }
     return vqec_vision_ai_board_stben_run(options);
