@@ -27,6 +27,46 @@ bool vqec_vision_ai_core_stmet_is_point_in_bounds(
            _point.anchor_y_ <= _chunk.bounds_bottom_;
 }
 
+bool vqec_vision_ai_core_stmet_are_dimensions_valid(
+    const std::vector<spatiotemporal_dimension>& _dimensions, std::size_t _maximum) {
+    if (_dimensions.size() > _maximum) {
+        return false;
+    }
+    std::unordered_set<std::string> keys;
+    for (const auto& dimension : _dimensions) {
+        if (!vqec_vision_ai_cntr_ident_is_valid(
+                dimension.key_, g_spatiotemporal_max_identifier_bytes) ||
+            !vqec_vision_ai_cntr_ident_is_valid(
+                dimension.value_, g_spatiotemporal_max_identifier_bytes) ||
+            !keys.insert(dimension.key_).second) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool vqec_vision_ai_core_stmet_are_references_valid(
+    const std::vector<std::string>& _references) {
+    if (_references.size() > g_spatiotemporal_max_episode_references) {
+        return false;
+    }
+    std::unordered_set<std::string> unique;
+    return std::all_of(_references.begin(), _references.end(),
+        [&unique](const auto& _reference) {
+            return vqec_vision_ai_cntr_ident_is_valid(
+                       _reference, g_spatiotemporal_max_identifier_bytes) &&
+                unique.insert(_reference).second;
+        });
+}
+
+bool vqec_vision_ai_core_stmet_is_revision_chain_valid(
+    std::uint64_t _revision, std::uint64_t _supersedes_revision) {
+    return _revision != 0U &&
+        ((_revision == 1U && _supersedes_revision == 0U) ||
+            (_revision > 1U && _supersedes_revision == _revision - 1U)) &&
+        _revision <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+}
+
 }  // namespace
 
 status vqec_vision_ai_cntr_stmet_validate_frame_locator(
@@ -205,6 +245,80 @@ status vqec_vision_ai_cntr_stmet_validate_association_revision(
             static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         review_state == 0U || review_state > 4U || _association.recorded_ns_ < 0) {
         return {status_code::invalid_argument, "association revision is invalid"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_cntr_stmet_validate_episode_revision(
+    const event_episode_revision& _episode) {
+    if (_episode.schema_version_ != g_spatiotemporal_metadata_schema_version ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _episode.episode_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _episode.source_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _episode.semantic_type_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_core_stmet_is_optional_identifier_valid(_episode.subject_ref_) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _episode.scene_revision_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _episode.rule_revision_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_core_stmet_is_revision_chain_valid(
+            _episode.revision_, _episode.supersedes_revision_) ||
+        _episode.begin_ns_ < 0 || _episode.end_ns_ <= _episode.begin_ns_ ||
+        _episode.recorded_ns_ < 0 ||
+        _episode.severity_ppm_ > g_spatiotemporal_score_scale_ppm ||
+        _episode.required_access_domain_mask_ == 0U ||
+        (_episode.required_access_domain_mask_ & ~g_spatiotemporal_all_access_domains) != 0U ||
+        !vqec_vision_ai_core_stmet_are_dimensions_valid(
+            _episode.claims_, g_spatiotemporal_max_episode_claims) ||
+        !vqec_vision_ai_core_stmet_are_references_valid(_episode.evidence_references_)) {
+        return {status_code::invalid_argument, "episode revision is invalid"};
+    }
+    const auto lifecycle = static_cast<unsigned int>(_episode.lifecycle_);
+    if (lifecycle == 0U || lifecycle > 5U ||
+        (_episode.revision_ == 1U &&
+            (_episode.lifecycle_ == episode_lifecycle::corrected ||
+                _episode.lifecycle_ == episode_lifecycle::tombstoned))) {
+        return {status_code::invalid_argument, "episode lifecycle is invalid"};
+    }
+    return {};
+}
+
+status vqec_vision_ai_cntr_stmet_validate_aggregate_contribution(
+    const aggregate_contribution_revision& _contribution) {
+    if (_contribution.schema_version_ != g_spatiotemporal_metadata_schema_version ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _contribution.contribution_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_core_stmet_is_optional_identifier_valid(_contribution.episode_id_) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _contribution.source_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _contribution.aggregate_definition_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _contribution.scene_revision_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _contribution.definition_revision_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_core_stmet_is_revision_chain_valid(
+            _contribution.revision_, _contribution.supersedes_revision_) ||
+        _contribution.bucket_begin_ns_ < 0 ||
+        _contribution.bucket_end_ns_ <= _contribution.bucket_begin_ns_ ||
+        _contribution.recorded_ns_ < 0 ||
+        _contribution.observed_duration_ns_ > _contribution.expected_duration_ns_ ||
+        _contribution.expected_duration_ns_ >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        _contribution.required_access_domain_mask_ == 0U ||
+        (_contribution.required_access_domain_mask_ &
+            ~g_spatiotemporal_all_access_domains) != 0U ||
+        !vqec_vision_ai_core_stmet_are_dimensions_valid(
+            _contribution.dimensions_, g_spatiotemporal_max_query_dimensions)) {
+        return {status_code::invalid_argument, "aggregate contribution is invalid"};
+    }
+    const auto operation = static_cast<unsigned int>(_contribution.operation_);
+    if (operation == 0U || operation > 2U ||
+        (_contribution.revision_ == 1U &&
+            _contribution.operation_ == aggregate_contribution_operation::retract)) {
+        return {status_code::invalid_argument, "aggregate operation is invalid"};
     }
     return {};
 }

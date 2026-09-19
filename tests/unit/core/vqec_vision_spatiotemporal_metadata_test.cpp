@@ -124,6 +124,56 @@ int main() {
     assert(vqec_vision_ai_cntr_stmet_validate_association_revision(association).code_ ==
            status_code::invalid_argument);
 
+    event_episode_revision episode;
+    episode.episode_id_ = "episode.fire.1";
+    episode.revision_ = 1U;
+    episode.source_id_ = g_fixture_source_id;
+    episode.semantic_type_ = "fire_smoke";
+    episode.scene_revision_ = "scene.v1";
+    episode.rule_revision_ = "fire_rule.v1";
+    episode.begin_ns_ = 1000;
+    episode.end_ns_ = 10000;
+    episode.recorded_ns_ = 11000;
+    episode.lifecycle_ = episode_lifecycle::closed;
+    episode.severity_ppm_ = 700000U;
+    episode.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::object);
+    episode.claims_ = {{"hotspot_cell", "grid_3_4"}, {"event_kind", "fire"}};
+    episode.evidence_references_ = {"evidence.fire.1"};
+    assert(vqec_vision_ai_cntr_stmet_validate_episode_revision(episode).code_ ==
+           status_code::ok);
+    auto duplicate_claim = episode;
+    duplicate_claim.claims_.push_back({"hotspot_cell", "grid_4_4"});
+    assert(vqec_vision_ai_cntr_stmet_validate_episode_revision(duplicate_claim).code_ ==
+           status_code::invalid_argument);
+
+    aggregate_contribution_revision contribution;
+    contribution.contribution_id_ = "contribution.fire.1";
+    contribution.revision_ = 1U;
+    contribution.episode_id_ = episode.episode_id_;
+    contribution.source_id_ = g_fixture_source_id;
+    contribution.aggregate_definition_id_ = "fire.incident_count";
+    contribution.scene_revision_ = "scene.v1";
+    contribution.definition_revision_ = "fire_rollup.v1";
+    contribution.bucket_begin_ns_ = 0;
+    contribution.bucket_end_ns_ = 100000;
+    contribution.recorded_ns_ = 11000;
+    contribution.numerator_microunits_ = 1000000;
+    contribution.denominator_microunits_ = 1000000;
+    contribution.observed_duration_ns_ = 9000U;
+    contribution.expected_duration_ns_ = 10000U;
+    contribution.required_access_domain_mask_ =
+        vqec_vision_ai_cntr_stmet_get_access_domain_mask(
+            spatiotemporal_access_domain::aggregate);
+    contribution.dimensions_ = {{"hotspot_cell", "grid_3_4"}};
+    assert(vqec_vision_ai_cntr_stmet_validate_aggregate_contribution(contribution).code_ ==
+           status_code::ok);
+    auto invalid_retraction = contribution;
+    invalid_retraction.operation_ = aggregate_contribution_operation::retract;
+    assert(vqec_vision_ai_cntr_stmet_validate_aggregate_contribution(
+               invalid_retraction).code_ == status_code::invalid_argument);
+
     spatiotemporal_query query;
     query.request_id_ = "request.1";
     query.source_ids_ = {g_fixture_source_id};

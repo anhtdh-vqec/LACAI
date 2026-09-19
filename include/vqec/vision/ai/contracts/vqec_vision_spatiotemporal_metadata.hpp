@@ -18,6 +18,8 @@ inline constexpr std::size_t g_spatiotemporal_max_points_per_chunk = 4096U;
 inline constexpr std::size_t g_spatiotemporal_max_query_sources = 16U;
 inline constexpr std::size_t g_spatiotemporal_max_query_dimensions = 16U;
 inline constexpr std::size_t g_spatiotemporal_max_outbox_sinks = 8U;
+inline constexpr std::size_t g_spatiotemporal_max_episode_claims = 32U;
+inline constexpr std::size_t g_spatiotemporal_max_episode_references = 32U;
 inline constexpr std::uint32_t g_spatiotemporal_score_scale_ppm = 1000000U;
 
 enum class spatiotemporal_coordinate_space : std::uint8_t {
@@ -169,6 +171,103 @@ struct track_association_revision {
     std::int64_t recorded_ns_{0};
 };
 
+struct spatiotemporal_dimension {
+    std::string key_;
+    std::string value_;
+};
+
+enum class episode_lifecycle : std::uint8_t {
+    opened = 1,
+    updated,
+    closed,
+    corrected,
+    tombstoned
+};
+
+// An episode is a versioned interval fact, not one detection per frame. Producers retain
+// their stable episode_id across updates and corrections so retries cannot increase counts.
+struct event_episode_revision {
+    std::uint32_t schema_version_{g_spatiotemporal_metadata_schema_version};
+    std::string episode_id_;
+    std::uint64_t revision_{0};
+    std::uint64_t supersedes_revision_{0};
+    std::string source_id_;
+    std::string semantic_type_;
+    std::string subject_ref_;
+    std::string scene_revision_;
+    std::string rule_revision_;
+    std::int64_t begin_ns_{0};
+    std::int64_t end_ns_{0};
+    std::int64_t recorded_ns_{0};
+    episode_lifecycle lifecycle_{episode_lifecycle::opened};
+    std::uint32_t severity_ppm_{0};
+    std::uint32_t required_access_domain_mask_{0};
+    std::vector<spatiotemporal_dimension> claims_;
+    std::vector<std::string> evidence_references_;
+};
+
+enum class aggregate_contribution_operation : std::uint8_t {
+    add = 1,
+    retract
+};
+
+// Contributions are the durable idempotency boundary for rollups. Corrections append a new
+// revision that supersedes the prior revision; rollup readers apply only the selected revision.
+struct aggregate_contribution_revision {
+    std::uint32_t schema_version_{g_spatiotemporal_metadata_schema_version};
+    std::string contribution_id_;
+    std::uint64_t revision_{0};
+    std::uint64_t supersedes_revision_{0};
+    std::string episode_id_;
+    std::string source_id_;
+    std::string aggregate_definition_id_;
+    std::string scene_revision_;
+    std::string definition_revision_;
+    std::int64_t bucket_begin_ns_{0};
+    std::int64_t bucket_end_ns_{0};
+    std::int64_t recorded_ns_{0};
+    aggregate_contribution_operation operation_{aggregate_contribution_operation::add};
+    std::int64_t numerator_microunits_{0};
+    std::int64_t denominator_microunits_{0};
+    std::uint64_t observed_duration_ns_{0};
+    std::uint64_t expected_duration_ns_{0};
+    std::uint32_t required_access_domain_mask_{0};
+    std::vector<spatiotemporal_dimension> dimensions_;
+};
+
+struct aggregate_bucket {
+    std::string aggregate_definition_id_;
+    std::string source_id_;
+    std::string scene_revision_;
+    std::string definition_revision_;
+    std::int64_t bucket_begin_ns_{0};
+    std::int64_t bucket_end_ns_{0};
+    std::int64_t numerator_microunits_{0};
+    std::int64_t denominator_microunits_{0};
+    std::uint64_t observed_duration_ns_{0};
+    std::uint64_t expected_duration_ns_{0};
+    std::uint64_t contribution_count_{0};
+    std::vector<spatiotemporal_dimension> dimensions_;
+};
+
+enum class live_trajectory_operation : std::uint8_t {
+    upsert = 1,
+    remove,
+    reset
+};
+
+struct live_trajectory_delta {
+    std::uint64_t sequence_{0};
+    live_trajectory_operation operation_{live_trajectory_operation::upsert};
+    spatiotemporal_track_key track_;
+    trajectory_chunk chunk_;
+};
+
+struct live_trajectory_snapshot {
+    std::uint64_t sequence_{0};
+    std::vector<trajectory_chunk> chunks_;
+};
+
 enum class spatiotemporal_collection : std::uint8_t {
     observations = 1,
     tracklets,
@@ -258,6 +357,8 @@ struct spatiotemporal_query_page {
     std::uint64_t result_bytes_{0};
     std::vector<trajectory_chunk> trajectory_chunks_;
     std::vector<track_association_revision> associations_;
+    std::vector<event_episode_revision> episodes_;
+    std::vector<aggregate_bucket> aggregate_buckets_;
     bool has_more_{false};
     bool has_coverage_gap_{false};
 };
@@ -278,6 +379,12 @@ struct spatiotemporal_query_page {
 
 [[nodiscard]] status vqec_vision_ai_cntr_stmet_validate_association_revision(
     const track_association_revision& _association);
+
+[[nodiscard]] status vqec_vision_ai_cntr_stmet_validate_episode_revision(
+    const event_episode_revision& _episode);
+
+[[nodiscard]] status vqec_vision_ai_cntr_stmet_validate_aggregate_contribution(
+    const aggregate_contribution_revision& _contribution);
 
 [[nodiscard]] status vqec_vision_ai_cntr_stmet_validate_query(
     const spatiotemporal_query& _query);
