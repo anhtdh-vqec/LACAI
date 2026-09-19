@@ -27,7 +27,7 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
 | `composition/` | Top-level owner factories and dependency assembly; no service CLI parsing |
 | `pipeline/` | Bounded frame/result/feature/media progress steps; no platform construction |
 | `platform/` | Fake, reference and production platform owner bundles |
-| `service/` | Executable entry point and cold-path CLI/configuration parsing |
+| `service/` | Minimal executable entry point, lifecycle controller and cold-path configuration |
 | `session/` | One-source and multi-model acquisition/graph lifecycle ownership |
 | `supervision/` | Multi-source fairness, worker ownership and runtime execution loop |
 | `CMakeLists.txt` | Declares the application targets and explicit private include boundaries |

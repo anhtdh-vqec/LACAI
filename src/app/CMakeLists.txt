@@ -235,6 +235,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
    TARGET vqec_vision_ai_usecase_config)
     add_executable(vqec_ai_vision_applications
         service/vqec_vision_service_main.cpp
+        service/vqec_vision_service_runtime.cpp
         platform/vqec_vision_fake_platform.cpp
         platform/vqec_vision_reference_platform.cpp
         platform/vqec_vision_fixture_detector.cpp)

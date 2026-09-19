@@ -619,7 +619,9 @@ Runtime composition factory registrations (source delivered):
 | src/app/composition/vqec_vision_runtime_composition_factory.cpp | rcfac | vqec_vision_ai_appl_rcfac_ |
 | tests/contract/application/vqec_vision_runtime_composition_factory_test.cpp | rcfct | vqec_vision_ai_ctest_rcfct_ |
 | src/app/supervision/vqec_vision_runtime_executor.cpp | rtexe | vqec_vision_ai_appl_rtexe_ |
-| src/app/service/vqec_vision_service_main.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/service/vqec_vision_service_main.cpp | main | C++ language entrypoint only |
+| src/app/service/vqec_vision_service_runtime.hpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/service/vqec_vision_service_runtime.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
 | src/app/service/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
 | src/app/service/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
 | tests/unit/application/vqec_vision_service_options_test.cpp | sotst | vqec_vision_ai_unit_sotst_ |
