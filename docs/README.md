@@ -81,6 +81,9 @@ unfinished work and do not carry current-capability claims.
 validation runbooks. Start with the [board workspace and workflow](testing/board_workspace.md)
 for the standard `/opt/lacai` layout and the build/stage/test/run procedure; dated raw runs
 are retained and never retroactively updated.
+The [fire/smoke product slice validation](testing/fire_smoke_product_slice_validation.md)
+records the exact S04/App Manager/no-data/startup/toggle/reference-evidence candidate and its
+remaining external gates.
 
 ## Research
 

@@ -3,9 +3,9 @@
 The fire/smoke package converts model candidates into bounded semantic incident episodes using a
 typed application configuration.
 
-- **Status:** board-smoke — processor, strict configuration, App Manager registration and S04
-  metadata/hotspot projection are source-delivered; evidence transport and model-quality receipt
-  acceptance remain open
+- **Status:** board-smoke — processor, strict configuration, App Manager registration, S04
+  metadata/hotspot projection and AI-owned durable evidence transport passed the compatibility
+  board; model-quality and released-FW evidence acceptance remain open
 - **Layer:** features
 - **Naming registry:** `fires` (`fsalm`, `fsfac`)
 - **Depends on:** neutral observation, feature-event and processor-factory contracts
@@ -34,7 +34,8 @@ an identifier alone.
 
 - The current association is bounded IoU/track matching, not a qualified smoke/fire tracker.
 - Model quality and candidate-floor compatibility need signed quality receipts.
-- Durable evidence outbox/receipt transport and signed model-quality receipts remain open.
+- The AI-owned durable outbox, UDS client, retry/revocation worker and reference receiver are
+  delivered. A released-FW receiver/media receipt and signed model-quality receipts remain open.
 
 ## See also
 

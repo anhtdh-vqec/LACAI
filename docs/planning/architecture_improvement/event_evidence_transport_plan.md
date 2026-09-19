@@ -4,7 +4,9 @@ Plan này xây đường event đáng tin cậy từ AI APP sang FW để tạo 
 D-Bus control/config và khỏi frame loop. Mặc định dùng UDS `SOCK_SEQPACKET` + durable outbox;
 SHM chỉ là tối ưu live metadata sau khi đo.
 
-- **Status:** planned — chưa có event transport/evidence client production.
+- **Status:** board-smoke — AI APP E02/E03/E05 đã có neutral contract, SQLite outbox, UDS v1,
+  retry/revoke worker và reference receiver chạy trên board; E01 joint sign-off và E04/E06/E07
+  với released FW vẫn mở.
 - **Layer:** docs
 - **Source:** [feature event dispatch](../../architecture/feature_event_dispatch.md),
   [FW release compatibility](../../contracts/fw_release_compatibility.md), `n/a` cho giao thức mới.
@@ -136,9 +138,26 @@ bằng chứng AI-side, không thay released-FW acceptance ở E07.
 E01–E04 cần C01/C04/C07 từ contract plan. E05 nhận schema/query outbox từ metadata plan.
 E07 là input integration plan; chỉ sau released-FW receipt mới đóng C07.
 
+## Trạng thái thực thi 2026-09-20
+
+| Task | Trạng thái | Bằng chứng hoặc blocker |
+|---|---|---|
+| E01 | blocked-external | Chưa có chữ ký C07 của BSP+FW cho receiver/media receipt |
+| E02 | logic-tested | Neutral command/receipt/outbox ports và recovery tests pass eSDK |
+| E03 | board-smoke | Bounded v1 `SOCK_SEQPACKET`, peer UID và malformed/version tests pass |
+| E04 | blocked-external | AI reference receiver có dedup; durable released-FW inbox chưa được giao |
+| E05 | board-smoke | Feature output runtime, durable outbox, retry/revoke và probe board pass |
+| E06 | blocked-external | Prebuffer/profile/source mapping thuộc released FW |
+| E07 | blocked-external | Chưa có actual media interval/gap receipt từ released FW |
+| E08 | not-required | Chưa có profiler evidence buộc dùng SHM; UDS không nằm trên frame hot path |
+
+AI APP đã đóng phần source và compatibility-board thuộc quyền sở hữu của mình. Reference receiver
+không được đổi tên thành FW mock production hoặc dùng để tick E04/E06/E07.
+
 ## Giới hạn và công việc tiếp theo
 
-- Chưa có FW-approved event ABI; không sửa source production trước sign-off E01.
+- Wire v1 AI-side đã được source-delivered để khóa parser/outbox; chưa có FW-approved C07 nên
+  released receiver vẫn không được tuyên bố tương thích.
 - Pre-roll, media source và retention do BSP+FW xác nhận theo release; AI APP không tự hứa.
 
 ## See also

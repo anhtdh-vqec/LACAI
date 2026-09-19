@@ -3,9 +3,11 @@
 Tài liệu đầu mối cho đợt cải tiến LACAI: tổng hợp đánh giá kiến trúc hiện tại, thiết kế
 metadata/trajectory hai đường local và Kafka, giao tiếp evidence với FW, phân chia phạm vi
 AI/FW, và hướng giảm tải ARM bằng DSP nhưng giữ khả năng thay nền tảng.
-Ngày rà soát: 2026-09-17. Đây là đề xuất để triển khai và review tiếp, không phải hợp đồng đã duyệt.
+Ngày rà soát: 2026-09-20. Đây là tài liệu điều phối triển khai và review; trạng thái của từng
+plan chỉ được xác lập theo gate và bằng chứng riêng của plan đó.
 
-- **Status:** planned — phân tích source và bằng chứng đã ghi nhận; các thay đổi đề xuất chưa triển khai.
+- **Status:** board-smoke — Plan 0, Plan 2 và phạm vi AI APP của Plan 4 đã qua gate riêng;
+  product slice S04/App Manager đã qua board-smoke nhưng chưa đạt acceptance toàn bộ.
 - **Layer:** docs
 - **Naming registry:** không áp dụng; thư mục kế hoạch, không khai báo source mới.
 - **Depends on:** hợp đồng LACAI hiện tại, source AI APP và source FW tham chiếu.
@@ -152,24 +154,7 @@ Các nhãn A01–A16 dưới đây chỉ thuộc README này, không ánh xạ t
 | A04 | P1 | `production_platform.cpp:638–668` graph/processor bỏ qua `source_slot`; composition factory từ chối graph pointer trùng | Cần instance/binding theo source-model hoặc executor dùng chung có ticket/fairness được thiết kế rõ; không bỏ check trùng để che lỗi |
 | A05 | P1 | Production yêu cầu dimensions nguồn bằng nhau khi chia decoder, secondary cascade chỉ một source; preview ring cũng giới hạn một source | Công bố capability đúng; tách per-binding transform/tracker/decoder state; test cùng detector trên hai nguồn khác kích thước |
 | A06 | P0 | `production_platform.cpp:680` gọi renderer trực tiếp; `qtiv_renderer.cpp:458–522` copy, encode, ghi ring riêng | Đi qua authorization/freshness/correlation/demand gate thật; helper `encoded_dispatch` có source không có nghĩa đường production dùng nó |
-| A07 | P1 | Renderer tạo PTS từ bộ đếm submission; cache overlay trong `service_maPhát hiện hút thuốc trong khu vực cấm 
-Phát hiện vật thể nghi ngờ (vũ khí ) 
-Giám sát mũ bảo hộ , áo phản quang ( PPE ) 
-Phát hiện cháy/khói 
-Phát hiện người trong blacklist 
-Nhận diện điểm danh 
-Tuổi/Giới tính
-Theo dõi mật độ người theo thời gian (heatmap) 
-Phát hiện xâm nhập trái phép 
-Thống kê người ra/vào khu vực 
-Theo dõi người 
-Cảnh báo theo ngữ cảnh Vision language model 
-Phát hiện bị bỏ quên, biến mất 
-Truy vết đồ thất lạc 
-Theo dỗi hành lí , xe đẩy 
-Nhận diện biển số xe  - 15/10 
-Phát hiện hành vi tụ tập đám đông
-Phát hiện hành vi bất thường (ẩu đả, xung đột)in.cpp:509–532` ghép latest observations của nhiều model | Giữ mapping frame/epoch/clock; TTL riêng từng observation; không coi box cũ và video mới là cùng frame; evidence không dùng timestamp suy đoán |
+| A07 | P1 | Renderer tạo PTS từ bộ đếm submission; cache overlay trong service ghép latest observations của nhiều model | Giữ mapping frame/epoch/clock; TTL riêng từng observation; không coi box cũ và video mới là cùng frame; evidence không dùng timestamp suy đoán |
 | A08 | P0 | Production lấy đường model library từ JSON; helper `artifact_digest` chưa đóng kín đường load artifact | Tích hợp manifest đã xác thực, allowed roots và tải artifact bất biến; hash không phải chữ ký, receipt không tự chống TOCTOU |
 | A09 | P1 | Executor gọi cascade đồng bộ; coordinator align/quantize/submit theo ROI; stop pump join worker | Bounded task scheduling, control responsive, stop có trạng thái drain/quarantine; không giả hủy DMA bằng timeout |
 | A10 | P1 | `fastcv_processor`, `fastcv_aligner`, QNN output copy và renderer full-frame copy vẫn có ARM work | Profile rồi bỏ copy/convert đúng điểm; offload DSP theo mục 10, không đánh giá chỉ bằng tên FastCV |
@@ -1224,10 +1209,10 @@ output và acceptance riêng; status của một plan không tự nâng status c
 |---|---|---|---|
 | [Plan 0. Production composition foundation](../../development/production_composition_foundation_review.md) | AI APP lead | Technical foundation UNBLOCKED; board-smoke .98 | Scoped authority, async cascade, clean drain và single-source observation profile; product/owner acceptance chưa thay thế |
 | [1. Contract và phạm vi team](contract_and_team_scope.md) | AI APP lead | **Accepted 2026-09-18**; BSP/FW và Model nộp receipts theo registry | C01–C10 machine registry, S01–S18 stable IDs, owner/conformance matrix |
-| [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | Plan 1 accepted | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated download, atomic install/update/rollback và installed-only control; backend là peer theo contract AI APP |
-| [1B. Product slice khói/lửa và App Manager](fire_smoke_product_slice_plan.md) | AI APP lead | Plan 0/1 accepted; thực hiện M0 refactor trước functional work | Tách service main, App Manager production dùng chung S01-S18 và S04 end-to-end qua config/event/metadata/evidence |
+| [1A. Phân phối ứng dụng usecase](usecase_app_distribution_plan.md) | AI APP lead | **Board-smoke first-install/control 2026-09-20**; update/rollback/journal còn mở | AI-owned D-Bus App Manager, app-as-SKU/shared-runtime, entitlement-gated install và installed-only control; backend là peer theo contract AI APP |
+| [1B. Product slice khói/lửa và App Manager](fire_smoke_product_slice_plan.md) | AI APP lead | **Board-smoke 2026-09-20**; chưa accepted | Service bootstrap đã tách, S04 đi qua install/config/activation/metadata/evidence; model quality, cold-start và released-FW gates còn mở |
 | [2. Metadata và query](metadata_query_plan.md) | AI APP | **Accepted 2026-09-19**; ADR 0009 accepted | Composed v1 service, receipt-safe retention, board fault gates, 142/142 eSDK và exact 5-minute candidate pass |
-| [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | Plan 0 + Plan 1; C01/C04/C07 | UDS/outbox/ACK, FW evidence receipt và fault tests |
+| [3. Event và evidence transport](event_evidence_transport_plan.md) | AI APP + BSP+FW | **AI-owned path board-smoke 2026-09-20**; released-FW receiver/receipt còn mở | UDS/outbox/ACK, FW evidence receipt và fault tests |
 | [4. DSP đa nền tảng](dsp_multiplatform_optimization_plan.md) | AI APP + BSP+FW + AI Model | **AI APP scope accepted 2026-09-18**; external owner gates retained | Generic v1 cDSP preprocess/dense/overlay; 30.008 FPS, 13.50% CPU/5 phút |
 | [5. Integration và rollout](integration_validation_rollout_plan.md) | AI APP lead | Plan 0 + Plans 1/1A–4 pass | Profiles, board/release acceptance |
 
@@ -1238,9 +1223,9 @@ chạy và lý do. Các agent có thể làm fixture/mock trước source produc
 
 ## Giới hạn và công việc tiếp theo
 
-- Plan 1, Plan 2 và scope Plan 4 đã accepted theo gate riêng. Plan 1A/1B và event/integration
-  vẫn là đề xuất; S04 detector chạy được không đồng nghĩa App Manager, semantic alarm hoặc
-  evidence đã production-ready.
+- Plan 1, Plan 2 và scope Plan 4 đã accepted theo gate riêng. Plan 1A/1B và đường event/evidence
+  phía AI APP đã đạt board-smoke ngày 2026-09-20, nhưng chưa accepted: update/rollback/journal,
+  model-quality, cold-start QNN và released-FW receiver/receipt vẫn là gate bắt buộc.
 - Plan 4 đã đo full workload hiện tại trong 5 phút; 18-usecase capacity và released-FW profile
   vẫn cần scenario/evidence riêng, không ngoại suy từ kết quả hiện tại.
 - SQLite packed shards + materialized rollup đã qua workload `FULL` 5 phút và là lựa chọn edge v1;

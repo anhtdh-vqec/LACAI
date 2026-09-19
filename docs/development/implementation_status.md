@@ -286,18 +286,21 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: the exact final source passes 135/135 eSDK/QEMU CTest. On board `.98`, the
-generic v1 DSP smoke negotiated mask `19` and executed image transform, dense decode and overlay
-compose. The full current workload (person, SCRFD, fire/smoke and configured EdgeFace cascade)
-published H.264 1920x1080 at 30.008 FPS over 300.119829 seconds and used 13.50% average process
-CPU of one logical core. FD stayed 122, threads stayed 48 and RSS/HWM increased 508 KiB. The
-30.125 FPS preview contact sheet passed visual geometry/colour/no-stale review. This closes the
-explicit five-minute AI APP gate; it is not a leak-free or product thermal claim.
+Current evidence: source `c01b748` passes 162/162 expanded eSDK/QEMU CTest. On board `.102`, the
+S04/App Manager/output candidate passes nine focused native tests and ten five-second
+disable/enable cycles. The full current workload publishes H.264 1920x1080 at 30.124 FPS; its
+five-minute steady process CPU is 10.56% of one logical core with RSS +8 KiB and 23 threads.
+The 30-second cold-start average is 13.36%, with one 86% sample attributed by `perf` to
+`libQnnHtpPrepare.so::GraphPrepare` after the first source frame. No QNN HTP library is mapped
+while App Manager and camera are absent. This is board-smoke, not model-quality, released-FW,
+leak-free or product thermal acceptance. Exact evidence and limitations are in
+[S04 validation](../testing/fire_smoke_product_slice_validation.md).
 
-Open release gates (not delivered): released-FW camera/ring/RTSP conformance, hardware DMA
-completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
-hardware-bound gallery key, signed provisioning, packaging/update/rollback, async/shared QNN
-execution, multi-vendor backends and concrete feature packages. See
+Open release gates (not delivered): released-FW camera/ring/RTSP/evidence conformance, hardware
+DMA completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
+hardware-bound gallery key, production trust rotation, package operation journal/content-store
+update/rollback, QNN context-binary cold-start qualification, async/shared QNN execution,
+multi-vendor backends and the remaining feature packages. See
 [alignment review](architecture_alignment_review.md) and
 [capability matrix](capability_matrix.md).
 
@@ -345,7 +348,7 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/feature_manager/vqec_vision_feature_processor_registry.cpp` | Bounded compiled-in factory registry resolves processor contracts, validates schema/revision-bound configuration and creates distinct transactional owners | Concrete package factories, authenticated configuration and activation owner graph |
 | `src/runtime/feature_manager/vqec_vision_feature_catalog.cpp` | Optional strict bounded JSON loader preserves output on parse/validation failure and feeds the neutral feature catalog validator | Authenticated feature package/config resolution and activation owner graph; eSDK sysroot currently lacks nlohmann_json 3.12.0 for this optional target |
 | `src/runtime/feature_manager/vqec_vision_feature_activation_manager.cpp` | Validated cold-path reconciliation of desired, entitlement, resource and model-dependency gates; explicit effective states, per-association processor/stage ownership and slot-to-catalog mapping accessor | Runtime fan-out/pipeline owner composition, authenticated catalog/configuration source, concrete package factories and output policy |
-| `src/outputs/events/vqec_vision_feature_event_dispatch.cpp` | Validates one feature event, derives exact field scopes, rechecks captured policy revision and synchronously dispatches through a neutral sink | Bounded durable queue/retry, FW transport, dedup persistence and evidence service integration |
+| `src/outputs/events/vqec_vision_feature_event_dispatch.cpp`, `src/app/service/output/vqec_vision_evidence_service.cpp`, `src/adapters/storage/vqec_vision_sqlite_evidence_outbox.cpp`, `src/adapters/fw_output/vqec_vision_evidence_uds_client.cpp` | Validates exact field scopes, rechecks captured/retry policy, commits a bounded durable command, retries over version 1 seqpacket UDS and reconciles terminal receipts | Released-FW durable inbox, prebuffer/media receipt and C07 owner acceptance |
 | `src/runtime/lifecycle/vqec_vision_deployment_config.cpp` | Optional strict bounded deployment JSON loader; schemas/examples; pure deployment validation in core | Authenticated configuration activation and service lifecycle |
 | `src/runtime/model_registry/` | Optional model catalog/output manifest/package-registry loaders and bounded OpenSSL SHA-256 stream comparison; the package registry gives every catalog model an exact package/artifact binding | Signature verification, trusted immutable path opening and decoder lookup |
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
@@ -433,9 +436,9 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The exact final expanded eSDK configuration passes 142/142 CTest tests under SDK QEMU
-  (2026-09-19). The staged cross-built metadata service/runtime/store tests pass natively on
-  `.102`; this focused rerun is not a new full native-suite count.
+- The exact `c01b748` expanded eSDK configuration passes 162/162 CTest tests under SDK QEMU
+  (2026-09-20). Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
+  this focused rerun is not a new full native-suite count.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
   scheduled fuzz jobs unconditionally; eSDK neutral/expanded jobs are gated on `vars.ESDK_ROOT`.
@@ -444,13 +447,13 @@ capability, not by model identity.
 
 ## Not delivered and next integration work
 
-1. Plans 1–5: Contract and team scope, metadata and query engine (D01–D18, Q01–Q30), durable
-   UDS event/evidence transport with outbox and receipt reconciliation, multiplatform DSP optimization.
+1. Released-FW C07 evidence receiver/media receipt, natural S04 event correlation and remaining
+   S01-S18 feature/model quality packages.
 2. Model accuracy calibration and golden parity; concrete feature packages; production
    tracker and attribute producers; pose/OCR.
 3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.
-4. Signed entitlement provisioning, durable desired-state receipts, packaging/update/rollback
-   and observability.
+4. Trust rotation, asynchronous package operation journal, content-addressed update/rollback
+   and backend conformance.
 5. Automatic source/BSP recovery, fault/soak/golden tests and performance/thermal qualification.
 
 Delivered component details live in the architecture and contract docs, not here:

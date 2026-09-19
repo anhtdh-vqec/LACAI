@@ -4,8 +4,8 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** accepted — the minimal canonical layout ran the declared full workload at
-30.008 FPS and 13.50% average CPU for five minutes on `.98` on 2026-09-18. **Layer:** docs.
+**Status:** accepted — the canonical layout and runner are current; candidate `c01b748` ran at
+30.124 preview FPS and 10.56% five-minute steady CPU on `.102` on 2026-09-20. **Layer:** docs.
 **Source:** `tools/board/vqec_vision_run_full.sh`.
 
 ## Standard root and layout
@@ -106,6 +106,10 @@ It owns only processes whose PID and command match its state files; it does not 
 /opt/lacai/run_full.sh start
 /opt/lacai/run_full.sh status
 /opt/lacai/run_full.sh logs
+/opt/lacai/run_full.sh configure
+/opt/lacai/run_full.sh evidence-probe
+LACAI_TOGGLE_CYCLES=10 LACAI_TOGGLE_INTERVAL_SECONDS=5 \
+  /opt/lacai/run_full.sh stress
 /opt/lacai/run_full.sh stop
 ```
 
@@ -129,6 +133,13 @@ The tool must pass codec, dimensions and effective packet FPS. Open
 `overlay_contact_sheet.png` and explicitly verify correct boxes/labels, coordinates,
 orientation, color and absence of stale overlay. Service metrics must also print
 `first_error=0`, `cascade_failed=0` and a steady `route_latency_*`.
+
+The runner intentionally starts the AI service before App Manager and starts the camera last.
+It rejects startup if the HTP backend is mapped before media is available. The 2026-09-20 S04
+candidate passed that gate and ten five-second desired-state cycles. Its one-second cold-start
+peak remained 86% in Qualcomm `GraphPrepare`; see
+[S04 validation](fire_smoke_product_slice_validation.md). A compatibility camera contact sheet
+that contains no visible target cannot be used to claim overlay accuracy.
 
 ## Troubleshooting and rules
 

@@ -6,8 +6,10 @@ lập, chỉ cho thiết bị được cấp entitlement tải package và chỉ
 lifecycle usecase app. Thiết kế giữ một LACAI runtime dùng chung để chia sẻ camera, model và
 accelerator.
 
-**Status:** planned — AI APP ownership đã được lead quyết định; chưa có App Manager, D-Bus v1,
-signed entitlement verifier hay install inventory production. **Layer:** docs. **Source:**
+**Status:** board-smoke — App Manager, D-Bus v1, declarative S04 manifest, Ed25519 package/grant
+verification, persistent inventory và first-install/config/enable/disable path đã chạy board;
+catalog/download, async journal, content store, update/rollback và backend conformance còn mở.
+**Layer:** docs. **Source:**
 `include/vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp`,
 `config/schemas/usecase_control_snapshot.schema.json`.

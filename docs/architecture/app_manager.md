@@ -3,9 +3,10 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** source-delivered — lifecycle core, inventory, runtime snapshot, D-Bus facade,
-Ed25519 package/entitlement verification, daemon bootstrap and reconnecting runtime consumer are
-delivered; operation journaling, content-store lifecycle and backend conformance remain open.
+**Status:** board-smoke — signed first install, entitlement, configuration CAS, desired-state
+reconcile, persistent inventory, D-Bus facade and startup-order independence passed on the recorded
+QCS6490 candidate; operation journaling, content-store update/rollback and backend conformance
+remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -137,8 +138,11 @@ configured App Manager resource capacity. These booleans are never accepted from
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
 - Operation journaling, content-addressed artifact staging, update/rollback, D-Bus/backend
-  conformance, fault injection and board acceptance remain open.
+  conformance, fault injection and release acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
+- The first-install board path is accepted only at board-smoke level. It does not make the
+  synchronous mutation API an asynchronous operation journal and does not qualify component
+  update/rollback.
 
 ## See also
 

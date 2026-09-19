@@ -5,10 +5,10 @@ sản phẩm đầu tiên, đồng thời tách service main, xây App Manager d
 event/evidence qua lát cắt đầu tiên của Plan 3. Đây là execution plan; các contract tổng quát
 trong plan phân phối app, metadata và event/evidence vẫn là authority.
 
-**Status:** in-progress — M0 refactor, S04 processor/configuration, transactional inventory,
-runtime snapshot, AppManager1 source, Ed25519 verifier, daemon bootstrap và metadata hotspot đã
-được triển khai; signed entitlement/admission reconcile, operation/content-store lifecycle và
-evidence UDS/outbox còn mở. **Layer:** docs.
+**Status:** board-smoke — AI-owned first-install S04 vertical slice, no-data-safe Qualcomm
+activation, signed entitlement/configuration, metadata và reference-evidence đã pass trên board;
+operation/content-store update/rollback, model-quality acceptance và released-FW evidence vẫn là
+gate mở nên plan chưa đạt `accepted`. **Layer:** docs.
 **Source:** `src/app/service/bootstrap/vqec_vision_service_main.cpp`,
 `src/runtime/feature_manager/`, `manifests/models/yolo11n_fire_smoke/`,
 `docs/planning/architecture_improvement/usecase_app_distribution_plan.md`,
@@ -16,18 +16,45 @@ evidence UDS/outbox còn mở. **Layer:** docs.
 
 ## Bằng chứng thực thi hiện tại
 
-- eSDK/QEMU expanded suite: 153/153 pass ngày 2026-09-19.
-- QCS6490 candidate `53c6a9f468c0d261b50007d6467ac612e4eab842f1c05b70c1ee1e65bb1f50dc`
-  chạy full workload 30 FPS trong 5 phút, CPU trung bình 13,36% một core, RSS cuối
-  354.328 KiB, 49 threads và 170 FD.
-- RTSP 1920×1080/30 FPS pass; contact sheet được kiểm tra đúng hướng, màu và overlay
-  PERSON/FACE. Candidate được giữ chạy cho VLC tại endpoint chuẩn.
-- App Manager daemon candidate
-  `752a68811f0c91a5719fbc79d8e7b298c396de42f8875ab3fa822df35dd839e6` mở inventory
-  owner-only và idle trung bình 0,60% CPU trong 5 mẫu một giây.
-- Stop/start liên tiếp sau một lần startup fail làm cả candidate lẫn baseline kẹt ở QNN
-  finalization; cold reboot phục hồi. Đây là defect recovery/FastRPC mở, không phải regression
-  riêng của candidate. Runner nay chỉ báo ready sau frame RTSP đầu tiên.
+- Exact source `c01b748`; eSDK/QEMU expanded suite 162/162 pass ngày 2026-09-20.
+- Service candidate
+  `0f0f8d211df04ca0817a312b2ade8039664b21ac7bb0214f068f5f4f2ad73c39` và App Manager
+  `acf4a14136b2982451e17ec560e3edf4c2b83aaa3948094d20c1196f6b94b095` chạy trên machine
+  ID đã đăng ký. Chín focused S04/App Manager/metadata/evidence native tests pass.
+- Fresh inventory chứng minh no app → signed install → signed entitlement → desired enable bằng
+  snapshot revision 2 → 3 → 4. Service chạy trước App Manager và camera; `libQnnHtp.so` chưa map
+  trước frame đầu tiên.
+- Mười chu kỳ disable/enable cách nhau 5 giây pass; ring đều resume, FD 74 → 74, RSS
+  210.628 → 228.340 KiB, dưới gate tăng 32 MiB.
+- Full workload steady 5 phút đạt CPU trung bình 10,56% một core, RSS +8 KiB và 23 threads.
+  RTSP H.264 1920×1080 đạt 30,124 FPS trong phép đo 8 giây.
+- Startup 30 giây trung bình 13,36%, peak một mẫu 1 giây là 86%. `perf` quy peak cho
+  `qnn_engine::prepare()`/`libQnnHtpPrepare.so::GraphPrepare` khi frame đầu tiên tới, không phải
+  polling lúc thiếu media. Đây vẫn là cold-start budget mở cho hướng QNN context binary.
+- Configuration revision 2 reconcile khi ring tiếp tục; AI reference evidence probe durable và
+  completed, không retry/transport failure. Đây không phải natural S04 alarm hay released-FW
+  acceptance.
+- Contact sheet của compatibility fixture gần như tối hoàn toàn; chỉ cadence/codec/kích thước
+  được chứng minh, không tuyên bố overlay fire/smoke accuracy.
+
+Raw acceptance boundary và số đo nằm tại
+[fire/smoke product slice validation](../../testing/fire_smoke_product_slice_validation.md).
+
+## Quyết định đóng gate
+
+| Phạm vi | Kết luận |
+|---|---|
+| M0 main/layer ownership | Đóng: `service_main` còn 8 dòng; bootstrap, generation, platform, feature, enrollment và output có owner riêng |
+| S04 processor/config/metadata | Đóng ở mức logic-tested/board-smoke; real-sequence model quality chưa accepted |
+| App Manager first install/control | Đóng ở mức board-smoke; là daemon/inventory/signature path thật, không phải mock |
+| AI evidence transport | Đóng ở mức board-smoke với reference receiver |
+| Package update/rollback | Mở: operation journal và content-addressed component generation chưa được triển khai |
+| Qualcomm cold start | Mở: first-frame safety đạt, synchronous `GraphPrepare` peak chưa giảm |
+| Released-FW evidence | Mở ngoài AI APP: chưa có receiver/media receipt C07 |
+
+Vì ba dòng cuối chưa đạt, tài liệu này không được đổi thành `accepted` hoặc mô tả “đã đóng toàn
+bộ”. Phần S04 first-install thuộc AI APP đã đủ để tiếp tục tích hợp; product distribution update
+và released-FW acceptance phải có evidence riêng.
 
 ## Trách nhiệm
 
@@ -49,14 +76,14 @@ evidence UDS/outbox còn mở. **Layer:** docs.
 
 | Hạng mục | Bằng chứng hiện tại | Khoảng trống phải đóng |
 |---|---|---|
-| Service entrypoint | `vqec_vision_service_main.cpp` có 2.529 dòng; `run_generation` chiếm khoảng 1.350 dòng | Trộn load config, platform, feature, output, FR, cascade, run loop và shutdown |
-| Feature config | Factory đã nhận `feature_configuration.payload_` và tạo processor riêng | Composition chỉ gán schema/revision; payload hiện rỗng |
-| Fire/smoke model | QCS6490 package có IO, preprocess, decoder và labels smoke/fire | Chưa có S04 feature processor, temporal incident, alarm event hoặc quality receipt đầy đủ |
+| Service entrypoint | `service_main` 8 dòng; bootstrap/generation/platform/feature/enrollment/output đã tách owner | Generation controller còn lớn nhưng không còn là executable monolith |
+| Feature config | Signed package/configuration CAS đi qua App Manager và typed factory | Model-quality bounds/receipt do AI Model chưa accepted |
+| Fire/smoke model | QCS6490 package, generic DSP preprocess/decode và temporal S04 processor đã chạy | Real-sequence M0-M5 alarm quality receipt chưa có |
 | Usecase identity | Registry dùng `security.fire_smoke_detection` | Fixture đang dùng `fire_smoke_detection` và không có `feature_ids` |
 | Threshold | Decoder package đang có confidence `0.25`, IoU `0.45` | Đây là decode defaults cố định trong package; chưa có app configuration authority |
-| Event output | Có neutral feature dispatch và production delivery seam | Chưa có durable outbox, UDS adapter, receipt hoặc evidence reconciliation |
-| Metadata | P2 đã có event episode, contribution, rollup và query service | S04 chưa phát semantic episode ổn định để projection lưu đúng nghiệp vụ |
-| App lifecycle | Có usecase activation/control seam và các gate logic | Chưa có package verifier, inventory, entitlement verifier hoặc App Manager daemon |
+| Event output | Neutral dispatch, durable SQLite outbox, UDS v1, retry/revoke worker và receipt có source/test | Released-FW receiver/media receipt chưa có |
+| Metadata | P2 projection nhận stable S04 episode/contribution và query Q08/Q15 | Natural event correlation trên real sequence chưa được board-accepted |
+| App lifecycle | Ed25519 verifier, persistent inventory, D-Bus daemon, runtime snapshot và reconcile đã chạy board | Async journal/content store/update/rollback/catalog API còn mở |
 
 ### 1.2. Quyết định kiến trúc
 

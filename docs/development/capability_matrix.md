@@ -1,6 +1,6 @@
 # Capability matrix
 
-Snapshot 2026-09-19, synchronized with the clean source layout. Board smoke differs from
+Snapshot 2026-09-20, synchronized with the clean source layout. Board smoke differs from
 product acceptance. Test/configuration counts live in
 [implementation status](implementation_status.md); do not infer capability from an
 installed SDK/plugin. Evidence rules: [documentation style](documentation_style.md).
@@ -27,12 +27,13 @@ installed SDK/plugin. Evidence rules: [documentation style](documentation_style.
 | Recognition matching policy | Subject aggregation + configurable threshold/margin; durable encrypted gallery | eSDK logic test; `.98` clean-restart recovery | Calibration, temporal state and attendance events |
 | cDSP overlay/H264/ring | Bounded v1 NV12 overlay compose, rpcmem surface pool and direct `v4l2h264enc` DMA-BUF import; no `qtivoverlay` | Full candidate at 30.125 preview FPS with visual box/label review | Released-FW conformance, generic output ports, long-run completion/recovery |
 | Prepared overlay authorization | Prepared-only renderer and scoped source binding, eSDK tests | Pre-audit native helper smoke | FW demand/PTS/revoke and multi-stream output conformance |
-| Event delivery seam | Acceptance/handoff/discard semantics logic-tested | Pre-audit native helper smoke | Durable UDS / outbox transport (Plan 3) |
+| S04 App Manager lifecycle | Ed25519 package/entitlement verification, persistent SQLite inventory, configuration/desired CAS, D-Bus facade and reconnecting runtime snapshot | Fresh no-app → install → entitlement → enable and ten toggle cycles on `.102` | Async journal, content store, update/rollback, backend conformance and trust rotation |
+| Event/evidence delivery | Field authorization, durable SQLite outbox, bounded UDS v1, retry/revoke worker and terminal receipt reconciliation | `.102` durable reference probe; focused native wire/recovery tests | Released-FW inbox/prebuffer/media receipt and C07 acceptance |
 | Model artifact resolver | Sealed verified model-byte owner, hostile-artifact tests | Native synthetic tests and corrective live model load `.98` | Signed provenance of digest/package/libraries; maps alone do not prove seals |
 | Hardware admission envelope | Explicit loader, source tensor budget, preview count consistency; one-source profile | `.98` process/thermal observations and declared-workload ceilings; native admission tests | Complete device allocation, sustained DDR/thermal/coexistence and owner review |
 | FD→embedding→attendance | Source-composed through typed embedding | FD→embedding compatibility smoke `.98`; attendance absent | Golden/released-FW cascade, enrollment, matching, recovery, events |
 | Hardware zero-copy | Not established | No complete proof | Import/cache/fence/last-read trace |
-| Performance target | Exact `.98` full workload with registered DMA-BUF, cDSP preprocess/dense/overlay: 30.008 FPS and 13.50% average of one logical core over five minutes | Declared AI APP gate accepted; visual overlay pass; FD/thread stable | 18-usecase capacity, cold-start phase, released-FW thermal/long-soak qualification |
+| Performance target | Exact `.102` candidate with registered DMA-BUF and generic cDSP path: 30.124 FPS preview; 10.56% average of one logical core over five steady minutes | Ten toggles pass; steady RSS +8 KiB; cold-start peak measured at 86% in QNN `GraphPrepare` | 18-usecase capacity, QNN context-binary cold-start work, real S04 overlay/model quality and released-FW thermal/long-soak qualification |
 | Recovery/metrics helpers | Partial source | No release soak | BSP reset, durable control, complete stage metrics |
 | Fuzzing tools | Source exists | No new run in this review | eSDK-compatible instrumentation and recorded runs |
 
