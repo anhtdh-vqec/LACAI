@@ -649,6 +649,9 @@ App lifecycle registrations (source delivered):
 | src/app/composition/vqec_vision_service_feature_registry.hpp | sfreg | vqec_vision_ai_appl_sfreg_ |
 | src/app/composition/vqec_vision_service_feature_registry.cpp | sfreg | vqec_vision_ai_appl_sfreg_ |
 | tests/unit/application/vqec_vision_service_feature_registry_test.cpp | sfrtst | vqec_vision_ai_unit_sfrtst_ |
+| src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.hpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
+| src/runtime/lifecycle/vqec_vision_runtime_control_snapshot.cpp | rcsnp | vqec_vision_ai_lifec_rcsnp_ |
+| tests/unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp | rcstst | vqec_vision_ai_unit_rcstst_ |
 
 
 | Logical owner path | file_id | Prefix |

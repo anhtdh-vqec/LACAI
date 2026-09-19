@@ -88,7 +88,8 @@ endif()
 
 if(TARGET nlohmann_json::nlohmann_json)
     add_library(vqec_vision_ai_app_manifest STATIC
-        lifecycle/vqec_vision_app_manifest.cpp)
+        lifecycle/vqec_vision_app_manifest.cpp
+        lifecycle/vqec_vision_runtime_control_snapshot.cpp)
     target_include_directories(vqec_vision_ai_app_manifest PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lifecycle>)
     target_link_libraries(vqec_vision_ai_app_manifest

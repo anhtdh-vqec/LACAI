@@ -110,6 +110,14 @@ endif()
         set_target_properties(vqec_vision_ai_app_manifest_test
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME app_manifest_contract COMMAND vqec_vision_ai_app_manifest_test)
+        add_executable(vqec_vision_ai_runtime_control_snapshot_test
+            unit/runtime/vqec_vision_runtime_control_snapshot_test.cpp)
+        target_link_libraries(vqec_vision_ai_runtime_control_snapshot_test
+            PRIVATE vqec_vision_ai_app_manifest)
+        set_target_properties(vqec_vision_ai_runtime_control_snapshot_test
+            PROPERTIES CXX_EXTENSIONS OFF)
+        add_test(NAME runtime_control_snapshot_codec
+            COMMAND vqec_vision_ai_runtime_control_snapshot_test)
         add_executable(vqec_vision_ai_sqlite_app_inventory_test
             unit/adapters/storage/vqec_vision_sqlite_app_inventory_test.cpp)
         target_link_libraries(vqec_vision_ai_sqlite_app_inventory_test PRIVATE

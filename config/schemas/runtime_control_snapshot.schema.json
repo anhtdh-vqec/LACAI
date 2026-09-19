@@ -11,7 +11,7 @@
     "inventory_revision": {"type": "integer", "minimum": 1},
     "entitlement_revision": {"type": "integer", "minimum": 1},
     "desired_revision": {"type": "integer", "minimum": 1},
-    "associations": {"type": "array", "maxItems": 288, "items": {"$ref": "#/$defs/association"}}
+    "associations": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/association"}}
   },
   "$defs": {
     "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
