@@ -622,6 +622,8 @@ Runtime composition factory registrations (source delivered):
 | src/app/service/vqec_vision_service_main.cpp | main | C++ language entrypoint only |
 | src/app/service/vqec_vision_service_runtime.hpp | svcmn | vqec_vision_ai_appl_svcmn_ |
 | src/app/service/vqec_vision_service_runtime.cpp | svcmn | vqec_vision_ai_appl_svcmn_ |
+| src/app/service/vqec_vision_service_startup.hpp | svstr | vqec_vision_ai_appl_svstr_ |
+| src/app/service/vqec_vision_service_startup.cpp | svstr | vqec_vision_ai_appl_svstr_ |
 | src/app/service/vqec_vision_service_options.hpp | svopt | vqec_vision_ai_appl_svopt_ |
 | src/app/service/vqec_vision_service_options.cpp | svopt | vqec_vision_ai_appl_svopt_ |
 | tests/unit/application/vqec_vision_service_options_test.cpp | sotst | vqec_vision_ai_unit_sotst_ |

@@ -10,6 +10,22 @@ target_include_directories(vqec_vision_ai_service_options PUBLIC
 target_link_libraries(vqec_vision_ai_service_options PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_service_options PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_service_startup STATIC
+    service/vqec_vision_service_startup.cpp)
+target_include_directories(vqec_vision_ai_service_startup PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>)
+target_link_libraries(vqec_vision_ai_service_startup PUBLIC
+    vqec_vision_ai_service_options
+    vqec_vision_ai_model_catalog_config
+    vqec_vision_ai_feature_catalog_config
+    vqec_vision_ai_deployment_config
+    vqec_vision_ai_usecase_config
+    vqec_vision_ai_usecase_control)
+set_target_properties(vqec_vision_ai_service_startup PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_metadata_service STATIC
     service/vqec_vision_metadata_service.cpp)
 target_include_directories(vqec_vision_ai_metadata_service PUBLIC
@@ -241,6 +257,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         platform/vqec_vision_fixture_detector.cpp)
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_service_options
+        vqec_vision_ai_service_startup
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_admission
         vqec_vision_ai_production_platform
