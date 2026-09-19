@@ -950,14 +950,20 @@ endif()
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
             --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_features.json
             --steps 160 --require-sources 2)
-        set_tests_properties(service_executable_smoke PROPERTIES TIMEOUT 20)
+        set_tests_properties(service_executable_smoke PROPERTIES
+            TIMEOUT 20
+            PASS_REGULAR_EXPRESSION
+                "metrics steps=170 routed=42.*service stopped=true routed_sources=2 first_error=0"
+            FAIL_REGULAR_EXPRESSION
+                "stopped=false;first_error=[1-9];failed=[1-9];cascade_failed=[1-9]")
         # Production mode must fail closed rather than substitute the fixture harness.
         add_test(NAME service_production_fail_closed COMMAND vqec_ai_vision_applications
             --mode production
             --deployment ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_deployment.json
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
             --steps 5)
-        set_tests_properties(service_production_fail_closed PROPERTIES WILL_FAIL TRUE TIMEOUT 10)
+        set_tests_properties(service_production_fail_closed PROPERTIES
+            WILL_FAIL TRUE TIMEOUT 10)
         # Qualcomm production must reject a run that omits the required library, camera and
         # tracker/event configuration instead of substituting built-in defaults.
         add_test(NAME service_production_qualcomm_requires_config
@@ -975,7 +981,12 @@ endif()
             --model-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_catalog.json
             --feature-catalog ${CMAKE_CURRENT_SOURCE_DIR}/golden/service_smoke_features.json
             --steps 160 --require-sources 2)
-        set_tests_properties(service_production_fake_smoke PROPERTIES TIMEOUT 20)
+        set_tests_properties(service_production_fake_smoke PROPERTIES
+            TIMEOUT 20
+            PASS_REGULAR_EXPRESSION
+                "metrics steps=170 routed=42.*service stopped=true routed_sources=2 first_error=0"
+            FAIL_REGULAR_EXPRESSION
+                "stopped=false;first_error=[1-9];failed=[1-9];cascade_failed=[1-9]")
         # Reference platform runs the real reference tracker and zone feature end to end
         # (M5). It must route, emit at least one feature event and stop cleanly.
         add_test(NAME service_production_reference_smoke COMMAND vqec_ai_vision_applications
@@ -986,8 +997,10 @@ endif()
             --steps 160 --require-sources 2)
         set_tests_properties(service_production_reference_smoke PROPERTIES
             TIMEOUT 20
-            PASS_REGULAR_EXPRESSION "accepted=[1-9][0-9]*"
-            FAIL_REGULAR_EXPRESSION "stopped=false;first_error=[1-9]")
+            PASS_REGULAR_EXPRESSION
+                "metrics steps=170 routed=42 accepted=[1-9][0-9]*.*service stopped=true routed_sources=2 first_error=0"
+            FAIL_REGULAR_EXPRESSION
+                "stopped=false;first_error=[1-9];failed=[1-9];cascade_failed=[1-9]")
         if(TARGET vqec_vision_ai_usecase_control_dbus AND CMAKE_CROSSCOMPILING_EMULATOR)
             find_program(usecase_runtime_python NAMES python3 PATHS /usr/bin
                 NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
