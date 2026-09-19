@@ -10,10 +10,12 @@
 #include <new>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
+#include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 #include "vqec_vision_runtime_control_snapshot.hpp"
 
 namespace vqec::vision::ai {
@@ -36,6 +38,8 @@ struct dbus_binding {
 constexpr char g_introspection_xml[] =
     "<node><interface name='com.vqec.AiVision.AppManager1'>"
     "<method name='Install'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='ah' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
+    "<method name='Update'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='ah' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
+    "<method name='Rollback'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='ApplyConfiguration'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='h' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='ApplyEntitlement'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='SetDesired'><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='b' direction='in'/><arg type='t' direction='out'/></method>"
@@ -186,8 +190,9 @@ void vqec_vision_ai_fwctl_amdbs_return_revision(
         g_variant_new("(t)", _snapshot.snapshot_revision_));
 }
 
-void vqec_vision_ai_fwctl_amdbs_install(app_manager_port& _port,
-    GVariant* _parameters, GDBusMethodInvocation* _invocation) {
+void vqec_vision_ai_fwctl_amdbs_commit_package(app_manager_port& _port,
+    GVariant* _parameters, GDBusMethodInvocation* _invocation,
+    bool _is_update) {
     gint32 manifest_handle = -1;
     gint32 configuration_handle = -1;
     gint32 signature_handle = -1;
@@ -255,9 +260,12 @@ void vqec_vision_ai_fwctl_amdbs_install(app_manager_port& _port,
     candidate.configuration_sha256_ = configuration_sha256 == nullptr ?
         "" : configuration_sha256;
     runtime_control_snapshot snapshot;
-    const auto installed = _port.vqec_vision_ai_ports_apmgr_install(
-        candidate, expected_revision, snapshot);
-    vqec_vision_ai_fwctl_amdbs_return_revision(_invocation, installed, snapshot);
+    const auto committed = _is_update ?
+        _port.vqec_vision_ai_ports_apmgr_update(
+            candidate, expected_revision, snapshot) :
+        _port.vqec_vision_ai_ports_apmgr_install(
+            candidate, expected_revision, snapshot);
+    vqec_vision_ai_fwctl_amdbs_return_revision(_invocation, committed, snapshot);
 }
 
 void vqec_vision_ai_fwctl_amdbs_configuration(app_manager_port& _port,
@@ -335,6 +343,17 @@ void vqec_vision_ai_fwctl_amdbs_uninstall(app_manager_port& _port,
     vqec_vision_ai_fwctl_amdbs_return_revision(_invocation, removed, snapshot);
 }
 
+void vqec_vision_ai_fwctl_amdbs_rollback(app_manager_port& _port,
+    GVariant* _parameters, GDBusMethodInvocation* _invocation) {
+    const gchar* app_id = nullptr;
+    guint64 expected_revision = 0;
+    g_variant_get(_parameters, "(&st)", &app_id, &expected_revision);
+    runtime_control_snapshot snapshot;
+    const auto restored = _port.vqec_vision_ai_ports_apmgr_rollback(
+        app_id == nullptr ? "" : app_id, expected_revision, snapshot);
+    vqec_vision_ai_fwctl_amdbs_return_revision(_invocation, restored, snapshot);
+}
+
 void vqec_vision_ai_fwctl_amdbs_snapshot(app_manager_port& _port,
     GDBusMethodInvocation* _invocation) {
     runtime_control_snapshot snapshot;
@@ -408,7 +427,15 @@ void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection* _connection,
     }
     try {
         if (g_strcmp0(_method_name, app_manager_dbus_protocol::g_install_method) == 0) {
-            vqec_vision_ai_fwctl_amdbs_install(
+            vqec_vision_ai_fwctl_amdbs_commit_package(
+                *binding->port_, _parameters, _invocation, false);
+        } else if (g_strcmp0(_method_name,
+                       app_manager_dbus_protocol::g_update_method) == 0) {
+            vqec_vision_ai_fwctl_amdbs_commit_package(
+                *binding->port_, _parameters, _invocation, true);
+        } else if (g_strcmp0(_method_name,
+                       app_manager_dbus_protocol::g_rollback_method) == 0) {
+            vqec_vision_ai_fwctl_amdbs_rollback(
                 *binding->port_, _parameters, _invocation);
         } else if (g_strcmp0(_method_name,
                        app_manager_dbus_protocol::g_configuration_method) == 0) {
@@ -565,7 +592,31 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
     const app_package_candidate& _candidate,
     std::uint64_t _expected_inventory_revision,
     std::uint64_t& _snapshot_revision) {
-    if (_expected_inventory_revision == 0 ||
+    return vqec_vision_ai_fwctl_amdbs_commit_package(_config, _candidate,
+        _expected_inventory_revision, app_manager_dbus_protocol::g_install_method,
+        _snapshot_revision);
+}
+
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_update(
+    const app_manager_dbus_client_config& _config,
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    std::uint64_t& _snapshot_revision) {
+    return vqec_vision_ai_fwctl_amdbs_commit_package(_config, _candidate,
+        _expected_inventory_revision, app_manager_dbus_protocol::g_update_method,
+        _snapshot_revision);
+}
+
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_commit_package(
+    const app_manager_dbus_client_config& _config,
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    const char* _method_name,
+    std::uint64_t& _snapshot_revision) {
+    if (_method_name == nullptr ||
+        (std::string_view(_method_name) != app_manager_dbus_protocol::g_install_method &&
+            std::string_view(_method_name) != app_manager_dbus_protocol::g_update_method) ||
+        _expected_inventory_revision == 0 ||
         _candidate.components_.size() > app_lifecycle_limits::g_max_components) {
         return {status_code::invalid_argument, "invalid expected inventory revision"};
     }
@@ -623,7 +674,7 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
     GVariant* reply = g_dbus_connection_call_with_unix_fd_list_sync(
         implementation_->connection_, unique_owner.c_str(), _config.object_path_.c_str(),
         app_manager_dbus_protocol::g_interface_name,
-        app_manager_dbus_protocol::g_install_method,
+        _method_name,
         g_variant_new("(hhh@ahsst)", manifest_handle, configuration_handle,
             signature_handle, g_variant_builder_end(&component_builder),
             _candidate.manifest_sha256_.c_str(),
@@ -632,6 +683,34 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
         descriptors, nullptr, nullptr, &error.value_);
     g_object_unref(descriptors);
+    return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
+}
+
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_rollback(
+    const app_manager_dbus_client_config& _config,
+    const std::string& _app_id,
+    std::uint64_t _expected_inventory_revision,
+    std::uint64_t& _snapshot_revision) {
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _app_id, app_lifecycle_limits::g_max_identifier_bytes) ||
+        _expected_inventory_revision == 0) {
+        return {status_code::invalid_argument, "invalid app rollback request"};
+    }
+    std::string unique_owner;
+    auto current = implementation_->vqec_vision_ai_fwctl_amdbs_prepare(
+        _config, unique_owner);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    error_owner error;
+    GVariant* reply = g_dbus_connection_call_sync(implementation_->connection_,
+        unique_owner.c_str(), _config.object_path_.c_str(),
+        app_manager_dbus_protocol::g_interface_name,
+        app_manager_dbus_protocol::g_rollback_method,
+        g_variant_new("(st)", _app_id.c_str(),
+            static_cast<guint64>(_expected_inventory_revision)),
+        G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE,
+        _config.rpc_timeout_ms_, nullptr, &error.value_);
     return vqec_vision_ai_fwctl_amdbs_take_revision(reply, _snapshot_revision);
 }
 

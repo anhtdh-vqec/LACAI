@@ -18,6 +18,13 @@ public:
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision,
         runtime_control_snapshot& _snapshot) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_update(
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_rollback(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_update_configuration(
         const std::string& _app_id, std::uint64_t _expected_configuration_revision,
         const std::vector<std::uint8_t>& _configuration_payload,

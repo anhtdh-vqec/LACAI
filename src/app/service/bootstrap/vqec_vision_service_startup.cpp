@@ -162,6 +162,65 @@ bool vqec_vision_ai_appl_svstr_load_usecase_snapshot(
     return true;
 }
 
+status vqec_vision_ai_appl_svstr_apply_runtime_models(
+    const runtime_control_snapshot& _runtime, model_catalog& _catalog,
+    model_package_registry& _registry) {
+    std::vector<std::pair<std::string, std::string>> selected_models;
+    for (const auto& association : _runtime.associations_) {
+        if (!association.is_effective()) {
+            continue;
+        }
+        for (const auto& component : association.components_) {
+            if (component.type_ != app_component_type::model) {
+                continue;
+            }
+            const auto model = std::find_if(_catalog.models_.begin(),
+                _catalog.models_.end(), [&component](const auto& _value) {
+                    return _value.model_id_ == component.component_id_;
+                });
+            const auto binding = std::find_if(_registry.bindings_.begin(),
+                _registry.bindings_.end(), [&component](const auto& _value) {
+                    return _value.model_id_ == component.component_id_;
+                });
+            if (model == _catalog.models_.end() ||
+                binding == _registry.bindings_.end() ||
+                component.component_version_ != model->model_version_ ||
+                (component.model_role_ == app_model_role::primary &&
+                    model->role_ != model_role::primary) ||
+                (component.model_role_ == app_model_role::secondary &&
+                    model->role_ != model_role::secondary) ||
+                (component.model_role_ != app_model_role::primary &&
+                    component.model_role_ != app_model_role::secondary)) {
+                return {status_code::unsupported,
+                    "runtime app model is incompatible with compiled model contract"};
+            }
+            if (model->artifact_sha256_ != component.artifact_sha256_ &&
+                model->artifact_ref_ != binding->artifact_ref_) {
+                return {status_code::invalid_state,
+                    "runtime app model bindings already disagree"};
+            }
+            const auto selected = std::find_if(selected_models.begin(),
+                selected_models.end(), [&component](const auto& _value) {
+                    return _value.first == component.component_id_;
+                });
+            if (selected != selected_models.end() &&
+                selected->second != component.artifact_sha256_) {
+                return {status_code::invalid_state,
+                    "effective applications request conflicting model artifacts"};
+            }
+            if (selected == selected_models.end()) {
+                selected_models.emplace_back(
+                    component.component_id_, component.artifact_sha256_);
+            }
+            model->artifact_ref_ = component.artifact_sha256_;
+            model->artifact_sha256_ = component.artifact_sha256_;
+            binding->artifact_ref_ = component.artifact_sha256_;
+            binding->model_library_ = component.immutable_location_;
+        }
+    }
+    return vqec_vision_ai_core_mprgy_validate_registry(_registry, _catalog);
+}
+
 service_feature_authority_state
 vqec_vision_ai_appl_svstr_resolve_feature_authority(
     const service_startup_resolution& _startup, const parsed_arguments& _args,
@@ -392,6 +451,16 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
         result.model_packages.bindings_.push_back({model.model_id_, model.model_version_,
             model.target_id_, model.artifact_ref_, _args.model_package,
             _args.model_library});
+    }
+    if (result.has_runtime_control && !result.model_packages.bindings_.empty()) {
+        const auto applied = vqec_vision_ai_appl_svstr_apply_runtime_models(
+            result.runtime_control, result.catalog, result.model_packages);
+        if (applied.code_ != status_code::ok) {
+            std::fprintf(stderr, "runtime app model projection rejected (%d): %s\n",
+                static_cast<int>(applied.code_), applied.message_.c_str());
+            result.exit_code = 1;
+            return result;
+        }
     }
     if (result.deployment.sources_.size() > deployment_limits::g_max_sources) {
         std::fprintf(stderr, "deployment source count exceeds runtime support\n");

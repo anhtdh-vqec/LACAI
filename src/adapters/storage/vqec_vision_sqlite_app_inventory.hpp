@@ -30,6 +30,12 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_apinv_install(
         const app_install_request& _request,
         runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_update(
+        const app_install_request& _request,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_rollback(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) override;
     [[nodiscard]] status vqec_vision_ai_ports_apinv_update_configuration(
         const app_configuration_update& _update,
         runtime_control_snapshot& _snapshot) override;

@@ -9,6 +9,11 @@
 
 namespace vqec::vision::ai {
 
+struct app_installed_component {
+    app_component_manifest manifest_;
+    std::string immutable_location_;
+};
+
 struct app_install_request {
     usecase_app_manifest manifest_;
     std::string manifest_sha256_;
@@ -16,6 +21,7 @@ struct app_install_request {
     std::uint64_t configuration_revision_{0};
     std::string configuration_sha256_;
     std::vector<std::uint8_t> configuration_payload_;
+    std::vector<app_installed_component> components_;
     bool supported_{false};
     bool compatible_{false};
     bool admitted_{false};
@@ -60,6 +66,11 @@ public:
         std::uint64_t _expected_inventory_revision) const = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_install(
         const app_install_request& _request, runtime_control_snapshot& _snapshot) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_update(
+        const app_install_request& _request, runtime_control_snapshot& _snapshot) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_rollback(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_update_configuration(
         const app_configuration_update& _update,
         runtime_control_snapshot& _snapshot) = 0;

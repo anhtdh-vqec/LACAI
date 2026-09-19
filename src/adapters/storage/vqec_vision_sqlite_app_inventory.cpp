@@ -81,6 +81,44 @@ CREATE TABLE IF NOT EXISTS app_components(
   semantic_contract_sha256 TEXT NOT NULL,
   PRIMARY KEY(app_id,component_id,component_version,target_id)
 );
+CREATE TABLE IF NOT EXISTS app_component_details(
+  app_id TEXT NOT NULL REFERENCES applications(app_id) ON DELETE CASCADE,
+  component_id TEXT NOT NULL,
+  component_version TEXT NOT NULL,
+  component_type INTEGER NOT NULL,
+  target_id TEXT NOT NULL,
+  artifact_sha256 TEXT NOT NULL,
+  artifact_bytes INTEGER NOT NULL,
+  semantic_contract_sha256 TEXT NOT NULL,
+  model_role INTEGER NOT NULL,
+  immutable_location TEXT NOT NULL,
+  PRIMARY KEY(app_id,component_id,component_version,target_id)
+);
+CREATE TABLE IF NOT EXISTS app_rollback_applications(
+  app_id TEXT PRIMARY KEY,
+  app_version TEXT NOT NULL,
+  usecase_version TEXT NOT NULL,
+  release_sequence INTEGER NOT NULL,
+  manifest_sha256 TEXT NOT NULL,
+  configuration_schema_id TEXT NOT NULL,
+  configuration_revision INTEGER NOT NULL,
+  configuration_sha256 TEXT NOT NULL,
+  configuration_payload BLOB NOT NULL,
+  requested_output_scopes TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS app_rollback_components(
+  app_id TEXT NOT NULL,
+  component_id TEXT NOT NULL,
+  component_version TEXT NOT NULL,
+  component_type INTEGER NOT NULL,
+  target_id TEXT NOT NULL,
+  artifact_sha256 TEXT NOT NULL,
+  artifact_bytes INTEGER NOT NULL,
+  semantic_contract_sha256 TEXT NOT NULL,
+  model_role INTEGER NOT NULL,
+  immutable_location TEXT NOT NULL,
+  PRIMARY KEY(app_id,component_id,component_version,target_id)
+);
 )sql";
 
 class sqlite_statement final {
@@ -273,7 +311,8 @@ status vqec_vision_ai_stor_apinv_load(
     }
     sqlite_statement statement;
     const auto prepared = vqec_vision_ai_stor_apinv_prepare(_database,
-        "SELECT s.app_id,s.source_id,s.entitled,s.desired,s.supported,s.compatible,"
+        "SELECT s.app_id,s.source_id,a.app_version,a.release_sequence,"
+        "s.entitled,s.desired,s.supported,s.compatible,"
         "s.admitted,a.configuration_revision,a.configuration_sha256,"
         "a.configuration_schema_id,a.configuration_payload,s.output_scopes,"
         "s.reason_code,s.entitlement_expires_utc_ns "
@@ -298,23 +337,31 @@ status vqec_vision_ai_stor_apinv_load(
         app_runtime_association association;
         const auto* app_id = sqlite3_column_text(handle, 0);
         const auto* source_id = sqlite3_column_text(handle, 1);
-        const auto* config_sha = sqlite3_column_text(handle, 8);
-        const auto* config_schema = sqlite3_column_text(handle, 9);
-        const auto* reason = sqlite3_column_text(handle, 12);
-        if (app_id == nullptr || source_id == nullptr || config_sha == nullptr ||
-            config_schema == nullptr || reason == nullptr) {
+        const auto* app_version = sqlite3_column_text(handle, 2);
+        const auto* config_sha = sqlite3_column_text(handle, 10);
+        const auto* config_schema = sqlite3_column_text(handle, 11);
+        const auto* reason = sqlite3_column_text(handle, 14);
+        if (app_id == nullptr || source_id == nullptr || app_version == nullptr ||
+            config_sha == nullptr || config_schema == nullptr || reason == nullptr) {
             return {status_code::invalid_state, "corrupt app inventory row"};
         }
         association.app_id_ = reinterpret_cast<const char*>(app_id);
         association.source_id_ = reinterpret_cast<const char*>(source_id);
+        association.app_version_ = reinterpret_cast<const char*>(app_version);
+        const auto release_sequence = sqlite3_column_int64(handle, 3);
+        if (release_sequence <= 0) {
+            return {status_code::invalid_state,
+                "corrupt app inventory release sequence"};
+        }
+        association.release_sequence_ = static_cast<std::uint64_t>(release_sequence);
         association.installed_ = true;
-        association.entitled_ = sqlite3_column_int(handle, 2) != 0;
-        association.desired_ = sqlite3_column_int(handle, 3) != 0;
-        association.supported_ = sqlite3_column_int(handle, 4) != 0;
-        association.compatible_ = sqlite3_column_int(handle, 5) != 0;
-        association.admitted_ = sqlite3_column_int(handle, 6) != 0;
-        const auto config_revision = sqlite3_column_int64(handle, 7);
-        const auto expiry = sqlite3_column_int64(handle, 13);
+        association.entitled_ = sqlite3_column_int(handle, 4) != 0;
+        association.desired_ = sqlite3_column_int(handle, 5) != 0;
+        association.supported_ = sqlite3_column_int(handle, 6) != 0;
+        association.compatible_ = sqlite3_column_int(handle, 7) != 0;
+        association.admitted_ = sqlite3_column_int(handle, 8) != 0;
+        const auto config_revision = sqlite3_column_int64(handle, 9);
+        const auto expiry = sqlite3_column_int64(handle, 15);
         if (config_revision <= 0 || expiry < 0) {
             return {status_code::invalid_state, "corrupt app inventory numeric field"};
         }
@@ -324,8 +371,8 @@ status vqec_vision_ai_stor_apinv_load(
         association.configuration_schema_id_ =
             reinterpret_cast<const char*>(config_schema);
         const auto* payload = static_cast<const std::uint8_t*>(
-            sqlite3_column_blob(handle, 10));
-        const int payload_bytes = sqlite3_column_bytes(handle, 10);
+            sqlite3_column_blob(handle, 12));
+        const int payload_bytes = sqlite3_column_bytes(handle, 12);
         if (payload == nullptr || payload_bytes <= 0 ||
             static_cast<std::size_t>(payload_bytes) >
                 app_lifecycle_limits::g_max_document_bytes) {
@@ -333,12 +380,69 @@ status vqec_vision_ai_stor_apinv_load(
         }
         association.configuration_payload_.assign(payload, payload + payload_bytes);
         const auto split = vqec_vision_ai_stor_apinv_split_scopes(
-            sqlite3_column_text(handle, 11), association.output_scopes_);
+            sqlite3_column_text(handle, 13), association.output_scopes_);
         if (split.code_ != status_code::ok) {
             return split;
         }
         association.reason_code_ = reinterpret_cast<const char*>(reason);
         association.entitlement_expires_utc_ns_ = static_cast<std::uint64_t>(expiry);
+        sqlite_statement components;
+        auto component_status = vqec_vision_ai_stor_apinv_prepare(_database,
+            "SELECT component_id,component_version,component_type,target_id,"
+            "artifact_sha256,artifact_bytes,semantic_contract_sha256,model_role,"
+            "immutable_location FROM app_component_details WHERE app_id=? "
+            "ORDER BY component_id,component_version,target_id", components);
+        auto* component_handle = components.vqec_vision_ai_stor_apinv_get();
+        if (component_status.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 1, association.app_id_)) {
+            return component_status.code_ != status_code::ok ? component_status :
+                status{status_code::io_error,
+                    "cannot bind runtime app component query"};
+        }
+        while (true) {
+            const int component_result = sqlite3_step(component_handle);
+            if (component_result == SQLITE_DONE) {
+                break;
+            }
+            if (component_result != SQLITE_ROW ||
+                association.components_.size() == app_lifecycle_limits::g_max_components) {
+                return {status_code::invalid_state,
+                    "corrupt runtime app component set"};
+            }
+            const auto* component_id = sqlite3_column_text(component_handle, 0);
+            const auto* component_version = sqlite3_column_text(component_handle, 1);
+            const auto component_type = sqlite3_column_int(component_handle, 2);
+            const auto* target_id = sqlite3_column_text(component_handle, 3);
+            const auto* artifact_sha = sqlite3_column_text(component_handle, 4);
+            const auto artifact_bytes = sqlite3_column_int64(component_handle, 5);
+            const auto* semantic_sha = sqlite3_column_text(component_handle, 6);
+            const auto model_role = sqlite3_column_int(component_handle, 7);
+            const auto* immutable_location = sqlite3_column_text(component_handle, 8);
+            if (component_id == nullptr || component_version == nullptr ||
+                target_id == nullptr || artifact_sha == nullptr || semantic_sha == nullptr ||
+                immutable_location == nullptr || artifact_bytes <= 0 ||
+                component_type < static_cast<int>(app_component_type::model) ||
+                component_type > static_cast<int>(app_component_type::configuration) ||
+                model_role < static_cast<int>(app_model_role::none) ||
+                model_role > static_cast<int>(app_model_role::offline)) {
+                return {status_code::invalid_state,
+                    "corrupt runtime app component row"};
+            }
+            app_runtime_component component;
+            component.component_id_ = reinterpret_cast<const char*>(component_id);
+            component.component_version_ = reinterpret_cast<const char*>(component_version);
+            component.type_ = static_cast<app_component_type>(component_type);
+            component.target_id_ = reinterpret_cast<const char*>(target_id);
+            component.artifact_sha256_ = reinterpret_cast<const char*>(artifact_sha);
+            component.artifact_bytes_ = static_cast<std::uint64_t>(artifact_bytes);
+            component.semantic_contract_sha256_ =
+                reinterpret_cast<const char*>(semantic_sha);
+            component.model_role_ = static_cast<app_model_role>(model_role);
+            component.immutable_location_ =
+                reinterpret_cast<const char*>(immutable_location);
+            association.components_.push_back(std::move(component));
+        }
         candidate.associations_.push_back(std::move(association));
     }
     const auto valid = vqec_vision_ai_core_applc_validate_runtime_snapshot(candidate);
@@ -580,7 +684,9 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
             _request.manifest_.configuration_defaults_sha256_ ||
         _request.configuration_payload_.empty() ||
         _request.configuration_payload_.size() > app_lifecycle_limits::g_max_document_bytes ||
-        _request.manifest_.requested_scopes_.sources_.empty()) {
+        _request.manifest_.requested_scopes_.sources_.empty() ||
+        _request.components_.empty() ||
+        _request.components_.size() > app_lifecycle_limits::g_max_components) {
         return {status_code::invalid_argument, "invalid app install request"};
     }
     auto started = vqec_vision_ai_stor_apinv_begin(database_);
@@ -598,6 +704,12 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current.code_ != status_code::ok ? current :
             status{status_code::invalid_state, "stale app inventory revision"};
+    }
+    current = vqec_vision_ai_ports_apinv_authorize_install(
+        _request.manifest_, _request.expected_inventory_revision_);
+    if (current.code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
     }
     struct install_grant {
         std::uint64_t expires_utc_ns_{0};
@@ -710,7 +822,24 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
                 status{status_code::io_error, "app source binding failed"} : current;
         }
     }
-    for (const auto& component : _request.manifest_.components_) {
+    for (const auto& installed_component : _request.components_) {
+        const auto& component = installed_component.manifest_;
+        const auto declared = std::find_if(_request.manifest_.components_.begin(),
+            _request.manifest_.components_.end(), [&component](const auto& _value) {
+                return _value.component_id_ == component.component_id_ &&
+                    _value.component_version_ == component.component_version_ &&
+                    _value.target_id_ == component.target_id_ &&
+                    _value.artifact_sha256_ == component.artifact_sha256_ &&
+                    _value.artifact_bytes_ == component.artifact_bytes_ &&
+                    _value.semantic_contract_sha256_ ==
+                        component.semantic_contract_sha256_;
+            });
+        if (declared == _request.manifest_.components_.end() ||
+            installed_component.immutable_location_.empty()) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::protocol_error,
+                "installed component differs from verified manifest"};
+        }
         sqlite_statement component_statement;
         current = vqec_vision_ai_stor_apinv_prepare(database_,
             "INSERT INTO components VALUES(?,?,?,?,?,1) ON CONFLICT(component_id,"
@@ -750,10 +879,585 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_install(
             return !mapped ? status{status_code::io_error,
                 "app component mapping failed"} : current;
         }
+        sqlite_statement details;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "INSERT INTO app_component_details VALUES(?,?,?,?,?,?,?,?,?,?)", details);
+        handle = details.vqec_vision_ai_stor_apinv_get();
+        const bool detailed = current.code_ == status_code::ok &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 1, _request.manifest_.app_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 2, component.component_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 3, component.component_version_) &&
+            sqlite3_bind_int(handle, 4, static_cast<int>(component.type_)) == SQLITE_OK &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 5, component.target_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(handle, 6, component.artifact_sha256_) &&
+            vqec_vision_ai_stor_apinv_bind_uint64(handle, 7, component.artifact_bytes_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                handle, 8, component.semantic_contract_sha256_) &&
+            sqlite3_bind_int(handle, 9, static_cast<int>(component.model_role_)) ==
+                SQLITE_OK &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                handle, 10, installed_component.immutable_location_);
+        if (!detailed ||
+            (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
+                status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return !detailed ? status{status_code::io_error,
+                "app component detail binding failed"} : current;
+        }
     }
     current = vqec_vision_ai_stor_apinv_update_revisions(database_,
         snapshot_revision + 1U, inventory_revision + 1U,
         entitlement_revision, desired_revision);
+    if (current.code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    return vqec_vision_ai_stor_apinv_finish_mutation(database_, _snapshot);
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_update(
+    const app_install_request& _request, runtime_control_snapshot& _snapshot) {
+    if (database_ == nullptr) {
+        return {status_code::invalid_state, "app inventory is not open"};
+    }
+    const auto valid = vqec_vision_ai_core_applc_validate_manifest(_request.manifest_);
+    if (valid.code_ != status_code::ok ||
+        !vqec_vision_ai_cntr_ident_is_sha256_hex(_request.manifest_sha256_) ||
+        _request.expected_inventory_revision_ == 0 ||
+        _request.components_.empty() ||
+        _request.components_.size() > app_lifecycle_limits::g_max_components ||
+        _request.configuration_payload_.empty() ||
+        _request.configuration_payload_.size() > app_lifecycle_limits::g_max_document_bytes ||
+        _request.configuration_sha256_ !=
+            _request.manifest_.configuration_defaults_sha256_) {
+        return valid.code_ != status_code::ok ? valid :
+            status{status_code::invalid_argument, "invalid app update request"};
+    }
+    auto current = vqec_vision_ai_stor_apinv_begin(database_);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    std::uint64_t snapshot_revision = 0;
+    std::uint64_t inventory_revision = 0;
+    std::uint64_t entitlement_revision = 0;
+    std::uint64_t desired_revision = 0;
+    current = vqec_vision_ai_stor_apinv_read_revisions(database_, snapshot_revision,
+        inventory_revision, entitlement_revision, desired_revision);
+    if (current.code_ != status_code::ok ||
+        inventory_revision != _request.expected_inventory_revision_) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current.code_ != status_code::ok ? current :
+            status{status_code::invalid_state, "stale app inventory revision"};
+    }
+    current = vqec_vision_ai_ports_apinv_authorize_install(
+        _request.manifest_, _request.expected_inventory_revision_);
+    if (current.code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement installed;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "SELECT app_version,release_sequence,configuration_schema_id,"
+        "configuration_revision,(SELECT COUNT(*) FROM app_sources s "
+        "WHERE s.app_id=a.app_id AND s.desired=1),"
+        "(SELECT COUNT(*) FROM app_sources s WHERE s.app_id=a.app_id) "
+        "FROM applications a WHERE app_id=?", installed);
+    auto* installed_handle = installed.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            installed_handle, 1, _request.manifest_.app_id_) ||
+        sqlite3_step(installed_handle) != SQLITE_ROW) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::invalid_state, "application is not installed"};
+    }
+    const auto* current_version_text = sqlite3_column_text(installed_handle, 0);
+    const auto current_release = sqlite3_column_int64(installed_handle, 1);
+    const auto* current_schema_text = sqlite3_column_text(installed_handle, 2);
+    const auto current_configuration_revision = sqlite3_column_int64(installed_handle, 3);
+    const auto desired_count = sqlite3_column_int64(installed_handle, 4);
+    const auto source_count = sqlite3_column_int64(installed_handle, 5);
+    if (current_version_text == nullptr || current_schema_text == nullptr ||
+        current_release <= 0 || current_configuration_revision <= 0 ||
+        desired_count != 0 || source_count != static_cast<sqlite3_int64>(
+            _request.manifest_.requested_scopes_.sources_.size()) ||
+        _request.manifest_.release_sequence_ <=
+            static_cast<std::uint64_t>(current_release) ||
+        _request.manifest_.rollback_predecessor_ !=
+            reinterpret_cast<const char*>(current_version_text) ||
+        _request.manifest_.configuration_schema_id_ !=
+            reinterpret_cast<const char*>(current_schema_text) ||
+        _request.configuration_revision_ !=
+            static_cast<std::uint64_t>(current_configuration_revision) + 1U) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::invalid_state,
+            "app update is not a disabled compatible successor"};
+    }
+    for (const auto& source : _request.manifest_.requested_scopes_.sources_) {
+        sqlite_statement source_statement;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "SELECT 1 FROM app_sources WHERE app_id=? AND source_id=?",
+            source_statement);
+        auto* source_handle = source_statement.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(
+                source_handle, 1, _request.manifest_.app_id_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(source_handle, 2, source) ||
+            sqlite3_step(source_handle) != SQLITE_ROW) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::unsupported,
+                "app update changes the installed source closure"};
+        }
+    }
+    for (const auto& component : _request.components_) {
+        const auto declared = std::find_if(_request.manifest_.components_.begin(),
+            _request.manifest_.components_.end(), [&component](const auto& _value) {
+                return _value.component_id_ == component.manifest_.component_id_ &&
+                    _value.component_version_ == component.manifest_.component_version_ &&
+                    _value.target_id_ == component.manifest_.target_id_ &&
+                    _value.artifact_sha256_ == component.manifest_.artifact_sha256_ &&
+                    _value.artifact_bytes_ == component.manifest_.artifact_bytes_ &&
+                    _value.semantic_contract_sha256_ ==
+                        component.manifest_.semantic_contract_sha256_;
+            });
+        if (declared == _request.manifest_.components_.end() ||
+            component.immutable_location_.empty()) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::protocol_error,
+                "updated component differs from verified manifest"};
+        }
+        sqlite_statement previous;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "SELECT component_type,semantic_contract_sha256,model_role "
+            "FROM app_component_details WHERE app_id=? AND component_id=?",
+            previous);
+        auto* previous_handle = previous.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(
+                previous_handle, 1, _request.manifest_.app_id_) ||
+            !vqec_vision_ai_stor_apinv_bind_text(
+                previous_handle, 2, component.manifest_.component_id_) ||
+            sqlite3_step(previous_handle) != SQLITE_ROW ||
+            sqlite3_column_int(previous_handle, 0) !=
+                static_cast<int>(component.manifest_.type_) ||
+            sqlite3_column_text(previous_handle, 1) == nullptr ||
+            reinterpret_cast<const char*>(sqlite3_column_text(previous_handle, 1)) !=
+                component.manifest_.semantic_contract_sha256_ ||
+            sqlite3_column_int(previous_handle, 2) !=
+                static_cast<int>(component.manifest_.model_role_)) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::unsupported,
+                "app update changes a component semantic contract"};
+        }
+    }
+    sqlite_statement component_count;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "SELECT COUNT(*) FROM app_component_details WHERE app_id=?", component_count);
+    auto* count_handle = component_count.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            count_handle, 1, _request.manifest_.app_id_) ||
+        sqlite3_step(count_handle) != SQLITE_ROW ||
+        sqlite3_column_int64(count_handle, 0) !=
+            static_cast<sqlite3_int64>(_request.components_.size())) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::unsupported,
+            "app update changes the component closure"};
+    }
+
+    sqlite_statement release_previous_rollback;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE components SET reference_count=reference_count-1 WHERE EXISTS("
+        "SELECT 1 FROM app_rollback_components r WHERE r.app_id=? AND "
+        "r.component_id=components.component_id AND "
+        "r.component_version=components.component_version AND "
+        "r.target_id=components.target_id AND "
+        "r.artifact_sha256=components.artifact_sha256 AND "
+        "r.semantic_contract_sha256=components.semantic_contract_sha256)",
+        release_previous_rollback);
+    auto* release_handle = release_previous_rollback.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            release_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, release_handle)).code_ != status_code::ok ||
+        (current = vqec_vision_ai_stor_apinv_exec(database_,
+            "DELETE FROM components WHERE reference_count=0")).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement clear_rollback_components;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "DELETE FROM app_rollback_components WHERE app_id=?",
+        clear_rollback_components);
+    auto* clear_handle = clear_rollback_components.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            clear_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, clear_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement clear_rollback_app;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "DELETE FROM app_rollback_applications WHERE app_id=?", clear_rollback_app);
+    clear_handle = clear_rollback_app.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            clear_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, clear_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement save_app;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "INSERT INTO app_rollback_applications SELECT * FROM applications WHERE app_id=?",
+        save_app);
+    auto* save_handle = save_app.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            save_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, save_handle)).code_ !=
+            status_code::ok || sqlite3_changes(database_) != 1) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::io_error, "cannot retain rollback application generation"};
+    }
+    sqlite_statement save_components;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "INSERT INTO app_rollback_components SELECT * FROM app_component_details "
+        "WHERE app_id=?", save_components);
+    save_handle = save_components.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            save_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, save_handle)).code_ !=
+            status_code::ok || sqlite3_changes(database_) !=
+                static_cast<int>(_request.components_.size())) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::io_error, "cannot retain rollback component generation"};
+    }
+    sqlite_statement clear_current_components;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "DELETE FROM app_components WHERE app_id=?", clear_current_components);
+    clear_handle = clear_current_components.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            clear_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, clear_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement clear_current_details;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "DELETE FROM app_component_details WHERE app_id=?", clear_current_details);
+    clear_handle = clear_current_details.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            clear_handle, 1, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, clear_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement update_app;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE applications SET app_version=?,usecase_version=?,release_sequence=?,"
+        "manifest_sha256=?,configuration_schema_id=?,configuration_revision=?,"
+        "configuration_sha256=?,configuration_payload=?,requested_output_scopes=? "
+        "WHERE app_id=?", update_app);
+    auto* update_handle = update_app.vqec_vision_ai_stor_apinv_get();
+    const auto requested_outputs = vqec_vision_ai_stor_apinv_join_scopes(
+        _request.manifest_.requested_scopes_.outputs_);
+    const bool update_bound = current.code_ == status_code::ok &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 1, _request.manifest_.app_version_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 2, _request.manifest_.usecase_version_) &&
+        vqec_vision_ai_stor_apinv_bind_uint64(
+            update_handle, 3, _request.manifest_.release_sequence_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 4, _request.manifest_sha256_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 5, _request.manifest_.configuration_schema_id_) &&
+        vqec_vision_ai_stor_apinv_bind_uint64(
+            update_handle, 6, _request.configuration_revision_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 7, _request.configuration_sha256_) &&
+        vqec_vision_ai_stor_apinv_bind_blob(
+            update_handle, 8, _request.configuration_payload_) &&
+        vqec_vision_ai_stor_apinv_bind_text(update_handle, 9, requested_outputs) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            update_handle, 10, _request.manifest_.app_id_);
+    if (!update_bound ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, update_handle)).code_ !=
+            status_code::ok || sqlite3_changes(database_) != 1) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::io_error, "cannot publish updated application generation"};
+    }
+    for (const auto& installed_component : _request.components_) {
+        const auto& component = installed_component.manifest_;
+        sqlite_statement component_statement;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "INSERT INTO components VALUES(?,?,?,?,?,1) ON CONFLICT(component_id,"
+            "component_version,target_id,artifact_sha256,semantic_contract_sha256) "
+            "DO UPDATE SET reference_count=reference_count+1", component_statement);
+        auto* component_handle = component_statement.vqec_vision_ai_stor_apinv_get();
+        const bool component_bound = current.code_ == status_code::ok &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 1, component.component_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 2, component.component_version_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 3, component.target_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 4, component.artifact_sha256_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                component_handle, 5, component.semantic_contract_sha256_);
+        if (!component_bound ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, component_handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::io_error, "cannot retain updated component"};
+        }
+        sqlite_statement mapping;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "INSERT INTO app_components VALUES(?,?,?,?,?,?)", mapping);
+        auto* mapping_handle = mapping.vqec_vision_ai_stor_apinv_get();
+        const bool mapping_bound = current.code_ == status_code::ok &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 1, _request.manifest_.app_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 2, component.component_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 3, component.component_version_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 4, component.target_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 5, component.artifact_sha256_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                mapping_handle, 6, component.semantic_contract_sha256_);
+        if (!mapping_bound ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, mapping_handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::io_error, "cannot map updated component"};
+        }
+        sqlite_statement details;
+        current = vqec_vision_ai_stor_apinv_prepare(database_,
+            "INSERT INTO app_component_details VALUES(?,?,?,?,?,?,?,?,?,?)", details);
+        auto* detail_handle = details.vqec_vision_ai_stor_apinv_get();
+        const bool detail_bound = current.code_ == status_code::ok &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 1, _request.manifest_.app_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 2, component.component_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 3, component.component_version_) &&
+            sqlite3_bind_int(detail_handle, 4,
+                static_cast<int>(component.type_)) == SQLITE_OK &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 5, component.target_id_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 6, component.artifact_sha256_) &&
+            vqec_vision_ai_stor_apinv_bind_uint64(
+                detail_handle, 7, component.artifact_bytes_) &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 8, component.semantic_contract_sha256_) &&
+            sqlite3_bind_int(detail_handle, 9,
+                static_cast<int>(component.model_role_)) == SQLITE_OK &&
+            vqec_vision_ai_stor_apinv_bind_text(
+                detail_handle, 10, installed_component.immutable_location_);
+        if (!detail_bound ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, detail_handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return {status_code::io_error, "cannot describe updated component"};
+        }
+    }
+    sqlite_statement update_sources;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE app_sources SET supported=?,compatible=?,admitted=? WHERE app_id=?",
+        update_sources);
+    auto* source_handle = update_sources.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        sqlite3_bind_int(source_handle, 1, _request.supported_ ? 1 : 0) != SQLITE_OK ||
+        sqlite3_bind_int(source_handle, 2, _request.compatible_ ? 1 : 0) != SQLITE_OK ||
+        sqlite3_bind_int(source_handle, 3, _request.admitted_ ? 1 : 0) != SQLITE_OK ||
+        !vqec_vision_ai_stor_apinv_bind_text(
+            source_handle, 4, _request.manifest_.app_id_) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, source_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    current = vqec_vision_ai_stor_apinv_update_revisions(database_,
+        snapshot_revision + 1U, inventory_revision + 1U,
+        entitlement_revision, desired_revision);
+    if (current.code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    return vqec_vision_ai_stor_apinv_finish_mutation(database_, _snapshot);
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_rollback(
+    const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    if (database_ == nullptr ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _app_id, app_lifecycle_limits::g_max_identifier_bytes) ||
+        _expected_inventory_revision == 0) {
+        return {status_code::invalid_argument, "invalid app rollback request"};
+    }
+    auto current = vqec_vision_ai_stor_apinv_begin(database_);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    std::uint64_t snapshot_revision = 0;
+    std::uint64_t inventory_revision = 0;
+    std::uint64_t entitlement_revision = 0;
+    std::uint64_t desired_revision = 0;
+    current = vqec_vision_ai_stor_apinv_read_revisions(database_, snapshot_revision,
+        inventory_revision, entitlement_revision, desired_revision);
+    if (current.code_ != status_code::ok ||
+        inventory_revision != _expected_inventory_revision) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current.code_ != status_code::ok ? current :
+            status{status_code::invalid_state, "stale app inventory revision"};
+    }
+    sqlite_statement state;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "SELECT a.configuration_revision,"
+        "(SELECT COUNT(*) FROM app_sources s WHERE s.app_id=a.app_id AND s.desired=1),"
+        "(SELECT COUNT(*) FROM app_rollback_applications r WHERE r.app_id=a.app_id) "
+        "FROM applications a WHERE a.app_id=?", state);
+    auto* state_handle = state.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(state_handle, 1, _app_id) ||
+        sqlite3_step(state_handle) != SQLITE_ROW ||
+        sqlite3_column_int64(state_handle, 0) <= 0 ||
+        sqlite3_column_int64(state_handle, 1) != 0 ||
+        sqlite3_column_int64(state_handle, 2) != 1) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::invalid_state,
+            "disabled app with one rollback generation is required"};
+    }
+    const auto next_configuration_revision = static_cast<std::uint64_t>(
+        sqlite3_column_int64(state_handle, 0)) + 1U;
+    sqlite_statement release_current;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE components SET reference_count=reference_count-1 WHERE EXISTS("
+        "SELECT 1 FROM app_components m WHERE m.app_id=? AND "
+        "m.component_id=components.component_id AND "
+        "m.component_version=components.component_version AND "
+        "m.target_id=components.target_id AND "
+        "m.artifact_sha256=components.artifact_sha256 AND "
+        "m.semantic_contract_sha256=components.semantic_contract_sha256)",
+        release_current);
+    auto* release_handle = release_current.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(release_handle, 1, _app_id) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, release_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    for (const char* sql : {
+             "DELETE FROM app_components WHERE app_id=?",
+             "DELETE FROM app_component_details WHERE app_id=?"}) {
+        sqlite_statement erase;
+        current = vqec_vision_ai_stor_apinv_prepare(database_, sql, erase);
+        auto* erase_handle = erase.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(erase_handle, 1, _app_id) ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, erase_handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return current;
+        }
+    }
+    sqlite_statement restore_app;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE applications SET app_version=(SELECT app_version FROM "
+        "app_rollback_applications WHERE app_id=?),usecase_version=(SELECT "
+        "usecase_version FROM app_rollback_applications WHERE app_id=?),"
+        "release_sequence=(SELECT release_sequence FROM app_rollback_applications "
+        "WHERE app_id=?),manifest_sha256=(SELECT manifest_sha256 FROM "
+        "app_rollback_applications WHERE app_id=?),configuration_schema_id=(SELECT "
+        "configuration_schema_id FROM app_rollback_applications WHERE app_id=?),"
+        "configuration_revision=?,configuration_sha256=(SELECT configuration_sha256 "
+        "FROM app_rollback_applications WHERE app_id=?),configuration_payload=(SELECT "
+        "configuration_payload FROM app_rollback_applications WHERE app_id=?),"
+        "requested_output_scopes=(SELECT requested_output_scopes FROM "
+        "app_rollback_applications WHERE app_id=?) WHERE app_id=?", restore_app);
+    auto* restore_handle = restore_app.vqec_vision_ai_stor_apinv_get();
+    bool restore_bound = current.code_ == status_code::ok;
+    for (int index = 1; index <= 5 && restore_bound; ++index) {
+        restore_bound = vqec_vision_ai_stor_apinv_bind_text(
+            restore_handle, index, _app_id);
+    }
+    restore_bound = restore_bound && vqec_vision_ai_stor_apinv_bind_uint64(
+        restore_handle, 6, next_configuration_revision);
+    for (int index = 7; index <= 10 && restore_bound; ++index) {
+        restore_bound = vqec_vision_ai_stor_apinv_bind_text(
+            restore_handle, index, _app_id);
+    }
+    if (!restore_bound ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, restore_handle)).code_ != status_code::ok ||
+        sqlite3_changes(database_) != 1) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return {status_code::io_error, "cannot restore rollback application generation"};
+    }
+    sqlite_statement restore_mapping;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "INSERT INTO app_components(app_id,component_id,component_version,target_id,"
+        "artifact_sha256,semantic_contract_sha256) SELECT app_id,component_id,"
+        "component_version,target_id,artifact_sha256,semantic_contract_sha256 FROM "
+        "app_rollback_components WHERE app_id=?", restore_mapping);
+    auto* mapping_handle = restore_mapping.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(mapping_handle, 1, _app_id) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, mapping_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    sqlite_statement restore_details;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "INSERT INTO app_component_details SELECT * FROM app_rollback_components "
+        "WHERE app_id=?", restore_details);
+    auto* detail_handle = restore_details.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(detail_handle, 1, _app_id) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(
+            database_, detail_handle)).code_ != status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    for (const char* sql : {
+             "DELETE FROM app_rollback_components WHERE app_id=?",
+             "DELETE FROM app_rollback_applications WHERE app_id=?"}) {
+        sqlite_statement erase;
+        current = vqec_vision_ai_stor_apinv_prepare(database_, sql, erase);
+        auto* erase_handle = erase.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(erase_handle, 1, _app_id) ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, erase_handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return current;
+        }
+    }
+    current = vqec_vision_ai_stor_apinv_exec(
+        database_, "DELETE FROM components WHERE reference_count=0");
+    if (current.code_ == status_code::ok) {
+        current = vqec_vision_ai_stor_apinv_update_revisions(database_,
+            snapshot_revision + 1U, inventory_revision + 1U,
+            entitlement_revision, desired_revision);
+    }
     if (current.code_ != status_code::ok) {
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current;
@@ -1055,6 +1759,38 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_uninstall(
             status_code::ok) {
         vqec_vision_ai_stor_apinv_rollback(database_);
         return current;
+    }
+    sqlite_statement decrement_rollback;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE components SET reference_count=reference_count-1 WHERE EXISTS("
+        "SELECT 1 FROM app_rollback_components r WHERE r.app_id=? AND "
+        "r.component_id=components.component_id AND "
+        "r.component_version=components.component_version AND "
+        "r.target_id=components.target_id AND "
+        "r.artifact_sha256=components.artifact_sha256 AND "
+        "r.semantic_contract_sha256=components.semantic_contract_sha256)",
+        decrement_rollback);
+    handle = decrement_rollback.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(handle, 1, _app_id) ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
+            status_code::ok) {
+        vqec_vision_ai_stor_apinv_rollback(database_);
+        return current;
+    }
+    for (const char* sql : {
+             "DELETE FROM app_rollback_components WHERE app_id=?",
+             "DELETE FROM app_rollback_applications WHERE app_id=?"}) {
+        sqlite_statement erase_rollback;
+        current = vqec_vision_ai_stor_apinv_prepare(database_, sql, erase_rollback);
+        handle = erase_rollback.vqec_vision_ai_stor_apinv_get();
+        if (current.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_apinv_bind_text(handle, 1, _app_id) ||
+            (current = vqec_vision_ai_stor_apinv_step_done(
+                database_, handle)).code_ != status_code::ok) {
+            vqec_vision_ai_stor_apinv_rollback(database_);
+            return current;
+        }
     }
     sqlite_statement erase;
     current = vqec_vision_ai_stor_apinv_prepare(

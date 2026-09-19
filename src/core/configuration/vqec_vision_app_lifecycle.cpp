@@ -175,6 +175,9 @@ status vqec_vision_ai_core_applc_validate_runtime_snapshot(
         const auto& association = _snapshot.associations_[index];
         if (!vqec_vision_ai_core_applc_is_identifier(association.app_id_) ||
             !vqec_vision_ai_core_applc_is_identifier(association.source_id_) ||
+            !vqec_vision_ai_core_applc_is_text(
+                association.app_version_, app_lifecycle_limits::g_max_version_bytes) ||
+            association.release_sequence_ == 0 ||
             association.configuration_revision_ == 0 ||
             !vqec_vision_ai_cntr_ident_is_sha256_hex(
                 association.configuration_sha256_) ||
@@ -184,6 +187,8 @@ status vqec_vision_ai_core_applc_validate_runtime_snapshot(
             association.configuration_payload_.size() >
                 app_lifecycle_limits::g_max_document_bytes ||
             association.output_scopes_.size() > app_lifecycle_limits::g_max_scopes ||
+            association.components_.empty() ||
+            association.components_.size() > app_lifecycle_limits::g_max_components ||
             (association.entitled_ && association.entitlement_expires_utc_ns_ == 0) ||
             (!association.entitled_ && !association.output_scopes_.empty()) ||
             (association.desired_ && !association.installed_)) {
@@ -202,6 +207,35 @@ status vqec_vision_ai_core_applc_validate_runtime_snapshot(
                     association.output_scopes_, scope)) {
                 return {status_code::invalid_argument,
                     "invalid runtime output scope"};
+            }
+        }
+        for (std::size_t component_index = 0;
+             component_index < association.components_.size(); ++component_index) {
+            const auto& component = association.components_[component_index];
+            if (!vqec_vision_ai_core_applc_is_identifier(component.component_id_) ||
+                !vqec_vision_ai_core_applc_is_text(component.component_version_,
+                    app_lifecycle_limits::g_max_version_bytes) ||
+                !vqec_vision_ai_core_applc_is_identifier(component.target_id_) ||
+                !vqec_vision_ai_cntr_ident_is_sha256_hex(component.artifact_sha256_) ||
+                component.artifact_bytes_ == 0 ||
+                component.artifact_bytes_ > app_lifecycle_limits::g_max_component_bytes ||
+                !vqec_vision_ai_cntr_ident_is_sha256_hex(
+                    component.semantic_contract_sha256_) ||
+                component.immutable_location_.empty() ||
+                component.immutable_location_.front() != '/' ||
+                component.immutable_location_.find('\0') != std::string::npos ||
+                component.immutable_location_.find("..") != std::string::npos) {
+                return {status_code::invalid_argument,
+                    "invalid runtime app component"};
+            }
+            for (std::size_t previous = 0; previous < component_index; ++previous) {
+                const auto& other = association.components_[previous];
+                if (other.component_id_ == component.component_id_ &&
+                    other.component_version_ == component.component_version_ &&
+                    other.target_id_ == component.target_id_) {
+                    return {status_code::invalid_argument,
+                        "duplicate runtime app component"};
+                }
             }
         }
     }

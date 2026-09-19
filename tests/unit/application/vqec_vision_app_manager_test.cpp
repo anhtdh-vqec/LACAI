@@ -30,6 +30,8 @@ struct test_database {
     std::string content_path_;
     std::string model_path_;
     std::string labels_path_;
+    std::string update_model_path_;
+    std::string update_labels_path_;
     test_database() {
         char pattern[] = "/tmp/vqec_vision_app_manager_dir.XXXXXX";
         const char* directory = mkdtemp(pattern);
@@ -39,6 +41,8 @@ struct test_database {
         content_path_ = directory_ + "/content";
         model_path_ = directory_ + "/model.bin";
         labels_path_ = directory_ + "/labels.txt";
+        update_model_path_ = directory_ + "/model_update.bin";
+        update_labels_path_ = directory_ + "/labels_update.txt";
         assert(::mkdir(content_path_.c_str(), S_IRWXU) == 0);
         {
             std::ofstream stream(model_path_, std::ios::binary);
@@ -49,6 +53,16 @@ struct test_database {
             std::ofstream stream(labels_path_, std::ios::binary);
             assert(stream);
             stream << "def";
+        }
+        {
+            std::ofstream stream(update_model_path_, std::ios::binary);
+            assert(stream);
+            stream << "ghi";
+        }
+        {
+            std::ofstream stream(update_labels_path_, std::ios::binary);
+            assert(stream);
+            stream << "jkl";
         }
     }
     ~test_database() {
@@ -63,7 +77,7 @@ struct test_candidate {
     app_package_candidate value_;
     std::vector<int> descriptors_;
 
-    explicit test_candidate(const test_database& _database);
+    explicit test_candidate(const test_database& _database, bool _is_update = false);
     ~test_candidate() noexcept {
         for (const int descriptor : descriptors_) {
             if (descriptor >= 0) {
@@ -86,7 +100,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_apver_verify(
         const app_package_candidate& _candidate,
         verified_app_package& _package) const override {
-        if (_candidate.signature_payload_ != std::vector<std::uint8_t>{'t', 'e', 's', 't'} ||
+        const bool is_update = _candidate.signature_payload_ ==
+            std::vector<std::uint8_t>{'u', 'p', 'd', 't'};
+        if ((!is_update && _candidate.signature_payload_ !=
+                 std::vector<std::uint8_t>{'t', 'e', 's', 't'}) ||
             _candidate.manifest_sha256_ != VQEC_VISION_AI_APP_MANIFEST_SHA256) {
             return {status_code::unauthorized, "test package signature rejected"};
         }
@@ -98,15 +115,25 @@ public:
         if (loaded.code_ != status_code::ok) {
             return loaded;
         }
+        if (is_update) {
+            candidate.manifest_.app_version_ = "1.1.0";
+            candidate.manifest_.release_sequence_ = 2;
+            candidate.manifest_.rollback_predecessor_ = "1.0.0";
+        }
         for (auto& component : candidate.manifest_.components_) {
             if (component.type_ == app_component_type::model) {
-                component.artifact_sha256_ =
+                component.artifact_sha256_ = is_update ?
+                    "50ae61e841fac4e8f9e40baf2ad36ec868922ea48368c18f9535e47db56dd7fb" :
                     "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
                 component.artifact_bytes_ = 3U;
             } else if (component.type_ == app_component_type::labels) {
-                component.artifact_sha256_ =
+                component.artifact_sha256_ = is_update ?
+                    "268f277c6d766d31334fda0f7a5533a185598d269e61c76a805870244828a5f1" :
                     "cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34";
                 component.artifact_bytes_ = 3U;
+            }
+            if (is_update && component.type_ != app_component_type::configuration) {
+                component.component_version_ = "1.1";
             }
         }
         candidate.manifest_sha256_ = _candidate.manifest_sha256_;
@@ -160,7 +187,7 @@ app_manager_config vqec_vision_ai_unit_amtest_manager_config() {
     return config;
 }
 
-test_candidate::test_candidate(const test_database& _database) {
+test_candidate::test_candidate(const test_database& _database, bool _is_update) {
     value_.manifest_payload_ = vqec_vision_ai_unit_amtest_read(
         g_manifest_fixture);
     value_.manifest_sha256_ = VQEC_VISION_AI_APP_MANIFEST_SHA256;
@@ -168,10 +195,15 @@ test_candidate::test_candidate(const test_database& _database) {
         g_configuration_fixture);
     value_.configuration_sha256_ =
         "07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935";
-    value_.signature_payload_ = {'t', 'e', 's', 't'};
-    for (const auto* path : {_database.model_path_.c_str(),
-             _database.labels_path_.c_str()}) {
-        const int descriptor = ::open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    value_.signature_payload_ = _is_update ?
+        std::vector<std::uint8_t>{'u', 'p', 'd', 't'} :
+        std::vector<std::uint8_t>{'t', 'e', 's', 't'};
+    const std::vector<std::string> paths = _is_update ?
+        std::vector<std::string>{
+            _database.update_model_path_, _database.update_labels_path_} :
+        std::vector<std::string>{_database.model_path_, _database.labels_path_};
+    for (const auto& path : paths) {
+        const int descriptor = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
         assert(descriptor >= 0);
         descriptors_.push_back(descriptor);
         value_.components_.push_back({descriptor});
@@ -271,13 +303,30 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
                    updated_sha256, snapshot)
                    .code_ == status_code::ok);
         assert(snapshot.associations_[0].configuration_revision_ == 2);
+        app_desired_update disable{"security.fire_smoke_detection", "camera_front",
+            snapshot.desired_revision_, false};
+        assert(manager.vqec_vision_ai_appl_appmn_set_desired(disable, snapshot).code_ ==
+            status_code::ok);
+        test_candidate update(database, true);
+        assert(manager.vqec_vision_ai_appl_appmn_update(
+                   update.value_, snapshot.inventory_revision_, snapshot)
+                   .code_ == status_code::ok);
+        assert(snapshot.associations_[0].app_version_ == "1.1.0");
+        assert(snapshot.associations_[0].release_sequence_ == 2);
+        assert(snapshot.associations_[0].configuration_revision_ == 3);
+        assert(manager.vqec_vision_ai_appl_appmn_rollback(
+                   "security.fire_smoke_detection", snapshot.inventory_revision_, snapshot)
+                   .code_ == status_code::ok);
+        assert(snapshot.associations_[0].app_version_ == "1.0.0");
+        assert(snapshot.associations_[0].release_sequence_ == 1);
+        assert(snapshot.associations_[0].configuration_revision_ == 4);
         assert(snapshot.associations_[0].configuration_sha256_ == updated_sha256);
         assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
                    "security.fire_smoke_detection", 1,
                    candidate.value_.configuration_payload_,
                    candidate.value_.configuration_sha256_, snapshot)
                    .code_ == status_code::invalid_state);
-        assert(snapshot.associations_[0].configuration_revision_ == 2);
+        assert(snapshot.associations_[0].configuration_revision_ == 4);
     }
     {
         sqlite_app_inventory inventory(
@@ -288,8 +337,8 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
             entitlement_verifier, registry, content_store, inventory);
         assert(manager.vqec_vision_ai_appl_appmn_open(snapshot).code_ == status_code::ok);
         assert(snapshot.associations_.size() == 1);
-        assert(snapshot.associations_[0].is_effective());
-        assert(snapshot.associations_[0].configuration_revision_ == 2);
+        assert(!snapshot.associations_[0].is_effective());
+        assert(snapshot.associations_[0].configuration_revision_ == 4);
         assert(snapshot.associations_[0].configuration_sha256_ ==
             "f3155b44db80397765c5437cdb7e4023ef5ca7ff26682afd74a92f42f1742387");
     }

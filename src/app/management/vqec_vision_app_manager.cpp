@@ -50,8 +50,11 @@ const app_runtime_association* app_manager::vqec_vision_ai_appl_appmn_find_assoc
 
 status app_manager::vqec_vision_ai_appl_appmn_stage_package_content(
     const app_package_candidate& _candidate,
-    const verified_app_package& _package) {
+    const verified_app_package& _package,
+    std::vector<app_installed_component>& _components) {
     std::size_t component_index = 0;
+    std::vector<app_installed_component> components;
+    components.reserve(_package.manifest_.components_.size());
     for (const auto& component : _package.manifest_.components_) {
         if (component.target_id_ != config_.target_id_) {
             continue;
@@ -83,11 +86,13 @@ status app_manager::vqec_vision_ai_appl_appmn_stage_package_content(
         if (staged.code_ != status_code::ok) {
             return staged;
         }
+        components.push_back({component, record.immutable_location_});
     }
     if (component_index != _candidate.components_.size()) {
         return {status_code::invalid_argument,
             "package contains undeclared component descriptors"};
     }
+    _components = std::move(components);
     return {};
 }
 
@@ -123,11 +128,10 @@ status app_manager::vqec_vision_ai_appl_appmn_open(
     return current;
 }
 
-status app_manager::vqec_vision_ai_appl_appmn_install(
+status app_manager::vqec_vision_ai_appl_appmn_commit_package(
     const app_package_candidate& _candidate,
     std::uint64_t _expected_inventory_revision,
-    runtime_control_snapshot& _snapshot) {
-    std::lock_guard<std::mutex> guard(mutex_);
+    bool _is_update, runtime_control_snapshot& _snapshot) {
     if (!open_) {
         return {status_code::invalid_state, "app manager is not open"};
     }
@@ -187,7 +191,9 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
     if (current.code_ != status_code::ok) {
         return current;
     }
-    current = vqec_vision_ai_appl_appmn_stage_package_content(_candidate, package);
+    std::vector<app_installed_component> installed_components;
+    current = vqec_vision_ai_appl_appmn_stage_package_content(
+        _candidate, package, installed_components);
     if (current.code_ != status_code::ok) {
         return current;
     }
@@ -197,8 +203,24 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
     request.manifest_sha256_ = std::move(package.manifest_sha256_);
     request.expected_inventory_revision_ = _expected_inventory_revision;
     request.configuration_revision_ = 1;
+    if (_is_update) {
+        runtime_control_snapshot current_snapshot;
+        current = inventory_.vqec_vision_ai_ports_apinv_load_snapshot(current_snapshot);
+        const auto* association = current.code_ == status_code::ok ?
+            vqec_vision_ai_appl_appmn_find_association(
+                current_snapshot, request.manifest_.app_id_) : nullptr;
+        if (current.code_ != status_code::ok || association == nullptr ||
+            association->configuration_revision_ ==
+                std::numeric_limits<std::uint64_t>::max()) {
+            return current.code_ != status_code::ok ? current :
+                status{status_code::invalid_state,
+                    "app update has no valid installed generation"};
+        }
+        request.configuration_revision_ = association->configuration_revision_ + 1U;
+    }
     request.configuration_sha256_ = std::move(package.configuration_sha256_);
     request.configuration_payload_ = std::move(package.configuration_payload_);
+    request.components_ = std::move(installed_components);
     request.supported_ = true;
     request.compatible_ = true;
     request.admitted_ =
@@ -210,7 +232,38 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
             config_.capacity_.max_active_incidents_ &&
         request.manifest_.resources_.max_events_per_second_ <=
             config_.capacity_.max_events_per_second_;
-    return inventory_.vqec_vision_ai_ports_apinv_install(request, _snapshot);
+    return _is_update ?
+        inventory_.vqec_vision_ai_ports_apinv_update(request, _snapshot) :
+        inventory_.vqec_vision_ai_ports_apinv_install(request, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_appl_appmn_install(
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return vqec_vision_ai_appl_appmn_commit_package(
+        _candidate, _expected_inventory_revision, false, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_appl_appmn_update(
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return vqec_vision_ai_appl_appmn_commit_package(
+        _candidate, _expected_inventory_revision, true, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_appl_appmn_rollback(
+    const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    return inventory_.vqec_vision_ai_ports_apinv_rollback(
+        _app_id, _expected_inventory_revision, _snapshot);
 }
 
 status app_manager::vqec_vision_ai_appl_appmn_update_configuration(
@@ -373,6 +426,21 @@ status app_manager::vqec_vision_ai_ports_apmgr_install(
     runtime_control_snapshot& _snapshot) {
     return vqec_vision_ai_appl_appmn_install(
         _candidate, _expected_inventory_revision, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_update(
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_update(
+        _candidate, _expected_inventory_revision, _snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_rollback(
+    const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+    runtime_control_snapshot& _snapshot) {
+    return vqec_vision_ai_appl_appmn_rollback(
+        _app_id, _expected_inventory_revision, _snapshot);
 }
 
 status app_manager::vqec_vision_ai_ports_apmgr_update_configuration(

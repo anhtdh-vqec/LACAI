@@ -73,6 +73,8 @@ void vqec_vision_ai_unit_apmtst_test_runtime_snapshot_gates() {
     app_runtime_association association;
     association.app_id_ = "security.fire_smoke_detection";
     association.source_id_ = "camera_front";
+    association.app_version_ = "1.0.0";
+    association.release_sequence_ = 1;
     association.installed_ = true;
     association.entitled_ = true;
     association.desired_ = true;
@@ -85,6 +87,13 @@ void vqec_vision_ai_unit_apmtst_test_runtime_snapshot_gates() {
     association.configuration_schema_id_ = "security.fire_smoke.configuration";
     association.configuration_payload_ = {'{', '}'};
     association.output_scopes_ = {"security.fire_smoke.event"};
+    association.components_.push_back({"yolo11n_fire_smoke", "1.0",
+        app_component_type::model, "qcs6490_qlinux_1_8",
+        "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+        3442520U,
+        "436ea6a5df7eb7d8e13706639a7ebc1b3f6e6459a80703fd459ca01af982be42",
+        app_model_role::primary,
+        "/opt/lacai/models/app_content/4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513"});
     association.entitlement_expires_utc_ns_ = 9000000000000000000ULL;
     snapshot.associations_.push_back(association);
     assert(vqec_vision_ai_core_applc_validate_runtime_snapshot(snapshot).code_ ==

@@ -11,6 +11,9 @@
 #include <utility>
 #include <vector>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "vqec_vision_runtime_control_snapshot.hpp"
 
 namespace vqec::vision::ai {
@@ -31,6 +34,34 @@ public:
     status vqec_vision_ai_ports_apmgr_install(const app_package_candidate&,
         std::uint64_t, runtime_control_snapshot&) override {
         return {status_code::unsupported, "install not exercised by this wire test"};
+    }
+    status vqec_vision_ai_ports_apmgr_update(const app_package_candidate& _candidate,
+        std::uint64_t _expected_revision,
+        runtime_control_snapshot& _snapshot) override {
+        if (_expected_revision != 2 ||
+            _candidate.manifest_payload_ != std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.configuration_payload_ !=
+                std::vector<std::uint8_t>{'{', '}'} ||
+            _candidate.signature_payload_ != std::vector<std::uint8_t>{'s'} ||
+            _candidate.components_.size() != 1 ||
+            _candidate.components_[0].descriptor_ < 0) {
+            return {status_code::invalid_argument, "unexpected update candidate"};
+        }
+        update_called_ = true;
+        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
+        _snapshot.snapshot_revision_ = 5;
+        return {};
+    }
+    status vqec_vision_ai_ports_apmgr_rollback(const std::string& _app_id,
+        std::uint64_t _expected_revision,
+        runtime_control_snapshot& _snapshot) override {
+        if (_app_id != "security.fire_smoke_detection" || _expected_revision != 3) {
+            return {status_code::invalid_argument, "unexpected rollback request"};
+        }
+        rollback_called_ = true;
+        vqec_vision_ai_unit_amdtst_snapshot(_snapshot);
+        _snapshot.snapshot_revision_ = 5;
+        return {};
     }
     status vqec_vision_ai_ports_apmgr_update_configuration(const std::string& _app_id,
         std::uint64_t _expected_revision,
@@ -99,6 +130,8 @@ public:
         app_runtime_association association;
         association.app_id_ = "security.fire_smoke_detection";
         association.source_id_ = "camera_front";
+        association.app_version_ = "1.0.0";
+        association.release_sequence_ = 1;
         association.installed_ = true;
         association.entitled_ = true;
         association.supported_ = true;
@@ -110,6 +143,13 @@ public:
         association.configuration_schema_id_ = "security.fire_smoke.configuration";
         association.configuration_payload_ = {'{', '}'};
         association.output_scopes_ = {"security.fire_smoke.event"};
+        association.components_.push_back({"yolo11n_fire_smoke", "1.0",
+            app_component_type::model, "qcs6490_qlinux_1_8",
+            "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+            3442520U,
+            "436ea6a5df7eb7d8e13706639a7ebc1b3f6e6459a80703fd459ca01af982be42",
+            app_model_role::primary,
+            "/opt/lacai/models/app_content/4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513"});
         association.entitlement_expires_utc_ns_ = 9000000000000000000ULL;
         _snapshot.associations_.push_back(std::move(association));
     }
@@ -117,6 +157,8 @@ public:
     bool desired_called_{false};
     bool entitlement_called_{false};
     bool configuration_called_{false};
+    bool update_called_{false};
+    bool rollback_called_{false};
 };
 
 void vqec_vision_ai_unit_amdtst_request_name(
@@ -324,6 +366,61 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
                 std::future_status::ready ||
             !entitlement_call.get() || !port.entitlement_called_) {
             throw std::runtime_error("App Manager entitlement FD wire is invalid");
+        }
+        app_package_candidate update;
+        update.manifest_payload_ = {'{', '}'};
+        update.configuration_payload_ = {'{', '}'};
+        update.signature_payload_ = {'s'};
+        update.manifest_sha256_ =
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        update.configuration_sha256_ =
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        const int component_descriptor = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+        if (component_descriptor < 0) {
+            throw std::runtime_error("cannot open component descriptor fixture");
+        }
+        update.components_.push_back({component_descriptor});
+        auto update_call = std::async(std::launch::async,
+            [&client, &client_config, &update]() {
+                std::uint64_t revision = 0;
+                const auto applied = client.vqec_vision_ai_fwctl_amdbs_update(
+                    client_config, update, 2, revision);
+                return applied.code_ == status_code::ok && revision == 5;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             update_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        const bool update_passed =
+            update_call.wait_for(std::chrono::milliseconds(0)) ==
+                std::future_status::ready && update_call.get();
+        (void)::close(component_descriptor);
+        if (!update_passed || !port.update_called_) {
+            throw std::runtime_error("App Manager update FD wire is invalid");
+        }
+        auto rollback_call = std::async(std::launch::async,
+            [&client, &client_config]() {
+                std::uint64_t revision = 0;
+                const auto restored = client.vqec_vision_ai_fwctl_amdbs_rollback(
+                    client_config, "security.fire_smoke_detection", 3, revision);
+                return restored.code_ == status_code::ok && revision == 5;
+            });
+        for (std::size_t iteration = 0;
+             iteration < g_max_poll_iterations &&
+             rollback_call.wait_for(std::chrono::milliseconds(0)) !=
+                 std::future_status::ready;
+             ++iteration) {
+            server.vqec_vision_ai_fwctl_amdbs_poll();
+            std::this_thread::sleep_for(g_poll_interval);
+        }
+        if (rollback_call.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready || !rollback_call.get() ||
+            !port.rollback_called_) {
+            throw std::runtime_error("App Manager rollback wire is invalid");
         }
         app_manager_dbus_client runtime_client;
         const app_manager_dbus_client_config runtime_config{

@@ -133,9 +133,23 @@ struct app_entitlement_grant {
     std::vector<std::string> output_scopes_;
 };
 
+struct app_runtime_component {
+    std::string component_id_;
+    std::string component_version_;
+    app_component_type type_{app_component_type::model};
+    std::string target_id_;
+    std::string artifact_sha256_;
+    std::uint64_t artifact_bytes_{0};
+    std::string semantic_contract_sha256_;
+    app_model_role model_role_{app_model_role::none};
+    std::string immutable_location_;
+};
+
 struct app_runtime_association {
     std::string app_id_;
     std::string source_id_;
+    std::string app_version_;
+    std::uint64_t release_sequence_{0};
     bool installed_{false};
     bool entitled_{false};
     bool desired_{false};
@@ -147,6 +161,7 @@ struct app_runtime_association {
     std::string configuration_schema_id_;
     std::vector<std::uint8_t> configuration_payload_;
     std::vector<std::string> output_scopes_;
+    std::vector<app_runtime_component> components_;
     std::string reason_code_;
     std::uint64_t entitlement_expires_utc_ns_{0};
 

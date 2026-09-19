@@ -18,6 +18,8 @@ constexpr char g_snapshot[] = R"({
   "associations": [{
     "app_id": "security.fire_smoke_detection",
     "source_id": "camera_front",
+    "app_version": "1.0.0",
+    "release_sequence": 1,
     "installed": true,
     "entitled": true,
     "desired": true,
@@ -29,6 +31,17 @@ constexpr char g_snapshot[] = R"({
     "configuration_schema_id": "security.fire_smoke.configuration",
     "configuration_payload": {"schema_version": 1},
     "output_scopes": ["security.fire_smoke.event"],
+    "components": [{
+      "component_id": "yolo11n_fire_smoke",
+      "component_version": "1.0",
+      "component_type": "model",
+      "target_id": "qcs6490_qlinux_1_8",
+      "artifact_sha256": "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+      "artifact_bytes": 3442520,
+      "semantic_contract_sha256": "436ea6a5df7eb7d8e13706639a7ebc1b3f6e6459a80703fd459ca01af982be42",
+      "model_role": "primary",
+      "immutable_location": "/opt/lacai/models/app_content/4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513"
+    }],
     "reason_code": "verified",
     "entitlement_expires_utc_ns": 9000000000000000000
   }]

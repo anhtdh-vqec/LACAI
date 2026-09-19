@@ -49,6 +49,9 @@ struct service_feature_authority_state {
     const std::string& _path, feature_catalog& _features);
 [[nodiscard]] bool vqec_vision_ai_appl_svstr_load_usecase_snapshot(
     const std::string& _path, usecase_control_snapshot& _snapshot);
+[[nodiscard]] status vqec_vision_ai_appl_svstr_apply_runtime_models(
+    const runtime_control_snapshot& _runtime, model_catalog& _catalog,
+    model_package_registry& _registry);
 
 [[nodiscard]] service_feature_authority_state
 vqec_vision_ai_appl_svstr_resolve_feature_authority(

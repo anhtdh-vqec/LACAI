@@ -181,8 +181,9 @@ status vqec_vision_ai_tools_amctl_read_file(
 }
 
 void vqec_vision_ai_tools_amctl_usage() {
-    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|configure|entitlement|"
-                 "desired|uninstall> --service-name <name> --client-name <name> "
+    std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|update|rollback|"
+                 "configure|entitlement|desired|uninstall> --service-name <name> "
+                 "--client-name <name> "
                  "--object-path <path> --rpc-timeout-ms <ms> [--session] [command options]\n";
 }
 
@@ -207,7 +208,7 @@ int main(int argc, char** argv) {
             outcome = vqec_vision_ai_lifec_rcsnp_write(snapshot, std::cout);
             std::cout << '\n';
         }
-    } else if (options.command_ == "install") {
+    } else if (options.command_ == "install" || options.command_ == "update") {
         app_package_candidate candidate;
         component_descriptor_owner component_descriptors;
         outcome = vqec_vision_ai_tools_amctl_read_file(options.manifest_path_,
@@ -229,9 +230,15 @@ int main(int argc, char** argv) {
                 options.component_paths_, component_descriptors, candidate);
         }
         if (outcome.code_ == status_code::ok) {
-            outcome = client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
-                options.expected_revision_, revision);
+            outcome = options.command_ == "update" ?
+                client.vqec_vision_ai_fwctl_amdbs_update(options.dbus_, candidate,
+                    options.expected_revision_, revision) :
+                client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
+                    options.expected_revision_, revision);
         }
+    } else if (options.command_ == "rollback") {
+        outcome = client.vqec_vision_ai_fwctl_amdbs_rollback(options.dbus_,
+            options.app_id_, options.expected_revision_, revision);
     } else if (options.command_ == "configure") {
         std::vector<std::uint8_t> configuration;
         outcome = vqec_vision_ai_tools_amctl_read_file(options.configuration_path_,

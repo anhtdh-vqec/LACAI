@@ -1,4 +1,5 @@
 #include <cassert>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -65,6 +66,10 @@ app_install_request vqec_vision_ai_unit_saitst_install_request() {
     request.configuration_sha256_ = request.manifest_.configuration_defaults_sha256_;
     request.configuration_payload_ = vqec_vision_ai_unit_saitst_read_bytes(
         VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE);
+    for (const auto& component : request.manifest_.components_) {
+        request.components_.push_back(
+            {component, "/tmp/" + component.artifact_sha256_});
+    }
     request.supported_ = true;
     request.compatible_ = true;
     request.admitted_ = true;
@@ -142,9 +147,50 @@ void vqec_vision_ai_unit_saitst_test_lifecycle_and_restart() {
             "security.fire_smoke_detection", "camera_front", 2, false};
         assert(recovered.vqec_vision_ai_ports_apinv_set_desired(
             disable, snapshot).code_ == status_code::ok);
+        auto update = vqec_vision_ai_unit_saitst_install_request();
+        update.expected_inventory_revision_ = 3;
+        update.configuration_revision_ = 3;
+        update.manifest_.app_version_ = "1.1.0";
+        update.manifest_.release_sequence_ = 2;
+        update.manifest_.rollback_predecessor_ = "1.0.0";
+        assert(!update.manifest_.components_.empty());
+        update.manifest_.components_[0].component_version_ = "1.1.0";
+        update.manifest_.components_[0].artifact_sha256_ =
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        update.components_[0].manifest_ = update.manifest_.components_[0];
+        update.components_[0].immutable_location_ =
+            "/tmp/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        assert(recovered.vqec_vision_ai_ports_apinv_update(
+            update, snapshot).code_ == status_code::ok);
+        assert(snapshot.inventory_revision_ == 4 && snapshot.associations_.size() == 1);
+        assert(snapshot.associations_[0].app_version_ == "1.1.0");
+        assert(snapshot.associations_[0].release_sequence_ == 2);
+        assert(snapshot.associations_[0].configuration_revision_ == 3);
+        const auto updated_component = std::find_if(
+            snapshot.associations_[0].components_.begin(),
+            snapshot.associations_[0].components_.end(), [](const auto& _component) {
+                return _component.component_id_ == "yolo11n_fire_smoke";
+            });
+        assert(updated_component != snapshot.associations_[0].components_.end());
+        assert(updated_component->artifact_sha256_ ==
+            update.manifest_.components_[0].artifact_sha256_);
+        assert(recovered.vqec_vision_ai_ports_apinv_rollback(
+            "security.fire_smoke_detection", 4, snapshot).code_ == status_code::ok);
+        assert(snapshot.inventory_revision_ == 5 && snapshot.associations_.size() == 1);
+        assert(snapshot.associations_[0].app_version_ == "1.0.0");
+        assert(snapshot.associations_[0].release_sequence_ == 1);
+        assert(snapshot.associations_[0].configuration_revision_ == 4);
+        const auto restored_component = std::find_if(
+            snapshot.associations_[0].components_.begin(),
+            snapshot.associations_[0].components_.end(), [](const auto& _component) {
+                return _component.component_id_ == "yolo11n_fire_smoke";
+            });
+        assert(restored_component != snapshot.associations_[0].components_.end());
+        assert(restored_component->artifact_sha256_ !=
+            update.manifest_.components_[0].artifact_sha256_);
         assert(recovered.vqec_vision_ai_ports_apinv_uninstall(
-            "security.fire_smoke_detection", 3, snapshot).code_ == status_code::ok);
-        assert(snapshot.inventory_revision_ == 4 && snapshot.associations_.empty());
+            "security.fire_smoke_detection", 5, snapshot).code_ == status_code::ok);
+        assert(snapshot.inventory_revision_ == 6 && snapshot.associations_.empty());
     }
 }
 

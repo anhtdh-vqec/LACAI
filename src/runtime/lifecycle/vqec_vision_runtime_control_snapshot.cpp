@@ -87,13 +87,99 @@ std::vector<std::string> vqec_vision_ai_lifec_rcsnp_scopes(const json& _value) {
     return scopes;
 }
 
+app_component_type vqec_vision_ai_lifec_rcsnp_component_type(
+    const std::string& _value) {
+    if (_value == "model") {
+        return app_component_type::model;
+    }
+    if (_value == "labels") {
+        return app_component_type::labels;
+    }
+    if (_value == "ontology") {
+        return app_component_type::ontology;
+    }
+    if (_value == "rules") {
+        return app_component_type::rules;
+    }
+    if (_value == "configuration") {
+        return app_component_type::configuration;
+    }
+    throw invalid_runtime_control_snapshot{};
+}
+
+const char* vqec_vision_ai_lifec_rcsnp_component_type_name(
+    app_component_type _type) {
+    switch (_type) {
+    case app_component_type::model: return "model";
+    case app_component_type::labels: return "labels";
+    case app_component_type::ontology: return "ontology";
+    case app_component_type::rules: return "rules";
+    case app_component_type::configuration: return "configuration";
+    }
+    throw invalid_runtime_control_snapshot{};
+}
+
+app_model_role vqec_vision_ai_lifec_rcsnp_model_role(const std::string& _value) {
+    if (_value == "none") {
+        return app_model_role::none;
+    }
+    if (_value == "primary") {
+        return app_model_role::primary;
+    }
+    if (_value == "secondary") {
+        return app_model_role::secondary;
+    }
+    if (_value == "offline") {
+        return app_model_role::offline;
+    }
+    throw invalid_runtime_control_snapshot{};
+}
+
+const char* vqec_vision_ai_lifec_rcsnp_model_role_name(app_model_role _role) {
+    switch (_role) {
+    case app_model_role::none: return "none";
+    case app_model_role::primary: return "primary";
+    case app_model_role::secondary: return "secondary";
+    case app_model_role::offline: return "offline";
+    }
+    throw invalid_runtime_control_snapshot{};
+}
+
+app_runtime_component vqec_vision_ai_lifec_rcsnp_component(const json& _value) {
+    vqec_vision_ai_lifec_rcsnp_require_keys(_value,
+        {"component_id", "component_version", "component_type", "target_id",
+            "artifact_sha256", "artifact_bytes", "semantic_contract_sha256",
+            "model_role", "immutable_location"});
+    app_runtime_component component;
+    component.component_id_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("component_id"), app_lifecycle_limits::g_max_identifier_bytes);
+    component.component_version_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("component_version"), app_lifecycle_limits::g_max_version_bytes);
+    component.type_ = vqec_vision_ai_lifec_rcsnp_component_type(
+        vqec_vision_ai_lifec_rcsnp_text(_value.at("component_type"), 32));
+    component.target_id_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("target_id"), app_lifecycle_limits::g_max_identifier_bytes);
+    component.artifact_sha256_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("artifact_sha256"), 64);
+    component.artifact_bytes_ =
+        vqec_vision_ai_lifec_rcsnp_uint(_value.at("artifact_bytes"));
+    component.semantic_contract_sha256_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("semantic_contract_sha256"), 64);
+    component.model_role_ = vqec_vision_ai_lifec_rcsnp_model_role(
+        vqec_vision_ai_lifec_rcsnp_text(_value.at("model_role"), 32));
+    component.immutable_location_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("immutable_location"), app_lifecycle_limits::g_max_reference_bytes);
+    return component;
+}
+
 app_runtime_association vqec_vision_ai_lifec_rcsnp_association(
     const json& _value) {
     vqec_vision_ai_lifec_rcsnp_require_keys(_value,
         {"app_id", "source_id", "installed", "entitled", "desired", "supported",
             "compatible", "admitted", "configuration_revision",
             "configuration_sha256", "configuration_schema_id",
-            "configuration_payload", "output_scopes"},
+            "configuration_payload", "output_scopes", "app_version",
+            "release_sequence", "components"},
         {"reason_code", "entitlement_expires_utc_ns"});
     if (!_value.at("configuration_payload").is_object()) {
         throw invalid_runtime_control_snapshot{};
@@ -103,6 +189,10 @@ app_runtime_association vqec_vision_ai_lifec_rcsnp_association(
         _value.at("app_id"), app_lifecycle_limits::g_max_identifier_bytes);
     association.source_id_ = vqec_vision_ai_lifec_rcsnp_text(
         _value.at("source_id"), app_lifecycle_limits::g_max_identifier_bytes);
+    association.app_version_ = vqec_vision_ai_lifec_rcsnp_text(
+        _value.at("app_version"), app_lifecycle_limits::g_max_version_bytes);
+    association.release_sequence_ =
+        vqec_vision_ai_lifec_rcsnp_uint(_value.at("release_sequence"));
     association.installed_ = vqec_vision_ai_lifec_rcsnp_bool(_value.at("installed"));
     association.entitled_ = vqec_vision_ai_lifec_rcsnp_bool(_value.at("entitled"));
     association.desired_ = vqec_vision_ai_lifec_rcsnp_bool(_value.at("desired"));
@@ -124,6 +214,16 @@ app_runtime_association vqec_vision_ai_lifec_rcsnp_association(
     association.configuration_payload_.assign(configuration.begin(), configuration.end());
     association.output_scopes_ =
         vqec_vision_ai_lifec_rcsnp_scopes(_value.at("output_scopes"));
+    const auto& components = _value.at("components");
+    if (!components.is_array() || components.empty() ||
+        components.size() > app_lifecycle_limits::g_max_components) {
+        throw invalid_runtime_control_snapshot{};
+    }
+    association.components_.reserve(components.size());
+    for (const auto& component : components) {
+        association.components_.push_back(
+            vqec_vision_ai_lifec_rcsnp_component(component));
+    }
     if (_value.contains("reason_code")) {
         association.reason_code_ = vqec_vision_ai_lifec_rcsnp_text(
             _value.at("reason_code"), app_lifecycle_limits::g_max_version_bytes);
@@ -237,6 +337,8 @@ status vqec_vision_ai_lifec_rcsnp_write(
             json value;
             value["app_id"] = association.app_id_;
             value["source_id"] = association.source_id_;
+            value["app_version"] = association.app_version_;
+            value["release_sequence"] = association.release_sequence_;
             value["installed"] = association.installed_;
             value["entitled"] = association.entitled_;
             value["desired"] = association.desired_;
@@ -250,6 +352,23 @@ status vqec_vision_ai_lifec_rcsnp_write(
                 association.configuration_payload_.begin(),
                 association.configuration_payload_.end());
             value["output_scopes"] = association.output_scopes_;
+            value["components"] = json::array();
+            for (const auto& component : association.components_) {
+                json component_value;
+                component_value["component_id"] = component.component_id_;
+                component_value["component_version"] = component.component_version_;
+                component_value["component_type"] =
+                    vqec_vision_ai_lifec_rcsnp_component_type_name(component.type_);
+                component_value["target_id"] = component.target_id_;
+                component_value["artifact_sha256"] = component.artifact_sha256_;
+                component_value["artifact_bytes"] = component.artifact_bytes_;
+                component_value["semantic_contract_sha256"] =
+                    component.semantic_contract_sha256_;
+                component_value["model_role"] =
+                    vqec_vision_ai_lifec_rcsnp_model_role_name(component.model_role_);
+                component_value["immutable_location"] = component.immutable_location_;
+                value["components"].push_back(std::move(component_value));
+            }
             if (!association.reason_code_.empty()) {
                 value["reason_code"] = association.reason_code_;
             }

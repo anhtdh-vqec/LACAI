@@ -34,6 +34,13 @@ public:
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision,
         runtime_control_snapshot& _snapshot);
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_update(
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot);
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_rollback(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_update_configuration(
         const std::string& _app_id, std::uint64_t _expected_configuration_revision,
         const std::vector<std::uint8_t>& _configuration_payload,
@@ -57,6 +64,13 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_install(
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_update(
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        runtime_control_snapshot& _snapshot) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_rollback(
+        const std::string& _app_id, std::uint64_t _expected_inventory_revision,
         runtime_control_snapshot& _snapshot) override;
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_update_configuration(
         const std::string& _app_id, std::uint64_t _expected_configuration_revision,
@@ -85,7 +99,12 @@ private:
             const std::string& _app_id) const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_appmn_stage_package_content(
         const app_package_candidate& _candidate,
-        const verified_app_package& _package);
+        const verified_app_package& _package,
+        std::vector<app_installed_component>& _components);
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_commit_package(
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision, bool _is_update,
+        runtime_control_snapshot& _snapshot);
 
     app_manager_config config_;
     app_package_verifier_port& package_verifier_;
