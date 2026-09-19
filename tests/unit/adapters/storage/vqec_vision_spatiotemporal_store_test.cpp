@@ -450,5 +450,83 @@ int main() {
     assert(stats.rejected_quota_writes_ == 1U);
     assert(quota_store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
     std::filesystem::remove_all(quota_root);
+
+    char retention_directory_template[] =
+        "/tmp/vqec_vision_spatiotemporal_retention_XXXXXX";
+    const auto* retention_created = mkdtemp(retention_directory_template);
+    assert(retention_created != nullptr);
+    const std::filesystem::path retention_root(retention_created);
+    auto retention_config = config;
+    retention_config.root_directory_ = retention_root.string();
+    sqlite_spatiotemporal_store retention_store(retention_config);
+    assert(retention_store.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_ingest_trajectory(
+               exact, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_ingest_episode(
+               fire_a_v1, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
+               contribution_a, {"kafka.metadata"}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_seal_before(1000000U).code_ ==
+           status_code::ok);
+    const spatiotemporal_retention_policy retention_policy{
+        1000000, 1000000, 6000000, 6000000};
+    spatiotemporal_retention_report retention_report;
+    assert(retention_store.vqec_vision_ai_stor_stsql_apply_retention(
+               retention_policy, retention_report).code_ == status_code::ok);
+    assert(retention_report.blocked_shards_ == 1U &&
+           retention_report.retired_shards_ == 0U &&
+           retention_report.purged_episode_revisions_ == 0U &&
+           retention_report.purged_contribution_revisions_ == 0U &&
+           retention_report.purged_rollups_ == 0U);
+    assert(retention_store.vqec_vision_ai_stor_stsql_acknowledge_outbox(
+               {"kafka.metadata", metadata_outbox_record_family::trajectory,
+                   "chunk.a", 1U}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_acknowledge_outbox(
+               {"kafka.metadata", metadata_outbox_record_family::episode,
+                   "fire.a", 1U}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_acknowledge_outbox(
+               {"kafka.metadata",
+                   metadata_outbox_record_family::aggregate_contribution,
+                   "fire.contribution.a", 1U}).code_ == status_code::ok);
+    assert(retention_store.vqec_vision_ai_stor_stsql_apply_retention(
+               retention_policy, retention_report).code_ == status_code::ok);
+    assert(retention_report.retired_shards_ == 1U &&
+           retention_report.blocked_shards_ == 0U &&
+           retention_report.purged_episode_revisions_ == 1U &&
+           retention_report.purged_contribution_revisions_ == 1U &&
+           retention_report.purged_rollups_ == 1U);
+    assert(!std::filesystem::exists(retention_root / "detail_0_1.db"));
+    query.budget_.deadline_ns_ = vqec_vision_ai_unit_ststst_get_deadline_ns();
+    retention_store.vqec_vision_ai_stor_stsql_cancel_query();
+    assert(retention_store.vqec_vision_ai_stor_stsql_query(query, page).code_ ==
+           status_code::timeout);
+    assert(retention_store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+    std::filesystem::remove_all(retention_root);
+
+    char retiring_directory_template[] =
+        "/tmp/vqec_vision_spatiotemporal_retiring_XXXXXX";
+    const auto* retiring_created = mkdtemp(retiring_directory_template);
+    assert(retiring_created != nullptr);
+    const std::filesystem::path retiring_root(retiring_created);
+    auto retiring_config = config;
+    retiring_config.root_directory_ = retiring_root.string();
+    sqlite_spatiotemporal_store retiring_store(retiring_config);
+    assert(retiring_store.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+    assert(retiring_store.vqec_vision_ai_stor_stsql_ingest_trajectory(exact, {}).code_ ==
+           status_code::ok);
+    assert(retiring_store.vqec_vision_ai_stor_stsql_seal_before(1000000U).code_ ==
+           status_code::ok);
+    assert(retiring_store.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+    catalog = nullptr;
+    assert(sqlite3_open((retiring_root / "catalog.db").c_str(), &catalog) == SQLITE_OK);
+    assert(sqlite3_exec(catalog,
+               "UPDATE shard_manifests SET state='retiring' WHERE state='sealed';",
+               nullptr, nullptr, nullptr) == SQLITE_OK);
+    assert(sqlite3_close(catalog) == SQLITE_OK);
+    sqlite_spatiotemporal_store retirement_recovery(retiring_config);
+    assert(retirement_recovery.vqec_vision_ai_stor_stsql_open().code_ == status_code::ok);
+    assert(!std::filesystem::exists(retiring_root / "detail_0_1.db"));
+    assert(retirement_recovery.vqec_vision_ai_stor_stsql_close().code_ == status_code::ok);
+    std::filesystem::remove_all(retiring_root);
     return 0;
 }

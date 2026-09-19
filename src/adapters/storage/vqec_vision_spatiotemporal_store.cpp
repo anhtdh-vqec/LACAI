@@ -23,7 +23,10 @@ constexpr const char* g_spatiotemporal_shard_suffix = ".db";
 constexpr const char* g_spatiotemporal_shard_active = "active";
 constexpr const char* g_spatiotemporal_shard_sealed = "sealed";
 constexpr const char* g_spatiotemporal_shard_missing = "missing";
+constexpr const char* g_spatiotemporal_shard_retiring = "retiring";
+constexpr const char* g_spatiotemporal_shard_retired = "retired";
 constexpr const char* g_spatiotemporal_outbox_pending = "pending";
+constexpr const char* g_spatiotemporal_outbox_acknowledged = "acknowledged";
 constexpr const char* g_spatiotemporal_sequence_key = "global_sequence";
 
 constexpr const char* g_spatiotemporal_catalog_schema_sql = R"sql(
@@ -1260,6 +1263,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
     if (result.code_ != status_code::ok) {
         return result;
     }
+    if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+        _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+        return {status_code::timeout, "metadata query was cancelled"};
+    }
     _page = {};
     std::uint64_t snapshot = _query.snapshot_sequence_;
     if (snapshot == 0U) {
@@ -1326,6 +1333,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
                        : result;
         }
         while (sqlite3_step(query) == SQLITE_ROW) {
+            if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+                _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+                return {status_code::timeout, "metadata query was cancelled"};
+            }
             if (_page.associations_.size() == result_limit) {
                 _page.has_more_ = true;
                 break;
@@ -1347,6 +1358,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
             association.review_state_ = static_cast<association_review_state>(sqlite3_column_int(query, 13));
             association.recorded_ns_ = sqlite3_column_int64(query, 14);
             _page.associations_.push_back(std::move(association));
+        }
+        if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {status_code::timeout, "metadata query was cancelled"};
         }
         _page.completeness_ = spatiotemporal_result_completeness::complete;
         _page.delivered_resolution_ = trajectory_resolution::episode_fact;
@@ -1457,6 +1472,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
     }
     std::vector<chunk_candidate> candidates;
     while (sqlite3_step(candidate_query) == SQLITE_ROW) {
+        if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {status_code::timeout, "metadata query was cancelled"};
+        }
         chunk_candidate candidate;
         candidate.sequence_ = static_cast<std::uint64_t>(sqlite3_column_int64(candidate_query, 0));
         candidate.chunk_id_ = vqec_vision_ai_stor_stsql_read_text(candidate_query, 1);
@@ -1465,10 +1484,18 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
         candidate.resolution_ = static_cast<trajectory_resolution>(sqlite3_column_int(candidate_query, 4));
         candidates.push_back(std::move(candidate));
     }
+    if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+        _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+        return {status_code::timeout, "metadata query was cancelled"};
+    }
     sqlite_connection_map connections;
     bool is_approximate = false;
     for (std::size_t candidate_index = 0U;
          candidate_index < candidates.size(); ++candidate_index) {
+        if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {status_code::timeout, "metadata query was cancelled"};
+        }
         if (candidate_index == result_limit) {
             _page.has_more_ = true;
             break;
@@ -1521,6 +1548,18 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query(
         : (is_approximate ? spatiotemporal_result_completeness::approximate
                           : spatiotemporal_result_completeness::complete);
     return {};
+}
+
+void sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_cancel_query() noexcept {
+    query_cancel_requested_.store(true, std::memory_order_release);
+    if (catalog_ != nullptr) {
+        sqlite3_interrupt(catalog_);
+    }
+}
+
+void sqlite_spatiotemporal_store::
+vqec_vision_ai_stor_stsql_clear_query_cancellation() noexcept {
+    query_cancel_requested_.store(false, std::memory_order_release);
 }
 
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_seal_before(
@@ -1584,6 +1623,277 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_seal_before(
     return {};
 }
 
+status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_acknowledge_outbox(
+    const metadata_outbox_receipt& _receipt) {
+    if (catalog_ == nullptr) {
+        return {status_code::invalid_state, "spatiotemporal store is not open"};
+    }
+    if (!vqec_vision_ai_cntr_ident_is_valid(
+            _receipt.sink_id_, g_spatiotemporal_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _receipt.record_id_, g_spatiotemporal_max_identifier_bytes) ||
+        _receipt.revision_ == 0U || _receipt.revision_ == UINT64_MAX) {
+        return {status_code::invalid_argument, "metadata outbox receipt is invalid"};
+    }
+    sqlite3* database = catalog_;
+    bool close_database = false;
+    const char* family = nullptr;
+    if (_receipt.record_family_ == metadata_outbox_record_family::trajectory) {
+        if (_receipt.revision_ != 1U) {
+            return {status_code::invalid_argument, "trajectory receipt revision must be one"};
+        }
+        sqlite_statement path_statement;
+        auto result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+            "SELECT m.relative_path FROM chunk_index c JOIN shard_manifests m "
+            "ON m.shard_id=c.shard_id WHERE c.chunk_id=?1 AND m.state!='retired';",
+            path_statement);
+        auto* path_query = path_statement.vqec_vision_ai_stor_stsql_get();
+        if (result.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_stsql_bind_text(path_query, 1, _receipt.record_id_) ||
+            sqlite3_step(path_query) != SQLITE_ROW) {
+            return result.code_ == status_code::ok
+                ? status{status_code::invalid_argument, "trajectory receipt record is unknown"}
+                : result;
+        }
+        const auto relative_path = vqec_vision_ai_stor_stsql_read_text(path_query, 0);
+        const auto writer = detail_writers_.find(relative_path);
+        if (writer != detail_writers_.end()) {
+            database = writer->second;
+        } else {
+            const auto full_path = (std::filesystem::path(config_.root_directory_) /
+                relative_path).string();
+            result = vqec_vision_ai_stor_stsql_open_database(full_path, config_,
+                SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, database);
+            if (result.code_ != status_code::ok) {
+                return result;
+            }
+            close_database = true;
+        }
+    } else if (_receipt.record_family_ == metadata_outbox_record_family::episode) {
+        family = "episode";
+    } else if (_receipt.record_family_ ==
+               metadata_outbox_record_family::aggregate_contribution) {
+        family = "aggregate_contribution";
+    } else {
+        return {status_code::invalid_argument, "metadata outbox family is invalid"};
+    }
+
+    status result;
+    {
+        sqlite_statement statement;
+        std::string sql;
+        if (_receipt.record_family_ == metadata_outbox_record_family::trajectory) {
+            sql = "UPDATE trajectory_outbox SET state=?1 WHERE sink_id=?2 AND chunk_id=?3 "
+                  "AND state IN ('pending','acknowledged');";
+        } else {
+            sql = "UPDATE metadata_outbox SET state=?1 WHERE sink_id=?2 AND record_family=?3 "
+                  "AND record_id=?4 AND revision=?5 AND state IN ('pending','acknowledged');";
+        }
+        result = vqec_vision_ai_stor_stsql_prepare(database, sql, statement);
+        auto* update = statement.vqec_vision_ai_stor_stsql_get();
+        bool is_bound = result.code_ == status_code::ok &&
+            vqec_vision_ai_stor_stsql_bind_text(
+                update, 1, g_spatiotemporal_outbox_acknowledged) &&
+            vqec_vision_ai_stor_stsql_bind_text(update, 2, _receipt.sink_id_);
+        if (_receipt.record_family_ == metadata_outbox_record_family::trajectory) {
+            is_bound = is_bound &&
+                vqec_vision_ai_stor_stsql_bind_text(update, 3, _receipt.record_id_);
+        } else {
+            is_bound = is_bound &&
+                vqec_vision_ai_stor_stsql_bind_text(update, 3, family) &&
+                vqec_vision_ai_stor_stsql_bind_text(update, 4, _receipt.record_id_) &&
+                sqlite3_bind_int64(update, 5,
+                    static_cast<sqlite3_int64>(_receipt.revision_)) == SQLITE_OK;
+        }
+        if (!is_bound || sqlite3_step(update) != SQLITE_DONE ||
+            sqlite3_changes(database) != 1) {
+            result = result.code_ == status_code::ok
+                ? status{status_code::invalid_argument,
+                      "metadata outbox receipt does not match"}
+                : result;
+        }
+    }
+    if (close_database && sqlite3_close(database) != SQLITE_OK &&
+        result.code_ == status_code::ok) {
+        result = {status_code::io_error, "close receipt detail database failed"};
+    }
+    if (result.code_ == status_code::ok) {
+        ++stats_.acknowledged_outbox_records_;
+    }
+    return result;
+}
+
+status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_apply_retention(
+    const spatiotemporal_retention_policy& _policy,
+    spatiotemporal_retention_report& _report) {
+    _report = {};
+    if (catalog_ == nullptr) {
+        return {status_code::invalid_state, "spatiotemporal store is not open"};
+    }
+    if (_policy.trajectory_before_ns_ < 0 || _policy.episode_before_ns_ < 0 ||
+        _policy.contribution_before_ns_ < 0 || _policy.rollup_before_ns_ < 0) {
+        return {status_code::invalid_argument, "metadata retention cutoff is invalid"};
+    }
+    sqlite_statement shard_statement;
+    auto result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+        "SELECT shard_id,relative_path FROM shard_manifests WHERE state='sealed' "
+        "AND bucket_end_ns<=?1 ORDER BY bucket_end_ns;", shard_statement);
+    auto* shard_query = shard_statement.vqec_vision_ai_stor_stsql_get();
+    if (result.code_ != status_code::ok ||
+        sqlite3_bind_int64(shard_query, 1, _policy.trajectory_before_ns_) != SQLITE_OK) {
+        return result.code_ == status_code::ok
+            ? vqec_vision_ai_stor_stsql_make_error(catalog_, "bind retention shard cutoff")
+            : result;
+    }
+    std::vector<std::pair<std::string, std::string>> shards;
+    while (sqlite3_step(shard_query) == SQLITE_ROW) {
+        shards.emplace_back(vqec_vision_ai_stor_stsql_read_text(shard_query, 0),
+            vqec_vision_ai_stor_stsql_read_text(shard_query, 1));
+    }
+    const std::filesystem::path root(config_.root_directory_);
+    for (const auto& shard : shards) {
+        sqlite3* detail = nullptr;
+        const auto path = (root / shard.second).string();
+        result = vqec_vision_ai_stor_stsql_open_database(path, config_,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, detail);
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        int step = SQLITE_ERROR;
+        sqlite3_int64 pending = -1;
+        {
+            sqlite_statement pending_statement;
+            result = vqec_vision_ai_stor_stsql_prepare(detail,
+                "SELECT COUNT(*) FROM trajectory_outbox WHERE state='pending';",
+                pending_statement);
+            step = result.code_ == status_code::ok
+                ? sqlite3_step(pending_statement.vqec_vision_ai_stor_stsql_get())
+                : SQLITE_ERROR;
+            pending = step == SQLITE_ROW
+                ? sqlite3_column_int64(
+                      pending_statement.vqec_vision_ai_stor_stsql_get(), 0)
+                : -1;
+        }
+        const int close_result = sqlite3_close(detail);
+        if (result.code_ != status_code::ok || step != SQLITE_ROW || close_result != SQLITE_OK) {
+            return result.code_ == status_code::ok
+                ? status{status_code::io_error, "inspect retention outbox failed"} : result;
+        }
+        if (pending != 0) {
+            ++_report.blocked_shards_;
+            continue;
+        }
+        sqlite_statement retiring_statement;
+        result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+            "UPDATE shard_manifests SET state=?1 WHERE shard_id=?2 AND state='sealed';",
+            retiring_statement);
+        auto* retiring = retiring_statement.vqec_vision_ai_stor_stsql_get();
+        if (result.code_ != status_code::ok ||
+            !vqec_vision_ai_stor_stsql_bind_text(retiring, 1, g_spatiotemporal_shard_retiring) ||
+            !vqec_vision_ai_stor_stsql_bind_text(retiring, 2, shard.first) ||
+            sqlite3_step(retiring) != SQLITE_DONE) {
+            return result.code_ == status_code::ok
+                ? vqec_vision_ai_stor_stsql_make_error(catalog_, "mark shard retiring") : result;
+        }
+        std::error_code remove_error;
+        const bool removed = std::filesystem::remove(path, remove_error);
+        if (remove_error || !removed) {
+            return {status_code::io_error, "remove retired trajectory shard failed"};
+        }
+        result = vqec_vision_ai_stor_stsql_execute(catalog_, "BEGIN IMMEDIATE;");
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        sqlite_statement delete_statement;
+        result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+            "DELETE FROM chunk_index WHERE shard_id=?1;", delete_statement);
+        auto* delete_rows = delete_statement.vqec_vision_ai_stor_stsql_get();
+        if (result.code_ == status_code::ok &&
+            vqec_vision_ai_stor_stsql_bind_text(delete_rows, 1, shard.first) &&
+            sqlite3_step(delete_rows) == SQLITE_DONE) {
+            sqlite_statement retired_statement;
+            result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+                "UPDATE shard_manifests SET state=?1,committed_bytes=0 WHERE shard_id=?2;",
+                retired_statement);
+            auto* retired = retired_statement.vqec_vision_ai_stor_stsql_get();
+            if (result.code_ == status_code::ok &&
+                vqec_vision_ai_stor_stsql_bind_text(retired, 1, g_spatiotemporal_shard_retired) &&
+                vqec_vision_ai_stor_stsql_bind_text(retired, 2, shard.first) &&
+                sqlite3_step(retired) == SQLITE_DONE) {
+                result = vqec_vision_ai_stor_stsql_execute(catalog_, "COMMIT;");
+            }
+        }
+        if (result.code_ != status_code::ok) {
+            (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+            return result;
+        }
+        ++_report.retired_shards_;
+        ++stats_.retired_shards_;
+    }
+
+    result = vqec_vision_ai_stor_stsql_execute(catalog_, "BEGIN IMMEDIATE;");
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
+    const auto purge = [this](const std::string& _sql, std::int64_t _cutoff,
+                           std::uint64_t& _count) -> status {
+        sqlite_statement statement;
+        auto current = vqec_vision_ai_stor_stsql_prepare(catalog_, _sql, statement);
+        auto* query = statement.vqec_vision_ai_stor_stsql_get();
+        if (current.code_ != status_code::ok ||
+            sqlite3_bind_int64(query, 1, _cutoff) != SQLITE_OK ||
+            sqlite3_step(query) != SQLITE_DONE) {
+            return current.code_ == status_code::ok
+                ? vqec_vision_ai_stor_stsql_make_error(catalog_, "purge metadata retention")
+                : current;
+        }
+        _count = static_cast<std::uint64_t>(sqlite3_changes(catalog_));
+        return {};
+    };
+    result = purge(
+        "DELETE FROM episode_revisions WHERE end_ns<=?1 AND NOT EXISTS (SELECT 1 FROM "
+        "metadata_outbox o WHERE o.record_family='episode' AND o.record_id=episode_id "
+        "AND o.revision=revision AND o.state='pending');",
+        _policy.episode_before_ns_, _report.purged_episode_revisions_);
+    if (result.code_ == status_code::ok) {
+        result = purge(
+            "DELETE FROM aggregate_contribution_revisions WHERE bucket_end_ns<=?1 AND NOT "
+            "EXISTS (SELECT 1 FROM metadata_outbox o WHERE "
+            "o.record_family='aggregate_contribution' AND o.record_id=contribution_id "
+            "AND o.revision=revision AND o.state='pending');",
+            _policy.contribution_before_ns_, _report.purged_contribution_revisions_);
+    }
+    if (result.code_ == status_code::ok) {
+        result = purge(
+            "DELETE FROM aggregate_rollups WHERE bucket_end_ns<=?1 AND NOT EXISTS (SELECT 1 "
+            "FROM aggregate_contribution_revisions a JOIN metadata_outbox o ON "
+            "o.record_family='aggregate_contribution' AND o.record_id=a.contribution_id "
+            "AND o.revision=a.revision AND o.state='pending' WHERE "
+            "a.aggregate_definition_id=aggregate_rollups.aggregate_definition_id AND "
+            "a.source_id=aggregate_rollups.source_id AND "
+            "a.scene_revision=aggregate_rollups.scene_revision AND "
+            "a.definition_revision=aggregate_rollups.definition_revision AND "
+            "a.bucket_begin_ns=aggregate_rollups.bucket_begin_ns AND "
+            "a.bucket_end_ns=aggregate_rollups.bucket_end_ns);",
+            _policy.rollup_before_ns_, _report.purged_rollups_);
+    }
+    if (result.code_ == status_code::ok) {
+        result = vqec_vision_ai_stor_stsql_execute(catalog_,
+            "DELETE FROM metadata_outbox WHERE state='acknowledged' AND "
+            "((record_family='episode' AND NOT EXISTS (SELECT 1 FROM episode_revisions e "
+            "WHERE e.episode_id=record_id AND e.revision=metadata_outbox.revision)) OR "
+            "(record_family='aggregate_contribution' AND NOT EXISTS (SELECT 1 FROM "
+            "aggregate_contribution_revisions a WHERE a.contribution_id=record_id AND "
+            "a.revision=metadata_outbox.revision))); COMMIT;");
+    }
+    if (result.code_ != status_code::ok) {
+        (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+        return result;
+    }
+    stats_.store_bytes_ = vqec_vision_ai_stor_stsql_get_regular_file_bytes(root);
+    return {};
+}
+
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_get_stats(
     spatiotemporal_store_stats& _stats) const {
     if (catalog_ == nullptr) {
@@ -1594,14 +1904,71 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_get_stats(
 }
 
 status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_recover_index() {
-    sqlite_statement manifest_statement;
+    // Complete the second phase of any shard retirement interrupted after the durable
+    // `retiring` marker. Retrying removal is safe; the catalog index is removed only after
+    // the detail file no longer exists.
+    sqlite_statement retiring_query_statement;
     auto result = vqec_vision_ai_stor_stsql_prepare(catalog_,
-        "SELECT shard_id,relative_path FROM shard_manifests WHERE state!='missing';",
+        "SELECT shard_id,relative_path FROM shard_manifests WHERE state='retiring';",
+        retiring_query_statement);
+    if (result.code_ != status_code::ok) {
+        return result;
+    }
+    std::vector<std::pair<std::string, std::string>> retiring_shards;
+    while (sqlite3_step(retiring_query_statement.vqec_vision_ai_stor_stsql_get()) ==
+           SQLITE_ROW) {
+        retiring_shards.emplace_back(
+            vqec_vision_ai_stor_stsql_read_text(
+                retiring_query_statement.vqec_vision_ai_stor_stsql_get(), 0),
+            vqec_vision_ai_stor_stsql_read_text(
+                retiring_query_statement.vqec_vision_ai_stor_stsql_get(), 1));
+    }
+    const std::filesystem::path root(config_.root_directory_);
+    for (const auto& shard : retiring_shards) {
+        std::error_code remove_error;
+        const auto path = root / shard.second;
+        if (std::filesystem::exists(path, remove_error) && !remove_error) {
+            (void)std::filesystem::remove(path, remove_error);
+        }
+        if (remove_error || std::filesystem::exists(path, remove_error) || remove_error) {
+            return {status_code::io_error, "recover retiring trajectory shard failed"};
+        }
+        result = vqec_vision_ai_stor_stsql_execute(catalog_, "BEGIN IMMEDIATE;");
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        sqlite_statement delete_statement;
+        result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+            "DELETE FROM chunk_index WHERE shard_id=?1;", delete_statement);
+        auto* delete_rows = delete_statement.vqec_vision_ai_stor_stsql_get();
+        if (result.code_ == status_code::ok &&
+            vqec_vision_ai_stor_stsql_bind_text(delete_rows, 1, shard.first) &&
+            sqlite3_step(delete_rows) == SQLITE_DONE) {
+            sqlite_statement retire_statement;
+            result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+                "UPDATE shard_manifests SET state='retired',committed_bytes=0 "
+                "WHERE shard_id=?1;", retire_statement);
+            auto* retire = retire_statement.vqec_vision_ai_stor_stsql_get();
+            if (result.code_ == status_code::ok &&
+                vqec_vision_ai_stor_stsql_bind_text(retire, 1, shard.first) &&
+                sqlite3_step(retire) == SQLITE_DONE) {
+                result = vqec_vision_ai_stor_stsql_execute(catalog_, "COMMIT;");
+            }
+        }
+        if (result.code_ != status_code::ok) {
+            (void)vqec_vision_ai_stor_stsql_execute(catalog_, "ROLLBACK;");
+            return result;
+        }
+        ++stats_.retired_shards_;
+    }
+    sqlite_statement manifest_statement;
+    result = vqec_vision_ai_stor_stsql_prepare(catalog_,
+        "SELECT shard_id,relative_path FROM shard_manifests "
+        "WHERE state NOT IN ('missing','retired');",
         manifest_statement);
     if (result.code_ != status_code::ok) {
         return result;
     }
-    const std::filesystem::path root(config_.root_directory_);
     while (sqlite3_step(manifest_statement.vqec_vision_ai_stor_stsql_get()) == SQLITE_ROW) {
         const auto shard_id = vqec_vision_ai_stor_stsql_read_text(
             manifest_statement.vqec_vision_ai_stor_stsql_get(), 0);

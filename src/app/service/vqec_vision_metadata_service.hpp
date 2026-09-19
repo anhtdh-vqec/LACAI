@@ -60,6 +60,14 @@ public:
         const event_episode_revision& _episode);
     [[nodiscard]] status vqec_vision_ai_appl_mdsvc_submit_aggregate_contribution(
         const aggregate_contribution_revision& _contribution);
+    [[nodiscard]] status vqec_vision_ai_appl_mdsvc_submit_projection(
+        const event_episode_revision& _episode,
+        const aggregate_contribution_revision* _contribution);
+    [[nodiscard]] status vqec_vision_ai_appl_mdsvc_acknowledge_outbox(
+        const metadata_outbox_receipt& _receipt);
+    [[nodiscard]] status vqec_vision_ai_appl_mdsvc_apply_retention(
+        const spatiotemporal_retention_policy& _policy,
+        spatiotemporal_retention_report& _report);
 
     [[nodiscard]] status vqec_vision_ai_appl_mdsvc_remove_live_track(
         const spatiotemporal_track_key& _track);
@@ -75,6 +83,8 @@ public:
     // prior writes and retains its own deadline/scan/output bounds.
     [[nodiscard]] status vqec_vision_ai_appl_mdsvc_query(
         const spatiotemporal_query& _query, spatiotemporal_query_page& _page);
+    [[nodiscard]] status vqec_vision_ai_appl_mdsvc_cancel_query(
+        const std::string& _request_id) noexcept;
 
     [[nodiscard]] metadata_service_stats
     vqec_vision_ai_appl_mdsvc_get_stats() const noexcept;

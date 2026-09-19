@@ -634,7 +634,7 @@ status vqec_vision_ai_stor_stsql_apply_rollup_delta(
 status vqec_vision_ai_stor_stsql_query_materialized_rollups(
     sqlite3* _catalog, const spatiotemporal_query& _query,
     std::uint64_t _snapshot_sequence, std::size_t _maximum_store_results,
-    spatiotemporal_query_page& _page) {
+    std::atomic<bool>& _cancel_requested, spatiotemporal_query_page& _page) {
     std::ostringstream sql;
     sql << "SELECT aggregate_definition_id,source_id,scene_revision,definition_revision,"
            "bucket_begin_ns,bucket_end_ns,numerator_microunits,denominator_microunits,"
@@ -686,6 +686,10 @@ status vqec_vision_ai_stor_stsql_query_materialized_rollups(
     const auto result_limit = std::min(
         _query.budget_.maximum_results_, _maximum_store_results);
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (_cancel_requested.exchange(false, std::memory_order_acq_rel)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {status_code::timeout, "metadata projection query was cancelled"};
+        }
         if (vqec_vision_ai_stor_stsql_get_projection_now_ns() >=
                 _query.budget_.deadline_ns_) {
             _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
@@ -988,7 +992,8 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query_projection(
         _query.revision_view_ == spatiotemporal_revision_view::latest_corrected &&
         _query.cursor_sequence_ == 0U) {
         return vqec_vision_ai_stor_stsql_query_materialized_rollups(
-            catalog_, _query, _snapshot_sequence, config_.maximum_query_results_, _page);
+            catalog_, _query, _snapshot_sequence, config_.maximum_query_results_,
+            query_cancel_requested_, _page);
     }
     std::ostringstream sql;
     if (is_episode) {
@@ -1076,6 +1081,10 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query_projection(
         _query.budget_.maximum_results_, config_.maximum_query_results_);
     std::map<std::vector<std::uint8_t>, aggregate_bucket> aggregate_map;
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+            _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+            return {status_code::timeout, "metadata projection query was cancelled"};
+        }
         if (vqec_vision_ai_stor_stsql_get_projection_now_ns() >= _query.budget_.deadline_ns_) {
             _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
             return {};
@@ -1178,12 +1187,20 @@ status sqlite_spatiotemporal_store::vqec_vision_ai_stor_stsql_query_projection(
         bucket.expected_duration_ns_ = expected;
         ++bucket.contribution_count_;
     }
+    if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+        _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+        return {status_code::timeout, "metadata projection query was cancelled"};
+    }
     if (!is_episode) {
         if (aggregate_map.size() > result_limit) {
             _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
             return {};
         }
         for (auto& entry : aggregate_map) {
+            if (query_cancel_requested_.exchange(false, std::memory_order_acq_rel)) {
+                _page.completeness_ = spatiotemporal_result_completeness::budget_exceeded;
+                return {status_code::timeout, "metadata projection query was cancelled"};
+            }
             const auto row_bytes = static_cast<std::uint64_t>(entry.first.size() + 128U);
             if (row_bytes > _query.budget_.maximum_result_bytes_ -
                     std::min(_query.budget_.maximum_result_bytes_, _page.result_bytes_)) {

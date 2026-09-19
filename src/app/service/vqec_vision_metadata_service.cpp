@@ -1,10 +1,12 @@
 #include "vqec_vision_metadata_service.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <future>
+#include <iterator>
 #include <map>
 #include <mutex>
 #include <new>
@@ -25,10 +27,26 @@ struct metadata_query_work {
     std::mutex mutex_;
     std::condition_variable condition_;
     bool is_complete_{false};
+    std::atomic<bool> is_cancelled_{false};
+};
+
+struct metadata_projection_work {
+    std::vector<event_episode_revision> episodes_;
+    std::vector<aggregate_contribution_revision> contributions_;
+};
+
+struct metadata_retention_work {
+    spatiotemporal_retention_policy policy_;
+    spatiotemporal_retention_report report_;
+    status result_{status_code::pending, "metadata retention is pending"};
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    bool is_complete_{false};
 };
 
 using metadata_work_payload = std::variant<trajectory_chunk, track_association_revision,
-    event_episode_revision, aggregate_contribution_revision,
+    event_episode_revision, aggregate_contribution_revision, metadata_projection_work,
+    metadata_outbox_receipt, std::shared_ptr<metadata_retention_work>,
     std::shared_ptr<metadata_query_work>>;
 
 struct metadata_work_item {
@@ -69,7 +87,8 @@ bool vqec_vision_ai_appl_mdsvc_is_service_config_valid(
 bool vqec_vision_ai_appl_mdsvc_is_projection_work(
     const metadata_work_item& _item) {
     return std::holds_alternative<event_episode_revision>(_item.payload_) ||
-        std::holds_alternative<aggregate_contribution_revision>(_item.payload_);
+        std::holds_alternative<aggregate_contribution_revision>(_item.payload_) ||
+        std::holds_alternative<metadata_projection_work>(_item.payload_);
 }
 
 bool vqec_vision_ai_appl_mdsvc_is_authorized(
@@ -191,6 +210,59 @@ public:
         return vqec_vision_ai_appl_mdsvc_enqueue(metadata_work_item{_contribution});
     }
 
+    status vqec_vision_ai_appl_mdsvc_submit_projection(
+        const event_episode_revision& _episode,
+        const aggregate_contribution_revision* _contribution) {
+        auto result = vqec_vision_ai_cntr_stmet_validate_episode_revision(_episode);
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        if (_contribution != nullptr) {
+            result = vqec_vision_ai_cntr_stmet_validate_aggregate_contribution(*_contribution);
+            if (result.code_ != status_code::ok) {
+                return result;
+            }
+        }
+        try {
+            metadata_projection_work projection;
+            projection.episodes_.push_back(_episode);
+            if (_contribution != nullptr) {
+                projection.contributions_.push_back(*_contribution);
+            }
+            return vqec_vision_ai_appl_mdsvc_enqueue(
+                metadata_work_item{std::move(projection)});
+        } catch (const std::bad_alloc&) {
+            return {status_code::resource_exhausted,
+                "metadata projection allocation failed"};
+        }
+    }
+
+    status vqec_vision_ai_appl_mdsvc_acknowledge_outbox(
+        const metadata_outbox_receipt& _receipt) {
+        return vqec_vision_ai_appl_mdsvc_enqueue(metadata_work_item{_receipt});
+    }
+
+    status vqec_vision_ai_appl_mdsvc_apply_retention(
+        const spatiotemporal_retention_policy& _policy,
+        spatiotemporal_retention_report& _report) {
+        std::shared_ptr<metadata_retention_work> work;
+        try {
+            work = std::make_shared<metadata_retention_work>();
+            work->policy_ = _policy;
+        } catch (const std::bad_alloc&) {
+            return {status_code::resource_exhausted,
+                "metadata retention allocation failed"};
+        }
+        auto result = vqec_vision_ai_appl_mdsvc_enqueue(metadata_work_item{work});
+        if (result.code_ != status_code::ok) {
+            return result;
+        }
+        std::unique_lock<std::mutex> lock(work->mutex_);
+        work->condition_.wait(lock, [&work]() { return work->is_complete_; });
+        _report = work->report_;
+        return work->result_;
+    }
+
     status vqec_vision_ai_appl_mdsvc_remove_live_track(
         const spatiotemporal_track_key& _track) {
         const auto valid = vqec_vision_ai_cntr_stmet_validate_track_key(_track);
@@ -303,10 +375,44 @@ public:
         std::unique_lock<std::mutex> lock(work->mutex_);
         if (!work->condition_.wait_until(lock, deadline,
                 [&work]() { return work->is_complete_; })) {
-            return {status_code::pending, "metadata query deadline elapsed before execution"};
+            lock.unlock();
+            (void)vqec_vision_ai_appl_mdsvc_cancel_query(_query.request_id_);
+            return {status_code::timeout, "metadata query deadline elapsed before execution"};
         }
         _page = std::move(work->page_);
         return work->result_;
+    }
+
+    status vqec_vision_ai_appl_mdsvc_cancel_query(
+        const std::string& _request_id) noexcept {
+        if (!vqec_vision_ai_cntr_ident_is_valid(
+                _request_id, g_spatiotemporal_max_identifier_bytes)) {
+            return {status_code::invalid_argument, "metadata query request ID is invalid"};
+        }
+        bool found = false;
+        bool active = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            for (auto& item : queue_) {
+                auto* work = std::get_if<std::shared_ptr<metadata_query_work>>(&item.payload_);
+                if (work != nullptr && *work != nullptr &&
+                    (*work)->query_.request_id_ == _request_id) {
+                    (*work)->is_cancelled_.store(true, std::memory_order_release);
+                    found = true;
+                }
+            }
+            if (active_query_ != nullptr &&
+                active_query_->query_.request_id_ == _request_id) {
+                active_query_->is_cancelled_.store(true, std::memory_order_release);
+                found = true;
+                active = true;
+            }
+        }
+        if (active) {
+            store_.vqec_vision_ai_stor_stsql_cancel_query();
+        }
+        return found ? status{} :
+            status{status_code::invalid_argument, "metadata query request ID is unknown"};
     }
 
     metadata_service_stats vqec_vision_ai_appl_mdsvc_get_stats() const noexcept {
@@ -410,6 +516,17 @@ private:
                 vqec_vision_ai_appl_mdsvc_complete_query(*work,
                     {status_code::invalid_state, "metadata service stopped before query"}, {});
             }
+            auto* retention =
+                std::get_if<std::shared_ptr<metadata_retention_work>>(&item.payload_);
+            if (retention != nullptr && *retention != nullptr) {
+                {
+                    std::lock_guard<std::mutex> work_lock((*retention)->mutex_);
+                    (*retention)->result_ = {status_code::invalid_state,
+                        "metadata service stopped before retention"};
+                    (*retention)->is_complete_ = true;
+                }
+                (*retention)->condition_.notify_one();
+            }
         }
     }
 
@@ -429,10 +546,36 @@ private:
                        std::get_if<aggregate_contribution_revision>(&_item.payload_)) {
             result = store_.vqec_vision_ai_stor_stsql_ingest_aggregate_contribution(
                 *contribution, config_.outbox_sinks_);
+        } else if (const auto* receipt =
+                       std::get_if<metadata_outbox_receipt>(&_item.payload_)) {
+            result = store_.vqec_vision_ai_stor_stsql_acknowledge_outbox(*receipt);
+        } else if (const auto* retention =
+                       std::get_if<std::shared_ptr<metadata_retention_work>>(
+                           &_item.payload_)) {
+            result = store_.vqec_vision_ai_stor_stsql_apply_retention(
+                (*retention)->policy_, (*retention)->report_);
+            {
+                std::lock_guard<std::mutex> work_lock((*retention)->mutex_);
+                (*retention)->result_ = result;
+                (*retention)->is_complete_ = true;
+            }
+            (*retention)->condition_.notify_one();
         } else {
             const auto work = std::get<std::shared_ptr<metadata_query_work>>(_item.payload_);
             spatiotemporal_query_page page;
-            result = store_.vqec_vision_ai_stor_stsql_query(work->query_, page);
+            store_.vqec_vision_ai_stor_stsql_clear_query_cancellation();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                active_query_ = work;
+            }
+            result = work->is_cancelled_.load(std::memory_order_acquire)
+                ? status{status_code::timeout, "metadata query was cancelled before execution"}
+                : store_.vqec_vision_ai_stor_stsql_query(work->query_, page);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                active_query_.reset();
+            }
+            store_.vqec_vision_ai_stor_stsql_clear_query_cancellation();
             vqec_vision_ai_appl_mdsvc_complete_query(work, result, std::move(page));
             std::lock_guard<std::mutex> lock(mutex_);
             if (result.code_ == status_code::ok) {
@@ -465,6 +608,14 @@ private:
                 } else if (auto* contribution =
                                std::get_if<aggregate_contribution_revision>(&item.payload_)) {
                     contributions.push_back(std::move(*contribution));
+                } else if (auto* projection =
+                               std::get_if<metadata_projection_work>(&item.payload_)) {
+                    episodes.insert(episodes.end(),
+                        std::make_move_iterator(projection->episodes_.begin()),
+                        std::make_move_iterator(projection->episodes_.end()));
+                    contributions.insert(contributions.end(),
+                        std::make_move_iterator(projection->contributions_.begin()),
+                        std::make_move_iterator(projection->contributions_.end()));
                 }
             }
         } catch (const std::bad_alloc&) {
@@ -548,6 +699,7 @@ private:
     std::condition_variable condition_;
     std::thread worker_;
     std::deque<metadata_work_item> queue_;
+    std::shared_ptr<metadata_query_work> active_query_;
     std::map<std::string, trajectory_chunk> live_tracks_;
     std::deque<live_trajectory_delta> live_deltas_;
     metadata_service_stats stats_;
@@ -593,6 +745,24 @@ status metadata_service::vqec_vision_ai_appl_mdsvc_submit_aggregate_contribution
         _contribution);
 }
 
+status metadata_service::vqec_vision_ai_appl_mdsvc_submit_projection(
+    const event_episode_revision& _episode,
+    const aggregate_contribution_revision* _contribution) {
+    return implementation_->vqec_vision_ai_appl_mdsvc_submit_projection(
+        _episode, _contribution);
+}
+
+status metadata_service::vqec_vision_ai_appl_mdsvc_acknowledge_outbox(
+    const metadata_outbox_receipt& _receipt) {
+    return implementation_->vqec_vision_ai_appl_mdsvc_acknowledge_outbox(_receipt);
+}
+
+status metadata_service::vqec_vision_ai_appl_mdsvc_apply_retention(
+    const spatiotemporal_retention_policy& _policy,
+    spatiotemporal_retention_report& _report) {
+    return implementation_->vqec_vision_ai_appl_mdsvc_apply_retention(_policy, _report);
+}
+
 status metadata_service::vqec_vision_ai_appl_mdsvc_remove_live_track(
     const spatiotemporal_track_key& _track) {
     return implementation_->vqec_vision_ai_appl_mdsvc_remove_live_track(_track);
@@ -617,6 +787,11 @@ status metadata_service::vqec_vision_ai_appl_mdsvc_get_live_deltas(
 status metadata_service::vqec_vision_ai_appl_mdsvc_query(
     const spatiotemporal_query& _query, spatiotemporal_query_page& _page) {
     return implementation_->vqec_vision_ai_appl_mdsvc_query(_query, _page);
+}
+
+status metadata_service::vqec_vision_ai_appl_mdsvc_cancel_query(
+    const std::string& _request_id) noexcept {
+    return implementation_->vqec_vision_ai_appl_mdsvc_cancel_query(_request_id);
 }
 
 metadata_service_stats metadata_service::vqec_vision_ai_appl_mdsvc_get_stats() const noexcept {

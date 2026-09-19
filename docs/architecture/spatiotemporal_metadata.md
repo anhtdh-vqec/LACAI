@@ -4,8 +4,9 @@ This document defines the target AI APP metadata subsystem for live and historic
 footprints, cross-camera paths, event analytics and long-retention security/traffic queries.
 
 **Status:** board-smoke — version 1 contracts, packed SQLite shards, correction-aware rollups
-and the bounded service passed the 2026-09-19 eSDK and QCS6490 workload; production composition
-and retention remain open. **Layer:** app. **Source:**
+and the bounded service passed the 2026-09-19 eSDK and QCS6490 workload; retention/ACK and
+query-cancellation primitives are logic-tested, while production composition and board fault
+qualification remain open. **Layer:** app. **Source:**
 `include/vqec/vision/ai/contracts/vqec_vision_spatiotemporal_metadata.hpp`,
 `src/adapters/storage/`, `src/app/service/vqec_vision_metadata_service.cpp`.
 
@@ -286,6 +287,13 @@ Retention is therefore independently configured for exact observations, bounded 
 episodes/search facts, aggregates, media references and export spool. Admission rejects a profile
 whose worst-case active data plus compaction and reserve exceeds the assigned quota.
 
+Sealed detail shards retire through a durable `sealed -> retiring -> retired` state machine.
+Recovery completes an interrupted retirement before rebuilding indexes. A shard with any pending
+trajectory outbox row is retained. Episode/contribution revisions are deleted only when their
+exact sink rows are either absent or explicitly acknowledged, and a materialized rollup remains
+while a matching pending contribution exists. A delivery attempt is never an acknowledgement;
+the caller must submit a receipt naming sink, family, immutable record ID and revision.
+
 ## Concurrency and failure model
 
 - One service is the only writer. Producers submit bounded batches; overflow policy is per data
@@ -294,6 +302,9 @@ whose worst-case active data plus compaction and reserve exceeds the assigned qu
 - Live subscriptions read RAM snapshots; they do not hold SQLite read transactions.
 - Historical readers use short catalog snapshots plus immutable shard/file generations. Cursors
   have leases so abandoned queries cannot block retirement indefinitely.
+- The service exposes cooperative cancellation by request ID. It marks queued work before
+  execution and interrupts the active SQLite statement; cancellation returns `timeout`, never a
+  partial result labeled complete.
 - A full disk stops durable acceptance before corrupting existing history. Live processing may
   continue only under an explicit degraded policy.
 - Crash recovery replays committed manifests/outbox, discards or imports verified orphan files,
@@ -331,7 +342,7 @@ the failed comparison prevents the optimized result from hiding the rejected des
 
 - The service library is not composed into `vqec_ai_vision_applications`; usecase producers do
   not yet feed production observation/event batches into it.
-- Retention/purge cannot retire data until the Plan 3 outbox exposes durable sink receipts.
+- Plan 3 must feed the delivered receipt API; P2 does not infer broker durability from attempts.
 - Board power-cut, disk-full, restart and long-query cancellation evidence is still missing.
 - Q01–Q30 remain capability groups; the new typed query implements tracklet, association,
   episode and aggregate slices and rejects unsupported collections explicitly.
