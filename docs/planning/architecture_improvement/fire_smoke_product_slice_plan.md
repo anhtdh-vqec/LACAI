@@ -5,12 +5,29 @@ sản phẩm đầu tiên, đồng thời tách service main, xây App Manager d
 event/evidence qua lát cắt đầu tiên của Plan 3. Đây là execution plan; các contract tổng quát
 trong plan phân phối app, metadata và event/evidence vẫn là authority.
 
-**Status:** planned — đã audit composition, feature configuration, fire/smoke package và các
-plan liên quan; chưa có App Manager production hoặc fire/smoke alarm processor. **Layer:** docs.
+**Status:** in-progress — M0 refactor, S04 processor/configuration, transactional inventory,
+runtime snapshot, AppManager1 source, Ed25519 verifier, daemon bootstrap và metadata hotspot đã
+được triển khai; signed entitlement/admission reconcile, operation/content-store lifecycle và
+evidence UDS/outbox còn mở. **Layer:** docs.
 **Source:** `src/app/service/vqec_vision_service_main.cpp`,
 `src/runtime/feature_manager/`, `manifests/models/yolo11n_fire_smoke/`,
 `docs/planning/architecture_improvement/usecase_app_distribution_plan.md`,
 `docs/planning/architecture_improvement/event_evidence_transport_plan.md`.
+
+## Bằng chứng thực thi hiện tại
+
+- eSDK/QEMU expanded suite: 153/153 pass ngày 2026-09-19.
+- QCS6490 candidate `53c6a9f468c0d261b50007d6467ac612e4eab842f1c05b70c1ee1e65bb1f50dc`
+  chạy full workload 30 FPS trong 5 phút, CPU trung bình 13,36% một core, RSS cuối
+  354.328 KiB, 49 threads và 170 FD.
+- RTSP 1920×1080/30 FPS pass; contact sheet được kiểm tra đúng hướng, màu và overlay
+  PERSON/FACE. Candidate được giữ chạy cho VLC tại endpoint chuẩn.
+- App Manager daemon candidate
+  `752a68811f0c91a5719fbc79d8e7b298c396de42f8875ab3fa822df35dd839e6` mở inventory
+  owner-only và idle trung bình 0,60% CPU trong 5 mẫu một giây.
+- Stop/start liên tiếp sau một lần startup fail làm cả candidate lẫn baseline kẹt ở QNN
+  finalization; cold reboot phục hồi. Đây là defect recovery/FastRPC mở, không phải regression
+  riêng của candidate. Runner nay chỉ báo ready sau frame RTSP đầu tiên.
 
 ## Trách nhiệm
 

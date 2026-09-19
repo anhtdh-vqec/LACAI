@@ -17,6 +17,7 @@ g_output_surface_count=${LACAI_OUTPUT_SURFACE_COUNT:-8}
 g_cpu_set=${LACAI_CPU_SET:-4-7}
 g_dma_heap=${LACAI_DMA_HEAP:-/dev/dma_heap/qcom,system}
 g_start_timeout_seconds=${LACAI_START_TIMEOUT_SECONDS:-30}
+g_preview_ready_timeout_seconds=${LACAI_PREVIEW_READY_TIMEOUT_SECONDS:-120}
 g_stop_timeout_seconds=${LACAI_STOP_TIMEOUT_SECONDS:-30}
 g_runtime_step_interval_us=${LACAI_RUNTIME_STEP_INTERVAL_US:-8000}
 g_service=${LACAI_SERVICE:-$g_root/bin/vqec_ai_vision_applications}
@@ -31,7 +32,8 @@ g_action=${1:-start}
 
 for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
     "$g_output_surface_count" "$g_start_timeout_seconds" \
-    "$g_stop_timeout_seconds" "$g_runtime_step_interval_us"; do
+    "$g_preview_ready_timeout_seconds" "$g_stop_timeout_seconds" \
+    "$g_runtime_step_interval_us"; do
     case "$numeric_value" in
         ''|0|*[!0-9]*)
             echo "runtime numeric settings must be positive integers" >&2
@@ -246,6 +248,23 @@ if ! kill -0 "$g_camera_pid" 2>/dev/null ||
    ! kill -0 "$g_service_pid" 2>/dev/null ||
    ! kill -0 "$g_rtsp_pid" 2>/dev/null; then
     echo "one or more full-workload components stopped during startup" >&2
+    tail -n 80 "$g_root/out/camera.log" "$g_root/out/service.log" \
+        "$g_root/out/rtsp.log" >&2 || true
+    vqec_vision_ai_tools_rnful_stop_all
+    exit 1
+fi
+
+g_wait_count=0
+g_preview_wait_limit=$((g_preview_ready_timeout_seconds * 10))
+while ! grep -F 'pushed=' "$g_root/out/rtsp.log" >/dev/null 2>&1 &&
+      kill -0 "$g_service_pid" 2>/dev/null &&
+      kill -0 "$g_rtsp_pid" 2>/dev/null &&
+      [ "$g_wait_count" -lt "$g_preview_wait_limit" ]; do
+    sleep 0.1
+    g_wait_count=$((g_wait_count + 1))
+done
+if ! grep -F 'pushed=' "$g_root/out/rtsp.log" >/dev/null 2>&1; then
+    echo "preview did not publish its first decodable frame" >&2
     tail -n 80 "$g_root/out/camera.log" "$g_root/out/service.log" \
         "$g_root/out/rtsp.log" >&2 || true
     vqec_vision_ai_tools_rnful_stop_all

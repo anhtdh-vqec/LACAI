@@ -3,8 +3,9 @@
 The fire/smoke package converts model candidates into bounded semantic incident episodes using a
 typed application configuration.
 
-- **Status:** source-delivered — processor and strict configuration factory exist; model quality,
-  metadata/evidence integration and board acceptance remain open
+- **Status:** board-smoke — processor, strict configuration, App Manager registration and S04
+  metadata/hotspot projection are source-delivered; evidence transport and model-quality receipt
+  acceptance remain open
 - **Layer:** features
 - **Naming registry:** `fires` (`fsalm`, `fsfac`)
 - **Depends on:** neutral observation, feature-event and processor-factory contracts
@@ -33,11 +34,10 @@ an identifier alone.
 
 - The current association is bounded IoU/track matching, not a qualified smoke/fire tracker.
 - Model quality and candidate-floor compatibility need signed quality receipts.
-- Metadata projection, durable evidence outbox and App Manager composition remain open.
+- Durable evidence outbox/receipt transport and signed model-quality receipts remain open.
 
 ## See also
 
 - [Feature event contract](../../../docs/architecture/feature_event_contract.md)
 - [Feature processor registry](../../../docs/architecture/feature_processor_registry.md)
 - [Fire/smoke product slice](../../../docs/planning/architecture_improvement/fire_smoke_product_slice_plan.md)
-

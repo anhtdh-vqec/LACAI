@@ -96,7 +96,10 @@ replacing the canonical service; hash it, record its profile and clean it up aft
 ## Production smoke workflow
 
 The canonical runner validates required files and the DMA heap, creates bounded runtime state,
-starts the compatibility camera, full production service and RTSP bridge, and prints the VLC URL.
+starts the compatibility camera, full production service and RTSP bridge, and prints the VLC URL
+only after the bridge reports its first decodable frame. A live process or an allocated ring alone
+is not readiness. `LACAI_PREVIEW_READY_TIMEOUT_SECONDS` bounds cold QNN/DSP startup separately
+from the socket/ring creation timeout.
 It owns only processes whose PID and command match its state files; it does not use `killall`.
 
 ```bash
