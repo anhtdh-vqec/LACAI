@@ -24,6 +24,19 @@ public:
     sqlite_app_inventory& operator=(const sqlite_app_inventory&) = delete;
 
     [[nodiscard]] status vqec_vision_ai_ports_apinv_open() override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_begin_operation(
+        const app_operation_request& _request, app_operation_record& _operation,
+        bool& _is_new) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_finish_operation(
+        const std::string& _operation_id, app_operation_state _state,
+        const status& _result, std::uint64_t _snapshot_revision,
+        app_operation_record& _operation) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_get_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_apinv_cancel_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) override;
     [[nodiscard]] status vqec_vision_ai_ports_apinv_authorize_install(
         const usecase_app_manifest& _manifest,
         std::uint64_t _expected_inventory_revision) const override;

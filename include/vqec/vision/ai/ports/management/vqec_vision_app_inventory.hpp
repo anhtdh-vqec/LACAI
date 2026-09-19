@@ -59,6 +59,19 @@ class app_inventory_port {
 public:
     virtual ~app_inventory_port() = default;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_open() = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_begin_operation(
+        const app_operation_request& _request, app_operation_record& _operation,
+        bool& _is_new) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_finish_operation(
+        const std::string& _operation_id, app_operation_state _state,
+        const status& _result, std::uint64_t _snapshot_revision,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_get_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) const = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_cancel_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) = 0;
     // Read-only preflight before any large component is copied. Install repeats this
     // check inside its commit transaction to close entitlement/revision races.
     [[nodiscard]] virtual status vqec_vision_ai_ports_apinv_authorize_install(

@@ -41,6 +41,8 @@ stable while their parent directory identifies the owner and execution environme
 |---|---|
 | `vqec_vision_manifest_check.cpp` | Optional model metadata diagnostic executable |
 | `vqec_vision_model_runner.cpp` | Explicit preprocess -> QNN -> decoder model runner diagnostic |
+| `vqec_vision_app_manager_control.cpp` | Authenticated D-Bus client for snapshots, legacy CAS mutations and package `submit-*`/operation query/cancel acceptance |
+| `vqec_vision_evidence_probe.cpp` | Inject one bounded reference evidence command for AI-side outbox/receiver validation |
 
 ### `contracts/` — cross-team handoff validation
 

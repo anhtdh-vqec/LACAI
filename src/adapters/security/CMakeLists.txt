@@ -8,28 +8,30 @@ target_link_libraries(vqec_vision_ai_ed25519_verifier PUBLIC
     vqec_vision_ai_core OpenSSL::Crypto)
 set_target_properties(vqec_vision_ai_ed25519_verifier PROPERTIES CXX_EXTENSIONS OFF)
 
-add_library(vqec_vision_ai_ed25519_app_package_verifier STATIC
-    vqec_vision_ed25519_app_package_verifier.cpp)
-target_include_directories(vqec_vision_ai_ed25519_app_package_verifier PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
-target_link_libraries(vqec_vision_ai_ed25519_app_package_verifier PUBLIC
-    vqec_vision_ai_app_manifest
-    vqec_vision_ai_artifact_digest
-    vqec_vision_ai_ed25519_verifier)
-set_target_properties(vqec_vision_ai_ed25519_app_package_verifier
-    PROPERTIES CXX_EXTENSIONS OFF)
+if(TARGET vqec_vision_ai_app_manifest AND TARGET vqec_vision_ai_artifact_digest)
+    add_library(vqec_vision_ai_ed25519_app_package_verifier STATIC
+        vqec_vision_ed25519_app_package_verifier.cpp)
+    target_include_directories(vqec_vision_ai_ed25519_app_package_verifier PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
+    target_link_libraries(vqec_vision_ai_ed25519_app_package_verifier PUBLIC
+        vqec_vision_ai_app_manifest
+        vqec_vision_ai_artifact_digest
+        vqec_vision_ai_ed25519_verifier)
+    set_target_properties(vqec_vision_ai_ed25519_app_package_verifier
+        PROPERTIES CXX_EXTENSIONS OFF)
 
-add_library(vqec_vision_ai_ed25519_app_entitlement_verifier STATIC
-    vqec_vision_ed25519_app_entitlement_verifier.cpp)
-target_include_directories(vqec_vision_ai_ed25519_app_entitlement_verifier PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
-target_link_libraries(vqec_vision_ai_ed25519_app_entitlement_verifier PUBLIC
-    vqec_vision_ai_app_manifest
-    vqec_vision_ai_artifact_digest
-    vqec_vision_ai_ed25519_verifier)
-set_target_properties(vqec_vision_ai_ed25519_app_entitlement_verifier
-    PROPERTIES CXX_EXTENSIONS OFF)
+    add_library(vqec_vision_ai_ed25519_app_entitlement_verifier STATIC
+        vqec_vision_ed25519_app_entitlement_verifier.cpp)
+    target_include_directories(vqec_vision_ai_ed25519_app_entitlement_verifier PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
+    target_link_libraries(vqec_vision_ai_ed25519_app_entitlement_verifier PUBLIC
+        vqec_vision_ai_app_manifest
+        vqec_vision_ai_artifact_digest
+        vqec_vision_ai_ed25519_verifier)
+    set_target_properties(vqec_vision_ai_ed25519_app_entitlement_verifier
+        PROPERTIES CXX_EXTENSIONS OFF)
+endif()

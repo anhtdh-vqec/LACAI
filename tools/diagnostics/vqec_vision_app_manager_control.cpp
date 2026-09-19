@@ -28,6 +28,9 @@ struct app_manager_control_options {
     std::string manifest_sha256_;
     std::string configuration_sha256_;
     std::string grant_sha256_;
+    std::string idempotency_key_;
+    std::string request_sha256_;
+    std::string operation_id_;
     std::string app_id_;
     std::string source_id_;
     std::uint64_t expected_revision_{0};
@@ -96,6 +99,12 @@ bool vqec_vision_ai_tools_amctl_parse(
             candidate.configuration_sha256_ = value;
         } else if (option == "--grant-sha256") {
             candidate.grant_sha256_ = value;
+        } else if (option == "--idempotency-key") {
+            candidate.idempotency_key_ = value;
+        } else if (option == "--request-sha256") {
+            candidate.request_sha256_ = value;
+        } else if (option == "--operation-id") {
+            candidate.operation_id_ = value;
         } else if (option == "--app-id") {
             candidate.app_id_ = value;
         } else if (option == "--source-id") {
@@ -182,9 +191,22 @@ status vqec_vision_ai_tools_amctl_read_file(
 
 void vqec_vision_ai_tools_amctl_usage() {
     std::cerr << "usage: vqec_vision_app_manager_control <snapshot|install|update|rollback|"
+                 "submit-install|submit-update|submit-rollback|operation|cancel-operation|"
                  "configure|entitlement|desired|uninstall> --service-name <name> "
                  "--client-name <name> "
                  "--object-path <path> --rpc-timeout-ms <ms> [--session] [command options]\n";
+}
+
+void vqec_vision_ai_tools_amctl_write_operation(
+    const app_operation_record& _operation) {
+    std::cout << "operation_id=" << _operation.operation_id_ << '\n'
+              << "app_id=" << _operation.app_id_ << '\n'
+              << "payload_sha256=" << _operation.payload_sha256_ << '\n'
+              << "kind=" << static_cast<unsigned>(_operation.kind_) << '\n'
+              << "state=" << static_cast<unsigned>(_operation.state_) << '\n'
+              << "result_code=" << static_cast<unsigned>(_operation.result_code_) << '\n'
+              << "snapshot_revision=" << _operation.snapshot_revision_ << '\n'
+              << "message=" << _operation.result_message_ << '\n';
 }
 
 }  // namespace
@@ -208,7 +230,9 @@ int main(int argc, char** argv) {
             outcome = vqec_vision_ai_lifec_rcsnp_write(snapshot, std::cout);
             std::cout << '\n';
         }
-    } else if (options.command_ == "install" || options.command_ == "update") {
+    } else if (options.command_ == "install" || options.command_ == "update" ||
+               options.command_ == "submit-install" ||
+               options.command_ == "submit-update") {
         app_package_candidate candidate;
         component_descriptor_owner component_descriptors;
         outcome = vqec_vision_ai_tools_amctl_read_file(options.manifest_path_,
@@ -230,15 +254,47 @@ int main(int argc, char** argv) {
                 options.component_paths_, component_descriptors, candidate);
         }
         if (outcome.code_ == status_code::ok) {
-            outcome = options.command_ == "update" ?
-                client.vqec_vision_ai_fwctl_amdbs_update(options.dbus_, candidate,
-                    options.expected_revision_, revision) :
-                client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
-                    options.expected_revision_, revision);
+            if (options.command_ == "submit-install" ||
+                options.command_ == "submit-update") {
+                app_operation_request operation_request{
+                    options.idempotency_key_, options.request_sha256_, options.app_id_,
+                    options.command_ == "submit-update" ?
+                        app_operation_kind::update : app_operation_kind::install};
+                outcome = options.command_ == "submit-update" ?
+                    client.vqec_vision_ai_fwctl_amdbs_submit_update(options.dbus_,
+                        operation_request, candidate, options.expected_revision_,
+                        options.operation_id_) :
+                    client.vqec_vision_ai_fwctl_amdbs_submit_install(options.dbus_,
+                        operation_request, candidate, options.expected_revision_,
+                        options.operation_id_);
+            } else {
+                outcome = options.command_ == "update" ?
+                    client.vqec_vision_ai_fwctl_amdbs_update(options.dbus_, candidate,
+                        options.expected_revision_, revision) :
+                    client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
+                        options.expected_revision_, revision);
+            }
         }
     } else if (options.command_ == "rollback") {
         outcome = client.vqec_vision_ai_fwctl_amdbs_rollback(options.dbus_,
             options.app_id_, options.expected_revision_, revision);
+    } else if (options.command_ == "submit-rollback") {
+        const app_operation_request operation_request{
+            options.idempotency_key_, options.request_sha256_, options.app_id_,
+            app_operation_kind::rollback};
+        outcome = client.vqec_vision_ai_fwctl_amdbs_submit_rollback(options.dbus_,
+            operation_request, options.expected_revision_, options.operation_id_);
+    } else if (options.command_ == "operation" ||
+               options.command_ == "cancel-operation") {
+        app_operation_record operation;
+        outcome = options.command_ == "operation" ?
+            client.vqec_vision_ai_fwctl_amdbs_get_operation(options.dbus_,
+                options.operation_id_, operation) :
+            client.vqec_vision_ai_fwctl_amdbs_cancel_operation(options.dbus_,
+                options.operation_id_, operation);
+        if (outcome.code_ == status_code::ok) {
+            vqec_vision_ai_tools_amctl_write_operation(operation);
+        }
     } else if (options.command_ == "configure") {
         std::vector<std::uint8_t> configuration;
         outcome = vqec_vision_ai_tools_amctl_read_file(options.configuration_path_,
@@ -281,6 +337,10 @@ int main(int argc, char** argv) {
     }
     if (revision != 0) {
         std::cout << "snapshot_revision=" << revision << '\n';
+    }
+    if (!options.operation_id_.empty() &&
+        options.command_.rfind("submit-", 0) == 0) {
+        std::cout << "operation_id=" << options.operation_id_ << '\n';
     }
     return 0;
 }

@@ -2,8 +2,12 @@
 #define VQEC_VISION_AI_APPL_APPMN_APP_MANAGER_HPP
 
 #include <cstdint>
+#include <condition_variable>
+#include <deque>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp"
@@ -27,6 +31,7 @@ public:
         app_entitlement_verifier_port& _entitlement_verifier,
         app_configuration_registry& _configuration_registry,
         app_content_store_port& _content_store, app_inventory_port& _inventory);
+    ~app_manager() noexcept;
 
     [[nodiscard]] status vqec_vision_ai_appl_appmn_open(
         runtime_control_snapshot& _snapshot);
@@ -60,6 +65,15 @@ public:
         runtime_control_snapshot& _snapshot);
     [[nodiscard]] status vqec_vision_ai_appl_appmn_get_snapshot(
         runtime_control_snapshot& _snapshot) const;
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_submit_package(
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision, bool _is_update,
+        app_operation_record& _operation);
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_submit_rollback(
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation);
 
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_install(
         const app_package_candidate& _candidate,
@@ -88,6 +102,26 @@ public:
         runtime_control_snapshot& _snapshot) override;
     [[nodiscard]] status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_submit_install(
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_submit_update(
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_submit_rollback(
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_get_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) const override;
+    [[nodiscard]] status vqec_vision_ai_ports_apmgr_cancel_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) override;
 
 private:
     [[nodiscard]] status vqec_vision_ai_appl_appmn_verify_configuration_digest(
@@ -104,7 +138,11 @@ private:
     [[nodiscard]] status vqec_vision_ai_appl_appmn_commit_package(
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision, bool _is_update,
+        const std::string& _expected_app_id,
         runtime_control_snapshot& _snapshot);
+    void vqec_vision_ai_appl_appmn_run_operations() noexcept;
+
+    struct operation_job;
 
     app_manager_config config_;
     app_package_verifier_port& package_verifier_;
@@ -113,6 +151,11 @@ private:
     app_content_store_port& content_store_;
     app_inventory_port& inventory_;
     mutable std::mutex mutex_;
+    std::mutex queue_mutex_;
+    std::condition_variable queue_ready_;
+    std::deque<std::unique_ptr<operation_job>> operation_queue_;
+    std::thread operation_worker_;
+    bool stop_worker_{false};
     bool open_{false};
 };
 

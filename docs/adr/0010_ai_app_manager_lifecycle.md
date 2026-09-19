@@ -44,10 +44,12 @@ the real-time frame path.
   revision. Signals are wake-ups only; runtime never reconstructs authority from deltas.
 - Inventory and operation journals are separate from business metadata. Content blobs are
   immutable and digest-addressed; a database never stores model binary payloads.
-- The source baseline uses synchronous revisioned transactions. Asynchronous idempotent operation
-  journaling remains mandatory before remote rollout: accepted will mean queued, never installed
-  or running. Recovery must resolve a transaction to the old or new committed inventory, never a
-  half-installed directory scan.
+- Package install, update and rollback use bounded asynchronous idempotent operation journaling:
+  accepted means durably queued, never installed or running. One serialized worker owns retained
+  component descriptors and publishes only an atomic old or new inventory revision. A restart
+  marks interrupted rows `recovery_required`; it never infers installation from a half-staged
+  directory. The remaining configuration/control mutations retain synchronous CAS methods during
+  migration and must move behind the same operation contract before remote rollout is accepted.
 - Every LACAI-owned schema and D-Bus contract starts at version 1 and uses the canonical version
   registry. A version increment needs a migration ADR.
 

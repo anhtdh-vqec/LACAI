@@ -119,6 +119,17 @@ CREATE TABLE IF NOT EXISTS app_rollback_components(
   immutable_location TEXT NOT NULL,
   PRIMARY KEY(app_id,component_id,component_version,target_id)
 );
+CREATE TABLE IF NOT EXISTS app_operations(
+  operation_id TEXT PRIMARY KEY,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  payload_sha256 TEXT NOT NULL,
+  app_id TEXT NOT NULL,
+  operation_kind INTEGER NOT NULL,
+  operation_state INTEGER NOT NULL,
+  result_code INTEGER NOT NULL,
+  result_message TEXT NOT NULL,
+  snapshot_revision INTEGER NOT NULL
+);
 )sql";
 
 class sqlite_statement final {
@@ -535,6 +546,65 @@ status vqec_vision_ai_stor_apinv_validate_storage_path(
     return {};
 }
 
+status vqec_vision_ai_stor_apinv_read_operation(sqlite3* _database,
+    const std::string& _operation_id, app_operation_record& _operation) {
+    sqlite_statement statement;
+    auto current = vqec_vision_ai_stor_apinv_prepare(_database,
+        "SELECT operation_id,idempotency_key,payload_sha256,app_id,operation_kind,"
+        "operation_state,result_code,result_message,snapshot_revision "
+        "FROM app_operations WHERE operation_id=?", statement);
+    auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok ||
+        !vqec_vision_ai_stor_apinv_bind_text(handle, 1, _operation_id)) {
+        return current.code_ == status_code::ok ?
+            status{status_code::io_error, "cannot bind app operation query"} : current;
+    }
+    if (sqlite3_step(handle) != SQLITE_ROW) {
+        return {status_code::source_lost, "app operation does not exist"};
+    }
+    const auto* operation_id = sqlite3_column_text(handle, 0);
+    const auto* idempotency_key = sqlite3_column_text(handle, 1);
+    const auto* payload_sha256 = sqlite3_column_text(handle, 2);
+    const auto* app_id = sqlite3_column_text(handle, 3);
+    const auto kind = sqlite3_column_int(handle, 4);
+    const auto state = sqlite3_column_int(handle, 5);
+    const auto result_code = sqlite3_column_int(handle, 6);
+    const auto* result_message = sqlite3_column_text(handle, 7);
+    const auto snapshot_revision = sqlite3_column_int64(handle, 8);
+    if (operation_id == nullptr || idempotency_key == nullptr ||
+        payload_sha256 == nullptr || app_id == nullptr || result_message == nullptr ||
+        kind < static_cast<int>(app_operation_kind::install) ||
+        kind > static_cast<int>(app_operation_kind::uninstall) ||
+        state < static_cast<int>(app_operation_state::queued) ||
+        state > static_cast<int>(app_operation_state::recovery_required) ||
+        result_code < static_cast<int>(status_code::ok) ||
+        result_code > static_cast<int>(status_code::pending) ||
+        snapshot_revision < 0) {
+        return {status_code::invalid_state, "corrupt app operation journal row"};
+    }
+    app_operation_record candidate;
+    candidate.operation_id_ = reinterpret_cast<const char*>(operation_id);
+    candidate.idempotency_key_ = reinterpret_cast<const char*>(idempotency_key);
+    candidate.payload_sha256_ = reinterpret_cast<const char*>(payload_sha256);
+    candidate.app_id_ = reinterpret_cast<const char*>(app_id);
+    candidate.kind_ = static_cast<app_operation_kind>(kind);
+    candidate.state_ = static_cast<app_operation_state>(state);
+    candidate.result_code_ = static_cast<status_code>(result_code);
+    candidate.result_message_ = reinterpret_cast<const char*>(result_message);
+    candidate.snapshot_revision_ = static_cast<std::uint64_t>(snapshot_revision);
+    if (!vqec_vision_ai_cntr_ident_is_valid(candidate.operation_id_,
+            app_lifecycle_limits::g_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_sha256_hex(candidate.payload_sha256_) ||
+        !vqec_vision_ai_cntr_ident_is_valid(candidate.app_id_,
+            app_lifecycle_limits::g_max_identifier_bytes) ||
+        candidate.result_message_.size() >
+            app_lifecycle_limits::g_max_operation_message_bytes) {
+        return {status_code::invalid_state, "invalid app operation journal identity"};
+    }
+    _operation = std::move(candidate);
+    return {};
+}
+
 }  // namespace
 
 sqlite_app_inventory::sqlite_app_inventory(sqlite_app_inventory_config _config)
@@ -585,6 +655,22 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_open() {
     if (configured.code_ == status_code::ok) {
         configured = vqec_vision_ai_stor_apinv_exec(database_, g_schema_sql);
     }
+    if (configured.code_ == status_code::ok) {
+        const std::string recovery_sql =
+            "UPDATE app_operations SET operation_state=" +
+            std::to_string(static_cast<int>(app_operation_state::recovery_required)) +
+            ",result_code=" +
+            std::to_string(static_cast<int>(status_code::invalid_state)) +
+            ",result_message='manager restarted before operation completion' "
+            "WHERE operation_state IN(" +
+            std::to_string(static_cast<int>(app_operation_state::queued)) + "," +
+            std::to_string(static_cast<int>(app_operation_state::staging)) + "," +
+            std::to_string(static_cast<int>(app_operation_state::verifying)) + "," +
+            std::to_string(static_cast<int>(app_operation_state::installing)) + "," +
+            std::to_string(static_cast<int>(app_operation_state::reconciling)) + ")";
+        configured = vqec_vision_ai_stor_apinv_exec(
+            database_, recovery_sql.c_str());
+    }
     const std::string wal_path = config_.database_path_ + "-wal";
     const std::string shm_path = config_.database_path_ + "-shm";
     if (std::filesystem::exists(wal_path)) {
@@ -625,6 +711,151 @@ status sqlite_app_inventory::vqec_vision_ai_ports_apinv_open() {
     }
     runtime_control_snapshot snapshot;
     return vqec_vision_ai_stor_apinv_load(database_, snapshot);
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_begin_operation(
+    const app_operation_request& _request, app_operation_record& _operation,
+    bool& _is_new) {
+    if (database_ == nullptr ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _request.idempotency_key_, app_lifecycle_limits::g_max_identifier_bytes) ||
+        !vqec_vision_ai_cntr_ident_is_sha256_hex(_request.payload_sha256_) ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _request.app_id_, app_lifecycle_limits::g_max_identifier_bytes) ||
+        _request.kind_ < app_operation_kind::install ||
+        _request.kind_ > app_operation_kind::uninstall) {
+        return {status_code::invalid_argument, "invalid app operation request"};
+    }
+    app_operation_record existing;
+    auto current = vqec_vision_ai_stor_apinv_read_operation(
+        database_, _request.idempotency_key_, existing);
+    if (current.code_ == status_code::ok) {
+        if (existing.idempotency_key_ != _request.idempotency_key_ ||
+            existing.payload_sha256_ != _request.payload_sha256_ ||
+            existing.app_id_ != _request.app_id_ || existing.kind_ != _request.kind_) {
+            return {status_code::invalid_state,
+                "app operation idempotency key conflicts with another payload"};
+        }
+        _operation = std::move(existing);
+        _is_new = false;
+        return {};
+    }
+    if (current.code_ != status_code::source_lost) {
+        return current;
+    }
+    sqlite_statement count_statement;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "SELECT COUNT(*) FROM app_operations", count_statement);
+    auto* count_handle = count_statement.vqec_vision_ai_stor_apinv_get();
+    if (current.code_ != status_code::ok || sqlite3_step(count_handle) != SQLITE_ROW) {
+        return current.code_ == status_code::ok ?
+            status{status_code::io_error, "cannot count app operations"} : current;
+    }
+    const auto operation_count = sqlite3_column_int64(count_handle, 0);
+    if (operation_count < 0 || static_cast<std::uint64_t>(operation_count) >=
+            app_lifecycle_limits::g_max_operations) {
+        return {status_code::resource_exhausted,
+            "app operation journal reached its bounded capacity"};
+    }
+    sqlite_statement statement;
+    current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "INSERT INTO app_operations VALUES(?,?,?,?,?,?,?,?,?)", statement);
+    auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+    const bool bound = current.code_ == status_code::ok &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            handle, 1, _request.idempotency_key_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            handle, 2, _request.idempotency_key_) &&
+        vqec_vision_ai_stor_apinv_bind_text(
+            handle, 3, _request.payload_sha256_) &&
+        vqec_vision_ai_stor_apinv_bind_text(handle, 4, _request.app_id_) &&
+        sqlite3_bind_int(handle, 5, static_cast<int>(_request.kind_)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 6,
+            static_cast<int>(app_operation_state::queued)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 7,
+            static_cast<int>(status_code::pending)) == SQLITE_OK &&
+        vqec_vision_ai_stor_apinv_bind_text(handle, 8, "") &&
+        sqlite3_bind_int64(handle, 9, 0) == SQLITE_OK;
+    if (!bound ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
+            status_code::ok) {
+        return !bound ? status{status_code::io_error,
+            "cannot bind app operation journal row"} : current;
+    }
+    current = vqec_vision_ai_stor_apinv_read_operation(
+        database_, _request.idempotency_key_, _operation);
+    if (current.code_ == status_code::ok) {
+        _is_new = true;
+    }
+    return current;
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_finish_operation(
+    const std::string& _operation_id, app_operation_state _state,
+    const status& _result, std::uint64_t _snapshot_revision,
+    app_operation_record& _operation) {
+    const bool is_terminal = _state == app_operation_state::committed ||
+        _state == app_operation_state::rolled_back ||
+        _state == app_operation_state::cancelled ||
+        _state == app_operation_state::failed ||
+        _state == app_operation_state::recovery_required;
+    if (database_ == nullptr || !is_terminal ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _operation_id, app_lifecycle_limits::g_max_identifier_bytes) ||
+        _result.message_.size() > app_lifecycle_limits::g_max_operation_message_bytes) {
+        return {status_code::invalid_argument, "invalid app operation completion"};
+    }
+    sqlite_statement statement;
+    auto current = vqec_vision_ai_stor_apinv_prepare(database_,
+        "UPDATE app_operations SET operation_state=?,result_code=?,result_message=?,"
+        "snapshot_revision=? WHERE operation_id=? AND operation_state IN(?,?,?,?,?)",
+        statement);
+    auto* handle = statement.vqec_vision_ai_stor_apinv_get();
+    const bool bound = current.code_ == status_code::ok &&
+        sqlite3_bind_int(handle, 1, static_cast<int>(_state)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 2, static_cast<int>(_result.code_)) == SQLITE_OK &&
+        vqec_vision_ai_stor_apinv_bind_text(handle, 3, _result.message_) &&
+        vqec_vision_ai_stor_apinv_bind_uint64(
+            handle, 4, _snapshot_revision) &&
+        vqec_vision_ai_stor_apinv_bind_text(handle, 5, _operation_id) &&
+        sqlite3_bind_int(handle, 6,
+            static_cast<int>(app_operation_state::queued)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 7,
+            static_cast<int>(app_operation_state::staging)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 8,
+            static_cast<int>(app_operation_state::verifying)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 9,
+            static_cast<int>(app_operation_state::installing)) == SQLITE_OK &&
+        sqlite3_bind_int(handle, 10,
+            static_cast<int>(app_operation_state::reconciling)) == SQLITE_OK;
+    if (!bound ||
+        (current = vqec_vision_ai_stor_apinv_step_done(database_, handle)).code_ !=
+            status_code::ok || sqlite3_changes(database_) != 1) {
+        return current.code_ == status_code::ok ?
+            status{status_code::invalid_state,
+                "app operation is already terminal or missing"} : current;
+    }
+    return vqec_vision_ai_stor_apinv_read_operation(
+        database_, _operation_id, _operation);
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_get_operation(
+    const std::string& _operation_id, app_operation_record& _operation) const {
+    if (database_ == nullptr ||
+        !vqec_vision_ai_cntr_ident_is_valid(
+            _operation_id, app_lifecycle_limits::g_max_identifier_bytes)) {
+        return {status_code::invalid_argument, "invalid app operation query"};
+    }
+    return vqec_vision_ai_stor_apinv_read_operation(
+        database_, _operation_id, _operation);
+}
+
+status sqlite_app_inventory::vqec_vision_ai_ports_apinv_cancel_operation(
+    const std::string& _operation_id, app_operation_record& _operation) {
+    return vqec_vision_ai_ports_apinv_finish_operation(_operation_id,
+        app_operation_state::cancelled,
+        {status_code::invalid_state, "operation cancelled before execution"},
+        0, _operation);
 }
 
 status sqlite_app_inventory::vqec_vision_ai_ports_apinv_authorize_install(

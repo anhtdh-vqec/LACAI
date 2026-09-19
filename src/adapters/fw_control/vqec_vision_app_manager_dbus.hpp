@@ -14,6 +14,11 @@ inline constexpr char g_interface_name[] = "com.vqec.AiVision.AppManager1";
 inline constexpr char g_install_method[] = "Install";
 inline constexpr char g_update_method[] = "Update";
 inline constexpr char g_rollback_method[] = "Rollback";
+inline constexpr char g_submit_install_method[] = "SubmitInstall";
+inline constexpr char g_submit_update_method[] = "SubmitUpdate";
+inline constexpr char g_submit_rollback_method[] = "SubmitRollback";
+inline constexpr char g_get_operation_method[] = "GetOperation";
+inline constexpr char g_cancel_operation_method[] = "CancelOperation";
 inline constexpr char g_configuration_method[] = "ApplyConfiguration";
 inline constexpr char g_entitlement_method[] = "ApplyEntitlement";
 inline constexpr char g_desired_method[] = "SetDesired";
@@ -64,6 +69,31 @@ public:
         const std::string& _app_id,
         std::uint64_t _expected_inventory_revision,
         std::uint64_t& _snapshot_revision);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_submit_install(
+        const app_manager_dbus_client_config& _config,
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        std::string& _operation_id);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_submit_update(
+        const app_manager_dbus_client_config& _config,
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        std::string& _operation_id);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_submit_rollback(
+        const app_manager_dbus_client_config& _config,
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_inventory_revision,
+        std::string& _operation_id);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_get_operation(
+        const app_manager_dbus_client_config& _config,
+        const std::string& _operation_id,
+        app_operation_record& _operation);
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_cancel_operation(
+        const app_manager_dbus_client_config& _config,
+        const std::string& _operation_id,
+        app_operation_record& _operation);
     [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_apply_configuration(
         const app_manager_dbus_client_config& _config,
         const std::string& _app_id,
@@ -91,7 +121,9 @@ private:
         const app_package_candidate& _candidate,
         std::uint64_t _expected_inventory_revision,
         const char* _method_name,
-        std::uint64_t& _snapshot_revision);
+        const app_operation_request* _operation_request,
+        std::uint64_t* _snapshot_revision,
+        std::string* _operation_id);
     struct implementation;
     std::unique_ptr<implementation> implementation_;
 };

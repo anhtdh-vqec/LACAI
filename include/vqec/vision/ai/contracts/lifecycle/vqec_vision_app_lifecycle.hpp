@@ -31,6 +31,9 @@ inline constexpr std::size_t g_max_associations =
     g_max_applications * g_max_sources;
 inline constexpr std::uint64_t g_max_component_bytes =
     4ULL * 1024ULL * 1024ULL * 1024ULL;
+inline constexpr std::size_t g_max_operation_message_bytes = 512;
+inline constexpr std::size_t g_max_operations = 1024;
+inline constexpr std::size_t g_max_pending_operations = 16;
 }  // namespace app_lifecycle_limits
 
 enum class app_component_type { model, labels, ontology, rules, configuration };
@@ -55,6 +58,34 @@ enum class app_operation_state {
     cancelled,
     failed,
     recovery_required
+};
+enum class app_operation_kind {
+    install,
+    update,
+    rollback,
+    configure,
+    entitlement,
+    desired,
+    uninstall
+};
+
+struct app_operation_request {
+    std::string idempotency_key_;
+    std::string payload_sha256_;
+    std::string app_id_;
+    app_operation_kind kind_{app_operation_kind::install};
+};
+
+struct app_operation_record {
+    std::string operation_id_;
+    std::string idempotency_key_;
+    std::string payload_sha256_;
+    std::string app_id_;
+    app_operation_kind kind_{app_operation_kind::install};
+    app_operation_state state_{app_operation_state::queued};
+    status_code result_code_{status_code::pending};
+    std::string result_message_;
+    std::uint64_t snapshot_revision_{0};
 };
 
 struct app_component_manifest {

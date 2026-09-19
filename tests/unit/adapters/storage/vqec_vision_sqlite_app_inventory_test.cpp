@@ -191,6 +191,49 @@ void vqec_vision_ai_unit_saitst_test_lifecycle_and_restart() {
         assert(recovered.vqec_vision_ai_ports_apinv_uninstall(
             "security.fire_smoke_detection", 5, snapshot).code_ == status_code::ok);
         assert(snapshot.inventory_revision_ == 6 && snapshot.associations_.empty());
+        app_operation_request operation_request{
+            "install_request_001",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "security.fire_smoke_detection", app_operation_kind::install};
+        app_operation_record operation;
+        bool is_new = false;
+        assert(recovered.vqec_vision_ai_ports_apinv_begin_operation(
+            operation_request, operation, is_new).code_ == status_code::ok);
+        assert(is_new && operation.state_ == app_operation_state::queued &&
+            operation.result_code_ == status_code::pending);
+        app_operation_record duplicate;
+        assert(recovered.vqec_vision_ai_ports_apinv_begin_operation(
+            operation_request, duplicate, is_new).code_ == status_code::ok);
+        assert(!is_new && duplicate.operation_id_ == operation.operation_id_);
+        auto conflicting = operation_request;
+        conflicting.payload_sha256_ =
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+        assert(recovered.vqec_vision_ai_ports_apinv_begin_operation(
+            conflicting, duplicate, is_new).code_ == status_code::invalid_state);
+        assert(recovered.vqec_vision_ai_ports_apinv_finish_operation(
+            operation.operation_id_, app_operation_state::committed, {},
+            snapshot.snapshot_revision_, operation).code_ == status_code::ok);
+        assert(operation.state_ == app_operation_state::committed &&
+            operation.result_code_ == status_code::ok &&
+            operation.snapshot_revision_ == snapshot.snapshot_revision_);
+        app_operation_request interrupted{
+            "update_request_restart",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "security.fire_smoke_detection", app_operation_kind::update};
+        assert(recovered.vqec_vision_ai_ports_apinv_begin_operation(
+            interrupted, operation, is_new).code_ == status_code::ok && is_new);
+    }
+    {
+        sqlite_app_inventory recovered(vqec_vision_ai_unit_saitst_config(database.path_));
+        assert(recovered.vqec_vision_ai_ports_apinv_open().code_ == status_code::ok);
+        app_operation_record interrupted;
+        assert(recovered.vqec_vision_ai_ports_apinv_get_operation(
+            "update_request_restart", interrupted).code_ == status_code::ok);
+        assert(interrupted.state_ == app_operation_state::recovery_required &&
+            interrupted.result_code_ == status_code::invalid_state);
+        app_operation_record terminal;
+        assert(recovered.vqec_vision_ai_ports_apinv_cancel_operation(
+            "install_request_001", terminal).code_ == status_code::invalid_state);
     }
 }
 

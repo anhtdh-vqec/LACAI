@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <cstdint>
 #include <filesystem>
@@ -6,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -20,6 +22,26 @@
 namespace {
 
 using namespace vqec::vision::ai;
+
+void vqec_vision_ai_unit_amtest_wait_operation(
+    app_manager& _manager, const std::string& _operation_id,
+    app_operation_record& _operation) {
+    constexpr std::size_t g_max_attempts = 2000;
+    for (std::size_t attempt = 0; attempt < g_max_attempts; ++attempt) {
+        assert(_manager.vqec_vision_ai_ports_apmgr_get_operation(
+                   _operation_id, _operation)
+                   .code_ == status_code::ok);
+        if (_operation.state_ == app_operation_state::committed ||
+            _operation.state_ == app_operation_state::rolled_back ||
+            _operation.state_ == app_operation_state::failed ||
+            _operation.state_ == app_operation_state::cancelled ||
+            _operation.state_ == app_operation_state::recovery_required) {
+            return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    assert(false && "app operation did not reach a terminal state");
+}
 
 const char* g_manifest_fixture = VQEC_VISION_AI_APP_MANIFEST_FIXTURE;
 const char* g_configuration_fixture = VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE;
@@ -308,19 +330,69 @@ void vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart() {
         assert(manager.vqec_vision_ai_appl_appmn_set_desired(disable, snapshot).code_ ==
             status_code::ok);
         test_candidate update(database, true);
-        assert(manager.vqec_vision_ai_appl_appmn_update(
-                   update.value_, snapshot.inventory_revision_, snapshot)
+        app_operation_request update_request{
+            "update_fire_smoke_001",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "security.fire_smoke_detection", app_operation_kind::update};
+        app_operation_record operation;
+        assert(manager.vqec_vision_ai_appl_appmn_submit_package(update_request,
+                   update.value_, snapshot.inventory_revision_, true, operation)
                    .code_ == status_code::ok);
+        assert(operation.state_ == app_operation_state::queued &&
+            operation.result_code_ == status_code::pending);
+        const auto update_operation_id = operation.operation_id_;
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, update_operation_id, operation);
+        assert(operation.state_ == app_operation_state::committed &&
+            operation.result_code_ == status_code::ok);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(snapshot.associations_[0].app_version_ == "1.1.0");
         assert(snapshot.associations_[0].release_sequence_ == 2);
         assert(snapshot.associations_[0].configuration_revision_ == 3);
-        assert(manager.vqec_vision_ai_appl_appmn_rollback(
-                   "security.fire_smoke_detection", snapshot.inventory_revision_, snapshot)
-                   .code_ == status_code::ok);
+        app_operation_record duplicate;
+        assert(manager.vqec_vision_ai_appl_appmn_submit_package(update_request,
+                   update.value_, 1, true, duplicate).code_ == status_code::ok);
+        assert(duplicate.operation_id_ == operation.operation_id_ &&
+            duplicate.snapshot_revision_ == operation.snapshot_revision_);
+        app_operation_request rollback_request{
+            "rollback_fire_smoke_001",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "security.fire_smoke_detection", app_operation_kind::rollback};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_rollback(rollback_request,
+                   snapshot.inventory_revision_, operation).code_ == status_code::ok);
+        assert(operation.state_ == app_operation_state::queued &&
+            operation.result_code_ == status_code::pending);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::rolled_back &&
+            operation.result_code_ == status_code::ok);
+        assert(manager.vqec_vision_ai_appl_appmn_get_snapshot(snapshot).code_ ==
+            status_code::ok);
         assert(snapshot.associations_[0].app_version_ == "1.0.0");
         assert(snapshot.associations_[0].release_sequence_ == 1);
         assert(snapshot.associations_[0].configuration_revision_ == 4);
         assert(snapshot.associations_[0].configuration_sha256_ == updated_sha256);
+        const app_operation_request stale_request{
+            "update_fire_smoke_stale_001",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "security.fire_smoke_detection", app_operation_kind::update};
+        assert(manager.vqec_vision_ai_appl_appmn_submit_package(stale_request,
+                   update.value_, 1, true, operation)
+                   .code_ == status_code::ok);
+        vqec_vision_ai_unit_amtest_wait_operation(
+            manager, operation.operation_id_, operation);
+        assert(operation.state_ == app_operation_state::failed &&
+            operation.result_code_ == status_code::invalid_state &&
+            operation.snapshot_revision_ == 0);
+        app_operation_record repeated_failure;
+        assert(manager.vqec_vision_ai_appl_appmn_submit_package(stale_request,
+                   update.value_, snapshot.inventory_revision_, true,
+                   repeated_failure)
+                   .code_ == status_code::ok);
+        assert(repeated_failure.operation_id_ == operation.operation_id_ &&
+            repeated_failure.state_ == app_operation_state::failed &&
+            repeated_failure.result_code_ == status_code::invalid_state);
         assert(manager.vqec_vision_ai_appl_appmn_update_configuration(
                    "security.fire_smoke_detection", 1,
                    candidate.value_.configuration_payload_,

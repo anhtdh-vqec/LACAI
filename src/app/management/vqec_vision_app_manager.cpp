@@ -4,13 +4,32 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <new>
 #include <sstream>
 #include <utility>
+
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "vqec/vision/ai/contracts/base/vqec_vision_identifier.hpp"
 #include "vqec_vision_artifact_digest.hpp"
 
 namespace vqec::vision::ai {
+
+struct app_manager::operation_job {
+    app_operation_request request_;
+    app_package_candidate candidate_;
+    std::vector<int> owned_descriptors_;
+    std::uint64_t expected_inventory_revision_{0};
+
+    ~operation_job() noexcept {
+        for (const int descriptor : owned_descriptors_) {
+            if (descriptor >= 0) {
+                (void)::close(descriptor);
+            }
+        }
+    }
+};
 
 app_manager::app_manager(app_manager_config _config,
     app_package_verifier_port& _package_verifier,
@@ -23,6 +42,17 @@ app_manager::app_manager(app_manager_config _config,
       configuration_registry_(_configuration_registry),
       content_store_(_content_store),
       inventory_(_inventory) {}
+
+app_manager::~app_manager() noexcept {
+    {
+        std::lock_guard<std::mutex> guard(queue_mutex_);
+        stop_worker_ = true;
+    }
+    queue_ready_.notify_all();
+    if (operation_worker_.joinable()) {
+        operation_worker_.join();
+    }
+}
 
 status app_manager::vqec_vision_ai_appl_appmn_verify_configuration_digest(
     const std::vector<std::uint8_t>& _payload, const std::string& _sha256) const {
@@ -124,6 +154,14 @@ status app_manager::vqec_vision_ai_appl_appmn_open(
     current = inventory_.vqec_vision_ai_ports_apinv_load_snapshot(_snapshot);
     if (current.code_ == status_code::ok) {
         open_ = true;
+        try {
+            operation_worker_ = std::thread(
+                &app_manager::vqec_vision_ai_appl_appmn_run_operations, this);
+        } catch (...) {
+            open_ = false;
+            return {status_code::resource_exhausted,
+                "cannot start app operation worker"};
+        }
     }
     return current;
 }
@@ -131,7 +169,8 @@ status app_manager::vqec_vision_ai_appl_appmn_open(
 status app_manager::vqec_vision_ai_appl_appmn_commit_package(
     const app_package_candidate& _candidate,
     std::uint64_t _expected_inventory_revision,
-    bool _is_update, runtime_control_snapshot& _snapshot) {
+    bool _is_update, const std::string& _expected_app_id,
+    runtime_control_snapshot& _snapshot) {
     if (!open_) {
         return {status_code::invalid_state, "app manager is not open"};
     }
@@ -146,7 +185,9 @@ status app_manager::vqec_vision_ai_appl_appmn_commit_package(
     }
     if (package.verification_receipt_id_.empty() ||
         package.manifest_sha256_ != _candidate.manifest_sha256_ ||
-        package.configuration_sha256_ != _candidate.configuration_sha256_) {
+        package.configuration_sha256_ != _candidate.configuration_sha256_ ||
+        (!_expected_app_id.empty() &&
+            package.manifest_.app_id_ != _expected_app_id)) {
         return {status_code::unauthorized, "invalid verified package receipt"};
     }
     current = vqec_vision_ai_core_applc_validate_manifest(package.manifest_);
@@ -243,7 +284,7 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
     runtime_control_snapshot& _snapshot) {
     std::lock_guard<std::mutex> guard(mutex_);
     return vqec_vision_ai_appl_appmn_commit_package(
-        _candidate, _expected_inventory_revision, false, _snapshot);
+        _candidate, _expected_inventory_revision, false, "", _snapshot);
 }
 
 status app_manager::vqec_vision_ai_appl_appmn_update(
@@ -252,7 +293,178 @@ status app_manager::vqec_vision_ai_appl_appmn_update(
     runtime_control_snapshot& _snapshot) {
     std::lock_guard<std::mutex> guard(mutex_);
     return vqec_vision_ai_appl_appmn_commit_package(
-        _candidate, _expected_inventory_revision, true, _snapshot);
+        _candidate, _expected_inventory_revision, true, "", _snapshot);
+}
+
+status app_manager::vqec_vision_ai_appl_appmn_submit_package(
+    const app_operation_request& _operation_request,
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision, bool _is_update,
+    app_operation_record& _operation) {
+    if (_operation_request.kind_ != (_is_update ?
+            app_operation_kind::update : app_operation_kind::install)) {
+        return {status_code::invalid_argument,
+            "invalid package operation submission"};
+    }
+    std::unique_ptr<operation_job> job;
+    try {
+        job = std::make_unique<operation_job>();
+        job->request_ = _operation_request;
+        job->candidate_ = _candidate;
+        job->candidate_.components_.clear();
+        job->expected_inventory_revision_ = _expected_inventory_revision;
+        job->owned_descriptors_.reserve(_candidate.components_.size());
+        job->candidate_.components_.reserve(_candidate.components_.size());
+        for (const auto& component : _candidate.components_) {
+            if (component.descriptor_ < 0) {
+                return {status_code::invalid_argument,
+                    "package component descriptor is invalid"};
+            }
+            const int duplicate = ::fcntl(
+                component.descriptor_, F_DUPFD_CLOEXEC, 0);
+            if (duplicate < 0) {
+                return {status_code::io_error,
+                    "cannot retain package component descriptor"};
+            }
+            job->owned_descriptors_.push_back(duplicate);
+            job->candidate_.components_.push_back({duplicate});
+        }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "cannot allocate package operation"};
+    }
+    {
+        std::lock_guard<std::mutex> queue_guard(queue_mutex_);
+        if (operation_queue_.size() >=
+            app_lifecycle_limits::g_max_pending_operations) {
+            return {status_code::resource_exhausted,
+                "app operation queue is full"};
+        }
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    bool is_new = false;
+    auto current = inventory_.vqec_vision_ai_ports_apinv_begin_operation(
+        _operation_request, _operation, is_new);
+    if (current.code_ != status_code::ok || !is_new) {
+        return current;
+    }
+    try {
+        {
+            std::lock_guard<std::mutex> queue_guard(queue_mutex_);
+            operation_queue_.push_back(std::move(job));
+        }
+        queue_ready_.notify_one();
+        return {};
+    } catch (const std::bad_alloc&) {
+        return inventory_.vqec_vision_ai_ports_apinv_finish_operation(
+            _operation.operation_id_, app_operation_state::failed,
+            {status_code::resource_exhausted,
+                "cannot queue package operation"}, 0, _operation);
+    }
+}
+
+status app_manager::vqec_vision_ai_appl_appmn_submit_rollback(
+    const app_operation_request& _operation_request,
+    std::uint64_t _expected_inventory_revision,
+    app_operation_record& _operation) {
+    if (_operation_request.kind_ != app_operation_kind::rollback) {
+        return {status_code::invalid_argument, "invalid rollback operation submission"};
+    }
+    std::unique_ptr<operation_job> job;
+    try {
+        job = std::make_unique<operation_job>();
+        job->request_ = _operation_request;
+        job->expected_inventory_revision_ = _expected_inventory_revision;
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "cannot allocate rollback operation"};
+    }
+    {
+        std::lock_guard<std::mutex> queue_guard(queue_mutex_);
+        if (operation_queue_.size() >=
+            app_lifecycle_limits::g_max_pending_operations) {
+            return {status_code::resource_exhausted,
+                "app operation queue is full"};
+        }
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    bool is_new = false;
+    auto current = inventory_.vqec_vision_ai_ports_apinv_begin_operation(
+        _operation_request, _operation, is_new);
+    if (current.code_ != status_code::ok || !is_new) {
+        return current;
+    }
+    try {
+        {
+            std::lock_guard<std::mutex> queue_guard(queue_mutex_);
+            operation_queue_.push_back(std::move(job));
+        }
+        queue_ready_.notify_one();
+        return {};
+    } catch (const std::bad_alloc&) {
+        return inventory_.vqec_vision_ai_ports_apinv_finish_operation(
+            _operation.operation_id_, app_operation_state::failed,
+            {status_code::resource_exhausted,
+                "cannot queue rollback operation"}, 0, _operation);
+    }
+}
+
+void app_manager::vqec_vision_ai_appl_appmn_run_operations() noexcept {
+    for (;;) {
+        std::unique_ptr<operation_job> job;
+        {
+            std::unique_lock<std::mutex> queue_guard(queue_mutex_);
+            queue_ready_.wait(queue_guard, [this]() {
+                return stop_worker_ || !operation_queue_.empty();
+            });
+            if (operation_queue_.empty()) {
+                if (stop_worker_) {
+                    return;
+                }
+                continue;
+            }
+            job = std::move(operation_queue_.front());
+            operation_queue_.pop_front();
+        }
+        std::lock_guard<std::mutex> guard(mutex_);
+        app_operation_record operation;
+        const auto queried = inventory_.vqec_vision_ai_ports_apinv_get_operation(
+            job->request_.idempotency_key_, operation);
+        if (queried.code_ != status_code::ok ||
+            operation.state_ != app_operation_state::queued) {
+            continue;
+        }
+        runtime_control_snapshot snapshot;
+        status executed;
+        app_operation_state terminal_state = app_operation_state::failed;
+        if (job->request_.kind_ == app_operation_kind::rollback) {
+            executed = inventory_.vqec_vision_ai_ports_apinv_rollback(
+                job->request_.app_id_, job->expected_inventory_revision_, snapshot);
+            if (executed.code_ == status_code::ok) {
+                terminal_state = app_operation_state::rolled_back;
+            }
+        } else {
+            const bool is_update =
+                job->request_.kind_ == app_operation_kind::update;
+            executed = vqec_vision_ai_appl_appmn_commit_package(job->candidate_,
+                job->expected_inventory_revision_, is_update,
+                job->request_.app_id_, snapshot);
+            if (executed.code_ == status_code::ok) {
+                terminal_state = app_operation_state::committed;
+            }
+        }
+        app_operation_record completed;
+        (void)inventory_.vqec_vision_ai_ports_apinv_finish_operation(
+            operation.operation_id_, terminal_state, executed,
+            executed.code_ == status_code::ok ? snapshot.snapshot_revision_ : 0,
+            completed);
+    }
 }
 
 status app_manager::vqec_vision_ai_appl_appmn_rollback(
@@ -475,6 +687,52 @@ status app_manager::vqec_vision_ai_ports_apmgr_uninstall(
 status app_manager::vqec_vision_ai_ports_apmgr_get_snapshot(
     runtime_control_snapshot& _snapshot) const {
     return vqec_vision_ai_appl_appmn_get_snapshot(_snapshot);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_submit_install(
+    const app_operation_request& _operation_request,
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    app_operation_record& _operation) {
+    return vqec_vision_ai_appl_appmn_submit_package(_operation_request,
+        _candidate, _expected_inventory_revision, false, _operation);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_submit_update(
+    const app_operation_request& _operation_request,
+    const app_package_candidate& _candidate,
+    std::uint64_t _expected_inventory_revision,
+    app_operation_record& _operation) {
+    return vqec_vision_ai_appl_appmn_submit_package(_operation_request,
+        _candidate, _expected_inventory_revision, true, _operation);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_submit_rollback(
+    const app_operation_request& _operation_request,
+    std::uint64_t _expected_inventory_revision,
+    app_operation_record& _operation) {
+    return vqec_vision_ai_appl_appmn_submit_rollback(
+        _operation_request, _expected_inventory_revision, _operation);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_get_operation(
+    const std::string& _operation_id, app_operation_record& _operation) const {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    return inventory_.vqec_vision_ai_ports_apinv_get_operation(
+        _operation_id, _operation);
+}
+
+status app_manager::vqec_vision_ai_ports_apmgr_cancel_operation(
+    const std::string& _operation_id, app_operation_record& _operation) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (!open_) {
+        return {status_code::invalid_state, "app manager is not open"};
+    }
+    return inventory_.vqec_vision_ai_ports_apinv_cancel_operation(
+        _operation_id, _operation);
 }
 
 }  // namespace vqec::vision::ai

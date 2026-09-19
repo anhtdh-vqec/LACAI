@@ -41,6 +41,26 @@ public:
         runtime_control_snapshot& _snapshot) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_get_snapshot(
         runtime_control_snapshot& _snapshot) const = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_install(
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_update(
+        const app_operation_request& _operation_request,
+        const app_package_candidate& _candidate,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_submit_rollback(
+        const app_operation_request& _operation_request,
+        std::uint64_t _expected_inventory_revision,
+        app_operation_record& _operation) = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_get_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) const = 0;
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apmgr_cancel_operation(
+        const std::string& _operation_id,
+        app_operation_record& _operation) = 0;
 };
 
 }  // namespace vqec::vision::ai

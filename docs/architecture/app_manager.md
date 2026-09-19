@@ -5,8 +5,10 @@ and activate the stable S01–S18 usecases without putting package I/O in the in
 
 **Status:** board-smoke — signed first install, entitlement, configuration CAS, desired-state
 reconcile, persistent inventory, D-Bus facade and startup-order independence passed on the recorded
-QCS6490 candidate; immutable component FD ingest and entitlement-before-stage enforcement are
-logic-tested, while operation journaling, update/rollback and backend conformance remain open.
+QCS6490 candidate; immutable component FD ingest, entitlement-before-stage enforcement and bounded
+asynchronous package operation journaling are logic-tested. Update/rollback has separate board
+smoke evidence; the new operation facade and backend conformance still require board/released-peer
+validation.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -57,10 +59,19 @@ JSON per frame.
 
 ## Operation and recovery contract
 
-The current baseline executes bounded manifest/config/grant validation and inventory transactions
-synchronously with CAS revisions. The target operation journal adds an idempotency key, payload
-digest and explicit asynchronous operation state. Until that journal ships, callers must not infer
-queued/cancel/update/rollback semantics from the current methods.
+Package install, update and rollback use a durable bounded operation journal. Submission first
+persists `queued` with an idempotency key, request digest, app identity and operation kind, then
+duplicates every component FD with close-on-exec ownership and enqueues one of at most 16 pending
+jobs. A single worker serializes package verification, immutable staging and inventory commit.
+The D-Bus submission returns only the operation ID; at that point the application is not implied to
+be installed or running. The journal retains at most 1,024 records and fails closed when full.
+
+The same idempotency key with the same request identity returns the existing record without
+re-execution. Reusing it with another digest, app or kind is a conflict. On restart, any queued or
+non-terminal row becomes `recovery_required`; current inventory remains the last atomic committed
+revision. Cancellation is best-effort and only succeeds before a job becomes terminal. Legacy
+synchronous methods remain temporarily for migration and the board runner; configuration,
+entitlement, desired state and uninstall still use synchronous CAS transactions in this baseline.
 
 Package ingest copies exactly the declared bytes from a read-only FD into a private staging file
 while calculating the digest. Commit order is payload fsync, candidate receipt fsync and atomic
@@ -96,12 +107,13 @@ Production uses the system bus and binds separately configured backend and runti
 to their unique owners on every request. Only the backend peer may mutate lifecycle state. The
 runtime peer may only call `GetSnapshot`; backend may also read it for status/revision handling.
 The daemon can start while either peer is offline, and a restart does not retain authority from a
-previous unique owner. The two names must be different. The source-delivered facade currently
-provides FD-based signed install, FD-based signed entitlement, configuration apply, desired state,
-uninstall and complete snapshot reads. Large package/grant data never travels as a byte array.
+previous unique owner. The two names must be different. The source-delivered facade provides
+FD-based signed install/update, rollback, package operation submission/query/cancel, FD-based signed
+entitlement, configuration apply, desired state, uninstall and complete snapshot reads. Large
+package/grant data never travels as a byte array.
 Wrong sender, stale revision, invalid/expired/device-mismatched grant or not-installed enable fails
-closed even if the UI hides an action. Asynchronous operation status/cancel, update/rollback and
-catalog-list methods remain product work and must not be inferred from the current interface.
+closed even if the UI hides an action. Catalog/list and attributed-metrics methods remain product
+work and must not be inferred from the current interface.
 
 Per-app CPU/RAM is attributed work and shared-cost metadata, not a fabricated `/proc` process
 value, because applications share the runtime process and components.
@@ -146,12 +158,13 @@ configured App Manager resource capacity. These booleans are never accepted from
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
 - Content-addressed component FD staging is bound to signed manifest digest/size and install
-  authority. Inventory generation history, safe garbage collection, operation journaling,
-  update/rollback, D-Bus/backend conformance, fault injection and release acceptance remain open.
+  authority. Package generation history, rollback and the bounded operation journal are delivered;
+  safe garbage collection policy, async conversion of the remaining mutations, D-Bus/backend
+  conformance, deeper power-loss fault injection and release acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
-- The first-install board path is accepted only at board-smoke level. It does not make the
-  synchronous mutation API an asynchronous operation journal and does not qualify component
-  update/rollback.
+- The first-install and synchronous update/rollback board paths are accepted only at board-smoke
+  level. The asynchronous facade is logic-tested until the same lifecycle is repeated through
+  `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and `GetOperation` on the recorded board.
 
 ## See also
 
