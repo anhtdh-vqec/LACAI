@@ -127,8 +127,10 @@ std::string vqec_vision_ai_stor_mdsql_read_text(sqlite3_stmt* _statement, int _c
 std::uint32_t vqec_vision_ai_stor_mdsql_get_required_scope(metadata_query_kind _kind) {
     switch (_kind) {
     case metadata_query_kind::q01_object_attribute:
-    case metadata_query_kind::q02_attribute_at_event:
         return vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::visual_attribute);
+    case metadata_query_kind::q02_attribute_at_event:
+        return vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::visual_attribute) |
+               vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::trajectory);
     case metadata_query_kind::q03_trajectory_detail:
     case metadata_query_kind::q04_ordered_passage:
     case metadata_query_kind::q05_presence_dwell:

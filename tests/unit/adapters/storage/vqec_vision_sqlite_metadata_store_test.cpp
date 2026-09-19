@@ -141,6 +141,12 @@ int main() {
     assert(page.records_.front().payload_.empty());
     assert(page.completeness_ == metadata_query_completeness::complete);
 
+    auto attribute_without_trajectory_scope = attribute_at_passage;
+    attribute_without_trajectory_scope.allowed_scope_mask_ =
+        vqec_vision_ai_cntr_mdqry_get_scope_mask(metadata_scope::visual_attribute);
+    assert(store.vqec_vision_ai_stor_mdsql_query_records(
+               attribute_without_trajectory_scope, page).code_ == status_code::unauthorized);
+
     auto mismatched_query_id = attribute_at_passage;
     mismatched_query_id.query_id_ = "Q01";
     assert(store.vqec_vision_ai_stor_mdsql_query_records(
