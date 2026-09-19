@@ -102,6 +102,9 @@ eSDK/board benchmark proves the benefit.
 - Retention quotas, physical purge orchestration, Kafka delivery, archive manifests and
   asynchronous long-query jobs are later operational components. Q28/Q29 only expose the
   stable read/audit foundation delivered here.
+- The SQLite adapter does not yet enforce a private parent directory or encrypt database,
+  WAL and shared-memory files. Plate/identity metadata must remain non-admitted until the
+  deployment supplies and verifies protected storage plus the approved at-rest key policy.
 - The benchmark is not a sizing profile for 18 simultaneous usecases. A deployment must
   provide measured cardinality, retention and latency budgets before admission.
 

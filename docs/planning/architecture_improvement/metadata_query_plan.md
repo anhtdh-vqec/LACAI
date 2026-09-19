@@ -161,6 +161,8 @@ Checklist đóng P2:
 - Plan 3 nhận outbox để làm Kafka/UDS delivery, retry và receipt; không sửa transaction authority.
 - Plan 5 compose bounded metadata worker vào service, đo live CPU/FPS/I/O và chạy retention,
   disk-full, power-loss, purge/revoke, long-query cancellation.
+- Trước khi lưu D11/D12, Plan 5 phải enforce private directory cho DB/WAL/SHM và chốt
+  encryption/hardware-key policy; query authorization không thay thế bảo vệ dữ liệu at-rest.
 - Mỗi app nộp producer golden, quality/calibration và cardinality/retention profile trước khi
   chuyển các query liên quan từ `unsupported` sang advertised capability.
 - Chỉ mở cold Parquet/DuckDB spike khi workload đã duyệt làm SQLite vi phạm budget; benchmark

@@ -57,3 +57,6 @@ cardinality profile that demonstrates a columnar tier is required.
 - Per-usecase producer quality, product retention, purge execution, Kafka export and service
   composition remain separately admitted capabilities. Accepting this ADR does not claim all
   18 usecases are implemented or sized.
+- Query authorization does not protect files at rest. Sensitive D11/D12 activation requires
+  enforced private database/WAL/shared-memory storage and an approved encryption/key policy;
+  those controls are not delivered by the baseline adapter.
