@@ -4,8 +4,9 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** accepted — the canonical layout and runner are current; candidate `c01b748` ran at
-30.124 preview FPS and 10.56% five-minute steady CPU on `.102` on 2026-09-20. **Layer:** docs.
+**Status:** accepted — the canonical layout and asynchronous-install runner are current; the
+S04 candidate ran at 30.124 preview FPS and 14.33% combined service/App Manager CPU over five
+minutes on `.102` on 2026-09-20. **Layer:** docs.
 **Source:** `tools/board/vqec_vision_run_full.sh`.
 
 ## Standard root and layout
@@ -136,7 +137,8 @@ orientation, color and absence of stale overlay. Service metrics must also print
 
 The runner intentionally starts the AI service before App Manager and starts the camera last.
 It rejects startup if the HTP backend is mapped before media is available. The 2026-09-20 S04
-candidate passed that gate and ten five-second desired-state cycles. Its one-second cold-start
+candidate used asynchronous first-install by default and passed that gate, update/rollback,
+uninstall/reinstall and ten five-second desired-state cycles. Its one-second cold-start
 peak remained 86% in Qualcomm `GraphPrepare`; see
 [S04 validation](fire_smoke_product_slice_validation.md). A compatibility camera contact sheet
 that contains no visible target cannot be used to claim overlay accuracy.

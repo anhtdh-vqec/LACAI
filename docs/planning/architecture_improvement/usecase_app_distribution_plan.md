@@ -7,8 +7,9 @@ lifecycle usecase app. Thiết kế giữ một LACAI runtime dùng chung để 
 accelerator.
 
 **Status:** board-smoke — App Manager, D-Bus v1, declarative S04 manifest, Ed25519 package/grant
-verification, persistent inventory và first-install/config/enable/disable path đã chạy board;
-catalog/download, async journal, content store, update/rollback và backend conformance còn mở.
+verification, persistent inventory/content, asynchronous install/update/rollback, idempotency,
+uninstall/reinstall và config/enable/disable đã chạy board; catalog/download, remaining mutation
+migration và backend conformance còn mở.
 **Layer:** docs. **Source:**
 `include/vqec/vision/ai/contracts/features/vqec_vision_usecase_activation.hpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.cpp`,

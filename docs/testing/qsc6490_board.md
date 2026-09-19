@@ -169,6 +169,16 @@ query cancellation. Raw evidence is under `/opt/lacai/out/p2_candidate/fault/` a
 `/opt/lacai/out/p2_acceptance_final_5m/`. This closes P2; it is not long power-loss, flash-wear,
 multi-source, released-FW or product thermal qualification.
 
+The 2026-09-20 S04 lifecycle candidate then began with an empty isolated inventory and exercised
+signed asynchronous install, duplicate-idempotency replay, ten five-second desired-state cycles,
+asynchronous update to 1.0.1, duplicate update, rollback to 1.0.0, uninstall and asynchronous
+reinstall. Service and App Manager remained alive. Their file descriptors stayed at 73 and 11.
+Over 301 seconds the ring advanced 8,942 frames; service CPU averaged 10.50% and App Manager CPU
+3.83% of one logical core, with HWM 225,832 and 17,104 KiB. The runner proved that
+`libQnnHtp.so` was not mapped before camera/frame availability. Exact candidate hashes and the
+dark-scene preview limitation are recorded in
+[S04 validation](fire_smoke_product_slice_validation.md).
+
 ## Evidence record
 
 Every new board result records:

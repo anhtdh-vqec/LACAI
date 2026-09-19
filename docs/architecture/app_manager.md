@@ -3,12 +3,10 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** board-smoke — signed first install, entitlement, configuration CAS, desired-state
-reconcile, persistent inventory, D-Bus facade and startup-order independence passed on the recorded
-QCS6490 candidate; immutable component FD ingest, entitlement-before-stage enforcement and bounded
-asynchronous package operation journaling are logic-tested. Update/rollback has separate board
-smoke evidence; the new operation facade and backend conformance still require board/released-peer
-validation.
+**Status:** board-smoke — signed asynchronous install, update and rollback, entitlement,
+configuration CAS, desired-state reconcile, persistent inventory, D-Bus facade, idempotency and
+startup-order independence passed on the recorded QCS6490 candidate. Backend conformance and
+asynchronous conversion of the remaining mutations remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -162,9 +160,10 @@ configured App Manager resource capacity. These booleans are never accepted from
   safe garbage collection policy, async conversion of the remaining mutations, D-Bus/backend
   conformance, deeper power-loss fault injection and release acceptance remain open.
 - Released FW evidence service is a separate contract and does not affect install authority.
-- The first-install and synchronous update/rollback board paths are accepted only at board-smoke
-  level. The asynchronous facade is logic-tested until the same lifecycle is repeated through
-  `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and `GetOperation` on the recorded board.
+- `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and `GetOperation` passed the complete S04
+  board lifecycle, including duplicate idempotency keys. Entitlement, configuration, desired state
+  and uninstall remain synchronous CAS calls in version 1; backend conformance and conversion of
+  those methods remain follow-up work.
 
 ## See also
 

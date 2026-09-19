@@ -6,8 +6,8 @@ acceptance.
 
 **Status:** board-smoke — the AI-owned lifecycle, runtime, metadata and reference-evidence slice
 passed; model-quality acceptance and released-FW evidence remain external gates. **Layer:** test.
-**Source:** commit `c01b748`, service SHA-256
-`0f0f8d211df04ca0817a312b2ade8039664b21ac7bb0214f068f5f4f2ad73c39`.
+**Source:** operation baseline `1bb3ff5`, service SHA-256
+`818e31a4d909981f314d96cb81caddf2df772db3d0f565edf90300b1d74531f4`.
 
 ## Candidate and target
 
@@ -17,8 +17,10 @@ passed; model-quality acceptance and released-FW evidence remain external gates.
 | Board alias | `lacai-home` |
 | Machine ID | `09c89b1858f54955a3d13f2767622448` |
 | Workspace | `/opt/lacai` |
-| Service digest | `0f0f8d211df04ca0817a312b2ade8039664b21ac7bb0214f068f5f4f2ad73c39` |
-| App Manager digest | `acf4a14136b2982451e17ec560e3edf4c2b83aaa3948094d20c1196f6b94b095` |
+| Service digest | `818e31a4d909981f314d96cb81caddf2df772db3d0f565edf90300b1d74531f4` |
+| App Manager digest | `4076e2f296da8d4fb374bb02eaaf34025a5a113405de1cae6bdc6644c0f8a1bc` |
+| Control client digest | `722451a2c274b0638bd4b73fc711ea9f8c09171d77820e9e011b6f6397d3946e` |
+| Runner digest | `d517a43bed26543fa41564360075bb7d60f07ab98f960df041a2836355d2106a` |
 | App | `security.fire_smoke_detection` |
 | Preview | `rtsp://192.168.0.102:8554/live/ai/detect0` |
 
@@ -30,7 +32,7 @@ open QNN/HTP. A real source frame is the first event allowed to enter graph prep
 ## Logic and native tests
 
 - Approved eSDK cross-build with Hexagon SDK 5.5.7.0 passed.
-- Expanded AArch64 suite under the eSDK QEMU runner: 162/162 passed.
+- Expanded AArch64 suite under the eSDK QEMU runner: 167/167 passed.
 - Nine focused binaries ran natively on the recorded board: fire/smoke incident lifecycle,
   App Manager lifecycle/restart, evidence wire, SQLite evidence recovery, UDS framing, evidence
   retry/revocation, output-runtime lifecycle, metadata runtime and feature activation.
@@ -40,16 +42,26 @@ open QNN/HTP. A real source frame is the first event allowed to enter graph prep
 
 ## Dependency-order and lifecycle test
 
-A fresh owner-only inventory directory began with no installed association. The signed package,
-signed entitlement and desired-state transactions advanced snapshot revisions 2, 3 and 4. The
+A fresh owner-only inventory directory began with no installed association. The signed
+entitlement, asynchronous signed-package submission and desired-state transactions advanced
+snapshot revisions 2, 3 and 4. The install operation reached `committed` with result zero before
+the runner enabled S04. Repeating the same idempotency key with a deliberately stale expected
+revision returned the existing operation and did not change inventory or snapshot revision. The
 runtime then acquired the camera and published preview output. Ten disable/enable cycles used a
 five-second interval and all resumed the ring:
 
 | Resource | Before | After | Gate |
 |---|---:|---:|---|
-| Service file descriptors | 74 | 74 | pass |
-| Service RSS | 210,628 KiB | 228,340 KiB | pass; +17,712 KiB under the 32 MiB gate |
+| Service file descriptors | 73 | 73 | pass |
+| App Manager file descriptors | 11 | 11 | pass |
+| Service RSS | 192,900 KiB | 209,076 KiB | pass; +16,176 KiB under the 32 MiB gate |
 | Service threads | 23 | 23 | pass in the five-minute steady run |
+
+With S04 disabled, an asynchronous update installed package version 1.0.1 and configuration
+revision 2 at snapshot revision 26. A duplicate submission made no revision change. Asynchronous
+rollback restored package version 1.0.0 at revision 27. Uninstall removed the association without
+purging business metadata; asynchronous reinstall committed at revision 29 with `desired=false`,
+and enable advanced revision 30. The ring then advanced 150 frames in five seconds.
 
 Configuration CAS advanced to revision 2 with digest
 `07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935` while the encoded
@@ -61,8 +73,12 @@ natural fire/smoke event and is not released-FW acceptance.
 
 | Measurement | Result |
 |---|---:|
-| Five-minute steady process CPU | 10.56% average of one logical core |
-| Five-minute steady RSS change | +8 KiB |
+| Five-minute service CPU | 10.50% average of one logical core |
+| Five-minute App Manager CPU | 3.83% average of one logical core |
+| Combined five-minute CPU | 14.33% average of one logical core |
+| Five-minute ring cadence | 8,942 frames/301 s = 29.708 FPS |
+| Five-minute service RSS/HWM | 223,315/225,832 KiB |
+| Five-minute App Manager RSS/HWM | 16,700/17,104 KiB |
 | Startup 30-second process CPU | 13.36% average of one logical core |
 | Startup one-second peak | 86% |
 | RTSP packet cadence | 30.124 FPS over 8 seconds |
@@ -83,7 +99,8 @@ acceptance.
 ## Acceptance boundary
 
 The following AI-owned claims are supported: startup-order independence, no-frame QNN/HTP gate,
-signed first install, entitlement and desired-state separation, configuration reconciliation,
+signed asynchronous install/update/rollback with durable operation status and idempotency,
+entitlement and desired-state separation, configuration reconciliation, uninstall/reinstall,
 bounded repeated toggles, semantic processor logic, metadata/output composition and durable
 reference evidence delivery.
 
@@ -92,7 +109,8 @@ The following claims remain open:
 - fire/smoke model M0-M5 quality and alarm calibration on an approved real sequence;
 - natural S04 event-to-metadata-to-evidence correlation using visible source footage;
 - released-FW evidence receiver, media interval/gap receipt and no-viewer prebuffer behavior;
-- production package update/rollback/content-store operation journal;
+- asynchronous conversion of entitlement/configuration/desired/uninstall mutations, backend
+  conformance and deeper power-loss fault injection;
 - offline QNN context-binary qualification if the cold-start peak must be reduced;
 - long thermal/power-loss soak beyond the user-approved five-minute runtime gate.
 

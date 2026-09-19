@@ -286,10 +286,12 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: source `c01b748` passes 162/162 expanded eSDK/QEMU CTest. On board `.102`, the
-S04/App Manager/output candidate passes nine focused native tests and ten five-second
-disable/enable cycles. The full current workload publishes H.264 1920x1080 at 30.124 FPS; its
-five-minute steady process CPU is 10.56% of one logical core with RSS +8 KiB and 23 threads.
+Current evidence: the expanded eSDK/QEMU suite passes 167/167 CTest. On board `.102`, the
+S04/App Manager/output candidate passes nine focused native tests, the asynchronous
+install/update/rollback/uninstall/reinstall lifecycle and ten five-second disable/enable cycles.
+The current workload publishes H.264 1920x1080 at 30.124 FPS. Over the final five-minute sample,
+service CPU is 10.50% and App Manager CPU is 3.83% of one logical core; service/App Manager FDs
+remain 73/11 and their HWM values are 225,832/17,104 KiB.
 The 30-second cold-start average is 13.36%, with one 86% sample attributed by `perf` to
 `libQnnHtpPrepare.so::GraphPrepare` after the first source frame. No QNN HTP library is mapped
 while App Manager and camera are absent. This is board-smoke, not model-quality, released-FW,
@@ -298,8 +300,8 @@ leak-free or product thermal acceptance. Exact evidence and limitations are in
 
 Open release gates (not delivered): released-FW camera/ring/RTSP/evidence conformance, hardware
 DMA completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
-hardware-bound gallery key, production trust rotation, package operation journal/content-store
-update/rollback, QNN context-binary cold-start qualification, async/shared QNN execution,
+hardware-bound gallery key, production trust rotation, remaining lifecycle mutation migration,
+QNN context-binary cold-start qualification, async/shared QNN execution,
 multi-vendor backends and the remaining feature packages. See
 [alignment review](architecture_alignment_review.md) and
 [capability matrix](capability_matrix.md).
@@ -436,8 +438,8 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The exact `c01b748` expanded eSDK configuration passes 162/162 CTest tests under SDK QEMU
-  (2026-09-20). Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
+- The expanded eSDK configuration passes 167/167 CTest tests under SDK QEMU (2026-09-20).
+  Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
   this focused rerun is not a new full native-suite count.
 - Golden, replay and live FW/model integration suites remain planned scaffolding.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and
@@ -452,8 +454,8 @@ capability, not by model identity.
 2. Model accuracy calibration and golden parity; concrete feature packages; production
    tracker and attribute producers; pose/OCR.
 3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.
-4. Trust rotation, asynchronous package operation journal, content-addressed update/rollback
-   and backend conformance.
+4. Trust rotation, asynchronous conversion of remaining lifecycle mutations, deeper operation
+   fault injection and backend conformance.
 5. Automatic source/BSP recovery, fault/soak/golden tests and performance/thermal qualification.
 
 Delivered component details live in the architecture and contract docs, not here:

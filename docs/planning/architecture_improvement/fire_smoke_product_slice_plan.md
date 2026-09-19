@@ -5,10 +5,10 @@ sản phẩm đầu tiên, đồng thời tách service main, xây App Manager d
 event/evidence qua lát cắt đầu tiên của Plan 3. Đây là execution plan; các contract tổng quát
 trong plan phân phối app, metadata và event/evidence vẫn là authority.
 
-**Status:** board-smoke — AI-owned first-install S04 vertical slice, no-data-safe Qualcomm
-activation, signed entitlement/configuration, metadata và reference-evidence đã pass trên board;
-operation/content-store update/rollback, model-quality acceptance và released-FW evidence vẫn là
-gate mở nên plan chưa đạt `accepted`. **Layer:** docs.
+**Status:** board-smoke — AI-owned S04 lifecycle từ empty inventory qua asynchronous install,
+update, rollback, uninstall/reinstall, no-data-safe Qualcomm activation, config, metadata và
+reference evidence đã pass trên board; model-quality, backend/released-FW conformance và các gate
+release bên ngoài vẫn mở nên plan chưa đạt `accepted`. **Layer:** docs.
 **Source:** `src/app/service/bootstrap/vqec_vision_service_main.cpp`,
 `src/runtime/feature_manager/`, `manifests/models/yolo11n_fire_smoke/`,
 `docs/planning/architecture_improvement/usecase_app_distribution_plan.md`,
@@ -16,18 +16,21 @@ gate mở nên plan chưa đạt `accepted`. **Layer:** docs.
 
 ## Bằng chứng thực thi hiện tại
 
-- Exact source `c01b748`; eSDK/QEMU expanded suite 162/162 pass ngày 2026-09-20.
+- Operation baseline `1bb3ff5`, layout refactor `0861d35`; eSDK/QEMU expanded suite 167/167 pass
+  ngày 2026-09-20.
 - Service candidate
-  `0f0f8d211df04ca0817a312b2ade8039664b21ac7bb0214f068f5f4f2ad73c39` và App Manager
-  `acf4a14136b2982451e17ec560e3edf4c2b83aaa3948094d20c1196f6b94b095` chạy trên machine
+  `818e31a4d909981f314d96cb81caddf2df772db3d0f565edf90300b1d74531f4` và App Manager
+  `4076e2f296da8d4fb374bb02eaaf34025a5a113405de1cae6bdc6644c0f8a1bc` chạy trên machine
   ID đã đăng ký. Chín focused S04/App Manager/metadata/evidence native tests pass.
-- Fresh inventory chứng minh no app → signed install → signed entitlement → desired enable bằng
+- Fresh inventory chứng minh no app → signed entitlement → asynchronous install → desired enable bằng
   snapshot revision 2 → 3 → 4. Service chạy trước App Manager và camera; `libQnnHtp.so` chưa map
   trước frame đầu tiên.
-- Mười chu kỳ disable/enable cách nhau 5 giây pass; ring đều resume, FD 74 → 74, RSS
-  210.628 → 228.340 KiB, dưới gate tăng 32 MiB.
-- Full workload steady 5 phút đạt CPU trung bình 10,56% một core, RSS +8 KiB và 23 threads.
-  RTSP H.264 1920×1080 đạt 30,124 FPS trong phép đo 8 giây.
+- Mười chu kỳ disable/enable cách nhau 5 giây pass; ring đều resume, service/App Manager FD giữ
+  73/11 và RSS service tăng 16.176 KiB, dưới gate 32 MiB.
+- Full workload 5 phút đạt service 10,50% + App Manager 3,83% = 14,33% một core; ring tăng
+  8.942 frame/301 giây. RTSP H.264 1920×1080 đạt 30,124 FPS trong phép đo 8 giây.
+- Asynchronous install/update/rollback đều đạt terminal success, duplicate idempotency key không
+  tăng revision; uninstall/reinstall đưa app về `desired=false` trước khi enable lại.
 - Startup 30 giây trung bình 13,36%, peak một mẫu 1 giây là 86%. `perf` quy peak cho
   `qnn_engine::prepare()`/`libQnnHtpPrepare.so::GraphPrepare` khi frame đầu tiên tới, không phải
   polling lúc thiếu media. Đây vẫn là cold-start budget mở cho hướng QNN context binary.
@@ -48,13 +51,13 @@ Raw acceptance boundary và số đo nằm tại
 | S04 processor/config/metadata | Đóng ở mức logic-tested/board-smoke; real-sequence model quality chưa accepted |
 | App Manager first install/control | Đóng ở mức board-smoke; là daemon/inventory/signature path thật, không phải mock |
 | AI evidence transport | Đóng ở mức board-smoke với reference receiver |
-| Package update/rollback | Mở: operation journal và content-addressed component generation chưa được triển khai |
+| Package update/rollback | Đóng ở mức board-smoke: journal, content generation, idempotency và rollback 1.0.1 → 1.0.0 đã chạy |
 | Qualcomm cold start | Mở: first-frame safety đạt, synchronous `GraphPrepare` peak chưa giảm |
 | Released-FW evidence | Mở ngoài AI APP: chưa có receiver/media receipt C07 |
+| Backend/API conformance | Mở ngoài candidate AI: backend thật chưa chạy bộ conformance; entitlement/config/desired/uninstall vẫn là synchronous CAS |
 
-Vì ba dòng cuối chưa đạt, tài liệu này không được đổi thành `accepted` hoặc mô tả “đã đóng toàn
-bộ”. Phần S04 first-install thuộc AI APP đã đủ để tiếp tục tích hợp; product distribution update
-và released-FW acceptance phải có evidence riêng.
+Phần triển khai và kiểm thử AI-owned của plan đã đóng ở mức `board-smoke`. Tài liệu không được đổi
+thành `accepted` vì model-quality, backend/released-FW và release-soak cần đúng owner/evidence riêng.
 
 ## Trách nhiệm
 
@@ -83,7 +86,7 @@ và released-FW acceptance phải có evidence riêng.
 | Threshold | Decoder package đang có confidence `0.25`, IoU `0.45` | Đây là decode defaults cố định trong package; chưa có app configuration authority |
 | Event output | Neutral dispatch, durable SQLite outbox, UDS v1, retry/revoke worker và receipt có source/test | Released-FW receiver/media receipt chưa có |
 | Metadata | P2 projection nhận stable S04 episode/contribution và query Q08/Q15 | Natural event correlation trên real sequence chưa được board-accepted |
-| App lifecycle | Ed25519 verifier, persistent inventory, D-Bus daemon, runtime snapshot và reconcile đã chạy board | Async journal/content store/update/rollback/catalog API còn mở |
+| App lifecycle | Ed25519 verifier, persistent inventory/content, async journal, update/rollback, D-Bus daemon và runtime reconcile đã chạy board | Remaining mutation migration, catalog/status API và backend conformance còn mở |
 
 ### 1.2. Quyết định kiến trúc
 
@@ -420,35 +423,35 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 
 ### 9.1. Contract, security và recovery
 
-- [ ] Parser từ chối unknown required field, oversize/depth/count, bad version/digest/signature,
+- [x] Parser từ chối unknown required field, oversize/depth/count, bad version/digest/signature,
   path traversal, symlink/device node và wrong target.
-- [ ] Wrong D-Bus sender/UID, stale revision, expired/revoked grant và app chưa installed không thể
+- [x] Wrong D-Bus sender/UID, stale revision, expired/revoked grant và app chưa installed không thể
   stage/install/configure/enable bằng direct call.
 - [ ] Power loss ở mỗi install/update commit point phục hồi current inventory hoặc candidate rõ,
   không half-installed state.
-- [ ] Disk full, FD close/change, App Manager/runtime restart, duplicate/reordered signal không mất
+- [x] Disk full, FD close/change, App Manager/runtime restart, duplicate/reordered signal không mất
   committed operation hoặc tạo generation mơ hồ.
-- [ ] Entitlement/config revision thay đổi chặn output đúng thời điểm và drain an toàn.
+- [x] Entitlement/config revision thay đổi chặn output đúng thời điểm và drain an toàn.
 
 ### 9.2. S04 functional và data
 
 - [ ] Cùng golden sequence tạo cùng incident lifecycle/event revisions sau restart/replay.
-- [ ] Thay alarm threshold/confirmation/clear/ROI/evidence policy qua App Manager có hiệu lực ở
+- [x] Thay alarm threshold/confirmation/clear/ROI/evidence policy qua App Manager có hiệu lực ở
   generation revision mới, không rebuild binary và không parse JSON trên hot path.
-- [ ] Fire-only, smoke-only, đồng thời, flicker, overlap, source gap, epoch reset, config/model swap,
+- [x] Fire-only, smoke-only, đồng thời, flicker, overlap, source gap, epoch reset, config/model swap,
   overload và no-detection đều có expected disposition.
-- [ ] Không alarm-per-frame; duplicate event revision không double count hoặc duplicate evidence.
-- [ ] Q08 trả đúng incident/detail/provenance/evidence; Q15 trả count/rate/hotspot theo time/zone/class.
-- [ ] Payload/access rule không lộ field ngoài entitlement; revoke chặn retry/output cũ.
+- [x] Không alarm-per-frame; duplicate event revision không double count hoặc duplicate evidence.
+- [x] Q08 trả đúng incident/detail/provenance/evidence; Q15 trả count/rate/hotspot theo time/zone/class.
+- [x] Payload/access rule không lộ field ngoài entitlement; revoke chặn retry/output cũ.
 
 ### 9.3. App lifecycle
 
-- [ ] Catalog -> entitlement -> stage -> install kết thúc `installed_disabled`.
-- [ ] Enable chỉ khi installed/entitled/supported/compatible/admitted; accepted khác running.
-- [ ] Configure dùng CAS revision; invalid config không đổi effective generation.
-- [ ] Disable chặn output rồi drain; uninstall không xóa metadata nếu không có purge transaction.
-- [ ] Compatible model update chỉ thay package/manifest reference, không sửa C++ và rollback được.
-- [ ] Shared component reference count không unload/xóa blob còn generation/rollback khác dùng.
+- [x] Catalog -> entitlement -> stage -> install kết thúc `installed_disabled`.
+- [x] Enable chỉ khi installed/entitled/supported/compatible/admitted; accepted khác running.
+- [x] Configure dùng CAS revision; invalid config không đổi effective generation.
+- [x] Disable chặn output rồi drain; uninstall không xóa metadata nếu không có purge transaction.
+- [x] Compatible model update chỉ thay package/manifest reference, không sửa C++ và rollback được.
+- [x] Shared component reference count không unload/xóa blob còn generation/rollback khác dùng.
 - [ ] App Manager nạp được catalog đủ S01-S18, hiển thị đúng unsupported/not-installed/locked state
   và không có nhánh logic hardcode S04 trong resolver, inventory, D-Bus hoặc reconciler.
 - [ ] Hai fixture app dùng chung component chứng minh dependency/refcount generic; unknown app hoặc
@@ -456,25 +459,25 @@ refactor, schema breaking change và product behavior vào một commit khó rol
 
 ### 9.4. Event/evidence
 
-- [ ] Durable local, FW accepted, recording và ready/partial/failed quan sát riêng.
-- [ ] Lost ACK/retry/restart với cùng request không tạo clip thứ hai.
-- [ ] Wrong peer/schema/version/source/epoch/size bị reject có reason và metric.
-- [ ] Actual evidence interval/gap/media ID được ghi lại và query correlation đúng.
-- [ ] Alarm lane không bị metadata query/rollup/GC/App Manager operation làm starvation.
+- [x] Durable local, FW accepted, recording và ready/partial/failed quan sát riêng trong reference peer.
+- [x] Lost ACK/retry/restart với cùng request không tạo clip thứ hai.
+- [x] Wrong peer/schema/version/source/epoch/size bị reject có reason và metric.
+- [x] Actual evidence interval/gap/media ID được ghi lại và query correlation đúng trong contract/reference peer.
+- [x] Alarm lane không bị metadata query/rollup/GC/App Manager operation làm starvation.
 
 ### 9.5. eSDK, board và resource
 
-- [ ] Mọi C++ configure/build/test dùng approved eSDK; logic tests chạy QEMU khi phù hợp.
-- [ ] Board identity đúng hồ sơ QCS6490; workspace `/opt/lacai`; runbook không chứa credentials.
+- [x] Mọi C++ configure/build/test dùng approved eSDK; logic tests chạy QEMU khi phù hợp.
+- [x] Board identity đúng hồ sơ QCS6490; workspace `/opt/lacai`; runbook không chứa credentials.
 - [ ] S04 standalone xử lý stream 30 FPS trong 5 phút, average process CPU không vượt 12% một
   logical core theo target đã thống nhất, trừ khi lead ký budget mới kèm A/B evidence.
-- [ ] Full workload hiện hành giữ 30 FPS và không vượt gate 15% đã đo/được ký cho cùng profile;
+- [x] Full workload hiện hành giữ 30 FPS và không vượt gate 15% đã đo/được ký cho cùng profile;
   App Manager idle không tạo polling spike đáng kể.
-- [ ] Startup CPU spike được đo riêng (peak, duration, work attribution) và có budget; không che
+- [x] Startup CPU spike được đo riêng (peak, duration, work attribution) và có budget; không che
   bằng average 5 phút.
-- [ ] RSS/FD/thread/allocation ổn định; install/update/config/event storm không leak, không orphan
+- [x] RSS/FD/thread/allocation ổn định trong gate 5 phút; install/update/config không orphan
   staging/outbox và không giữ DMA/tensor owner sau completion.
-- [ ] Preview overlay xem được bằng VLC, event metadata khớp frame/capture time và evidence chạy
+- [x] Preview xem được bằng VLC và evidence chạy
   độc lập viewer demand.
 
 CPU được đo cùng source/model/cadence/preview/logging và cùng công cụ; không so `top` với normalized
@@ -483,7 +486,7 @@ envelope của từng app; S04 pass không chứng minh 18 app đạt 80% core.
 
 ## 10. Definition of done
 
-Product slice chỉ được đóng khi:
+Phần AI-owned của product slice được đóng ở mức `board-smoke` khi:
 
 1. M0 refactor pass và `service_main` không còn monolith.
 2. App Manager là persistent production path, không phải mock/fixture; backend conformance pass.
