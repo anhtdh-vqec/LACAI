@@ -1,12 +1,12 @@
 # Storage adapters
 
-Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata
-prototype, version 1 sharded spatiotemporal store and application inventory.
+Implements AI APP-owned durable adapters for the protected face gallery, transactional metadata,
+version 1 sharded spatiotemporal store and application lifecycle state/content.
 
-- **Status:** source-delivered — metadata v1 is accepted; gallery and application inventory keep
-  their own release gates
+- **Status:** logic-tested — metadata v1 is accepted; gallery, application inventory and immutable
+  application content keep their own board/release gates
 - **Layer:** adapters
-- **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`, `apinv`)
+- **Naming registry:** `stor` (`eglry`, `mdsql`, `stsql`, `apinv`, `apcst`)
 - **Depends on:** neutral contracts, OpenSSL 3.0 `libcrypto` and SQLite 3
 - **Used by:** recognition composition and the source-delivered bounded metadata service
 
@@ -23,6 +23,8 @@ prototype, version 1 sharded spatiotemporal store and application inventory.
 - Persist high-rate trajectory points as checked packed chunks in time shards, with a small
   catalog index, explicit shard manifests, stable sequences and exact path verification.
 - Keep metadata I/O outside frame, inference, DSP and renderer workers.
+- Publish verified application blobs by digest through owner-only staging, file/directory fsync and
+  no-replace linking; never infer inventory references by scanning content.
 
 ## Contents
 
@@ -36,6 +38,7 @@ prototype, version 1 sharded spatiotemporal store and application inventory.
 | `vqec_vision_spatiotemporal_store.cpp` | SQLite catalog, packed detail shards, association revisions, recovery and bounded queries |
 | `vqec_vision_spatiotemporal_store.hpp` | Store configuration, quota, stats and blocking storage API |
 | `vqec_vision_sqlite_app_inventory.*` | Transactional app/config/authority/desired inventory and runtime snapshot |
+| `vqec_vision_app_content_store.*` | Bounded SHA-256-addressed immutable blob staging, recovery and removal |
 
 ## Key and file layout
 
@@ -61,6 +64,10 @@ authenticated as additional data (AAD). Payload size must equal `file - header -
 - Spatiotemporal shards use source PTS partitions and blocking calls behind the single metadata
   worker. Episode/contribution projections and materialized rollups are delivered. SIGKILL,
   disk-full, corruption and cancellation pass; long power/flash/thermal soak remains release work.
+- The content store has direct eSDK/QEMU atomicity, digest, quota, restart and permission coverage,
+  but App Manager package ingest and inventory generation references are not wired yet. Only the
+  inventory owner may request removal after proving no current or rollback generation refers to a
+  blob.
 
 ## See also
 

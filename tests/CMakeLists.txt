@@ -211,6 +211,16 @@ add_test(NAME app_manager_options
             PROPERTIES CXX_EXTENSIONS OFF)
         add_test(NAME sqlite_app_inventory_recovery
             COMMAND vqec_vision_ai_sqlite_app_inventory_test)
+        if(TARGET vqec_vision_ai_app_content_store)
+            add_executable(vqec_vision_ai_app_content_store_test
+                unit/adapters/storage/vqec_vision_app_content_store_test.cpp)
+            target_link_libraries(vqec_vision_ai_app_content_store_test PRIVATE
+                vqec_vision_ai_app_content_store)
+            set_target_properties(vqec_vision_ai_app_content_store_test
+                PROPERTIES CXX_EXTENSIONS OFF)
+            add_test(NAME app_content_store_atomicity
+                COMMAND vqec_vision_ai_app_content_store_test)
+        endif()
         if(TARGET vqec_vision_ai_app_manager)
             add_executable(vqec_vision_ai_app_manager_test
                 unit/application/vqec_vision_app_manager_test.cpp)

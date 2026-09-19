@@ -657,6 +657,10 @@ App lifecycle registrations (source delivered):
 | src/adapters/storage/vqec_vision_sqlite_app_inventory.hpp | apinv | overrides retain ports prefix |
 | src/adapters/storage/vqec_vision_sqlite_app_inventory.cpp | apinv | vqec_vision_ai_stor_apinv_ |
 | tests/unit/adapters/storage/vqec_vision_sqlite_app_inventory_test.cpp | saitst | vqec_vision_ai_unit_saitst_ |
+| include/vqec/vision/ai/ports/management/vqec_vision_app_content_store.hpp | apcst | vqec_vision_ai_ports_apcst_ |
+| src/adapters/storage/vqec_vision_app_content_store.hpp | apcst | overrides retain ports prefix |
+| src/adapters/storage/vqec_vision_app_content_store.cpp | apcst | vqec_vision_ai_stor_apcst_ |
+| tests/unit/adapters/storage/vqec_vision_app_content_store_test.cpp | acstst | vqec_vision_ai_unit_acstst_ |
 | include/vqec/vision/ai/ports/management/vqec_vision_app_configuration.hpp | apcfg | vqec_vision_ai_ports_apcfg_ |
 | src/app/management/vqec_vision_app_configuration_registry.hpp | apcrg | vqec_vision_ai_appl_apcrg_ |
 | src/app/management/vqec_vision_app_configuration_registry.cpp | apcrg | vqec_vision_ai_appl_apcrg_ |

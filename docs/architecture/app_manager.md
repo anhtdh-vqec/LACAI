@@ -5,8 +5,8 @@ and activate the stable S01–S18 usecases without putting package I/O in the in
 
 **Status:** board-smoke — signed first install, entitlement, configuration CAS, desired-state
 reconcile, persistent inventory, D-Bus facade and startup-order independence passed on the recorded
-QCS6490 candidate; operation journaling, content-store update/rollback and backend conformance
-remain open.
+QCS6490 candidate; an immutable content-store adapter is logic-tested but package ingest,
+operation journaling, update/rollback and backend conformance remain open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -137,8 +137,10 @@ configured App Manager resource capacity. These booleans are never accepted from
 
 - Rotation, revocation and multi-key trust-store policy still need supply-chain owner approval;
   this baseline intentionally accepts one configured Ed25519 public key.
-- Operation journaling, content-addressed artifact staging, update/rollback, D-Bus/backend
-  conformance, fault injection and release acceptance remain open.
+- Content-addressed artifact staging is source-delivered and logic-tested independently. Binding
+  package component FDs, inventory generation references and safe garbage collection to that
+  adapter remains open together with operation journaling, update/rollback, D-Bus/backend
+  conformance, fault injection and release acceptance.
 - Released FW evidence service is a separate contract and does not affect install authority.
 - The first-install board path is accepted only at board-smoke level. It does not make the
   synchronous mutation API an asynchronous operation journal and does not qualify component
