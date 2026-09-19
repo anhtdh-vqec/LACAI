@@ -105,6 +105,9 @@ int main() {
               status_code::ok);
         check(events.events_.size() == 1 &&
               events.events_[0].kind_ == feature_event_kind::episode_opened);
+        check(events.events_[0].episode_revision_ == 1 &&
+              events.events_[0].supersedes_episode_revision_ == 0 &&
+              events.events_[0].episode_begin_ns_ == events.events_[0].occurred_at_ns_);
 
         // A source gap does not fabricate an event.
         check(feature.vqec_vision_ai_ports_ftpro_process_observations(
@@ -128,6 +131,9 @@ int main() {
               status_code::ok);
         check(events.events_.size() == 1 &&
               events.events_[0].kind_ == feature_event_kind::episode_opened);
+        const auto episode_id = events.events_[0].event_id_;
+        check(events.events_[0].episode_revision_ == 1 &&
+              events.events_[0].episode_begin_ns_ == events.events_[0].occurred_at_ns_);
         check(feature.vqec_vision_ai_ports_ftpro_process_observations(
                   make_batch({make_observation(2, 50, 50)}), 1500, false, events).code_ ==
               status_code::ok);
@@ -137,6 +143,9 @@ int main() {
               status_code::ok);
         check(events.events_.size() == 1 &&
               events.events_[0].kind_ == feature_event_kind::episode_updated &&
+              events.events_[0].event_id_ == episode_id &&
+              events.events_[0].episode_revision_ == 2 &&
+              events.events_[0].supersedes_episode_revision_ == 1 &&
               events.events_[0].fields_.size() == 1 &&
               events.events_[0].fields_[0].value_ == "1100");
     }

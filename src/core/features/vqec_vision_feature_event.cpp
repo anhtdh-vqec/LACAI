@@ -51,6 +51,18 @@ status vqec_vision_ai_core_ftevt_validate_event(
         !vqec_vision_ai_core_ftevt_is_kind_valid(_event.kind_) ||
         _event.occurred_at_ns_ == UINT64_MAX ||
         _event.occurred_at_ns_ > _event.frame_.source_pts_ns_ ||
+        _event.episode_revision_ == 0 || _event.episode_revision_ == UINT64_MAX ||
+        _event.supersedes_episode_revision_ >= _event.episode_revision_ ||
+        (_event.episode_revision_ == 1 && _event.supersedes_episode_revision_ != 0) ||
+        (_event.episode_revision_ > 1 &&
+         _event.supersedes_episode_revision_ + 1 != _event.episode_revision_) ||
+        _event.episode_begin_ns_ > _event.occurred_at_ns_ ||
+        (_event.kind_ == feature_event_kind::episode_opened &&
+         (_event.episode_revision_ != 1 ||
+          _event.episode_begin_ns_ != _event.occurred_at_ns_)) ||
+        (_event.kind_ == feature_event_kind::snapshot &&
+         (_event.episode_revision_ != 1 ||
+          _event.episode_begin_ns_ != _event.occurred_at_ns_)) ||
         _event.model_version_ids_.size() >
             feature_event_limits::g_max_model_versions_per_event ||
         _event.track_ids_.size() > _config.max_track_references_per_event_ ||

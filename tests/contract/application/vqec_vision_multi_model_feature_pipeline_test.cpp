@@ -93,7 +93,10 @@ public:
                             {"person_detector:4"},
                             {_tracked.observations_[0].track_id_},
                             {},
-                            {}};
+                            {},
+                            1,
+                            0,
+                            _tracked.frame_.source_pts_ns_};
         _events = {_tracked.frame_, _tracked.geometry_, {std::move(event)}};
         return {};
     }

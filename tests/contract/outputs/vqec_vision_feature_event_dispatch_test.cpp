@@ -37,7 +37,10 @@ feature_event_batch vqec_vision_ai_ctest_fedct_make_batch(
                         {"person_detector:4"},
                         {7},
                         {{"zone.id", "1", "front", 1.0F, observation_quality::high}},
-                        {}};
+                        {},
+                        1,
+                        0,
+                        20};
     return {frame, {640, 360}, {std::move(event)}};
 }
 

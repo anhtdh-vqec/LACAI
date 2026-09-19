@@ -34,12 +34,33 @@ vqec_vision_ai_refer_rfeat_find_track(std::uint64_t _track_id) noexcept {
 
 void reference_zone_feature::vqec_vision_ai_refer_rfeat_make_event(
     const observation& _item, feature_event_kind _kind, const std::string& _value,
-    feature_event& _event) {
+    track_state* _state, feature_event& _event) {
     _event.frame_ = _item.frame_;
     _event.source_id_ = config_.source_id_;
     _event.feature_id_ = config_.feature_id_;
-    _event.event_id_ = config_.source_id_ + ":" + config_.feature_id_ + ":" +
-        std::to_string(++event_sequence_);
+    if (_kind == feature_event_kind::snapshot) {
+        _event.event_id_ = config_.source_id_ + ":" + config_.feature_id_ + ":" +
+            std::to_string(++event_sequence_);
+        _event.episode_revision_ = 1;
+        _event.supersedes_episode_revision_ = 0;
+        _event.episode_begin_ns_ = _item.frame_.source_pts_ns_;
+    } else {
+        if (_state == nullptr) {
+            return;
+        }
+        if (_kind == feature_event_kind::episode_opened) {
+            _state->episode_id_ = config_.source_id_ + ":" + config_.feature_id_ + ":" +
+                std::to_string(++event_sequence_);
+            _state->episode_revision_ = 1;
+            _state->episode_begin_pts_ns_ = _item.frame_.source_pts_ns_;
+        } else {
+            ++_state->episode_revision_;
+        }
+        _event.event_id_ = _state->episode_id_;
+        _event.episode_revision_ = _state->episode_revision_;
+        _event.supersedes_episode_revision_ = _state->episode_revision_ - 1U;
+        _event.episode_begin_ns_ = _state->episode_begin_pts_ns_;
+    }
     _event.event_schema_id_ = params_.event_schema_id_;
     _event.event_schema_version_ = params_.event_schema_version_;
     _event.kind_ = _kind;
@@ -124,6 +145,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
             event.event_schema_version_ = params_.event_schema_version_;
             event.kind_ = feature_event_kind::snapshot;
             event.occurred_at_ns_ = _tracked.frame_.source_pts_ns_;
+            event.episode_begin_ns_ = event.occurred_at_ns_;
             event.config_revision_ = config_.config_revision_;
             feature_event_field field;
             field.schema_id_ = params_.event_schema_id_;
@@ -165,7 +187,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                 if (cooldown_ok) {
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
-                        item, feature_event_kind::episode_opened, "inside", event);
+                        item, feature_event_kind::episode_opened, "inside", state, event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }
@@ -175,7 +197,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                 if (cooldown_ok) {
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
-                        item, feature_event_kind::episode_closed, "outside", event);
+                        item, feature_event_kind::episode_closed, "outside", state, event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }
@@ -183,7 +205,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                        _now_monotonic_ns - state->entered_ns_ >= params_.dwell_ns_) {
                 feature_event event;
                 vqec_vision_ai_refer_rfeat_make_event(item, feature_event_kind::episode_updated,
-                    std::to_string(_now_monotonic_ns - state->entered_ns_), event);
+                    std::to_string(_now_monotonic_ns - state->entered_ns_), state, event);
                 state->dwell_emitted_ = true;
                 state->last_event_ns_ = _now_monotonic_ns;
                 batch.events_.push_back(std::move(event));
@@ -202,7 +224,7 @@ status reference_zone_feature::vqec_vision_ai_ports_ftpro_process_observations(
                     feature_event event;
                     vqec_vision_ai_refer_rfeat_make_event(
                         item, feature_event_kind::snapshot, side ? "positive" : "negative",
-                        event);
+                        nullptr, event);
                     state->last_event_ns_ = _now_monotonic_ns;
                     batch.events_.push_back(std::move(event));
                 }

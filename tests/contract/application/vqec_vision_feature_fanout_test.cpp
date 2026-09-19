@@ -41,7 +41,10 @@ public:
                             {"person_detector:4"},
                             {1},
                             {},
-                            {}};
+                            {},
+                            1,
+                            0,
+                            _tracked.frame_.source_pts_ns_};
         _events = {_tracked.frame_, _tracked.geometry_, {std::move(event)}};
         return _tracked.frame_.source_epoch_ == epoch_ ? status{} :
             status{status_code::invalid_state, "epoch mismatch"};

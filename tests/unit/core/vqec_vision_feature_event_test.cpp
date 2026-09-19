@@ -27,7 +27,10 @@ int main() {
                         {11},
                         {{"zone.id", "1", "front_door", 1.0F,
                           observation_quality::high}},
-                        "evidence:7:1"};
+                        "evidence:7:1",
+                        1,
+                        0,
+                        100};
     feature_event_batch batch{frame, geometry, {event}};
     check(vqec_vision_ai_core_ftevt_validate_batch(batch, frame, geometry, config).code_ ==
           status_code::ok);

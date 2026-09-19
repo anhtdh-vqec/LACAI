@@ -61,6 +61,9 @@ private:
         bool dwell_emitted_{false};
         std::uint64_t entered_ns_{0};
         std::uint64_t last_event_ns_{0};
+        std::uint64_t episode_revision_{0};
+        std::uint64_t episode_begin_pts_ns_{0};
+        std::string episode_id_;
     };
 
     [[nodiscard]] bool vqec_vision_ai_refer_rfeat_matches(
@@ -69,7 +72,7 @@ private:
         const observation& _item) const noexcept;
     void vqec_vision_ai_refer_rfeat_make_event(
         const observation& _item, feature_event_kind _kind, const std::string& _value,
-        feature_event& _event);
+        track_state* _state, feature_event& _event);
     [[nodiscard]] track_state* vqec_vision_ai_refer_rfeat_find_track(
         std::uint64_t _track_id) noexcept;
 

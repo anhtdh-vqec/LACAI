@@ -38,6 +38,12 @@ model versions or field schema IDs and preserves the caller's output contract. O
 cannot contain two versions of the same field because output entitlement is keyed by its
 schema ID.
 
+Episode events also carry a stable `event_id`, monotonically contiguous `episode_revision`,
+`supersedes_episode_revision`, and the original source-clock `episode_begin_ns`. Open and
+snapshot events start at revision 1 and supersede 0. Update and close events reuse the ID and
+advance exactly one revision. This makes retry, correction and rollup projection deterministic;
+an event delivery transport must not invent a new ID for a lifecycle update.
+
 ## Processor port
 
 `feature_processor_port` is the portable algorithm boundary. It validates one activation,

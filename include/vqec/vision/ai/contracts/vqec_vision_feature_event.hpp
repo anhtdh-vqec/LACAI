@@ -43,6 +43,11 @@ struct feature_event {
     std::vector<std::uint64_t> track_ids_;
     std::vector<feature_event_field> fields_;
     std::string evidence_request_id_;
+    // Episode identity is stable across opened/updated/closed revisions. Snapshot events
+    // are single-revision episodes. These are baseline-v1 fields, not a new wire version.
+    std::uint64_t episode_revision_{1};
+    std::uint64_t supersedes_episode_revision_{0};
+    std::uint64_t episode_begin_ns_{0};
 };
 
 struct feature_event_batch {
