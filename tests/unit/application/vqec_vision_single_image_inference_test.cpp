@@ -40,6 +40,7 @@ public:
     }
     status vqec_vision_ai_ports_infgr_get_input_specs(
         std::vector<tensor_spec>& _inputs) const override {
+        ++input_spec_queries_;
         _inputs = {input_};
         return {};
     }
@@ -66,7 +67,7 @@ public:
     status vqec_vision_ai_ports_infgr_request_drain() override { return {}; }
     status vqec_vision_ai_ports_infgr_unload() override { return {}; }
     inference_graph_state vqec_vision_ai_ports_infgr_get_state() const noexcept override {
-        return inference_graph_state::running;
+        return state_;
     }
     unsigned vqec_vision_ai_ports_infgr_get_outstanding() const noexcept override {
         return outstanding_;
@@ -75,8 +76,10 @@ public:
         return {};
     }
     tensor_spec input_{"input", {1, 2, 2, 3}, tensor_element_type::uint8, {}};
+    mutable unsigned input_spec_queries_{0};
     std::uint64_t epoch_{0};
     unsigned outstanding_{0};
+    inference_graph_state state_{inference_graph_state::empty};
 };
 
 class test_decoder final : public model_decoder_port {
@@ -112,12 +115,19 @@ int main() {
     frame.descriptor_.pts_ns_ = 11;
     frame.owner_ = std::make_shared<int>(1);
     observation_batch observations;
+    assert(graph.input_spec_queries_ == 0);
+    assert(runner.vqec_vision_ai_appl_siinf_run(frame, 12, observations).code_ ==
+        status_code::invalid_state);
+    assert(graph.input_spec_queries_ == 0);
+    graph.state_ = inference_graph_state::running;
     assert(runner.vqec_vision_ai_appl_siinf_run(frame, 12, observations).code_ == status_code::ok);
+    assert(graph.input_spec_queries_ == 1);
     assert(observations.frame_.camera_id_ == 2 && observations.observations_.size() == 1);
     const auto retained = observations.frame_;
     frame.descriptor_.width_ = 63;
     assert(runner.vqec_vision_ai_appl_siinf_run(frame, 13, observations).code_ ==
         status_code::invalid_argument);
+    assert(graph.input_spec_queries_ == 1);
     assert(observations.frame_.frame_id_ == retained.frame_id_);
     return 0;
 }

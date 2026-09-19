@@ -28,6 +28,11 @@ the ordinary enrollment port; the controller rejects a non-empty path unless it 
 by `face_enrollment_image_pipeline`. The wrapper holds exactly one pending request and the
 serialized service loop advances it, so a D-Bus callback never blocks on JPEG or QNN work.
 
+Advancement is split into two bounded phases: authorize/decode/retain the image, then
+inference. The retained-image state is exposed to the application lifecycle owner so
+Qualcomm graphs are not loaded until a real frame is available. Invalid paths and decode
+failures therefore cannot wake DSP/HTP.
+
 The pipeline performs these bounded stages:
 
 1. resolve the requested path through `image_path_authorizer_port`;
@@ -48,8 +53,9 @@ templates per subject.
 
 The production service composes dedicated SCRFD and EdgeFace graph owners for this path.
 They reuse the catalog/package contracts and Qualcomm adapters while remaining isolated
-from live camera submissions. The service starts both graphs before publishing D-Bus,
-advances one pending job outside the callback, and drains/unloads both graphs on shutdown.
+from live camera submissions. Publishing D-Bus does not start either graph. The service
+first retains an authorized decoded frame, starts both graphs immediately before inference,
+advances the pending job outside the callback, and drains/unloads both graphs on shutdown.
 Allowed roots, maximum JPEG bytes, decode timeout and every GStreamer factory/engine are
 required command-line deployment inputs; missing policy fails startup.
 

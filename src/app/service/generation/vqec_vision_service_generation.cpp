@@ -543,18 +543,9 @@ int vqec_vision_ai_appl_svgen_run_generation(
                     source, *secondary_model, *enrollment_embedding_model,
                     enrollment_embedding_graph_session);
             }
-            const std::array<cascade_graph_session*, 2> enrollment_graph_sessions{
-                enrollment_detector_graph_session.get(),
-                enrollment_embedding_graph_session.get()};
-            if (prepared.code_ == status_code::ok) {
-                prepared = vqec_vision_ai_appl_svcsc_start_graph_sessions(
-                    enrollment_graph_sessions);
-            }
             if (prepared.code_ != status_code::ok) {
-                std::fprintf(stderr, "enrollment graph startup failed (%d): %s\n",
+                std::fprintf(stderr, "enrollment graph preparation failed (%d): %s\n",
                     static_cast<int>(prepared.code_), prepared.message_.c_str());
-                (void)vqec_vision_ai_appl_svcsc_stop_graph_sessions(
-                    enrollment_graph_sessions);
                 (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
@@ -630,8 +621,7 @@ int vqec_vision_ai_appl_svgen_run_generation(
             if (prepared.code_ != status_code::ok) {
                 std::fprintf(stderr, "enrollment image pipeline failed (%d): %s\n",
                     static_cast<int>(prepared.code_), prepared.message_.c_str());
-                (void)vqec_vision_ai_appl_svcsc_stop_graph_sessions(
-                    enrollment_graph_sessions);
+                (void)stop_enrollment_graphs();
                 (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
                 return 1;
             }
@@ -983,6 +973,22 @@ int vqec_vision_ai_appl_svgen_run_generation(
 #endif
         if (enrollment_image_pipeline != nullptr &&
             enrollment_image_pipeline->vqec_vision_ai_appl_feipl_has_pending()) {
+            if (enrollment_image_pipeline->
+                    vqec_vision_ai_appl_feipl_has_ready_image()) {
+                const auto graphs_started =
+                    vqec_vision_ai_appl_svcsc_start_graph_sessions(
+                        std::array<cascade_graph_session*, 2>{
+                            enrollment_detector_graph_session.get(),
+                            enrollment_embedding_graph_session.get()});
+                if (graphs_started.code_ != status_code::ok) {
+                    (void)enrollment_image_pipeline->
+                        vqec_vision_ai_appl_feipl_fail_pending(graphs_started.code_);
+                    std::fprintf(stderr,
+                        "enrollment graph startup failed (%d): %s\n",
+                        static_cast<int>(graphs_started.code_),
+                        graphs_started.message_.c_str());
+                }
+            }
             const auto enrolled = enrollment_image_pipeline->
                 vqec_vision_ai_appl_feipl_step(now_ns);
             if (enrolled.code_ != status_code::ok &&

@@ -20,12 +20,21 @@ result handling.
 
 ## Execution
 
-The caller owns the graph lifecycle and provides an already running dedicated graph.
-The runner resolves the single fixed input once, keeps one bounded tensor buffer, arms by
+The caller owns the graph lifecycle. Configuration records only neutral ports and bounded
+policy; it neither queries graph tensors nor requires the graph to be loaded. The first
+`run` is accepted only when the caller-owned graph is already running. At that point the
+runner resolves the single fixed input once, keeps one bounded tensor buffer, arms by
 source epoch, preprocesses, submits, polls the synchronous result and publishes decoded
-observations only after full identity and geometry validation. Current production QNN is
-synchronous. An asynchronous backend needs a future explicit progress state instead of
-being silently treated as synchronous.
+observations only after full identity and geometry validation.
+
+This split is intentional for Qualcomm targets: constructing the enrollment control plane
+must not configure, load or start QNN/HTP while no authorized image is available. The
+image pipeline retains a successfully decoded frame first; its lifecycle owner then starts
+the dedicated graphs immediately before inference. A call to `run` while the graph is not
+running fails without querying tensor metadata or submitting work.
+
+Current production QNN is synchronous. An asynchronous backend needs a future explicit
+progress state instead of being silently treated as synchronous.
 
 ## Enrollment role
 

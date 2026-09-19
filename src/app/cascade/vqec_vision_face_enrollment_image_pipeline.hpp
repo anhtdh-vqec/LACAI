@@ -29,6 +29,8 @@ public:
         const face_enrollment_image_pipeline_config& _config);
     [[nodiscard]] status vqec_vision_ai_appl_feipl_step(std::uint64_t _steady_now_ns);
     [[nodiscard]] bool vqec_vision_ai_appl_feipl_has_pending() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_feipl_has_ready_image() const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_feipl_fail_pending(status_code _error);
 
     [[nodiscard]] status vqec_vision_ai_ports_fenrl_begin(
         const face_enrollment_begin_request& _request,
@@ -52,12 +54,13 @@ public:
         std::size_t _eligible_face_count, face_enrollment_status& _status) override;
 
 private:
-    [[nodiscard]] status vqec_vision_ai_appl_feipl_fail_pending(status_code _error);
     face_enrollment_image_pipeline_config config_{};
     face_enrollment_begin_request pending_;
+    face_enrollment_image ready_image_;
     std::uint64_t next_frame_id_{1};
     bool is_configured_{false};
     bool has_pending_{false};
+    bool has_ready_image_{false};
 };
 
 }  // namespace vqec::vision::ai

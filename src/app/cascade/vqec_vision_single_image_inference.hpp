@@ -39,12 +39,14 @@ public:
     }
 
 private:
+    [[nodiscard]] status vqec_vision_ai_appl_siinf_prepare_input();
     single_image_inference_config config_{};
     tensor_spec input_spec_{};
     std::vector<tensor_blob> input_;
     observation_batch scratch_;
     std::uint64_t armed_source_epoch_{0};
     bool is_configured_{false};
+    bool is_input_prepared_{false};
 };
 
 }  // namespace vqec::vision::ai

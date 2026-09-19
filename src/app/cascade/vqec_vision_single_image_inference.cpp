@@ -12,24 +12,33 @@ status single_image_inference::vqec_vision_ai_appl_siinf_configure(
     if (is_configured_ || _config.processor_ == nullptr || _config.graph_ == nullptr ||
         _config.decoder_ == nullptr || _config.plan_ == nullptr ||
         _config.geometry_.width_ == 0 || _config.geometry_.height_ == 0 ||
-        _config.cycle_id_ == 0 || _config.job_timeout_ns_ == 0 ||
-        _config.graph_->vqec_vision_ai_ports_infgr_get_state() !=
-            inference_graph_state::running) {
+        _config.cycle_id_ == 0 || _config.job_timeout_ns_ == 0) {
         return {status_code::invalid_argument, "invalid single-image inference config"};
     }
+    config_ = _config;
+    is_configured_ = true;
+    return {};
+}
+
+status single_image_inference::vqec_vision_ai_appl_siinf_prepare_input() {
+    if (config_.graph_->vqec_vision_ai_ports_infgr_get_state() !=
+        inference_graph_state::running) {
+        return {status_code::invalid_state,
+            "single-image inference graph is not running"};
+    }
+    if (is_input_prepared_) return {};
     std::vector<tensor_spec> inputs;
-    const auto resolved = _config.graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
+    const auto resolved = config_.graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
     if (resolved.code_ != status_code::ok) return resolved;
     if (inputs.size() != 1 || vqec_vision_ai_core_tnctr_shape_bytes(inputs[0]) == 0) {
         return {status_code::unsupported, "single-image inference requires one fixed input"};
     }
-    config_ = _config;
     input_spec_ = inputs[0];
     input_.resize(1);
     input_[0].spec_ = input_spec_;
     input_[0].bytes_.resize(
         static_cast<std::size_t>(vqec_vision_ai_core_tnctr_shape_bytes(input_spec_)));
-    is_configured_ = true;
+    is_input_prepared_ = true;
     return {};
 }
 
@@ -47,6 +56,8 @@ status single_image_inference::vqec_vision_ai_appl_siinf_run(
         _frame.descriptor_.height_ != config_.geometry_.height_) {
         return {status_code::invalid_argument, "invalid single-image source frame"};
     }
+    const auto prepared = vqec_vision_ai_appl_siinf_prepare_input();
+    if (prepared.code_ != status_code::ok) return prepared;
     if (config_.graph_->vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
         return {status_code::resource_exhausted, "single-image graph still has a job"};
     }

@@ -163,8 +163,11 @@ int main() {
     assert(pipeline.vqec_vision_ai_ports_fenrl_begin(request, status).code_ == status_code::ok);
     assert(status.state_ == face_enrollment_state::collecting &&
         pipeline.vqec_vision_ai_appl_feipl_has_pending());
+    assert(pipeline.vqec_vision_ai_appl_feipl_step(100).code_ == status_code::pending);
+    assert(pipeline.vqec_vision_ai_appl_feipl_has_ready_image());
     assert(pipeline.vqec_vision_ai_appl_feipl_step(100).code_ == status_code::ok);
     assert(!pipeline.vqec_vision_ai_appl_feipl_has_pending());
+    assert(!pipeline.vqec_vision_ai_appl_feipl_has_ready_image());
     assert(pipeline.vqec_vision_ai_ports_fenrl_get_status(request.request_id_, status).code_ ==
         status_code::ok);
     assert(status.state_ == face_enrollment_state::completed && status.accepted_samples_ == 1);

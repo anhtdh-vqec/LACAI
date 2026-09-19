@@ -63,29 +63,38 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         next_frame_id_ == 0 || next_frame_id_ == std::numeric_limits<std::uint64_t>::max()) {
         return vqec_vision_ai_appl_feipl_fail_pending(status_code::invalid_state);
     }
-    authorized_image_path authorized_path;
-    auto result = config_.path_authorizer_->vqec_vision_ai_ports_ipath_authorize(
-        pending_.image_path_, authorized_path);
-    if (result.code_ != status_code::ok) {
-        (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
-        return result;
-    }
-    if (authorized_path.path_.empty() || !authorized_path.owner_) {
-        (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::protocol_error);
-        return {status_code::protocol_error, "path authorizer returned no retained file"};
-    }
-    face_enrollment_image image;
-    const face_enrollment_image_request image_request{authorized_path.path_, next_frame_id_,
-        config_.source_epoch_, _steady_now_ns, config_.geometry_.width_,
-        config_.geometry_.height_};
-    result = config_.image_source_->vqec_vision_ai_ports_feimg_load(image_request, image);
-    if (result.code_ != status_code::ok) {
-        (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
-        return result;
+    if (!has_ready_image_) {
+        authorized_image_path authorized_path;
+        auto result = config_.path_authorizer_->vqec_vision_ai_ports_ipath_authorize(
+            pending_.image_path_, authorized_path);
+        if (result.code_ != status_code::ok) {
+            (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
+            return result;
+        }
+        if (authorized_path.path_.empty() || !authorized_path.owner_) {
+            (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::protocol_error);
+            return {status_code::protocol_error, "path authorizer returned no retained file"};
+        }
+        const face_enrollment_image_request image_request{authorized_path.path_, next_frame_id_,
+            config_.source_epoch_, _steady_now_ns, config_.geometry_.width_,
+            config_.geometry_.height_};
+        result = config_.image_source_->vqec_vision_ai_ports_feimg_load(
+            image_request, ready_image_);
+        if (result.code_ != status_code::ok) {
+            (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
+            return result;
+        }
+        if (!ready_image_.frame_.owner_) {
+            (void)vqec_vision_ai_appl_feipl_fail_pending(status_code::protocol_error);
+            return {status_code::protocol_error,
+                "enrollment image source returned no retained frame"};
+        }
+        has_ready_image_ = true;
+        return {status_code::pending, "enrollment image is ready for inference"};
     }
     observation_batch detections;
-    result = config_.detector_->vqec_vision_ai_ports_fidet_run(
-        image.frame_, _steady_now_ns, detections);
+    auto result = config_.detector_->vqec_vision_ai_ports_fidet_run(
+        ready_image_.frame_, _steady_now_ns, detections);
     if (result.code_ != status_code::ok) {
         (void)vqec_vision_ai_appl_feipl_fail_pending(result.code_);
         return result;
@@ -111,12 +120,12 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
         // An authorized still image does not pass through the live tracker. Its immutable,
         // nonzero buffer identity provides the request-local identity required by the
         // embedding contract and is propagated through the cascade result.
-        selected_face->track_id_ = image.frame_.descriptor_.buffer_id_;
+        selected_face->track_id_ = ready_image_.frame_.descriptor_.buffer_id_;
     }
     std::vector<embedding_result> embeddings;
     std::size_t failed_tasks = 0;
-    const raw_frame& alignment_frame = image.alignment_frame_.owner_ ?
-        image.alignment_frame_ : image.frame_;
+    const raw_frame& alignment_frame = ready_image_.alignment_frame_.owner_ ?
+        ready_image_.alignment_frame_ : ready_image_.frame_;
     result = config_.cascade_->vqec_vision_ai_ports_ficas_run(
         alignment_frame, detections, _steady_now_ns, embeddings, failed_tasks);
     if (result.code_ != status_code::ok) {
@@ -141,7 +150,9 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_step(
     }
     ++next_frame_id_;
     pending_ = {};
+    ready_image_ = {};
     has_pending_ = false;
+    has_ready_image_ = false;
     return {};
 }
 
@@ -151,12 +162,19 @@ status face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_fail_pending(
     const auto failed = config_.controller_->vqec_vision_ai_ports_fenrl_fail(
         pending_.request_id_, _error, ignored);
     pending_ = {};
+    ready_image_ = {};
     has_pending_ = false;
+    has_ready_image_ = false;
     return failed;
 }
 
 bool face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_has_pending() const noexcept {
     return has_pending_;
+}
+
+bool face_enrollment_image_pipeline::vqec_vision_ai_appl_feipl_has_ready_image()
+    const noexcept {
+    return has_ready_image_;
 }
 
 status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_cancel(
@@ -167,7 +185,9 @@ status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_cancel(
     if (result.code_ == status_code::ok && has_pending_ &&
         pending_.request_id_ == _request_id) {
         pending_ = {};
+        ready_image_ = {};
         has_pending_ = false;
+        has_ready_image_ = false;
     }
     return result;
 }
@@ -202,7 +222,9 @@ status face_enrollment_image_pipeline::vqec_vision_ai_ports_fenrl_fail(
     if (result.code_ == status_code::ok && has_pending_ &&
         pending_.request_id_ == _request_id) {
         pending_ = {};
+        ready_image_ = {};
         has_pending_ = false;
+        has_ready_image_ = false;
     }
     return result;
 }
