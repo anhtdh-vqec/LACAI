@@ -535,6 +535,10 @@ Bounded metadata service
 `tests/unit/application/vqec_vision_metadata_service_test.cpp` uses file_id `mdsvt`, prefix
 `vqec_vision_ai_unit_mdsvt_`; `main` retains the language entrypoint spelling.
 
+Representative spatiotemporal benchmark
+`tests/board/vqec_vision_spatiotemporal_benchmark.cpp` uses file_id `stben`, prefix
+`vqec_vision_ai_board_stben_`; `main` retains the language entrypoint spelling.
+
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
 
