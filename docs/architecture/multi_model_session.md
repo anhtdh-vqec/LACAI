@@ -30,7 +30,13 @@ Before the first FW `StartStream`, the session validates the source is idle and 
 - has a nonzero bounded job timeout.
 
 Only after all checks and pump composition succeed does it acquire the source once. The FW
-effective profile must match the common graph profile. Graphs then progress serially by
+effective profile must match the common graph profile. Acquisition may remain pending without
+starting the accelerator when FW is absent or started later. After acquisition, the session
+non-blockingly receives and validates one probe frame, then releases that frame owner immediately.
+No graph configure/load, QNN/HTP activation or DSP work is permitted before this first-frame gate.
+The graph startup deadline begins at the gate, not while waiting for an external producer. This
+keeps AI APP startup order independent of FW and avoids pinning an FW buffer across a potentially
+long accelerator load. Graphs then progress serially by
 stable model slot through configure -> load -> bind -> start. Serial startup limits each
 step to one SDK operation and makes partial-start rollback deterministic; it is not a
 throughput optimization and vendor calls can still block internally.

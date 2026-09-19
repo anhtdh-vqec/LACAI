@@ -332,7 +332,6 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
         if (prepared.code_ != status_code::ok) {
             return prepared;
         }
-        start_ns_ = _steady_now_ns;
         state_ = multi_model_session_state::acquiring;
         return {status_code::pending, "validated; source acquisition is next"};
     }
@@ -340,6 +339,8 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
     const bool is_stopping = state_ == multi_model_session_state::draining_graphs ||
         state_ == multi_model_session_state::releasing_source;
     if (!is_stopping && state_ != multi_model_session_state::running &&
+        state_ != multi_model_session_state::acquiring &&
+        state_ != multi_model_session_state::awaiting_first_frame &&
         _steady_now_ns - start_ns_ >= config_.startup_timeout_ns_) {
         const status expired{status_code::timeout, "multi-model startup deadline elapsed"};
         vqec_vision_ai_appl_mmses_record_error(expired);
@@ -363,7 +364,7 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
                 progress = {status_code::unsupported,
                             "FW effective profile differs from graph plans"};
             } else {
-                state_ = multi_model_session_state::configuring;
+                state_ = multi_model_session_state::awaiting_first_frame;
             }
         } else if ((progress.code_ == status_code::timeout ||
                     progress.code_ == status_code::source_lost) &&
@@ -371,6 +372,27 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
                        raw_source_state::draining) {
             vqec_vision_ai_appl_mmses_record_error(progress);
             return {status_code::pending, "source acquisition remains pending"};
+        }
+    } else if (state_ == multi_model_session_state::awaiting_first_frame) {
+        raw_frame probe;
+        progress = source_.vqec_vision_ai_ports_rawsr_receive(probe, 0);
+        if (progress.code_ == status_code::timeout) {
+            return {status_code::pending,
+                "waiting for the first RAW frame before accelerator activation"};
+        }
+        if (progress.code_ == status_code::ok) {
+            if (!probe.owner_ || probe.descriptor_.buffer_id_ == 0 ||
+                probe.descriptor_.session_epoch_ == 0) {
+                progress = {status_code::protocol_error,
+                    "first RAW frame has no valid identity or owner"};
+            } else {
+                // The first frame proves that the producer is live. Release its owner before
+                // potentially long graph/DSP activation; normal acquisition starts only after
+                // every graph is running, so no FW buffer is pinned during accelerator load.
+                probe = {};
+                start_ns_ = _steady_now_ns;
+                state_ = multi_model_session_state::configuring;
+            }
         }
     } else if (state_ == multi_model_session_state::configuring ||
                state_ == multi_model_session_state::loading ||

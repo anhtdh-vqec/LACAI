@@ -16,6 +16,7 @@ namespace vqec::vision::ai {
 enum class multi_model_session_state {
     idle,
     acquiring,
+    awaiting_first_frame,
     configuring,
     loading,
     binding,

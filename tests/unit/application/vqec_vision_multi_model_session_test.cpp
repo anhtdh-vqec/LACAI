@@ -294,6 +294,36 @@ int main() {
     check(rejected_source.start_calls_ == 0 && rejected_first.configure_calls_ == 0 &&
           rejected_second.configure_calls_ == 0);
 
+    // A live control process may start before FW produces media. Source acquisition stays
+    // pending indefinitely and no graph/DSP/HTP activation is attempted without a real frame.
+    fake_session_source frame_gated_source;
+    fake_session_graph frame_gated_first;
+    fake_session_graph frame_gated_second;
+    multi_model_session frame_gated(frame_gated_source,
+        vqec_vision_ai_unit_mmsts_make_session_config(
+            frame_gated_first, frame_gated_second));
+    check(frame_gated.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
+          status_code::pending);
+    check(frame_gated.vqec_vision_ai_appl_mmses_step(1, result, progress).code_ ==
+          status_code::pending);
+    check(frame_gated.vqec_vision_ai_appl_mmses_step(5000, result, progress).code_ ==
+          status_code::pending);
+    check(frame_gated.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+          multi_model_session_state::awaiting_first_frame);
+    check(frame_gated_first.configure_calls_ == 0 && frame_gated_first.load_calls_ == 0 &&
+          frame_gated_second.configure_calls_ == 0 && frame_gated_second.load_calls_ == 0);
+    frame_gated_source.vqec_vision_ai_unit_mmsts_supply_frame(99);
+    check(frame_gated.vqec_vision_ai_appl_mmses_step(5001, result, progress).code_ ==
+          status_code::pending);
+    check(frame_gated.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+          multi_model_session_state::configuring);
+    check(frame_gated.vqec_vision_ai_appl_mmses_request_stop(5002).code_ == status_code::ok);
+    for (std::uint64_t now = 5003; now <= 5010; ++now) {
+        (void)frame_gated.vqec_vision_ai_appl_mmses_step(now, result, progress);
+    }
+    check(frame_gated.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ ==
+          multi_model_session_state::stopped);
+
     fake_session_source partial_source;
     fake_session_graph partial_first;
     fake_session_graph partial_second;
@@ -303,16 +333,17 @@ int main() {
             partial_first, partial_second));
     check(partial.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
           status_code::pending);
-    for (std::uint64_t now = 1; now <= 8; ++now) {
+    partial_source.vqec_vision_ai_unit_mmsts_supply_frame(100);
+    for (std::uint64_t now = 1; now <= 9; ++now) {
         const auto status = partial.vqec_vision_ai_appl_mmses_step(
             now, result, progress);
         check(status.code_ == status_code::pending || status.code_ == status_code::ok);
     }
-    check(partial.vqec_vision_ai_appl_mmses_step(9, result, progress).code_ ==
+    check(partial.vqec_vision_ai_appl_mmses_step(10, result, progress).code_ ==
           status_code::incompatible_plugin);
     check(partial.vqec_vision_ai_appl_srcsn_get_health().phase_ ==
           source_session_phase::draining);
-    for (std::uint64_t now = 10; now <= 16; ++now) {
+    for (std::uint64_t now = 11; now <= 17; ++now) {
         const auto status = partial.vqec_vision_ai_appl_mmses_step(
             now, result, progress);
         check(status.code_ == status_code::pending || status.code_ == status_code::ok);
@@ -331,7 +362,8 @@ int main() {
     check(session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
           status_code::pending);
     check(source.start_calls_ == 0);
-    for (std::uint64_t now = 1; now <= 9; ++now) {
+    source.vqec_vision_ai_unit_mmsts_supply_frame(100);
+    for (std::uint64_t now = 1; now <= 10; ++now) {
         const auto status = session.vqec_vision_ai_appl_mmses_step(now, result, progress);
         check(status.code_ == status_code::pending || status.code_ == status_code::ok);
     }
@@ -342,22 +374,22 @@ int main() {
           second.configure_calls_ == 1);
 
     source.vqec_vision_ai_unit_mmsts_supply_frame(1);
-    check(session.vqec_vision_ai_appl_mmses_step(10, result, progress).code_ ==
+    check(session.vqec_vision_ai_appl_mmses_step(11, result, progress).code_ ==
           status_code::ok);
     check(progress.has_submission_ && progress.submitted_model_mask_ == 3 &&
           progress.model_slot_ == 0);
     first.vqec_vision_ai_unit_mmsts_complete_result();
-    check(session.vqec_vision_ai_appl_mmses_step(11, result, progress).code_ ==
+    check(session.vqec_vision_ai_appl_mmses_step(12, result, progress).code_ ==
           status_code::ok);
     check(progress.has_result_ && progress.model_slot_ == 0);
     second.vqec_vision_ai_unit_mmsts_complete_result();
-    check(session.vqec_vision_ai_appl_mmses_step(12, result, progress).code_ ==
+    check(session.vqec_vision_ai_appl_mmses_step(13, result, progress).code_ ==
           status_code::ok);
     check(progress.has_result_ && progress.model_slot_ == 1);
 
-    check(session.vqec_vision_ai_appl_mmses_request_stop(13).code_ == status_code::ok);
+    check(session.vqec_vision_ai_appl_mmses_request_stop(14).code_ == status_code::ok);
     check(!session.vqec_vision_ai_appl_mmses_get_result_frame().owner_);
-    for (std::uint64_t now = 14; now <= 21; ++now) {
+    for (std::uint64_t now = 15; now <= 22; ++now) {
         const auto status = session.vqec_vision_ai_appl_mmses_step(now, result, progress);
         check(status.code_ == status_code::pending || status.code_ == status_code::ok);
     }
@@ -392,6 +424,7 @@ int main() {
         multi_model_session drain_session(drain_source, drain_config);
         check(drain_session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
               status_code::pending);
+        drain_source.vqec_vision_ai_unit_mmsts_supply_frame(100);
         std::uint64_t now = 1;
         while (drain_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
                    multi_model_session_state::running && now <= 20) {
@@ -460,6 +493,7 @@ int main() {
 
         check(cascade_session.vqec_vision_ai_appl_mmses_step(0, result, progress).code_ ==
               status_code::pending);
+        cascade_source.vqec_vision_ai_unit_mmsts_supply_frame(100);
         std::uint64_t now = 1;
         while (cascade_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
                    multi_model_session_state::running && now <= 20) {
