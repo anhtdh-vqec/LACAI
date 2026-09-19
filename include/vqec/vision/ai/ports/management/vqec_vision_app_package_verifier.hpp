@@ -9,12 +9,19 @@
 
 namespace vqec::vision::ai {
 
+struct app_component_candidate {
+    // Borrowed read-only descriptor. The order is the signed manifest order after
+    // filtering configuration entries and components for other targets.
+    int descriptor_{-1};
+};
+
 struct app_package_candidate {
     std::vector<std::uint8_t> manifest_payload_;
     std::string manifest_sha256_;
     std::vector<std::uint8_t> configuration_payload_;
     std::string configuration_sha256_;
     std::vector<std::uint8_t> signature_payload_;
+    std::vector<app_component_candidate> components_;
 };
 
 struct verified_app_package {

@@ -89,6 +89,8 @@ status vqec_vision_ai_core_applc_validate_manifest(
                 component.component_version_, app_lifecycle_limits::g_max_version_bytes) ||
             !vqec_vision_ai_core_applc_is_identifier(component.target_id_) ||
             !vqec_vision_ai_cntr_ident_is_sha256_hex(component.artifact_sha256_) ||
+            component.artifact_bytes_ == 0 ||
+            component.artifact_bytes_ > app_lifecycle_limits::g_max_component_bytes ||
             !vqec_vision_ai_cntr_ident_is_sha256_hex(
                 component.semantic_contract_sha256_)) {
             return {status_code::invalid_argument, "invalid app component"};

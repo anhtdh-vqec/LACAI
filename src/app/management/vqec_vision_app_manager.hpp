@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "vqec/vision/ai/ports/management/vqec_vision_app_inventory.hpp"
+#include "vqec/vision/ai/ports/management/vqec_vision_app_content_store.hpp"
 #include "vqec/vision/ai/ports/management/vqec_vision_app_manager.hpp"
 #include "vqec/vision/ai/ports/management/vqec_vision_app_entitlement_verifier.hpp"
 #include "vqec/vision/ai/ports/management/vqec_vision_app_package_verifier.hpp"
@@ -25,7 +26,7 @@ public:
     app_manager(app_manager_config _config, app_package_verifier_port& _package_verifier,
         app_entitlement_verifier_port& _entitlement_verifier,
         app_configuration_registry& _configuration_registry,
-        app_inventory_port& _inventory);
+        app_content_store_port& _content_store, app_inventory_port& _inventory);
 
     [[nodiscard]] status vqec_vision_ai_appl_appmn_open(
         runtime_control_snapshot& _snapshot);
@@ -82,11 +83,15 @@ private:
         vqec_vision_ai_appl_appmn_find_association(
             const runtime_control_snapshot& _snapshot,
             const std::string& _app_id) const noexcept;
+    [[nodiscard]] status vqec_vision_ai_appl_appmn_stage_package_content(
+        const app_package_candidate& _candidate,
+        const verified_app_package& _package);
 
     app_manager_config config_;
     app_package_verifier_port& package_verifier_;
     app_entitlement_verifier_port& entitlement_verifier_;
     app_configuration_registry& configuration_registry_;
+    app_content_store_port& content_store_;
     app_inventory_port& inventory_;
     mutable std::mutex mutex_;
     bool open_{false};

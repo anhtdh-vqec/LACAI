@@ -11,6 +11,7 @@
 #include "vqec_vision_ed25519_app_package_verifier.hpp"
 #include "vqec_vision_fire_smoke_factory.hpp"
 #include "vqec_vision_sqlite_app_inventory.hpp"
+#include "vqec_vision_app_content_store.hpp"
 
 int main(int argc, char** argv) {
     using namespace vqec::vision::ai;
@@ -33,11 +34,14 @@ int main(int argc, char** argv) {
     }
     sqlite_app_inventory inventory({options.database_path_,
         options.max_database_bytes_, options.busy_timeout_ms_});
+    app_content_store content_store({options.content_store_directory_,
+        options.max_content_store_bytes_, options.max_content_blob_bytes_,
+        options.max_content_blob_count_});
     ed25519_app_package_verifier verifier({options.public_key_path_, options.key_id_});
     ed25519_app_entitlement_verifier entitlement_verifier(
         {options.public_key_path_, options.key_id_});
     app_manager manager({options.target_id_, options.device_id_, options.capacity_},
-        verifier, entitlement_verifier, registry, inventory);
+        verifier, entitlement_verifier, registry, content_store, inventory);
     runtime_control_snapshot snapshot;
     current = manager.vqec_vision_ai_appl_appmn_open(snapshot);
     if (current.code_ != status_code::ok) {

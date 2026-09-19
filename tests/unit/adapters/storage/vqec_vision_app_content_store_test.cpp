@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <fcntl.h>
+
 #include "vqec_vision_app_content_store.hpp"
 
 namespace {
@@ -156,6 +158,36 @@ void vqec_vision_ai_unit_acstst_test_quota_is_fail_closed() {
         status_code::resource_exhausted);
 }
 
+void vqec_vision_ai_unit_acstst_test_descriptor_ingest() {
+    test_directory directory;
+    app_content_store store(vqec_vision_ai_unit_acstst_config(directory.path_));
+    assert(store.vqec_vision_ai_ports_apcst_open().code_ == status_code::ok);
+
+    char input_pattern[] = "/tmp/vqec_vision_app_component.XXXXXX";
+    const int writable = ::mkstemp(input_pattern);
+    assert(writable >= 0);
+    assert(::write(writable, "def", 3U) == 3);
+    assert(::fsync(writable) == 0);
+    assert(::close(writable) == 0);
+
+    const int readable = ::open(input_pattern, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    assert(readable >= 0);
+    app_content_record record;
+    assert(store.vqec_vision_ai_ports_apcst_put_descriptor(
+               readable, g_def_sha256, 3U, record)
+               .code_ == status_code::ok);
+    assert(::lseek(readable, 0, SEEK_CUR) == 0);
+    assert(::close(readable) == 0);
+
+    const int read_write = ::open(input_pattern, O_RDWR | O_CLOEXEC | O_NOFOLLOW);
+    assert(read_write >= 0);
+    assert(store.vqec_vision_ai_ports_apcst_put_descriptor(
+               read_write, g_def_sha256, 3U, record)
+               .code_ == status_code::invalid_argument);
+    assert(::close(read_write) == 0);
+    assert(::unlink(input_pattern) == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -163,5 +195,6 @@ int main() {
     vqec_vision_ai_unit_acstst_test_fail_closed();
     vqec_vision_ai_unit_acstst_test_root_and_entry_security();
     vqec_vision_ai_unit_acstst_test_quota_is_fail_closed();
+    vqec_vision_ai_unit_acstst_test_descriptor_ingest();
     return 0;
 }

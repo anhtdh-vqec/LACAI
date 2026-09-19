@@ -46,7 +46,9 @@ blocks scheduling and output before draining; uninstall never implies business-d
 `.vqapp` version 1 is declarative. It contains one strict manifest and immutable payload entries;
 it cannot contain symlinks, devices, hard links, absolute paths, traversal paths, native plug-ins
 or install scripts. The manifest requests scopes but cannot grant them. Exact dependency identity
-is component ID, component version, target ID, artifact SHA-256 and semantic-contract SHA-256.
+is component ID, component version, target ID, declared artifact byte size, artifact SHA-256 and
+semantic-contract SHA-256. Size is signed authority and is checked before staging allocation and
+inventory commit.
 
 Configuration is a separate revisioned transaction. A package declares one schema and bounded
 defaults. App Manager validates the requested document, entitlement limits and model operating

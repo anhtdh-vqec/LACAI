@@ -28,7 +28,10 @@ int main() {
         "--max-resident-bytes", "536870912", "--max-tensor-bytes", "134217728",
         "--max-active-incidents", "32", "--max-events-per-second", "64",
         "--database", "/var/lib/lacai/apps.db", "--max-database-bytes",
-        "67108864", "--busy-timeout-ms", "5000", "--public-key",
+        "67108864", "--content-store", "/var/lib/lacai/content",
+        "--max-content-store-bytes", "1073741824", "--max-content-blob-bytes",
+        "268435456", "--max-content-blob-count", "2048",
+        "--busy-timeout-ms", "5000", "--public-key",
         "/etc/lacai/release.pem", "--key-id", "release.primary",
         "--service-name", "com.vqec.AiVision.AppManager", "--object-path",
         "/com/vqec/AiVision/AppManager", "--trusted-backend-name",
@@ -38,7 +41,8 @@ int main() {
     app_manager_options options;
     assert(vqec_vision_ai_unit_amotst_parse(valid, options).code_ == status_code::ok);
     assert(options.use_session_bus_ && options.poll_interval_ms_ == 10 &&
-        options.max_database_bytes_ == 67108864U);
+        options.max_database_bytes_ == 67108864U &&
+        options.max_content_blob_count_ == 2048U);
     auto unknown = valid;
     unknown.push_back("--unknown");
     assert(vqec_vision_ai_unit_amotst_parse(unknown, options).code_ ==

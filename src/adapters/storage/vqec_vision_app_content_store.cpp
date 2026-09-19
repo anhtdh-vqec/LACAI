@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <filesystem>
 #include <limits>
+#include <streambuf>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,6 +41,51 @@ public:
 
     int fd_{-1};
     std::string path_;
+};
+
+class descriptor_stream_buffer final : public std::streambuf {
+public:
+    explicit descriptor_stream_buffer(int _fd) : fd_(_fd) {
+        setg(buffer_.data(), buffer_.data(), buffer_.data());
+    }
+    ~descriptor_stream_buffer() noexcept override {
+        if (fd_ >= 0) {
+            (void)::close(fd_);
+        }
+    }
+    descriptor_stream_buffer(const descriptor_stream_buffer&) = delete;
+    descriptor_stream_buffer& operator=(const descriptor_stream_buffer&) = delete;
+
+    [[nodiscard]] bool vqec_vision_ai_stor_apcst_has_error() const noexcept {
+        return has_error_;
+    }
+
+protected:
+    int_type underflow() override {
+        if (gptr() < egptr()) {
+            return traits_type::to_int_type(*gptr());
+        }
+        ssize_t count = -1;
+        do {
+            count = ::pread(fd_, buffer_.data(), buffer_.size(), offset_);
+        } while (count < 0 && errno == EINTR);
+        if (count < 0) {
+            has_error_ = true;
+            return traits_type::eof();
+        }
+        if (count == 0) {
+            return traits_type::eof();
+        }
+        offset_ += count;
+        setg(buffer_.data(), buffer_.data(), buffer_.data() + count);
+        return traits_type::to_int_type(*gptr());
+    }
+
+private:
+    int fd_{-1};
+    off_t offset_{0};
+    bool has_error_{false};
+    std::array<char, g_content_copy_block_bytes> buffer_{};
 };
 
 bool vqec_vision_ai_stor_apcst_is_digest_name(const std::string& _name) noexcept {
@@ -379,6 +425,37 @@ status app_content_store::vqec_vision_ai_ports_apcst_put(
     }
     _record = std::move(candidate);
     return {};
+}
+
+status app_content_store::vqec_vision_ai_ports_apcst_put_descriptor(
+    int _source_fd, const std::string& _expected_sha256,
+    std::uint64_t _expected_bytes, app_content_record& _record) {
+    if (_source_fd < 0) {
+        return {status_code::invalid_argument,
+            "app content source descriptor is invalid"};
+    }
+    const int flags = ::fcntl(_source_fd, F_GETFL);
+    struct stat source_status {};
+    if (flags < 0 || (flags & O_ACCMODE) != O_RDONLY ||
+        ::fstat(_source_fd, &source_status) != 0 ||
+        !S_ISREG(source_status.st_mode) || source_status.st_size <= 0 ||
+        static_cast<std::uint64_t>(source_status.st_size) != _expected_bytes) {
+        return {status_code::invalid_argument,
+            "app content source must be an exact-size read-only regular file"};
+    }
+    const int duplicate = ::fcntl(_source_fd, F_DUPFD_CLOEXEC, 0);
+    if (duplicate < 0) {
+        return {status_code::io_error,
+            "cannot duplicate app content source descriptor"};
+    }
+    descriptor_stream_buffer buffer(duplicate);
+    std::istream stream(&buffer);
+    const auto stored = vqec_vision_ai_ports_apcst_put(
+        stream, _expected_sha256, _expected_bytes, _record);
+    if (buffer.vqec_vision_ai_stor_apcst_has_error()) {
+        return {status_code::io_error, "app content descriptor read failed"};
+    }
+    return stored;
 }
 
 status app_content_store::vqec_vision_ai_ports_apcst_remove(

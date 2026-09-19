@@ -14,6 +14,8 @@ namespace {
 
 constexpr std::uint64_t g_min_database_bytes = 1024U * 1024U;
 constexpr std::uint64_t g_max_database_bytes = 256U * 1024U * 1024U;
+constexpr std::uint64_t g_min_content_store_bytes = 1024U * 1024U;
+constexpr std::size_t g_max_content_blob_count = 65536U;
 constexpr int g_max_timeout_ms = 60000;
 constexpr std::size_t g_max_callbacks_per_poll = 64;
 constexpr int g_max_poll_interval_ms = 1000;
@@ -50,6 +52,8 @@ const char* vqec_vision_ai_appl_amopt_usage() noexcept {
            "--max-active-incidents <count> --max-events-per-second <count> "
            "--database <absolute-path> "
            "--max-database-bytes <bytes> --busy-timeout-ms <ms> "
+           "--content-store <absolute-directory> --max-content-store-bytes <bytes> "
+           "--max-content-blob-bytes <bytes> --max-content-blob-count <count> "
            "--public-key <absolute-pem-path> --key-id <id> "
            "--service-name <dbus-name> --object-path <dbus-path> "
            "--trusted-backend-name <dbus-name> --trusted-runtime-name <dbus-name> "
@@ -97,6 +101,19 @@ status vqec_vision_ai_appl_amopt_parse(
         } else if (option == "--max-database-bytes" &&
                    vqec_vision_ai_appl_amopt_read_u64(value, number)) {
             candidate.max_database_bytes_ = number;
+        } else if (option == "--content-store") {
+            candidate.content_store_directory_ = value;
+        } else if (option == "--max-content-store-bytes" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number)) {
+            candidate.max_content_store_bytes_ = number;
+        } else if (option == "--max-content-blob-bytes" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number)) {
+            candidate.max_content_blob_bytes_ = number;
+        } else if (option == "--max-content-blob-count" &&
+                   vqec_vision_ai_appl_amopt_read_u64(value, number) &&
+                   number <= static_cast<std::uint64_t>(
+                       std::numeric_limits<std::size_t>::max())) {
+            candidate.max_content_blob_count_ = static_cast<std::size_t>(number);
         } else if (option == "--busy-timeout-ms" &&
                    vqec_vision_ai_appl_amopt_read_u64(value, number) &&
                    number <= static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
@@ -139,6 +156,7 @@ status vqec_vision_ai_appl_amopt_parse(
         candidate.capacity_.max_active_incidents_ == 0 ||
         candidate.capacity_.max_events_per_second_ <= 0.0 ||
         !std::filesystem::path(candidate.database_path_).is_absolute() ||
+        !std::filesystem::path(candidate.content_store_directory_).is_absolute() ||
         !std::filesystem::path(candidate.public_key_path_).is_absolute() ||
         !vqec_vision_ai_cntr_ident_is_valid(
             candidate.key_id_, app_lifecycle_limits::g_max_identifier_bytes) ||
@@ -148,6 +166,12 @@ status vqec_vision_ai_appl_amopt_parse(
         candidate.trusted_backend_bus_name_ == candidate.trusted_runtime_bus_name_ ||
         candidate.max_database_bytes_ < g_min_database_bytes ||
         candidate.max_database_bytes_ > g_max_database_bytes ||
+        candidate.max_content_store_bytes_ < g_min_content_store_bytes ||
+        candidate.max_content_store_bytes_ > app_lifecycle_limits::g_max_component_bytes ||
+        candidate.max_content_blob_bytes_ == 0 ||
+        candidate.max_content_blob_bytes_ > candidate.max_content_store_bytes_ ||
+        candidate.max_content_blob_count_ == 0 ||
+        candidate.max_content_blob_count_ > g_max_content_blob_count ||
         candidate.busy_timeout_ms_ <= 0 || candidate.busy_timeout_ms_ > g_max_timeout_ms ||
         candidate.rpc_timeout_ms_ <= 0 || candidate.rpc_timeout_ms_ > g_max_timeout_ms ||
         candidate.max_callbacks_per_poll_ == 0 ||

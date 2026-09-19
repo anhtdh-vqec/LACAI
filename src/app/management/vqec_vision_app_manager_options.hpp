@@ -16,6 +16,10 @@ struct app_manager_options {
     app_resource_envelope capacity_;
     std::string database_path_;
     std::uint64_t max_database_bytes_{0};
+    std::string content_store_directory_;
+    std::uint64_t max_content_store_bytes_{0};
+    std::uint64_t max_content_blob_bytes_{0};
+    std::size_t max_content_blob_count_{0};
     int busy_timeout_ms_{0};
     std::string public_key_path_;
     std::string key_id_;

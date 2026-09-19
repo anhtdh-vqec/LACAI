@@ -5,7 +5,11 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
+
+#include <fcntl.h>
 
 #include "vqec_vision_app_manager_dbus.hpp"
 #include "vqec_vision_runtime_control_snapshot.hpp"
@@ -20,6 +24,7 @@ struct app_manager_control_options {
     std::string configuration_path_;
     std::string grant_path_;
     std::string signature_path_;
+    std::vector<std::string> component_paths_;
     std::string manifest_sha256_;
     std::string configuration_sha256_;
     std::string grant_sha256_;
@@ -81,6 +86,10 @@ bool vqec_vision_ai_tools_amctl_parse(
             candidate.grant_path_ = value;
         } else if (option == "--signature") {
             candidate.signature_path_ = value;
+        } else if (option == "--component" &&
+                   candidate.component_paths_.size() <
+                       app_lifecycle_limits::g_max_components) {
+            candidate.component_paths_.push_back(value);
         } else if (option == "--manifest-sha256") {
             candidate.manifest_sha256_ = value;
         } else if (option == "--configuration-sha256") {
@@ -110,6 +119,39 @@ bool vqec_vision_ai_tools_amctl_parse(
     }
     _options = std::move(candidate);
     return true;
+}
+
+struct component_descriptor_owner {
+    std::vector<int> descriptors_;
+    ~component_descriptor_owner() noexcept {
+        for (const int descriptor : descriptors_) {
+            if (descriptor >= 0) {
+                (void)::close(descriptor);
+            }
+        }
+    }
+};
+
+status vqec_vision_ai_tools_amctl_open_components(
+    const std::vector<std::string>& _paths, component_descriptor_owner& _owner,
+    app_package_candidate& _candidate) {
+    _owner.descriptors_.reserve(_paths.size());
+    _candidate.components_.reserve(_paths.size());
+    for (const auto& path : _paths) {
+        const int descriptor = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        struct stat file_status {};
+        if (descriptor < 0 || ::fstat(descriptor, &file_status) != 0 ||
+            !S_ISREG(file_status.st_mode) || file_status.st_size <= 0) {
+            if (descriptor >= 0) {
+                (void)::close(descriptor);
+            }
+            return {status_code::io_error,
+                "cannot open regular package component input"};
+        }
+        _owner.descriptors_.push_back(descriptor);
+        _candidate.components_.push_back({descriptor});
+    }
+    return {};
 }
 
 status vqec_vision_ai_tools_amctl_read_file(
@@ -167,6 +209,7 @@ int main(int argc, char** argv) {
         }
     } else if (options.command_ == "install") {
         app_package_candidate candidate;
+        component_descriptor_owner component_descriptors;
         outcome = vqec_vision_ai_tools_amctl_read_file(options.manifest_path_,
             app_lifecycle_limits::g_max_document_bytes, candidate.manifest_payload_);
         if (outcome.code_ == status_code::ok) {
@@ -181,6 +224,10 @@ int main(int argc, char** argv) {
         }
         candidate.manifest_sha256_ = options.manifest_sha256_;
         candidate.configuration_sha256_ = options.configuration_sha256_;
+        if (outcome.code_ == status_code::ok) {
+            outcome = vqec_vision_ai_tools_amctl_open_components(
+                options.component_paths_, component_descriptors, candidate);
+        }
         if (outcome.code_ == status_code::ok) {
             outcome = client.vqec_vision_ai_fwctl_amdbs_install(options.dbus_, candidate,
                 options.expected_revision_, revision);

@@ -33,7 +33,8 @@ if(TARGET vqec_vision_ai_app_manager AND
    TARGET vqec_vision_ai_app_manager_dbus AND
    TARGET vqec_vision_ai_ed25519_app_package_verifier AND
    TARGET vqec_vision_ai_ed25519_app_entitlement_verifier AND
-   TARGET vqec_vision_ai_sqlite_app_inventory)
+   TARGET vqec_vision_ai_sqlite_app_inventory AND
+   TARGET vqec_vision_ai_app_content_store)
     add_executable(vqec_vision_app_manager
         management/vqec_vision_app_manager_main.cpp)
     target_include_directories(vqec_vision_app_manager PRIVATE
@@ -48,6 +49,7 @@ if(TARGET vqec_vision_ai_app_manager AND
         vqec_vision_ai_ed25519_app_package_verifier
         vqec_vision_ai_ed25519_app_entitlement_verifier
         vqec_vision_ai_sqlite_app_inventory
+        vqec_vision_ai_app_content_store
         vqec_vision_ai_fire_smoke_feature
         Threads::Threads)
     set_target_properties(vqec_vision_app_manager PROPERTIES CXX_EXTENSIONS OFF)

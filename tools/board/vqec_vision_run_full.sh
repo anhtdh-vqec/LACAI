@@ -49,12 +49,18 @@ g_evidence_stop_drain_ms=${LACAI_EVIDENCE_STOP_DRAIN_MS:-2000}
 g_evidence_maximum_attempts=${LACAI_EVIDENCE_MAXIMUM_ATTEMPTS:-12}
 g_app_state_dir=${LACAI_APP_STATE_DIR:-$g_root/data/app_manager}
 g_app_database=${LACAI_APP_DATABASE:-$g_app_state_dir/apps.db}
+g_app_content_store_dir=${LACAI_APP_CONTENT_STORE_DIR:-$g_app_state_dir/content}
+g_app_content_store_bytes=${LACAI_APP_CONTENT_STORE_BYTES:-1073741824}
+g_app_content_blob_bytes=${LACAI_APP_CONTENT_BLOB_BYTES:-536870912}
+g_app_content_blob_count=${LACAI_APP_CONTENT_BLOB_COUNT:-2048}
 g_app_public_key=${LACAI_APP_PUBLIC_KEY:-$g_root/config/trust/app_manager_public.pem}
 g_app_manifest=${LACAI_APP_MANIFEST:-$g_root/config/app_package/usecase_app_manifest.fire_smoke.json}
 g_app_configuration=${LACAI_APP_CONFIGURATION:-$g_root/config/app_package/fire_smoke_configuration.json}
 g_app_package_signature=${LACAI_APP_PACKAGE_SIGNATURE:-$g_root/config/app_package/fire_smoke_package.sig}
 g_app_entitlement=${LACAI_APP_ENTITLEMENT:-$g_root/config/app_package/fire_smoke_entitlement.json}
 g_app_entitlement_signature=${LACAI_APP_ENTITLEMENT_SIGNATURE:-$g_root/config/app_package/fire_smoke_entitlement.sig}
+g_app_model_component=${LACAI_APP_MODEL_COMPONENT:-$g_root/models/yolo11n_fire_smoke/libyolo11n_replaymix_w8a16.so}
+g_app_labels_component=${LACAI_APP_LABELS_COMPONENT:-$g_root/models/yolo11n_fire_smoke/package/labels.txt}
 g_app_service_name=${LACAI_APP_SERVICE_NAME:-com.vqec.AiVision.AppManager}
 g_app_backend_name=${LACAI_APP_BACKEND_NAME:-com.vqec.AiVision.Backend}
 g_app_runtime_name=${LACAI_APP_RUNTIME_NAME:-com.vqec.AiVision.Runtime}
@@ -79,7 +85,8 @@ for numeric_value in "$g_rtsp_port" "$g_preview_fps" \
     "$g_evidence_busy_timeout_ms" "$g_evidence_outbox_max_bytes" \
     "$g_evidence_initial_retry_ms" "$g_evidence_maximum_retry_ms" \
     "$g_evidence_idle_poll_ms" "$g_evidence_stop_drain_ms" \
-    "$g_evidence_maximum_attempts"; do
+    "$g_evidence_maximum_attempts" "$g_app_content_store_bytes" \
+    "$g_app_content_blob_bytes" "$g_app_content_blob_count"; do
     case "$numeric_value" in
         ''|0|*[!0-9]*)
             echo "runtime numeric settings must be positive integers" >&2
@@ -480,7 +487,8 @@ fi
 vqec_vision_ai_tools_rnful_require_file "$g_metadata_profile"
 for app_file in "$g_app_public_key" "$g_app_manifest" "$g_app_configuration" \
     "$g_app_package_signature" "$g_app_entitlement" \
-    "$g_app_entitlement_signature"; do
+    "$g_app_entitlement_signature" "$g_app_model_component" \
+    "$g_app_labels_component"; do
     vqec_vision_ai_tools_rnful_require_file "$app_file"
 done
 if [ ! -c "$g_dma_heap" ]; then
@@ -497,9 +505,10 @@ if [ -f "$g_run_dir/app_bus.pid" ] || [ -f "$g_run_dir/camera.pid" ] ||
 fi
 
 mkdir -p "$g_run_dir" "$g_camera_socket_dir" "$g_root/out" \
-    /run/lacai_fr_index "$g_app_state_dir" "$g_evidence_state_dir"
-chmod 0700 "$g_run_dir" /run/lacai_fr_index "$g_app_state_dir" \
+    /run/lacai_fr_index "$g_app_state_dir" "$g_app_content_store_dir" \
     "$g_evidence_state_dir"
+chmod 0700 "$g_run_dir" /run/lacai_fr_index "$g_app_state_dir" \
+    "$g_app_content_store_dir" "$g_evidence_state_dir"
 rm -f "$g_camera_socket" "$g_ring_path" "$g_evidence_socket"
 
 g_bus_details=$(dbus-daemon --session --fork --print-address=1 --print-pid=1)
@@ -616,6 +625,10 @@ setsid "$g_app_manager" \
     --max-resident-bytes 536870912 --max-tensor-bytes 134217728 \
     --max-active-incidents 32 --max-events-per-second 64 \
     --database "$g_app_database" --max-database-bytes 67108864 \
+    --content-store "$g_app_content_store_dir" \
+    --max-content-store-bytes "$g_app_content_store_bytes" \
+    --max-content-blob-bytes "$g_app_content_blob_bytes" \
+    --max-content-blob-count "$g_app_content_blob_count" \
     --busy-timeout-ms 5000 --public-key "$g_app_public_key" \
     --key-id "$g_app_key_id" --service-name "$g_app_service_name" \
     --object-path "$g_app_object_path" \
@@ -646,6 +659,8 @@ if [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; th
     vqec_vision_ai_tools_rnful_control install \
         --manifest "$g_app_manifest" --configuration "$g_app_configuration" \
         --signature "$g_app_package_signature" \
+        --component "$g_app_model_component" \
+        --component "$g_app_labels_component" \
         --manifest-sha256 "$(sha256sum "$g_app_manifest" | cut -d ' ' -f 1)" \
         --configuration-sha256 "$(sha256sum "$g_app_configuration" | cut -d ' ' -f 1)" \
         --expected-revision "$g_inventory_revision"

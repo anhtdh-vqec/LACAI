@@ -16,11 +16,12 @@ app_manager::app_manager(app_manager_config _config,
     app_package_verifier_port& _package_verifier,
     app_entitlement_verifier_port& _entitlement_verifier,
     app_configuration_registry& _configuration_registry,
-    app_inventory_port& _inventory)
+    app_content_store_port& _content_store, app_inventory_port& _inventory)
     : config_(std::move(_config)),
       package_verifier_(_package_verifier),
       entitlement_verifier_(_entitlement_verifier),
       configuration_registry_(_configuration_registry),
+      content_store_(_content_store),
       inventory_(_inventory) {}
 
 status app_manager::vqec_vision_ai_appl_appmn_verify_configuration_digest(
@@ -47,6 +48,49 @@ const app_runtime_association* app_manager::vqec_vision_ai_appl_appmn_find_assoc
     return found == _snapshot.associations_.end() ? nullptr : &*found;
 }
 
+status app_manager::vqec_vision_ai_appl_appmn_stage_package_content(
+    const app_package_candidate& _candidate,
+    const verified_app_package& _package) {
+    std::size_t component_index = 0;
+    for (const auto& component : _package.manifest_.components_) {
+        if (component.target_id_ != config_.target_id_) {
+            continue;
+        }
+        app_content_record record;
+        status staged;
+        if (component.type_ == app_component_type::configuration) {
+            if (component.artifact_sha256_ != _package.configuration_sha256_ ||
+                component.artifact_bytes_ != _package.configuration_payload_.size()) {
+                return {status_code::protocol_error,
+                    "configuration component differs from signed package defaults"};
+            }
+            const std::string document(_package.configuration_payload_.begin(),
+                _package.configuration_payload_.end());
+            std::istringstream stream(document);
+            staged = content_store_.vqec_vision_ai_ports_apcst_put(stream,
+                component.artifact_sha256_, component.artifact_bytes_, record);
+        } else {
+            if (component_index >= _candidate.components_.size() ||
+                _candidate.components_[component_index].descriptor_ < 0) {
+                return {status_code::invalid_argument,
+                    "package component descriptor is missing"};
+            }
+            staged = content_store_.vqec_vision_ai_ports_apcst_put_descriptor(
+                _candidate.components_[component_index].descriptor_,
+                component.artifact_sha256_, component.artifact_bytes_, record);
+            ++component_index;
+        }
+        if (staged.code_ != status_code::ok) {
+            return staged;
+        }
+    }
+    if (component_index != _candidate.components_.size()) {
+        return {status_code::invalid_argument,
+            "package contains undeclared component descriptors"};
+    }
+    return {};
+}
+
 status app_manager::vqec_vision_ai_appl_appmn_open(
     runtime_control_snapshot& _snapshot) {
     std::lock_guard<std::mutex> guard(mutex_);
@@ -65,7 +109,10 @@ status app_manager::vqec_vision_ai_appl_appmn_open(
         config_.capacity_.max_events_per_second_ <= 0.0) {
         return {status_code::invalid_argument, "invalid app manager target or capacity"};
     }
-    auto current = inventory_.vqec_vision_ai_ports_apinv_open();
+    auto current = content_store_.vqec_vision_ai_ports_apcst_open();
+    if (current.code_ == status_code::ok) {
+        current = inventory_.vqec_vision_ai_ports_apinv_open();
+    }
     if (current.code_ != status_code::ok) {
         return current;
     }
@@ -132,6 +179,10 @@ status app_manager::vqec_vision_ai_appl_appmn_install(
         package.manifest_.app_id_, package.manifest_.configuration_schema_id_,
         package.manifest_.configuration_schema_version_,
         package.configuration_payload_);
+    if (current.code_ != status_code::ok) {
+        return current;
+    }
+    current = vqec_vision_ai_appl_appmn_stage_package_content(_candidate, package);
     if (current.code_ != status_code::ok) {
         return current;
     }

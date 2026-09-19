@@ -23,6 +23,11 @@ public:
     [[nodiscard]] virtual status vqec_vision_ai_ports_apcst_put(
         std::istream& _source, const std::string& _expected_sha256,
         std::uint64_t _expected_bytes, app_content_record& _record) = 0;
+    // Descriptor is borrowed for this blocking call and must be a seekable read-only
+    // regular file. Implementations duplicate it and never close the caller's descriptor.
+    [[nodiscard]] virtual status vqec_vision_ai_ports_apcst_put_descriptor(
+        int _source_fd, const std::string& _expected_sha256,
+        std::uint64_t _expected_bytes, app_content_record& _record) = 0;
     [[nodiscard]] virtual status vqec_vision_ai_ports_apcst_get(
         const std::string& _sha256, app_content_record& _record) const = 0;
     // The inventory owner may remove a blob only after proving no current or rollback

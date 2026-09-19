@@ -202,7 +202,8 @@ status vqec_vision_ai_lifec_apmft_load(
         for (const auto& value : components) {
             vqec_vision_ai_lifec_apmft_require_keys(value,
                 {"component_id", "component_version", "component_type", "target_id",
-                    "artifact_sha256", "semantic_contract_sha256", "required"},
+                    "artifact_sha256", "artifact_bytes", "semantic_contract_sha256",
+                    "required"},
                 {"model_role", "quality_receipt_ref"});
             app_component_manifest component;
             component.component_id_ = vqec_vision_ai_lifec_apmft_read_text(
@@ -215,6 +216,8 @@ status vqec_vision_ai_lifec_apmft_load(
                 value.at("target_id"), app_lifecycle_limits::g_max_identifier_bytes);
             component.artifact_sha256_ = vqec_vision_ai_lifec_apmft_read_text(
                 value.at("artifact_sha256"), 64);
+            component.artifact_bytes_ =
+                vqec_vision_ai_lifec_apmft_read_uint(value.at("artifact_bytes"));
             component.semantic_contract_sha256_ = vqec_vision_ai_lifec_apmft_read_text(
                 value.at("semantic_contract_sha256"), 64);
             component.required_ =
@@ -333,4 +336,3 @@ status vqec_vision_ai_lifec_apmft_load(
 }
 
 }  // namespace vqec::vision::ai
-

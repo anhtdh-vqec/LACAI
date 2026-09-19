@@ -35,7 +35,7 @@ struct dbus_binding {
 
 constexpr char g_introspection_xml[] =
     "<node><interface name='com.vqec.AiVision.AppManager1'>"
-    "<method name='Install'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
+    "<method name='Install'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='ah' direction='in'/><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='ApplyConfiguration'><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='h' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='ApplyEntitlement'><arg type='h' direction='in'/><arg type='h' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='out'/></method>"
     "<method name='SetDesired'><arg type='s' direction='in'/><arg type='s' direction='in'/><arg type='t' direction='in'/><arg type='b' direction='in'/><arg type='t' direction='out'/></method>"
@@ -56,6 +56,17 @@ struct node_owner {
 struct fd_owner {
     int value_{-1};
     ~fd_owner() noexcept { if (value_ >= 0) { (void)::close(value_); } }
+};
+
+struct fd_vector_owner {
+    std::vector<int> values_;
+    ~fd_vector_owner() noexcept {
+        for (const int fd : values_) {
+            if (fd >= 0) {
+                (void)::close(fd);
+            }
+        }
+    }
 };
 
 status vqec_vision_ai_fwctl_amdbs_make_payload_fd(
@@ -180,11 +191,12 @@ void vqec_vision_ai_fwctl_amdbs_install(app_manager_port& _port,
     gint32 manifest_handle = -1;
     gint32 configuration_handle = -1;
     gint32 signature_handle = -1;
+    GVariant* component_handles = nullptr;
     const gchar* manifest_sha256 = nullptr;
     const gchar* configuration_sha256 = nullptr;
     guint64 expected_revision = 0;
-    g_variant_get(_parameters, "(hhh&s&st)", &manifest_handle,
-        &configuration_handle, &signature_handle, &manifest_sha256,
+    g_variant_get(_parameters, "(hhh@ah&s&st)", &manifest_handle,
+        &configuration_handle, &signature_handle, &component_handles, &manifest_sha256,
         &configuration_sha256, &expected_revision);
     app_package_candidate candidate;
     auto current = vqec_vision_ai_fwctl_amdbs_read_fd(_invocation,
@@ -198,6 +210,42 @@ void vqec_vision_ai_fwctl_amdbs_install(app_manager_port& _port,
     if (current.code_ == status_code::ok) {
         current = vqec_vision_ai_fwctl_amdbs_read_fd(_invocation,
             signature_handle, g_max_signature_bytes, candidate.signature_payload_);
+    }
+    fd_vector_owner component_fds;
+    const auto component_count = component_handles == nullptr ? 0U :
+        g_variant_n_children(component_handles);
+    if (current.code_ == status_code::ok &&
+        component_count > app_lifecycle_limits::g_max_components) {
+        current = {status_code::resource_exhausted,
+            "package component descriptor count exceeds limit"};
+    }
+    if (current.code_ == status_code::ok) {
+        GDBusMessage* message = g_dbus_method_invocation_get_message(_invocation);
+        GUnixFDList* list = message == nullptr ? nullptr :
+            g_dbus_message_get_unix_fd_list(message);
+        if (list == nullptr && component_count != 0) {
+            current = {status_code::invalid_argument,
+                "package component descriptors are unavailable"};
+        } else {
+            component_fds.values_.reserve(component_count);
+            candidate.components_.reserve(component_count);
+            for (gsize index = 0; index < component_count; ++index) {
+                gint32 handle = -1;
+                g_variant_get_child(component_handles, index, "h", &handle);
+                error_owner error;
+                const int fd = g_unix_fd_list_get(list, handle, &error.value_);
+                if (fd < 0) {
+                    current = {status_code::invalid_argument,
+                        "package component descriptor is invalid"};
+                    break;
+                }
+                component_fds.values_.push_back(fd);
+                candidate.components_.push_back({fd});
+            }
+        }
+    }
+    if (component_handles != nullptr) {
+        g_variant_unref(component_handles);
     }
     if (current.code_ != status_code::ok) {
         vqec_vision_ai_fwctl_amdbs_return_error(_invocation, current);
@@ -517,7 +565,8 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
     const app_package_candidate& _candidate,
     std::uint64_t _expected_inventory_revision,
     std::uint64_t& _snapshot_revision) {
-    if (_expected_inventory_revision == 0) {
+    if (_expected_inventory_revision == 0 ||
+        _candidate.components_.size() > app_lifecycle_limits::g_max_components) {
         return {status_code::invalid_argument, "invalid expected inventory revision"};
     }
     std::string unique_owner;
@@ -550,7 +599,23 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
         g_unix_fd_list_append(descriptors, configuration.value_, &error.value_);
     const int signature_handle = configuration_handle < 0 ? -1 :
         g_unix_fd_list_append(descriptors, signature.value_, &error.value_);
-    if (signature_handle < 0) {
+    GVariantBuilder component_builder;
+    g_variant_builder_init(&component_builder, G_VARIANT_TYPE("ah"));
+    bool components_attached = signature_handle >= 0;
+    for (const auto& component : _candidate.components_) {
+        if (!components_attached || component.descriptor_ < 0) {
+            components_attached = false;
+            break;
+        }
+        const int handle = g_unix_fd_list_append(
+            descriptors, component.descriptor_, &error.value_);
+        if (handle < 0) {
+            components_attached = false;
+            break;
+        }
+        g_variant_builder_add(&component_builder, "h", handle);
+    }
+    if (!components_attached) {
         g_object_unref(descriptors);
         return {status_code::io_error,
             "cannot attach App Manager package descriptors"};
@@ -559,8 +624,9 @@ status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_install(
         implementation_->connection_, unique_owner.c_str(), _config.object_path_.c_str(),
         app_manager_dbus_protocol::g_interface_name,
         app_manager_dbus_protocol::g_install_method,
-        g_variant_new("(hhhsst)", manifest_handle, configuration_handle,
-            signature_handle, _candidate.manifest_sha256_.c_str(),
+        g_variant_new("(hhh@ahsst)", manifest_handle, configuration_handle,
+            signature_handle, g_variant_builder_end(&component_builder),
+            _candidate.manifest_sha256_.c_str(),
             _candidate.configuration_sha256_.c_str(),
             static_cast<guint64>(_expected_inventory_revision)),
         G_VARIANT_TYPE("(t)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,

@@ -24,6 +24,9 @@ public:
     [[nodiscard]] status vqec_vision_ai_ports_apcst_put(
         std::istream& _source, const std::string& _expected_sha256,
         std::uint64_t _expected_bytes, app_content_record& _record) override;
+    [[nodiscard]] status vqec_vision_ai_ports_apcst_put_descriptor(
+        int _source_fd, const std::string& _expected_sha256,
+        std::uint64_t _expected_bytes, app_content_record& _record) override;
     [[nodiscard]] status vqec_vision_ai_ports_apcst_get(
         const std::string& _sha256, app_content_record& _record) const override;
     [[nodiscard]] status vqec_vision_ai_ports_apcst_remove(

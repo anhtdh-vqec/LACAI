@@ -14,6 +14,7 @@
       "component_type": "model",
       "target_id": "qcs6490_qlinux_1_8",
       "artifact_sha256": "4b74ab5cfea57042dc9dbf26f19633552e08562c3e8a93c416e3e9cde2e0b513",
+      "artifact_bytes": 3442520,
       "semantic_contract_sha256": "436ea6a5df7eb7d8e13706639a7ebc1b3f6e6459a80703fd459ca01af982be42",
       "required": true,
       "model_role": "primary",
@@ -25,6 +26,7 @@
       "component_type": "labels",
       "target_id": "qcs6490_qlinux_1_8",
       "artifact_sha256": "d8f123f9ba433864b287cf10cbcf23cc5f7a85ec46b4c967259bc5c9520a0fe9",
+      "artifact_bytes": 11,
       "semantic_contract_sha256": "d8f123f9ba433864b287cf10cbcf23cc5f7a85ec46b4c967259bc5c9520a0fe9",
       "required": true
     },
@@ -34,6 +36,7 @@
       "component_type": "configuration",
       "target_id": "qcs6490_qlinux_1_8",
       "artifact_sha256": "07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935",
+      "artifact_bytes": 1300,
       "semantic_contract_sha256": "564e5afc67dc595def9bf20552dee1526dcf4985ef37275bf643a79aa19e9405",
       "required": true
     }

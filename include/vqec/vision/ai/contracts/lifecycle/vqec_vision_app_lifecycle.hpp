@@ -29,6 +29,8 @@ inline constexpr std::size_t g_max_applications = 64;
 inline constexpr std::size_t g_max_sources = 16;
 inline constexpr std::size_t g_max_associations =
     g_max_applications * g_max_sources;
+inline constexpr std::uint64_t g_max_component_bytes =
+    4ULL * 1024ULL * 1024ULL * 1024ULL;
 }  // namespace app_lifecycle_limits
 
 enum class app_component_type { model, labels, ontology, rules, configuration };
@@ -61,6 +63,7 @@ struct app_component_manifest {
     app_component_type type_{app_component_type::model};
     std::string target_id_;
     std::string artifact_sha256_;
+    std::uint64_t artifact_bytes_{0};
     std::string semantic_contract_sha256_;
     bool required_{false};
     app_model_role model_role_{app_model_role::none};

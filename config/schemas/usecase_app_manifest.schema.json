@@ -36,13 +36,14 @@
     "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "component": {
       "type": "object", "additionalProperties": false,
-      "required": ["component_id", "component_version", "component_type", "target_id", "artifact_sha256", "semantic_contract_sha256", "required"],
+      "required": ["component_id", "component_version", "component_type", "target_id", "artifact_sha256", "artifact_bytes", "semantic_contract_sha256", "required"],
       "properties": {
         "component_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "component_version": {"type": "string", "minLength": 1, "maxLength": 64},
         "component_type": {"enum": ["model", "labels", "ontology", "rules", "configuration"]},
         "target_id": {"type": "string", "minLength": 1, "maxLength": 64},
         "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_bytes": {"type": "integer", "minimum": 1, "maximum": 4294967296},
         "semantic_contract_sha256": {"$ref": "#/$defs/digest"},
         "required": {"type": "boolean"},
         "model_role": {"enum": ["primary", "secondary", "offline"]},
@@ -106,4 +107,3 @@
     }
   }
 }
-
