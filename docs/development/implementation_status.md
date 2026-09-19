@@ -291,9 +291,11 @@ S01–S18 catalog, complete asynchronous mutation wire, deterministic S04 replay
 shared-component lifecycle and eight install/update process-crash checkpoints. On board `.102`, the
 S04/App Manager/output candidate passes nine focused native tests, the asynchronous
 install/update/rollback/uninstall/reinstall lifecycle and ten five-second disable/enable cycles.
-The current workload publishes H.264 1920x1080 at 30.124 FPS. Over the final five-minute sample,
-service CPU is 10.50% and App Manager CPU is 3.83% of one logical core; service/App Manager FDs
-remain 73/11 and their HWM values are 225,832/17,104 KiB.
+The current workload publishes H.264 1920x1080 at 30.124 FPS. Over the exact final five-minute
+sample, service CPU is 10.835% and App Manager CPU is 3.759% of one logical core; service/App
+Manager FDs remain 74/12 and their HWM values are 223,912/14,848 KiB. A clean camera outage longer
+than 120 seconds and a ten-second App Manager restart both recovered with the same service PID;
+the camera recovery resumed 150 ring frames in five seconds through a fresh drained generation.
 The 30-second cold-start average is 13.36%, with one 86% sample attributed by `perf` to
 `libQnnHtpPrepare.so::GraphPrepare` after the first source frame. No QNN HTP library is mapped
 while App Manager and camera are absent. This is board-smoke, not model-quality, released-FW,
@@ -302,7 +304,7 @@ leak-free or product thermal acceptance. Exact evidence and limitations are in
 
 Open release gates (not delivered): released-FW camera/ring/RTSP/evidence conformance, hardware
 DMA completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
-hardware-bound gallery key, production trust rotation, remaining lifecycle mutation migration,
+hardware-bound gallery key, production trust rotation,
 QNN context-binary cold-start qualification, async/shared QNN execution,
 multi-vendor backends and the remaining feature packages. See
 [alignment review](architecture_alignment_review.md) and
@@ -357,13 +359,13 @@ Paths in this table are relative to the repository root; source stems use `vqec_
 | `src/runtime/model_registry/` | Optional model catalog/output manifest/package-registry loaders and bounded OpenSSL SHA-256 stream comparison; the package registry gives every catalog model an exact package/artifact binding | Signature verification, trusted immutable path opening and decoder lookup |
 | `src/runtime/admission/vqec_vision_activation_snapshot.cpp` | Fixed numeric source/model indices tied to immutable deployment/catalog revisions; assignment/context counts and resident estimate | Measured board-wide accelerator/memory/encoder/thermal admission and owner construction |
 | `src/core/features/vqec_vision_usecase_activation.cpp`, `src/runtime/feature_manager/vqec_vision_usecase_config.cpp`, `vqec_vision_usecase_control_manager.cpp`, `src/adapters/fw_control/usecase/vqec_vision_usecase_control_dbus.cpp` | Transactional pre-load gate composition, strict authenticated-startup parsing, bounded CAS/idempotent desired-plan ownership and exact D-Bus v1 adapter; service startup filters before graph preparation, preserves shared roots and idles without camera/model load | Signed entitlement verification, durable desired receipts, nonblocking preparation and runtime-health observation |
-| `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation, sync/recovery sign-off and automatic source restart |
+| `src/adapters/camera/` | Strict 104-byte legacy wire decoder; SOCK_SEQPACKET/SCM_RIGHTS receiver; session-owned ACK; Start/Stop reconciliation; optional GIO D-Bus client; source lifecycle and bounded RAW-reference resolver | Authenticated FW registry RPC, live transport validation and released-FW sync/recovery sign-off |
 | `include/vqec/vision/ai/ports/` | Neutral RAW-source, inference-graph and image-processor interfaces; source carries shared frame owner and native handle; processor turns a borrowed NV12 view into the exact model input tensor | Additional platform implementations and pipeline tensor wiring |
 | `include/vqec/vision/ai/ports/inference/vqec_vision_image_processor.hpp`, `src/adapters/reference/vqec_vision_reference_processor.cpp`, `src/adapters/qualcomm/dsp/host/vqec_vision_dsp_preprocessor.cpp` | Neutral image-processor port, device-free CPU baseline and production Qualcomm generic v1 cDSP transform; exact contract/capability validation and reusable registered buffers stay private to the adapter | Independent model golden approval, released-FW DMA-BUF completion and additional dtype/layout semantics |
 | `src/adapters/qualcomm/` | Generic cDSP preprocessing/dense/overlay, typed tensor extraction, owned QNN engine and V4L2 H.264 ring output; exact full candidate sustained 30.008 FPS at 13.50% average CPU with visually reviewed boxes on `.98` | Released-FW camera/ring/RTSP acceptance, registered QNN output, multi-graph QNN, thermal qualification and BSP recovery |
 | `src/adapters/qualcomm/dsp/host/`, `src/adapters/qualcomm/dsp/v1/` | Private host client opens only generated ABI v1, negotiates capability/limits/domain generation and distinguishes completed from uncertain; descriptor-driven image, dense and overlay operations use no model-id dispatch; live mask 19/full workload pass on `.98` | BSP-signed release skeleton, registered/scatter-gather tensor transport, released-FW completion and reset-under-in-flight-work/cache/fence evidence |
 | `src/adapters/qualcomm/qnn/vqec_vision_qnn_engine.cpp`, `vqec_vision_qnn_inference_graph.cpp`, `vqec_vision_backend_factory.cpp` | Private optional LACAI-owned QNN engine: dlopen backend/system, backend/device, capability probe, context + single-graph model-lib compose, typed tensor metadata, synchronous client-buffer execute, explicit HTP balanced/low-latency policy and an `inference_graph_port` binding; the factory fails closed on unsupported policy | Async/shared-memory/LoRA execution, shared multi-graph domain and sustained thermal qualification |
-| `src/app/pipeline/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle | Executable composition, live FW/model integration and automatic recovery |
+| `src/app/pipeline/vqec_vision_camera_graph_pump.cpp`, `vqec_vision_camera_session.cpp` | Portable single-model receive/submit/result progress and validate/start/drain/release lifecycle; enclosing service can replace a fully drained source-loss generation | Released-FW/model recovery and BSP reset acceptance |
 | `src/runtime/scheduler/vqec_vision_model_cadence.cpp` | Fixed 16-slot rational cadence, sequence-gap accounting and numeric due masks | Measured workload policies, ROI/temporal scheduling |
 | `src/app/pipeline/vqec_vision_multi_model_pump.cpp`, `vqec_vision_multi_model_session.cpp` | Receive once/share owner across due graphs; one latest-wins preview mailbox; optional persistent per-model workers; completed-slot owner transfer; busy-skip; round-robin results; validate all graphs before one FW acquisition; partial-start rollback and all-graph drain | Released-FW DMA ownership/recovery and sustained multi-model admission/thermal validation |
 | `src/app/pipeline/vqec_vision_perception_result_stage.cpp`, `vqec_vision_multi_model_result_router.cpp` | Correlates tensor pipeline PTS with retained source identity, routes by stable model slot, derives independent per-model gaps, then composes decode and tracking transactionally | Concrete decoders/trackers, multi-model temporal fusion and replay qualification |
@@ -457,9 +459,9 @@ capability, not by model identity.
 2. Model accuracy calibration and golden parity; concrete feature packages; production
    tracker and attribute producers; pose/OCR.
 3. Released-FW camera/ring/RTSP/D-Bus conformance and hardware DMA completion / BSP recovery.
-4. Trust rotation, asynchronous conversion of remaining lifecycle mutations, electrical
-   power-cut qualification and backend implementation conformance.
-5. Automatic source/BSP recovery, fault/soak/golden tests and performance/thermal qualification.
+4. Trust rotation, electrical power-cut qualification and backend implementation conformance.
+5. Released-FW/BSP recovery, extended fault/soak/golden tests and performance/thermal
+   qualification. AI process-level source-loss generation replacement is delivered.
 
 Delivered component details live in the architecture and contract docs, not here:
 [system architecture](../architecture/system_architecture.md),

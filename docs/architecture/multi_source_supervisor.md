@@ -79,10 +79,11 @@ FD ACK and FW lease release. The supervisor reaches `stopped` only after every s
 observed stopped. A timeout/recovery flag in one slot never authorizes clearing its graph,
 closing a DMA-BUF early or stopping other slots.
 
-Per-source automatic restart, backoff, epoch replacement and FW/BSP recovery are not part
-of this slice. A failed slot stays stopped until a future deployment-revision replacement
-creates new owners. This prevents stale descriptors, model outputs and output generations
-from being retagged as a new source cycle.
+The supervisor never restarts an individual slot or reuses its owners. A failed slot stays stopped
+until the enclosing service replaces the entire, completely drained generation with fresh owners.
+That service-level `source_lost` replacement and bounded backoff are delivered; per-slot restart,
+BSP reset and released-FW recovery are not. This prevents stale descriptors, model outputs and
+output generations from being retagged as a new source cycle.
 
 ## Runtime invariants
 
@@ -99,8 +100,8 @@ from being retagged as a new source cycle.
 - `raw_source_ref` resolves through the bounded adapter described in
   [RAW-source resolution](raw_source_resolution.md); the released FW registry RPC and
   transactional session-owner construction remain pending.
-- Automatic recovery remains pending; per-source restart, backoff, epoch replacement and
-  FW/BSP recovery are not part of this slice.
+- Service-level replacement of a completely drained source-loss generation is delivered.
+  Per-source restart inside this supervisor and BSP/released-FW recovery remain open.
 - True wall-time isolation requires one serialized executor per source and will be added at
   the service-runtime layer.
 - RTSP URI, credentials, codec and decoder state remain outside AI APP. The portable

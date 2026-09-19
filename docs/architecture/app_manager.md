@@ -3,11 +3,10 @@
 This document defines the AI-owned application lifecycle boundary used to distribute, configure
 and activate the stable S01–S18 usecases without putting package I/O in the inference hot path.
 
-**Status:** logic-tested — the complete version 1 asynchronous mutation contract and wire pass the
-170-test eSDK/QEMU suite. The earlier QCS6490 candidate proved install/update/rollback plus
-synchronous entitlement, configuration, desired and uninstall; complete asynchronous board
-evidence is required before restoring `board-smoke`. Backend implementation conformance remains
-open.
+**Status:** board-smoke — the complete version 1 asynchronous mutation contract and wire pass the
+170-test eSDK/QEMU suite and the recorded QCS6490 lifecycle run. Fresh install, entitlement,
+configuration, desired state, update, rollback, uninstall/reinstall, duplicate idempotency and
+restart reconciliation passed; backend implementation conformance remains open.
 **Layer:** app. **Source:** `config/schemas/usecase_app_manifest.schema.json`,
 `config/schemas/runtime_control_snapshot.schema.json`,
 `config/schemas/fire_smoke_configuration.schema.json`.
@@ -106,7 +105,9 @@ unavailable at service startup, the runtime publishes no active source/model gen
 for the complete snapshot at the configured bounded interval. A higher snapshot revision requests
 a serialized generation drain and reconciliation. A missing or stale reply never enables an
 association. Locally observed entitlement expiry also requests reconciliation even while App
-Manager is offline.
+Manager is offline. On the recorded board the inference service started before App Manager, kept
+running through a ten-second App Manager restart and reconciled the full snapshot after the daemon
+returned. Starting the service after App Manager and media were already available also passed.
 
 ## D-Bus facade
 
@@ -190,10 +191,9 @@ configured App Manager resource capacity. These booleans are never accepted from
   qualification and release acceptance remain open. Deterministic install/update process-crash
   injection is delivered.
 - Released FW evidence service is a separate contract and does not affect install authority.
-- The earlier candidate proved `SubmitInstall`, `SubmitUpdate`, `SubmitRollback` and
-  `GetOperation`, including duplicate idempotency keys. The complete asynchronous version 1 wire
-  still needs eSDK/QEMU and recorded-board validation before this document returns to
-  `board-smoke`; real backend conformance remains an external gate.
+- The closing candidate proved every version 1 asynchronous mutation plus `GetOperation`,
+  duplicate idempotency and daemon restart on the recorded board. Real backend conformance remains
+  an external gate and must not be inferred from the AI-owned control client.
 
 ## See also
 

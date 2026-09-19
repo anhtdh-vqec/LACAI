@@ -17,23 +17,27 @@ release bên ngoài vẫn mở nên product chưa đạt `accepted`. **Layer:** 
 
 ## Bằng chứng thực thi hiện tại
 
-- Operation baseline `1bb3ff5`, layout refactor `0861d35`; closing eSDK/QEMU expanded suite
-  168/168 pass ngày 2026-09-20.
-- Service candidate
-  `818e31a4d909981f314d96cb81caddf2df772db3d0f565edf90300b1d74531f4` và App Manager
-  `4076e2f296da8d4fb374bb02eaaf34025a5a113405de1cae6bdc6644c0f8a1bc` chạy trên machine
+- Closing source candidate `48c385b`; expanded eSDK/QEMU suite 170/170 pass ngày
+  2026-09-20.
+- Service SHA-256
+  `7b0d1f59a711037e0f2615fe6cb9ed24340e2109efe3ac57948e2cbf94171af4` và App Manager
+  `d9fdc8ce316105860d55a490c18484ab59fb1482098fba87668d261504f54c97` chạy trên machine
   ID đã đăng ký. Chín focused S04/App Manager/metadata/evidence native tests pass.
 - Fresh inventory chứng minh no app → signed entitlement → asynchronous install → desired enable bằng
   snapshot revision 2 → 3 → 4. Service chạy trước App Manager và camera; `libQnnHtp.so` chưa map
   trước frame đầu tiên.
-- Mười chu kỳ disable/enable cách nhau 5 giây pass; ring đều resume, service/App Manager FD giữ
-  73/11 và RSS service tăng 16.176 KiB, dưới gate 32 MiB.
-- Full workload 5 phút đạt service 10,50% + App Manager 3,83% = 14,33% một core; ring tăng
-  8.942 frame/301 giây. RTSP H.264 1920×1080 đạt 30,124 FPS trong phép đo 8 giây.
-- Closing candidate `9c51da5` nạp catalog đủ S01-S18; S04 là entry duy nhất
+- Mười chu kỳ disable/enable cách nhau 5 giây pass; ring đều resume, service FD
+  74→74 và RSS service tăng 16.968 KiB, dưới gate 32 MiB.
+- Full workload 300,890 giây đạt service 10,835% + App Manager 3,759% = 14,594% một
+  core; ring tăng 8.965 frame, tương đương 29,795 FPS. RTSP H.264 1920×1080 đạt
+  30,124 FPS trong phép đo 8 giây.
+- Closing candidate `48c385b` nạp catalog đủ S01-S18; S04 là entry duy nhất
   `supported/installed/entitled/running`. Fresh inventory đi qua revision 1→2→3→4 và mười chu kỳ
-  5 giây pass. S04-only 300,107 giây đạt 8.942 frame, service 10,60% và App Manager 3,86% một
-  logical core; RTSP đạt 30,124 FPS.
+  5 giây pass.
+- Camera producer dừng sạch hơn 120 giây không làm AI process thoát. Khi camera trở lại,
+  generation cũ drain với `source_lost`, backoff 1.000 ms, generation mới resume 150 frame/5
+  giây với cùng PID. Restart App Manager 10 giây và trường hợp AI start sau cả hai dependency
+  cũng pass.
 - Asynchronous install/update/rollback đều đạt terminal success, duplicate idempotency key không
   tăng revision; uninstall/reinstall đưa app về `desired=false` trước khi enable lại.
 - Startup 30 giây trung bình 13,36%, peak một mẫu 1 giây là 86%. `perf` quy peak cho
@@ -59,7 +63,7 @@ Raw acceptance boundary và số đo nằm tại
 | Package update/rollback | Đóng ở mức board-smoke: journal, content generation, idempotency và rollback 1.0.1 → 1.0.0 đã chạy |
 | Qualcomm cold start | Mở: first-frame safety đạt, synchronous `GraphPrepare` peak chưa giảm |
 | Released-FW evidence | Mở ngoài AI APP: chưa có receiver/media receipt C07 |
-| Backend/API conformance | Mở ngoài candidate AI: backend thật chưa chạy bộ conformance; AI wire toàn bộ mutation đã logic-tested nhưng chưa chạy lại board |
+| Backend/API conformance | Mở ngoài candidate AI: backend thật chưa chạy bộ conformance; AI wire toàn bộ mutation đã pass eSDK/QEMU và board |
 
 Phần triển khai và kiểm thử AI-owned của plan đã đóng ở mức `board-smoke`. Tài liệu không được đổi
 thành `accepted` vì model-quality, backend/released-FW và release-soak cần đúng owner/evidence riêng.
@@ -87,11 +91,11 @@ thành `accepted` vì model-quality, backend/released-FW và release-soak cần 
 | Service entrypoint | `service_main` 8 dòng; bootstrap/generation/platform/feature/enrollment/output đã tách owner | Generation controller còn lớn nhưng không còn là executable monolith |
 | Feature config | Signed package/configuration CAS đi qua App Manager và typed factory | Model-quality bounds/receipt do AI Model chưa accepted |
 | Fire/smoke model | QCS6490 package, generic DSP preprocess/decode và temporal S04 processor đã chạy | Real-sequence M0-M5 alarm quality receipt chưa có |
-| Usecase identity | Registry dùng `security.fire_smoke_detection` | Fixture đang dùng `fire_smoke_detection` và không có `feature_ids` |
-| Threshold | Decoder package đang có confidence `0.25`, IoU `0.45` | Đây là decode defaults cố định trong package; chưa có app configuration authority |
+| Usecase identity | Registry và fixture dùng `security.fire_smoke_detection`; snapshot bind `fire_smoke_alarm` qua `feature_ids` | Không còn khoảng trống AI-owned trong baseline S04 |
+| Threshold | Decoder candidate floor thuộc model package; alarm/temporal/ROI/evidence policy thuộc typed app configuration và CAS revision | Bounds/calibration receipt của AI Model chưa accepted |
 | Event output | Neutral dispatch, durable SQLite outbox, UDS v1, retry/revoke worker và receipt có source/test | Released-FW receiver/media receipt chưa có |
 | Metadata | P2 projection nhận stable S04 episode/contribution và query Q08/Q15 | Natural event correlation trên real sequence chưa được board-accepted |
-| App lifecycle | Ed25519 verifier, S01-S18 catalog/status, persistent inventory/content, async journal, update/rollback, D-Bus daemon và runtime reconcile đã chạy board | Remaining mutation migration và backend implementation conformance còn mở |
+| App lifecycle | Ed25519 verifier, S01-S18 catalog/status, persistent inventory/content, async journal cho mọi mutation, update/rollback, D-Bus daemon và runtime reconcile đã chạy board | Backend implementation conformance còn mở ngoài AI candidate |
 
 ### 1.2. Quyết định kiến trúc
 

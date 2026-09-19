@@ -3,7 +3,8 @@
 Application composition: binds admitted sessions, modules and owner factories to the neutral
 ports and drives them one bounded step at a time. Feature business rules stay out of `main`.
 
-- **Status:** accepted — production composition and P2 metadata exact-candidate gates pass
+- **Status:** board-smoke — production composition, P2 metadata and S04 lifecycle exact-candidate
+  gates pass; released-FW and model-quality acceptance remain open
 - **Layer:** app
 - **Naming registry:** `appl` (`cgpmp`, `mmump`, `mmses`, `camsn`, `mssup`, `prstg`, `prfac`, `spfac`, `ftfan`, `mmrrt`, `mmfpl`, `acomp`, `rtexe`, `svcmn`, `svopt`, `enprp`, `rcfac`, `pdplt`, `mdsvc`, `mdrun`)
 - **Depends on:** neutral ports in `include/vqec/vision/ai/ports/`, `src/core/`, `src/perception/`, `src/runtime/`
@@ -65,19 +66,22 @@ ports and drives them one bounded step at a time. Feature business rules stay ou
   workers; `--source-execution threaded` separately moves each source session off the
   control/output thread. Defaults remain serialized and unsupported QoS fails closed.
   `--runtime-step-interval-us` explicitly controls the service polling/pacing interval;
-  it must be positive and defaults to 1000 microseconds. Lower values trade more control
+  it must be positive and defaults to 10000 microseconds. Lower values trade more control
   loop wakeups for lower multi-step scheduling latency and require workload measurement.
   Completed model slots transfer their retained frame to the one result consumer so stale
   per-slot owners cannot fill a bounded camera producer. The cascade reuses its configured
   quantization/input workspace, avoiding a per-face graph-input deep copy. Released-FW
   interoperability, hardware-completion evidence and sustained thermal performance remain open.
+- `--source-recovery-backoff-ms` is validated policy for replacing a completely drained
+  `source_lost` generation with fresh owners. The default is 1000 ms. It does not retry QNN,
+  timeout or ambiguous hardware failures. Graph preparation in the replacement remains gated by
+  its first real frame; missing camera, App Manager or backend never authorizes HTP loading.
 - Metadata persistence runs on its own bounded writer; asynchronous write failure is exposed as
   required-runtime health and final service error. Chunk identity is unique across track
   reappearance and process restart. Kafka transport remains Plan 3.
-- The `.98` integration run sustained
-  29.1 encoded FPS with 1 FPS inference. A later 30/1 cadence run using the Qualcomm
-  FastCV image-processor adapter sustained 30 AI results/s and 30.1 RTSP FPS; multi-source,
-  percentile latency and thermal limits remain unqualified.
+- The exact `.102` S04 candidate sustained 29.795 ring FPS for 300.890 seconds at 10.835%
+  service CPU and survived a camera outage longer than 120 seconds with the same process PID.
+  Multi-source, percentile latency, released-FW recovery and thermal limits remain unqualified.
 
 ## See also
 

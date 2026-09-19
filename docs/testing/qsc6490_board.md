@@ -179,14 +179,16 @@ Over 301 seconds the ring advanced 8,942 frames; service CPU averaged 10.50% and
 dark-scene preview limitation are recorded in
 [S04 validation](fire_smoke_product_slice_validation.md).
 
-The closing candidate at commit `9c51da5da05dc7928c20c0fae697794da4c3f534` added the bounded
+The closing candidate at commit `48c385b` added bounded source-loss generation replacement to the
 S01-S18 product catalog/status boundary. Exact hashes are recorded in S04 validation. A fresh
 inventory advanced 1→2→3→4 through entitlement, asynchronous install and enable; catalog listing
 reported S04 running and all 17 unavailable apps unsupported. Ten five-second toggle cycles passed
-with service FDs 74→74. The S04-only five-minute interval advanced 8,942 frames in 300.107 seconds,
-averaged 10.60% service CPU plus 3.86% App Manager CPU, and kept threads at 23/5. Host capture
-measured H.264 1920×1080 at 30.124 FPS. The scene remained almost black, so this adds no model
-accuracy or overlay-placement claim.
+with service FDs 74→74. The S04-only five-minute interval advanced 8,965 frames in 300.890 seconds,
+averaged 10.835% service CPU plus 3.759% App Manager CPU, and kept threads at 23/5. A clean camera
+outage longer than 120 seconds retained the service PID and resumed 150 frames in five seconds
+after drained generation replacement; an App Manager restart and reverse startup order also
+passed. Host capture measured H.264 1920×1080 at 30.124 FPS. The scene remained almost black, so
+this adds no model accuracy or overlay-placement claim.
 
 ## Evidence record
 

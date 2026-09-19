@@ -3,9 +3,9 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the role-oriented tree passed eSDK 170/170; the prior clean-layout
-QCS6490 run passed 128/128 native executables. Current S04 catalog/lifecycle behavior passed the
-exact-candidate board gate; release acceptance remains open. **Layer:** docs.
+**Status:** board-smoke — the role-oriented tree passed eSDK 170/170; the clean-layout QCS6490
+run passed 128/128 native executables, and closing S04 candidate `48c385b` passed lifecycle,
+recovery and five-minute board gates. Release acceptance remains open. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.
 
 ## Responsibility
@@ -161,6 +161,10 @@ Before adding a file:
 - Header/source pairs count as one logical owner. Current implementation leaves contain at most
   nine logical owners and remain cohesive; a raw file-count target is not grounds for moving a
   stable public include or splitting one lifecycle across artificial directories.
+- The closing audit counted the largest public `inference/` and `media/` include leaves at 14
+  cohesive contract headers each. Those are API-kind namespaces, not implementation owners.
+  Moving them solely to lower a directory count would break stable include paths without improving
+  dependency direction, so no such churn was accepted.
 - The large SQLite implementations remain isolated behind narrow ports, but splitting their SQL,
   migration and projection internals is separate behavior-sensitive work; directory cleanup does
   not pretend that such a split has already happened.

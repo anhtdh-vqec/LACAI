@@ -44,7 +44,10 @@ data are included.
 ## State machine and configuration
 
 States: `idle -> acquiring -> configuring -> loading -> binding -> starting -> running
--> draining_graph -> releasing_camera -> stopped`. One acquisition cycle, no restart.
+-> draining_graph -> releasing_camera -> stopped`. One session owner performs one acquisition
+cycle and never restarts itself. After a completely drained `source_lost` terminal state, the
+service-generation owner may destroy this session and construct a fresh generation after its
+configured backoff; it never reuses this owner.
 
 Config includes an explicit plan, source binding, ordered output specs, cycle ID, job timeout,
 startup timeout, stop timeout and bounded RPC timeout. Initial plan and binding and full tensor
@@ -81,7 +84,8 @@ during stop.
 - No automatic retry cycle, new request IDs, BSP reset, process kill, configuration loader,
   decoder, event routing or service main is introduced.
 - Full socket/model startup and pending-hardware teardown still require integration tests.
-- Automatic source/BSP recovery remains open.
+- In-process replacement of a completely drained source-loss generation is delivered and passed
+  compatibility-board smoke. Per-session retry, BSP reset and released-FW recovery remain open.
 
 ## See also
 

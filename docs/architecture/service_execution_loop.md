@@ -3,8 +3,9 @@
 This document defines the bounded hot-loop owner for one already-composed service generation.
 It keeps per-generation progress state out of bootstrap, composition and shutdown code.
 
-**Status:** logic-tested — direct cadence/context tests and service characterization tests pass
-under the approved eSDK/QEMU profile. **Layer:** app.
+**Status:** board-smoke — direct cadence/context tests pass under the approved eSDK/QEMU profile;
+the recorded QCS6490 run also passed no-frame startup, a camera outage longer than 120 seconds and
+same-process recovery. **Layer:** app.
 **Source:** `src/app/service/generation/vqec_vision_service_execution_loop.{hpp,cpp}`,
 `tests/unit/application/vqec_vision_service_execution_loop_test.cpp`.
 
@@ -40,6 +41,25 @@ can poll control state, but a cascade graph remains stopped until its primary so
 one of the post-frame startup phases. Primary Qualcomm graph creation follows the source-session
 first-frame gate. Consequently process start, D-Bus availability and desired state alone cannot
 load DSP/HTP.
+
+## Source-loss recovery
+
+A source adapter may wait for its producer and reconnect without terminating the generation. If
+the source instead reports `source_lost`, the execution loop continues bounded progress until the
+composition is completely stopped and drained. Only that exact terminal combination requests a
+generation replacement. QNN failures, timeouts and ambiguous faults remain fatal; they are not
+converted into an unbounded retry loop.
+
+The service shutdown owner observes the already-stopped composition without stepping it again,
+releases the old generation, applies the validated `source_recovery_backoff_ms` policy and creates
+fresh owners from the last committed control snapshot. Graph preparation is still behind the new
+generation's first-frame gate. A restart request never reuses an owner that may retain hardware
+access.
+
+The closing board test stopped the compatibility camera cleanly for more than 120 seconds. The
+ring stopped while the service PID remained alive. Once media returned, the drained source-loss
+generation was replaced after a 1,000 ms backoff and the ring resumed 150 frames in five seconds
+with the same process PID. This is compatibility-board evidence, not released-FW acceptance.
 
 ## Limits and next work
 

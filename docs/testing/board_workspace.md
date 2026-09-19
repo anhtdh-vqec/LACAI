@@ -4,9 +4,9 @@ Scope: the canonical QCS6490 board workspace, its directory layout, and the exac
 stage, test and run workflow. Every board session follows this so evidence is reproducible
 and no personal directory names enter the repository.
 
-**Status:** accepted — the canonical layout and asynchronous-install runner are current; the
-closing S04-only candidate ran at 30.124 preview FPS, 10.60% service CPU and 3.86% App Manager CPU
-over five minutes on `.102` on 2026-09-20. **Layer:** docs.
+**Status:** accepted — the canonical layout and asynchronous-lifecycle runner are current; the
+closing S04-only candidate ran at 30.124 preview FPS, 10.835% service CPU and 3.759% App Manager
+CPU over five minutes on `.102` on 2026-09-20. **Layer:** docs.
 **Source:** `tools/board/vqec_vision_run_full.sh`.
 
 ## Standard root and layout
@@ -124,6 +124,8 @@ Open `rtsp://192.168.0.102:8554/live/ai/detect0` in VLC after `start` reports su
 documented `LACAI_*` environment variables in the script, while the canonical defaults use only
 `/opt/lacai` and the current `.102` address. The default full workload uses parallel model
 execution, eight output surfaces, 30 FPS preview and the registered `qcom,system` DMA heap.
+`LACAI_SOURCE_RECOVERY_BACKOFF_MS` controls the validated delay before a completely drained
+source-loss generation is replaced; its default is 1,000 ms.
 
 Verify from the host:
 
@@ -147,6 +149,13 @@ uninstall/reinstall and ten five-second desired-state cycles. Its one-second col
 peak remained 86% in Qualcomm `GraphPrepare`; see
 [S04 validation](fire_smoke_product_slice_validation.md). A compatibility camera contact sheet
 that contains no visible target cannot be used to claim overlay accuracy.
+
+The exact closing candidate also survived a clean camera stop longer than 120 seconds and a
+ten-second App Manager restart without changing the service PID. Camera return caused the
+source-loss generation to drain, wait the configured backoff and resume 150 frames in five
+seconds with fresh owners. Starting the AI service after both dependencies were already running
+also passed. Raw candidate evidence is under `/opt/lacai/out/fire_smoke_48c385b/`; it is tied to
+the hashes in the S04 validation record and is not released-FW evidence.
 
 ## Troubleshooting and rules
 
