@@ -29,6 +29,7 @@
 
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
+#include "vqec_vision_service_feature_activation.hpp"
 #include "vqec_vision_service_startup.hpp"
 #include "vqec_vision_service_feature_registry.hpp"
 #include "vqec_vision_deployment_config.hpp"
@@ -157,16 +158,6 @@ model_outputs vqec_vision_ai_appl_svgen_synthetic_outputs(const model_catalog_en
     outputs.outputs_.push_back({service_harness::g_box_tensor_name,
         {1, service_harness::g_box_elements}, tensor_element_type::float32, {}});
     return outputs;
-}
-
-std::uint16_t vqec_vision_ai_appl_svgen_model_slot(
-    const source_deployment_config& _source, const std::string& _model_id) {
-    for (std::uint16_t slot = 0; slot < _source.model_ids_.size(); ++slot) {
-        if (_source.model_ids_[slot] == _model_id) {
-            return slot;
-        }
-    }
-    return g_invalid_model_slot;
 }
 
 const model_catalog_entry* vqec_vision_ai_appl_svgen_find_model(
@@ -369,71 +360,6 @@ status vqec_vision_ai_appl_svgen_build_model_activations(
         }
     }
     return {};
-}
-
-status vqec_vision_ai_appl_svgen_resolve_runtime_feature_configuration(
-    const service_startup_resolution& _startup, const std::string& _source_id,
-    const feature_catalog_entry& _feature, feature_configuration& _configuration,
-    std::vector<std::string>& _output_scopes) {
-    const app_runtime_association* selected = nullptr;
-    for (const auto& usecase : _startup.usecase_control.catalog_.usecases_) {
-        if (std::find(usecase.feature_ids_.begin(), usecase.feature_ids_.end(),
-                _feature.feature_id_) == usecase.feature_ids_.end()) {
-            continue;
-        }
-        for (const auto& association : _startup.runtime_control.associations_) {
-            if (association.app_id_ != usecase.usecase_id_ ||
-                association.source_id_ != _source_id || !association.is_effective()) {
-                continue;
-            }
-            if (selected != nullptr &&
-                (selected->configuration_schema_id_ !=
-                        association.configuration_schema_id_ ||
-                    selected->configuration_revision_ !=
-                        association.configuration_revision_ ||
-                    selected->configuration_sha256_ !=
-                        association.configuration_sha256_ ||
-                    selected->configuration_payload_ !=
-                        association.configuration_payload_ ||
-                    selected->output_scopes_ != association.output_scopes_)) {
-                return {status_code::invalid_state,
-                    "effective applications disagree on shared feature configuration"};
-            }
-            selected = &association;
-        }
-    }
-    if (selected == nullptr) {
-        return {status_code::unauthorized,
-            "effective feature has no runtime-control application association"};
-    }
-    if (selected->configuration_schema_id_ != _feature.configuration_schema_) {
-        return {status_code::protocol_error,
-            "runtime-control configuration schema differs from feature catalog"};
-    }
-    try {
-        _configuration.schema_id_ = selected->configuration_schema_id_;
-        _configuration.revision_ = selected->configuration_revision_;
-        _configuration.payload_ = selected->configuration_payload_;
-        _output_scopes = selected->output_scopes_;
-        return {};
-    } catch (const std::bad_alloc&) {
-        return {status_code::resource_exhausted,
-            "runtime feature configuration allocation failed"};
-    }
-}
-
-// Appends one FR output-scope rule per deployment source. Shared by the feature-wiring and
-// FR-only policy paths so the FR entitlement rule is defined once.
-void vqec_vision_ai_appl_svgen_append_fr_policy_rules(output_policy& _policy,
-    const deployment_config& _deployment, const std::string& _feature_id,
-    const std::string& _attribute_id) {
-    for (const auto& source : _deployment.sources_) {
-        output_scope_rule rule;
-        rule.source_id_ = source.source_id_;
-        rule.feature_id_ = _feature_id;
-        rule.attributes_.push_back(_attribute_id);
-        _policy.rules_.push_back(std::move(rule));
-    }
 }
 
 int vqec_vision_ai_appl_svgen_run_generation(
@@ -730,252 +656,18 @@ int vqec_vision_ai_appl_svgen_run_generation(
         return 1;
     }
 
-    // Optional feature activation. Only single_model features are wired by this harness;
-    // temporal_join remains a documented activation-time gap.
-    feature_activation_manager feature_manager;
-    std::array<std::unique_ptr<feature_fanout>,
-        deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source>
-        fanouts{};
-    runtime_feature_activation feature_wiring;
-    feature_wiring.deployment_revision_ = deployment.revision_;
-    feature_wiring.catalog_revision_ = catalog.revision_;
-    feature_wiring.source_count_ = activation.source_count_;
-    bool has_feature_wiring = false;
-    bool output_policy_applied = false;
-    if (!features.features_.empty()) {
-        const auto configured = feature_manager.vqec_vision_ai_ftmgr_famgr_configure(
-            features, catalog, deployment);
-        if (configured.code_ != status_code::ok) {
-            std::fprintf(stderr, "feature activation configure failed (%d): %s\n",
-                static_cast<int>(configured.code_), configured.message_.c_str());
-            return 1;
-        }
-        std::array<feature_activation_request,
-            feature_activation_limits::g_max_associations> requests{};
-        std::array<std::pair<std::uint16_t, std::uint16_t>,
-            feature_activation_limits::g_max_associations> request_slots{};
-        std::array<std::vector<std::string>,
-            feature_activation_limits::g_max_associations> authorized_output_scopes{};
-        std::uint16_t request_count = 0;
-        for (std::uint16_t source_slot = 0; source_slot < activation.source_count_; ++source_slot) {
-            const auto& source = deployment.sources_[source_slot];
-            for (const auto& feature : features.features_) {
-                if (feature.input_mode_ != feature_input_mode::single_model ||
-                    feature.model_dependencies_.size() != 1) {
-                    continue;
-                }
-                const auto slot = vqec_vision_ai_appl_svgen_model_slot(
-                    source, feature.model_dependencies_[0].model_id_);
-                if (slot == g_invalid_model_slot) {
-                    continue;
-                }
-                auto& request = requests[request_count];
-                request.source_id_ = source.source_id_;
-                request.feature_id_ = feature.feature_id_;
-                if (startup.has_usecase_control) {
-                    const auto projected =
-                        vqec_vision_ai_core_ucact_project_feature_association(
-                            startup.usecase_control.catalog_, startup.usecase_activation,
-                            deployment, source.source_id_, feature, request.association_);
-                    if (projected.code_ != status_code::ok) {
-                        std::fprintf(stderr, "feature association rejected (%d): %s\n",
-                            static_cast<int>(projected.code_), projected.message_.c_str());
-                        return 1;
-                    }
-                    request.desired_enabled_ = request.association_.desired_enabled_;
-                    request.entitlement_granted_ =
-                        request.association_.entitlement_granted_;
-                    request.resource_admitted_ = request.association_.resource_admitted_;
-                } else {
-                    const auto auth = vqec_vision_ai_appl_svstr_resolve_feature_authority(
-                        startup, args, source.source_id_, feature.feature_id_);
-                    request.desired_enabled_ = auth.desired_enabled_;
-                    request.entitlement_granted_ = auth.entitlement_granted_;
-                    request.resource_admitted_ = auth.resource_admitted_;
-                }
-                request.configuration_.schema_id_ = feature.configuration_schema_;
-                request.configuration_.revision_ = startup.has_usecase_control ?
-                    startup.usecase_activation.config_revision_ :
-                    service_harness::g_config_revision;
-                if (startup.has_runtime_control && request.desired_enabled_ &&
-                    request.entitlement_granted_ && request.resource_admitted_) {
-                    const auto resolved =
-                        vqec_vision_ai_appl_svgen_resolve_runtime_feature_configuration(
-                            startup, source.source_id_, feature,
-                            request.configuration_, authorized_output_scopes[request_count]);
-                    if (resolved.code_ != status_code::ok) {
-                        std::fprintf(stderr,
-                            "runtime feature configuration rejected (%d): %s\n",
-                            static_cast<int>(resolved.code_),
-                            resolved.message_.c_str());
-                        return 1;
-                    }
-                    request.association_.config_revision_ =
-                        request.configuration_.revision_;
-                }
-                request_slots[request_count] = {source_slot, slot};
-                ++request_count;
-            }
-        }
-        if (request_count != 0) {
-            feature_activation_snapshot snapshot;
-            const auto reconciled = feature_manager.vqec_vision_ai_ftmgr_famgr_reconcile(
-                requests, request_count, feature_registry, snapshot);
-            if (reconciled.code_ != status_code::ok) {
-                std::fprintf(stderr, "feature activation reconcile failed (%d): %s\n",
-                    static_cast<int>(reconciled.code_), reconciled.message_.c_str());
-                return 1;
-            }
-            // Explicit output entitlement for the wired associations that are actually ready.
-            output_policy policy;
-            policy.revision_ = startup.has_usecase_control ?
-                startup.usecase_activation.policy_revision_ :
-                service_harness::g_policy_revision;
-            policy.not_before_ns_ = 0;
-            policy.expires_ns_ = service_harness::g_policy_expiry_ns;
-            for (std::uint16_t index = 0; index < request_count; ++index) {
-                const auto* record = feature_manager.vqec_vision_ai_ftmgr_famgr_get_record(index);
-                if (record != nullptr && record->state_ == feature_effective_state::ready) {
-                    output_scope_rule rule;
-                    rule.source_id_ = record->source_id_;
-                    rule.feature_id_ = record->feature_id_;
-                    if (startup.has_usecase_control) {
-                        rule.attributes_ = startup.has_runtime_control
-                            ? authorized_output_scopes[index]
-                            : record->association_.attribute_scopes_;
-                    } else {
-                        rule.attributes_.push_back(attribute_schema_id);
-                    }
-                    policy.rules_.push_back(std::move(rule));
-                }
-            }
-            for (const auto& source : deployment.sources_) {
-                if (!vqec_vision_ai_appl_svstr_is_preview_authorized(
-                        startup, args, source.source_id_)) {
-                    continue;
-                }
-                output_scope_rule preview_rule;
-                preview_rule.source_id_ = source.source_id_;
-                preview_rule.feature_id_ = "preview";
-                preview_rule.attributes_.push_back("overlay");
-                policy.rules_.push_back(std::move(preview_rule));
-            }
-            if (fr_effectively_enabled) {
-                vqec_vision_ai_appl_svgen_append_fr_policy_rules(
-                    policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
-            }
-            const auto applied =
-                output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
-            if (applied.code_ != status_code::ok) {
-                std::fprintf(stderr, "output policy apply failed (%d): %s\n",
-                    static_cast<int>(applied.code_), applied.message_.c_str());
-                return 1;
-            }
-            output_policy_applied = true;
-            std::array<std::array<std::vector<feature_stage*>,
-                deployment_limits::g_max_models_per_source>,
-                deployment_limits::g_max_sources> stages_by_slot{};
-            for (std::uint16_t index = 0; index < request_count; ++index) {
-                auto* stage = feature_manager.vqec_vision_ai_ftmgr_famgr_get_stage(index);
-                if (stage != nullptr) {
-                    stages_by_slot[request_slots[index].first][request_slots[index].second]
-                        .push_back(stage);
-                }
-            }
-            for (std::uint16_t source_slot = 0; source_slot < activation.source_count_;
-                 ++source_slot) {
-                for (std::uint16_t model_slot = 0;
-                     model_slot < deployment_limits::g_max_models_per_source; ++model_slot) {
-                    auto& stages = stages_by_slot[source_slot][model_slot];
-                    if (stages.empty() ||
-                        stages.size() > feature_fanout_limits::g_max_feature_stages) {
-                        continue;
-                    }
-                    std::array<feature_stage*,
-                        feature_fanout_limits::g_max_feature_stages> stage_array{};
-                    for (std::size_t index = 0; index < stages.size(); ++index) {
-                        stage_array[index] = stages[index];
-                    }
-                    const std::size_t fanout_index =
-                        static_cast<std::size_t>(source_slot) *
-                            deployment_limits::g_max_models_per_source +
-                        model_slot;
-                    fanouts[fanout_index] = std::make_unique<feature_fanout>();
-                    const auto fanout_configured =
-                        fanouts[fanout_index]->vqec_vision_ai_appl_ftfan_configure(
-                            stage_array, static_cast<std::uint16_t>(stages.size()));
-                    if (fanout_configured.code_ != status_code::ok) {
-                        std::fprintf(stderr, "feature fan-out configure failed (%d): %s\n",
-                            static_cast<int>(fanout_configured.code_),
-                            fanout_configured.message_.c_str());
-                        return 1;
-                    }
-                    feature_wiring.sources_[source_slot].fanouts_[model_slot] =
-                        fanouts[fanout_index].get();
-                    has_feature_wiring = true;
-                }
-            }
-        }
+    service_feature_activation feature_activation;
+    const auto feature_configured = feature_activation.vqec_vision_ai_appl_svfac_configure(
+        startup, args, deployment, catalog, features, feature_registry,
+        attribute_schema_id, output_policy_gate, activation.source_count_);
+    if (feature_configured.code_ != status_code::ok) {
+        std::fprintf(stderr, "service feature activation failed (%d): %s\\n",
+            static_cast<int>(feature_configured.code_),
+            feature_configured.message_.c_str());
+        return 1;
     }
-
-    if (fr_effectively_enabled && !output_policy_applied) {
-        output_policy policy;
-        policy.revision_ = startup.has_usecase_control ?
-            startup.usecase_activation.policy_revision_ :
-            service_harness::g_policy_revision;
-        policy.not_before_ns_ = 0;
-        policy.expires_ns_ = service_harness::g_policy_expiry_ns;
-        for (const auto& source : deployment.sources_) {
-            if (!vqec_vision_ai_appl_svstr_is_preview_authorized(
-                    startup, args, source.source_id_)) {
-                continue;
-            }
-            output_scope_rule preview_rule;
-            preview_rule.source_id_ = source.source_id_;
-            preview_rule.feature_id_ = "preview";
-            preview_rule.attributes_.push_back("overlay");
-            policy.rules_.push_back(std::move(preview_rule));
-        }
-        vqec_vision_ai_appl_svgen_append_fr_policy_rules(
-            policy, deployment, args.fr_feature_id, args.fr_identity_attribute);
-        const auto applied =
-            output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
-        if (applied.code_ != status_code::ok) {
-            std::fprintf(stderr, "FR output policy apply failed (%d): %s\n",
-                static_cast<int>(applied.code_), applied.message_.c_str());
-            return 1;
-        }
-        output_policy_applied = true;
-    }
-
-    if (!output_policy_applied) {
-        output_policy policy;
-        policy.revision_ = startup.has_usecase_control ?
-            startup.usecase_activation.policy_revision_ :
-            service_harness::g_policy_revision;
-        policy.not_before_ns_ = 0;
-        policy.expires_ns_ = service_harness::g_policy_expiry_ns;
-        for (const auto& source : deployment.sources_) {
-            if (!vqec_vision_ai_appl_svstr_is_preview_authorized(
-                    startup, args, source.source_id_)) {
-                continue;
-            }
-            output_scope_rule preview_rule;
-            preview_rule.source_id_ = source.source_id_;
-            preview_rule.feature_id_ = "preview";
-            preview_rule.attributes_.push_back("overlay");
-            policy.rules_.push_back(std::move(preview_rule));
-        }
-        const auto applied =
-            output_policy_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
-        if (applied.code_ != status_code::ok) {
-            std::fprintf(stderr, "baseline preview output policy apply failed (%d): %s\n",
-                static_cast<int>(applied.code_), applied.message_.c_str());
-            return 1;
-        }
-        output_policy_applied = true;
-    }
-
+    const auto* feature_wiring =
+        feature_activation.vqec_vision_ai_appl_svfac_get_wiring();
     const auto delivery_started =
         output_runtime.vqec_vision_ai_appl_svout_start_delivery();
     if (delivery_started.code_ != status_code::ok) {
@@ -986,13 +678,10 @@ int vqec_vision_ai_appl_svgen_run_generation(
     }
 
 
-    if (has_feature_wiring) {
-        feature_manager.vqec_vision_ai_ftmgr_famgr_freeze();
-    }
     std::unique_ptr<runtime_composition_bundle> bundle;
     const auto created = vqec_vision_ai_appl_rcfac_create_bundle(
         deployment, catalog, activation, decoders, trackers, bundle,
-        has_feature_wiring ? &feature_wiring : nullptr);
+        feature_wiring);
     if (created.code_ != status_code::ok) {
         std::fprintf(stderr, "runtime composition failed (%d): %s\n",
             static_cast<int>(created.code_), created.message_.c_str());
@@ -1334,10 +1023,8 @@ int vqec_vision_ai_appl_svgen_run_generation(
 #endif
         recognition_enabled = true;
     }
-    if (output_policy_applied) {
-        executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(
-            output_policy_gate, active_event_sink);
-    }
+    executor->vqec_vision_ai_appl_rtexe_bind_event_delivery(
+        output_policy_gate, active_event_sink);
     const auto activated =
         bundle->vqec_vision_ai_appl_rcfac_get_composition()->vqec_vision_ai_cntr_acomp_activate();
     if (activated.code_ != status_code::ok) {
@@ -1432,7 +1119,7 @@ int vqec_vision_ai_appl_svgen_run_generation(
             if (taken_status.code_ == status_code::ok) {
                 routed_source_mask |= 1U << taken.source_index_;
                 feature_dispatch_report dispatch_report;
-                if (taken.has_feature_fanout_ && has_feature_wiring) {
+                if (taken.has_feature_fanout_ && feature_wiring != nullptr) {
                     const auto dispatched =
                         executor->vqec_vision_ai_appl_rtexe_dispatch_events(
                             events, taken.source_index_, taken.model_slot_,
@@ -1687,9 +1374,6 @@ int vqec_vision_ai_appl_svgen_run_generation(
                     overlay = {};
                 }
                 prepared_overlay prepared;
-                if (!output_policy_applied) {
-                    continue;
-                }
                 observation_batch render_observations = overlay;
                 if (render_observations.frame_.source_epoch_ == 0) {
                     render_observations.frame_.camera_id_ =

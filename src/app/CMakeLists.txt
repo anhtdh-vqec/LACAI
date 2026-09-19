@@ -89,6 +89,22 @@ target_link_libraries(vqec_vision_ai_service_startup PUBLIC
     vqec_vision_ai_usecase_control)
 set_target_properties(vqec_vision_ai_service_startup PROPERTIES CXX_EXTENSIONS OFF)
 
+add_library(vqec_vision_ai_service_feature_activation STATIC
+    service/generation/vqec_vision_service_feature_activation.cpp)
+target_include_directories(vqec_vision_ai_service_feature_activation PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/pipeline>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>)
+target_link_libraries(vqec_vision_ai_service_feature_activation PUBLIC
+    vqec_vision_ai_service_startup
+    vqec_vision_ai_feature_runtime
+    vqec_vision_ai_feature_fanout
+    vqec_vision_ai_runtime_composition_factory)
+set_target_properties(vqec_vision_ai_service_feature_activation
+    PROPERTIES CXX_EXTENSIONS OFF)
+
 add_library(vqec_vision_ai_metadata_service STATIC
     service/output/vqec_vision_metadata_service.cpp)
 target_include_directories(vqec_vision_ai_metadata_service PUBLIC
@@ -385,6 +401,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
     target_link_libraries(vqec_ai_vision_applications PRIVATE
         vqec_vision_ai_service_options
         vqec_vision_ai_service_startup
+        vqec_vision_ai_service_feature_activation
         vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_evidence_service
