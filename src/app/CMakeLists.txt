@@ -425,6 +425,19 @@ if(TARGET vqec_vision_ai_production_platform)
     endif()
     set_target_properties(vqec_vision_ai_service_enrollment_runtime
         PROPERTIES CXX_EXTENSIONS OFF)
+
+    add_library(vqec_vision_ai_service_shutdown STATIC
+        service/generation/vqec_vision_service_shutdown.cpp)
+    target_include_directories(vqec_vision_ai_service_shutdown PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>)
+    target_link_libraries(vqec_vision_ai_service_shutdown PUBLIC
+        vqec_vision_ai_runtime_executor
+        vqec_vision_ai_service_cascade_runtime
+        vqec_vision_ai_service_enrollment_runtime
+        vqec_vision_ai_service_output_runtime
+        vqec_vision_ai_event_delivery_seam)
+    set_target_properties(vqec_vision_ai_service_shutdown
+        PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 # Required external service executable. Built only when the JSON loaders and the
@@ -444,6 +457,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_service_platform
         vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_service_enrollment_runtime
+        vqec_vision_ai_service_shutdown
         vqec_vision_ai_metadata_runtime
         vqec_vision_ai_evidence_service
         vqec_vision_ai_service_output_runtime

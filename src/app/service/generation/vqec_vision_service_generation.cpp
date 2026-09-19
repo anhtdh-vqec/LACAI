@@ -31,6 +31,7 @@
 #include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_feature_activation.hpp"
 #include "vqec_vision_service_platform.hpp"
+#include "vqec_vision_service_shutdown.hpp"
 #include "vqec_vision_service_enrollment_runtime.hpp"
 #include "vqec_vision_service_startup.hpp"
 #include "vqec_vision_deployment_config.hpp"
@@ -74,11 +75,9 @@ constexpr std::uint64_t g_step_interval_ns =
     service_options_limits::g_default_runtime_step_interval_ns;
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
 constexpr int g_reconcile_generation_exit_code = 4;
-constexpr int g_recovery_required_exit_code = 5;
 constexpr std::size_t g_max_active_track_labels = 256;
 constexpr std::uint64_t g_routed_log_interval_ns = 1000000000ULL;
 constexpr std::uint64_t g_nanoseconds_per_second = 1000000000ULL;
-constexpr std::uint64_t g_stop_drain_final_observation_steps = 1U;
 
 void vqec_vision_ai_appl_svgen_on_signal(int) {
     g_stop_requested = 1;
@@ -150,50 +149,6 @@ std::uint64_t vqec_vision_ai_appl_svgen_current_monotonic_ns() noexcept {
 
 bool vqec_vision_ai_appl_svgen_is_stop_requested() noexcept {
     return g_stop_requested != 0;
-}
-
-// Prints the end-of-generation metrics/report and decides the process exit code. Kept out
-// of run_generation so the report policy is reviewable on its own. route_latency_* is the
-// steady-clock interval from job reservation to result routing; it is not camera-to-output
-// latency and excludes FW capture and preview encode.
-int vqec_vision_ai_appl_svgen_report_and_decide(const runtime_executor_metrics& _metrics,
-    bool _stopped, bool _enrollment_ok, bool _cascade_ok, std::uint32_t _routed_sources,
-    bool _generation_published, status_code _first_error_code, bool _reconcile_requested,
-    std::uint32_t _require_sources) {
-    const auto route_avg_us = _metrics.end_to_end_samples_ == 0 ? 0ULL :
-        _metrics.end_to_end_ns_sum_ / (1000ULL * _metrics.end_to_end_samples_);
-    std::printf("metrics steps=%llu routed=%llu accepted=%llu denied=%llu failed=%llu "
-        "cascade_tasks=%llu cascade_embeddings=%llu cascade_failed=%llu "
-        "route_latency_avg_us=%llu route_latency_min_us=%llu route_latency_max_us=%llu "
-        "samples=%u\n",
-        static_cast<unsigned long long>(_metrics.steps_),
-        static_cast<unsigned long long>(_metrics.results_routed_),
-        static_cast<unsigned long long>(_metrics.events_accepted_),
-        static_cast<unsigned long long>(_metrics.events_denied_),
-        static_cast<unsigned long long>(_metrics.events_failed_),
-        static_cast<unsigned long long>(_metrics.cascade_tasks_accepted_),
-        static_cast<unsigned long long>(_metrics.cascade_embeddings_),
-        static_cast<unsigned long long>(_metrics.cascade_tasks_failed_),
-        static_cast<unsigned long long>(route_avg_us),
-        static_cast<unsigned long long>(_metrics.end_to_end_samples_ == 0 ? 0ULL :
-            _metrics.end_to_end_ns_min_ / 1000ULL),
-        static_cast<unsigned long long>(_metrics.end_to_end_ns_max_ / 1000ULL),
-        _metrics.end_to_end_samples_);
-    std::printf("service stopped=%s routed_sources=%u first_error=%d\n",
-        _stopped ? "true" : "false", _routed_sources,
-        static_cast<int>(_first_error_code));
-    // Owners (feature manager, fan-outs, registries, reference platform) outlive the
-    // bundle; the bundle's composition must be stopped before they are destroyed.
-    if (!_stopped || !_enrollment_ok || !_cascade_ok) {
-        return g_recovery_required_exit_code;
-    }
-    if (!_generation_published || _first_error_code != status_code::ok) {
-        return 1;
-    }
-    if (_reconcile_requested) {
-        return g_reconcile_generation_exit_code;
-    }
-    return _routed_sources >= _require_sources ? 0 : 1;
 }
 
 int vqec_vision_ai_appl_svgen_run_generation(
@@ -940,99 +895,20 @@ int vqec_vision_ai_appl_svgen_run_generation(
         }
     }
 
-    std::printf("stopping after %llu steps\n", static_cast<unsigned long long>(steps));
-    const auto stop = executor->vqec_vision_ai_appl_rtexe_request_stop(now_ns);
-    (void)stop;
-    const auto cascade_workers_drained =
-        vqec_vision_ai_appl_svcsc_drain_workers(cascade_owners, now_ns);
-    if (cascade_workers_drained.code_ != status_code::ok &&
-        first_error_code == status_code::ok) {
-        first_error_code = cascade_workers_drained.code_;
-    }
-    bool stopped = false;
-    const auto stop_drain_steps =
-        service_harness::g_default_stop_timeout_ns / args.runtime_step_interval_ns +
-        (service_harness::g_default_stop_timeout_ns % args.runtime_step_interval_ns != 0U
-                ? 1U : 0U) +
-        g_stop_drain_final_observation_steps;
-    for (std::uint64_t drain = 0U; drain < stop_drain_steps && !stopped; ++drain) {
-        // Drain must consume/discard a retained result, otherwise the executor refuses to
-        // advance and a result arriving at stop would prevent reaching stopped.
-        if (executor->vqec_vision_ai_appl_rtexe_has_pending()) {
-            executor->vqec_vision_ai_appl_rtexe_discard_pending();
-        }
-        const auto clock_now = vqec_vision_ai_appl_svgen_monotonic_ns();
-        now_ns = clock_now > now_ns ? clock_now :
-            now_ns + args.runtime_step_interval_ns;
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(args.runtime_step_interval_ns));
-        runtime_executor_report drain_report;
-        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(now_ns, drain_report);
-        if (drain_report.first_error_code_ != status_code::ok &&
-            first_error_code == status_code::ok) {
-            first_error_code = drain_report.first_error_code_;
-        }
-        if (progressed.code_ != status_code::ok && progressed.code_ != status_code::pending) {
-            if (first_error_code == status_code::ok) {
-                first_error_code = progressed.code_;
-            }
-            break;
-        }
-        stopped = executor->vqec_vision_ai_appl_rtexe_get_snapshot().state_ ==
-            application_composition_state::stopped;
-    }
-    if (!stopped && first_error_code == status_code::ok) {
-        first_error_code = status_code::timeout;
-    }
-    std::uint32_t routed_sources = 0;
-    for (std::uint32_t mask = routed_source_mask; mask != 0; mask &= mask - 1U) {
-        ++routed_sources;
-    }
-    const auto metrics = executor->vqec_vision_ai_appl_rtexe_get_metrics();
-    const auto enrollment_stopped = recognition_enabled ?
-        enrollment_runtime.vqec_vision_ai_appl_svenr_stop() : status{};
-    if (enrollment_stopped.code_ != status_code::ok &&
-        first_error_code == status_code::ok) {
-        first_error_code = enrollment_stopped.code_;
-    }
-    const auto cascade_stopped =
-        vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
-    if (cascade_stopped.code_ != status_code::ok && first_error_code == status_code::ok) {
-        first_error_code = cascade_stopped.code_;
-    }
-    service_output_runtime_report output_report;
-    const auto output_stopped =
-        output_runtime.vqec_vision_ai_appl_svout_stop(true, output_report);
-    if (output_stopped.code_ != status_code::ok &&
-        first_error_code == status_code::ok) {
-        first_error_code = output_stopped.code_;
-    }
-    if (output_report.has_metadata_) {
-        const auto& metadata_stats = output_report.metadata_;
-        std::printf("metadata accepted=%llu committed=%llu rejected=%llu failed=%llu\n",
-            static_cast<unsigned long long>(metadata_stats.accepted_records_),
-            static_cast<unsigned long long>(metadata_stats.committed_records_),
-            static_cast<unsigned long long>(metadata_stats.rejected_records_),
-            static_cast<unsigned long long>(metadata_stats.failed_records_));
-    }
-    if (output_report.has_evidence_) {
-        const auto& evidence_stats = output_report.evidence_;
-        std::printf("evidence durable=%llu retried=%llu completed=%llu rejected=%llu "
-            "exhausted=%llu transport_failures=%llu\n",
-            static_cast<unsigned long long>(evidence_stats.commands_durable_),
-            static_cast<unsigned long long>(evidence_stats.commands_retried_),
-            static_cast<unsigned long long>(evidence_stats.commands_completed_),
-            static_cast<unsigned long long>(
-                evidence_stats.commands_rejected_by_policy_),
-            static_cast<unsigned long long>(evidence_stats.commands_exhausted_),
-            static_cast<unsigned long long>(evidence_stats.transport_failures_));
-    }
-    if (use_production_platform) {
-        production_seam.vqec_vision_ai_outpt_evdsm_request_stop();
-        production_seam.vqec_vision_ai_outpt_evdsm_discard_pending();
-    }
-    return vqec_vision_ai_appl_svgen_report_and_decide(metrics, stopped,
-        enrollment_stopped.code_ == status_code::ok,
-        cascade_stopped.code_ == status_code::ok, routed_sources, generation_published,
-        first_error_code, reconcile_requested, args.require_sources);
+    service_shutdown_context shutdown;
+    shutdown.arguments_ = &args;
+    shutdown.executor_ = executor;
+    shutdown.cascade_owners_ = &cascade_owners;
+    shutdown.enrollment_ = &enrollment_runtime;
+    shutdown.output_ = &output_runtime;
+    shutdown.production_seam_ = &production_seam;
+    shutdown.steady_now_ns_ = now_ns;
+    shutdown.steps_ = steps;
+    shutdown.routed_source_mask_ = routed_source_mask;
+    shutdown.first_error_code_ = first_error_code;
+    shutdown.recognition_enabled_ = recognition_enabled;
+    shutdown.production_platform_ = use_production_platform;
+    shutdown.generation_published_ = generation_published;
+    shutdown.reconcile_requested_ = reconcile_requested;
+    return vqec_vision_ai_appl_svshd_stop_and_report(shutdown);
 }
