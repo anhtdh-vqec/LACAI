@@ -494,6 +494,12 @@ endif()
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME sqlite_metadata_store
         COMMAND vqec_vision_ai_sqlite_metadata_store_test)
+    add_executable(vqec_vision_ai_metadata_store_benchmark
+        board/vqec_vision_metadata_store_benchmark.cpp)
+    target_link_libraries(vqec_vision_ai_metadata_store_benchmark
+        PRIVATE vqec_vision_ai_sqlite_metadata_store)
+    set_target_properties(vqec_vision_ai_metadata_store_benchmark
+        PROPERTIES CXX_EXTENSIONS OFF)
     add_executable(vqec_vision_ai_face_enrollment_controller_test
         unit/perception/vqec_vision_face_enrollment_controller_test.cpp)
     target_link_libraries(vqec_vision_ai_face_enrollment_controller_test

@@ -504,6 +504,8 @@ SQLite metadata baseline `src/adapters/storage/vqec_vision_sqlite_metadata_store
 `mdsql`, prefix `vqec_vision_ai_stor_mdsql_`.
 Its unit test `tests/unit/adapters/storage/vqec_vision_sqlite_metadata_store_test.cpp` uses file_id
 `mdstst`, prefix `vqec_vision_ai_unit_mdstst_`; `main` retains the language entrypoint spelling.
+The non-CTest board benchmark `tests/board/vqec_vision_metadata_store_benchmark.cpp` uses file_id
+`mdben`, prefix `vqec_vision_ai_board_mdben_`; `main` retains the language entrypoint spelling.
 
 Hexagon build owner: `tools/build/vqec_vision_build_dsp_v1.sh`, file_id `bldd1`. The script uses
 top-level control flow only and writes exclusively to an explicit empty output directory.
