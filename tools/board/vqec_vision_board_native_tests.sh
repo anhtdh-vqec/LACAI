@@ -62,6 +62,12 @@ for test_binary in vqec_vision_ai_*; do
         vqec_vision_ai_decoder_package_test)
             ./"$test_binary" "$manifest_models" >/tmp/vqec_native_test.out 2>&1 || status=$?
             ;;
+        vqec_vision_ai_app_manager_test)
+            ./"$test_binary" \
+                "$manifest_models/../../config/defaults/usecase_app_manifest.fire_smoke.example.json" \
+                "$manifest_models/../../config/defaults/fire_smoke_configuration.example.json" \
+                >/tmp/vqec_native_test.out 2>&1 || status=$?
+            ;;
         vqec_vision_ai_zvec_embedding_index_test)
             ./"$test_binary" "$zvec_collection" "$private_probe" \
                 >/tmp/vqec_native_test.out 2>&1 || status=$?

@@ -17,6 +17,9 @@ namespace {
 
 using namespace vqec::vision::ai;
 
+const char* g_manifest_fixture = VQEC_VISION_AI_APP_MANIFEST_FIXTURE;
+const char* g_configuration_fixture = VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE;
+
 struct test_database {
     std::string directory_;
     std::string path_;
@@ -112,10 +115,10 @@ app_manager_config vqec_vision_ai_unit_amtest_manager_config() {
 app_package_candidate vqec_vision_ai_unit_amtest_candidate() {
     app_package_candidate candidate;
     candidate.manifest_payload_ = vqec_vision_ai_unit_amtest_read(
-        VQEC_VISION_AI_APP_MANIFEST_FIXTURE);
+        g_manifest_fixture);
     candidate.manifest_sha256_ = VQEC_VISION_AI_APP_MANIFEST_SHA256;
     candidate.configuration_payload_ = vqec_vision_ai_unit_amtest_read(
-        VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE);
+        g_configuration_fixture);
     candidate.configuration_sha256_ =
         "07e72c1c0bdb8762f3c2771c0d46f5207b8ae9af9a04ef4a7832d2104930e935";
     candidate.signature_payload_ = {'t', 'e', 's', 't'};
@@ -248,7 +251,13 @@ void vqec_vision_ai_unit_amtest_test_target_and_digest_fail_closed() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 3) {
+        g_manifest_fixture = argv[1];
+        g_configuration_fixture = argv[2];
+    } else if (argc != 1) {
+        return 2;
+    }
     vqec_vision_ai_unit_amtest_test_full_lifecycle_and_restart();
     vqec_vision_ai_unit_amtest_test_target_and_digest_fail_closed();
     return 0;
