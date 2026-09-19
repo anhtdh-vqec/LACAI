@@ -105,16 +105,22 @@ ctest --test-dir "$lacai_neutral_build" --output-on-failure
 # Cấu hình mở rộng; Zvec enabled by default, acquire pinned public SDK once
 bash tools/build/vqec_vision_prepare_zvec.sh
 # Skip bootstrap when third_party/zvec/sdk already exists.
-# Camera, D-Bus, GStreamer, Qualcomm, JSON, digest, QNN engine
+# Trỏ biến này tới Hexagon SDK 5.5.7.0 đã được duyệt; không commit SDK/path riêng.
+lacai_hexagon_sdk_root="${VQEC_VISION_AI_HEXAGON_SDK_ROOT:?set approved Hexagon SDK root}"
+# Camera, cả ba D-Bus boundary, GStreamer, Qualcomm, JSON, digest, QNN engine
 lacai_expanded_build="$(mktemp -d /tmp/lacai-esdk-expanded.XXXXXX)"
 cmake -S . -B "$lacai_expanded_build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
   -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS=ON \
+  -DVQEC_VISION_AI_ENABLE_APP_MANAGER_DBUS=ON \
   -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON \
   -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
   -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON -DVQEC_VISION_AI_ENABLE_MODEL_MANIFEST=ON \
   -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
   -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON -DVQEC_VISION_AI_BUILD_MANIFEST_CHECK=ON \
   -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON \
+  -DVQEC_VISION_AI_HEXAGON_SDK_ROOT="$lacai_hexagon_sdk_root" \
   "-DCMAKE_CROSSCOMPILING_EMULATOR=/home/a/Workspace/eSDK/tmp/sysroots/x86_64/usr/bin/qemu-aarch64;-L;$SDKTARGETSYSROOT"
 cmake --build "$lacai_expanded_build" -j4
 ctest --test-dir "$lacai_expanded_build" --output-on-failure

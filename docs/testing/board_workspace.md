@@ -5,8 +5,8 @@ stage, test and run workflow. Every board session follows this so evidence is re
 and no personal directory names enter the repository.
 
 **Status:** accepted — the canonical layout and asynchronous-install runner are current; the
-S04 candidate ran at 30.124 preview FPS and 14.33% combined service/App Manager CPU over five
-minutes on `.102` on 2026-09-20. **Layer:** docs.
+closing S04-only candidate ran at 30.124 preview FPS, 10.60% service CPU and 3.86% App Manager CPU
+over five minutes on `.102` on 2026-09-20. **Layer:** docs.
 **Source:** `tools/board/vqec_vision_run_full.sh`.
 
 ## Standard root and layout
@@ -37,9 +37,13 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
 
    ```bash
    source /home/a/Workspace/eSDK/environment-setup-armv8-2a-qcom-linux
+   lacai_hexagon_sdk_root="${VQEC_VISION_AI_HEXAGON_SDK_ROOT:?set approved Hexagon SDK root}"
    lacai_build_dir="$(mktemp -d /tmp/lacai-esdk.XXXXXX)"
    cmake -S . -B "$lacai_build_dir" -DBUILD_TESTING=ON \
      -DVQEC_VISION_AI_ENABLE_CAMERA=ON -DVQEC_VISION_AI_ENABLE_CAMERA_DBUS=ON \
+     -DVQEC_VISION_AI_ENABLE_FACE_ENROLLMENT_DBUS=ON \
+     -DVQEC_VISION_AI_ENABLE_USECASE_CONTROL_DBUS=ON \
+     -DVQEC_VISION_AI_ENABLE_APP_MANAGER_DBUS=ON \
      -DVQEC_VISION_AI_ENABLE_GST_FRAME_BRIDGE=ON \
      -DVQEC_VISION_AI_ENABLE_QUALCOMM=ON -DVQEC_VISION_AI_ENABLE_FASTCV=ON \
      -DVQEC_VISION_AI_ENABLE_QNN_ENGINE=ON \
@@ -47,7 +51,8 @@ Private Zvec storage lives on tmpfs under `/run`, not here.
      -DVQEC_VISION_AI_ENABLE_MODEL_CATALOG=ON \
      -DVQEC_VISION_AI_ENABLE_DEPLOYMENT_CONFIG=ON \
      -DVQEC_VISION_AI_ENABLE_FEATURE_CATALOG=ON \
-     -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON
+     -DVQEC_VISION_AI_ENABLE_ARTIFACT_DIGEST=ON \
+     -DVQEC_VISION_AI_HEXAGON_SDK_ROOT="$lacai_hexagon_sdk_root"
    cmake --build "$lacai_build_dir" -j"$(nproc)"
    ctest --test-dir "$lacai_build_dir" --output-on-failure
    ```

@@ -37,11 +37,6 @@ if(TARGET vqec_vision_ai_app_manager AND
    TARGET vqec_vision_ai_app_content_store)
     add_executable(vqec_vision_app_manager
         management/vqec_vision_app_manager_main.cpp)
-    target_include_directories(vqec_vision_app_manager PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/security>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/features/fire_smoke>)
     target_link_libraries(vqec_vision_app_manager PRIVATE
         vqec_vision_ai_app_manager_options
         vqec_vision_ai_app_manager
@@ -58,9 +53,6 @@ endif()
 if(TARGET vqec_vision_ai_app_manager_dbus)
     add_executable(vqec_vision_app_manager_control
         ${CMAKE_SOURCE_DIR}/tools/diagnostics/vqec_vision_app_manager_control.cpp)
-    target_include_directories(vqec_vision_app_manager_control PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/fw_control>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/lifecycle>)
     target_link_libraries(vqec_vision_app_manager_control PRIVATE
         vqec_vision_ai_app_manager_dbus)
     set_target_properties(vqec_vision_app_manager_control PROPERTIES CXX_EXTENSIONS OFF)
@@ -134,8 +126,7 @@ set_target_properties(vqec_vision_ai_service_platform PROPERTIES CXX_EXTENSIONS 
 add_library(vqec_vision_ai_metadata_service STATIC
     service/output/vqec_vision_metadata_service.cpp)
 target_include_directories(vqec_vision_ai_metadata_service PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/adapters/storage>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/output>)
 target_link_libraries(vqec_vision_ai_metadata_service PUBLIC
     vqec_vision_ai_spatiotemporal_store Threads::Threads)
 set_target_properties(vqec_vision_ai_metadata_service PROPERTIES CXX_EXTENSIONS OFF)

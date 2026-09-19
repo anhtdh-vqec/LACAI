@@ -3,9 +3,9 @@
 This document defines the physical repository map, ownership boundaries and dependency
 direction used to keep LACAI scalable as models, features and platforms are added.
 
-**Status:** board-smoke — the current tree passed eSDK 136/136 and QCS6490 `.98` 128/128
-native executables on 2026-09-18. The canonical deployment and exact cDSP-overlay person
-candidate passed preview smoke; release acceptance remains open. **Layer:** docs.
+**Status:** board-smoke — the role-oriented tree passed eSDK 168/168; the prior clean-layout
+QCS6490 run passed 128/128 native executables. Current S04 catalog/lifecycle behavior passed the
+exact-candidate board gate; release acceptance remains open. **Layer:** docs.
 **Source:** `src/`, `include/`, `tests/`, `tools/`, `config/`, `manifests/`.
 
 ## Responsibility
@@ -158,6 +158,9 @@ Before adding a file:
   released-FW, DSP deployment, accuracy, thermal or long-run acceptance.
 - `include/` remains intentionally grouped by public API kind to avoid gratuitous include-path
   breakage. A future split requires an approved compatibility/migration decision.
+- Header/source pairs count as one logical owner. Current implementation leaves contain at most
+  nine logical owners and remain cohesive; a raw file-count target is not grounds for moving a
+  stable public include or splitting one lifecycle across artificial directories.
 - The large SQLite implementations remain isolated behind narrow ports, but splitting their SQL,
   migration and projection internals is separate behavior-sensitive work; directory cleanup does
   not pretend that such a split has already happened.
