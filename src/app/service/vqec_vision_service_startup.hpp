@@ -11,6 +11,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_usecase_config.hpp"
 #include "vqec_vision_usecase_control_manager.hpp"
+#include "vqec/vision/ai/contracts/vqec_vision_app_lifecycle.hpp"
 
 namespace vqec::vision::ai {
 
@@ -24,7 +25,9 @@ struct service_startup_resolution {
     model_package_registry model_packages;
     usecase_control_snapshot usecase_control;
     usecase_activation_snapshot usecase_activation;
+    runtime_control_snapshot runtime_control;
     bool has_usecase_control{false};
+    bool has_runtime_control{false};
     bool use_reference_platform{false};
     bool use_production_platform{false};
     bool fr_effectively_enabled{false};
@@ -57,6 +60,7 @@ vqec_vision_ai_appl_svstr_resolve_feature_authority(
 
 [[nodiscard]] service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
     const parsed_arguments& _args, const deployment_config* _effective_deployment,
+    const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
     const std::function<bool()>& _is_stop_requested,

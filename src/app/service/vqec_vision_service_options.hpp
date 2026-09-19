@@ -25,6 +25,11 @@ struct parsed_arguments {
     std::string catalog_path;
     std::string feature_catalog_path;
     std::string usecase_snapshot_path;
+    bool app_manager_dbus{false};
+    bool app_manager_dbus_session_bus{false};
+    std::string app_manager_service_name;
+    std::string app_manager_object_path;
+    int app_manager_rpc_timeout_ms{0};
     bool usecase_dbus{false};
     bool usecase_dbus_session_bus{false};
     std::string usecase_service_name;

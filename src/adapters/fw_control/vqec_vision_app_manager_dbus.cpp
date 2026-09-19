@@ -279,6 +279,85 @@ const GDBusInterfaceVTable g_vtable = {
 
 }  // namespace
 
+struct app_manager_dbus_client::implementation {
+    GDBusConnection* connection_{nullptr};
+    ~implementation() noexcept {
+        if (connection_ != nullptr) {
+            g_dbus_connection_close(connection_, nullptr, nullptr, nullptr);
+            g_object_unref(connection_);
+        }
+    }
+};
+
+app_manager_dbus_client::app_manager_dbus_client()
+    : implementation_(std::make_unique<implementation>()) {}
+app_manager_dbus_client::~app_manager_dbus_client() noexcept = default;
+
+status app_manager_dbus_client::vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+    const app_manager_dbus_client_config& _config,
+    runtime_control_snapshot& _snapshot) {
+    if (implementation_->connection_ != nullptr) {
+        return {status_code::invalid_state,
+            "app manager DBus client already fetched a snapshot"};
+    }
+    if (!g_dbus_is_name(_config.service_bus_name_.c_str()) ||
+        !g_variant_is_object_path(_config.object_path_.c_str()) ||
+        _config.rpc_timeout_ms_ <= 0) {
+        return {status_code::invalid_argument,
+            "invalid app manager DBus client configuration"};
+    }
+    error_owner error;
+    gchar* address = g_dbus_address_get_for_bus_sync(
+        _config.use_session_bus_ ? G_BUS_TYPE_SESSION : G_BUS_TYPE_SYSTEM,
+        nullptr, &error.value_);
+    if (address == nullptr) {
+        return {status_code::io_error,
+            "cannot resolve app manager DBus client address"};
+    }
+    implementation_->connection_ = g_dbus_connection_new_for_address_sync(address,
+        static_cast<GDBusConnectionFlags>(G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+            G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION), nullptr, nullptr,
+        &error.value_);
+    g_free(address);
+    if (implementation_->connection_ == nullptr) {
+        return {status_code::io_error, "cannot connect to app manager DBus"};
+    }
+    GVariant* owner_reply = g_dbus_connection_call_sync(implementation_->connection_,
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+        "GetNameOwner", g_variant_new("(s)", _config.service_bus_name_.c_str()),
+        G_VARIANT_TYPE("(s)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
+        nullptr, &error.value_);
+    if (owner_reply == nullptr) {
+        return {status_code::source_lost, "app manager DBus name has no owner"};
+    }
+    const gchar* owner = nullptr;
+    g_variant_get(owner_reply, "(&s)", &owner);
+    const std::string unique_owner = owner == nullptr ? "" : owner;
+    g_variant_unref(owner_reply);
+    if (unique_owner.empty()) {
+        return {status_code::protocol_error, "app manager DBus owner is empty"};
+    }
+    GVariant* reply = g_dbus_connection_call_sync(implementation_->connection_,
+        unique_owner.c_str(), _config.object_path_.c_str(),
+        app_manager_dbus_protocol::g_interface_name,
+        app_manager_dbus_protocol::g_snapshot_method, nullptr,
+        G_VARIANT_TYPE("(s)"), G_DBUS_CALL_FLAGS_NONE, _config.rpc_timeout_ms_,
+        nullptr, &error.value_);
+    if (reply == nullptr) {
+        return {status_code::io_error, "app manager GetSnapshot failed"};
+    }
+    const gchar* document = nullptr;
+    g_variant_get(reply, "(&s)", &document);
+    const std::string payload = document == nullptr ? "" : document;
+    g_variant_unref(reply);
+    if (payload.empty() || payload.size() > app_lifecycle_limits::g_max_document_bytes) {
+        return {status_code::protocol_error,
+            "app manager snapshot exceeds client wire bound"};
+    }
+    std::istringstream stream(payload);
+    return vqec_vision_ai_lifec_rcsnp_load(stream, _snapshot);
+}
+
 struct app_manager_dbus_server::implementation : dbus_binding {
     GDBusConnection* connection_{nullptr};
     guint registration_id_{0};

@@ -1,14 +1,69 @@
 #include "vqec_vision_service_startup.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <new>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "vqec_vision_deployment_config.hpp"
 
 namespace vqec::vision::ai {
+namespace {
+
+status vqec_vision_ai_appl_svstr_project_runtime_control(
+    const runtime_control_snapshot& _runtime, const deployment_config& _deployment,
+    usecase_control_snapshot& _control) {
+    const auto valid = vqec_vision_ai_core_applc_validate_runtime_snapshot(_runtime);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    const auto utc_now_ns = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    std::vector<usecase_activation_request> requests;
+    try {
+        requests.reserve(_runtime.associations_.size());
+        for (const auto& association : _runtime.associations_) {
+            const auto usecase = std::find_if(_control.catalog_.usecases_.begin(),
+                _control.catalog_.usecases_.end(), [&association](const auto& _entry) {
+                    return _entry.usecase_id_ == association.app_id_;
+                });
+            const auto source = std::find_if(_deployment.sources_.begin(),
+                _deployment.sources_.end(), [&association](const auto& _entry) {
+                    return _entry.source_id_ == association.source_id_;
+                });
+            if (usecase == _control.catalog_.usecases_.end() ||
+                source == _deployment.sources_.end()) {
+                return {status_code::invalid_argument,
+                    "runtime control association is absent from deployment catalog"};
+            }
+            usecase_activation_request request;
+            request.source_id_ = association.source_id_;
+            request.usecase_id_ = association.app_id_;
+            request.desired_enabled_ = association.desired_;
+            request.installed_ = association.installed_;
+            request.entitlement_granted_ = association.entitled_ &&
+                association.entitlement_expires_utc_ns_ > utc_now_ns;
+            request.supported_ = association.supported_;
+            request.compatible_ = association.compatible_;
+            request.resource_admitted_ = association.admitted_;
+            requests.push_back(std::move(request));
+        }
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "runtime control projection allocation failed"};
+    }
+    _control.control_revision_ = _runtime.snapshot_revision_;
+    _control.entitlement_revision_ = _runtime.entitlement_revision_;
+    _control.requests_ = std::move(requests);
+    return {};
+}
+
+}  // namespace
 
 bool vqec_vision_ai_appl_svstr_load_model_catalog(
     const std::string& _path, model_catalog& _catalog) {
@@ -139,6 +194,7 @@ bool vqec_vision_ai_appl_svstr_is_preview_authorized(
 
 service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
     const parsed_arguments& _args, const deployment_config* _effective_deployment,
+    const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
     const std::function<bool()>& _is_stop_requested,
@@ -171,6 +227,18 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
             result.exit_code = 1;
             return result;
         }
+        if (_runtime_control != nullptr) {
+            const auto projected = vqec_vision_ai_appl_svstr_project_runtime_control(
+                *_runtime_control, result.deployment, control);
+            if (projected.code_ != status_code::ok) {
+                std::fprintf(stderr, "runtime control projection rejected (%d): %s\n",
+                    static_cast<int>(projected.code_), projected.message_.c_str());
+                result.exit_code = 1;
+                return result;
+            }
+            result.runtime_control = *_runtime_control;
+            result.has_runtime_control = true;
+        }
         usecase_activation_snapshot activation_snapshot;
         deployment_config effective_deployment;
         const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
@@ -183,7 +251,8 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
             return result;
         }
         activation_snapshot.policy_revision_ = control.control_revision_;
-        activation_snapshot.config_revision_ = control.control_revision_;
+        activation_snapshot.config_revision_ = _runtime_control == nullptr ?
+            control.control_revision_ : _runtime_control->snapshot_revision_;
         result.deployment = _effective_deployment == nullptr
             ? std::move(effective_deployment) : *_effective_deployment;
         result.usecase_control = control;

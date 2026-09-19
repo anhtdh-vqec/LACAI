@@ -52,7 +52,15 @@
   },
   "requested_scopes": {
     "sources": ["camera_front"],
-    "outputs": ["security.fire_smoke.event", "security.fire_smoke.region"],
+    "outputs": [
+      "security.fire_smoke.event",
+      "security.fire_smoke.class",
+      "security.fire_smoke.severity",
+      "security.fire_smoke.region",
+      "security.fire_smoke.reason",
+      "security.fire_smoke.scene_revision",
+      "security.fire_smoke.evidence"
+    ],
     "queries": ["Q08", "Q15"],
     "evidence": ["snapshot", "clip"]
   },

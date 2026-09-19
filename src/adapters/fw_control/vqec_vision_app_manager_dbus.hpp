@@ -27,6 +27,29 @@ struct app_manager_dbus_config {
     bool use_session_bus_{false};
 };
 
+struct app_manager_dbus_client_config {
+    std::string service_bus_name_;
+    std::string object_path_;
+    int rpc_timeout_ms_{0};
+    bool use_session_bus_{false};
+};
+
+class app_manager_dbus_client final {
+public:
+    app_manager_dbus_client();
+    ~app_manager_dbus_client() noexcept;
+    app_manager_dbus_client(const app_manager_dbus_client&) = delete;
+    app_manager_dbus_client& operator=(const app_manager_dbus_client&) = delete;
+
+    [[nodiscard]] status vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+        const app_manager_dbus_client_config& _config,
+        runtime_control_snapshot& _snapshot);
+
+private:
+    struct implementation;
+    std::unique_ptr<implementation> implementation_;
+};
+
 class app_manager_dbus_server final {
 public:
     app_manager_dbus_server();

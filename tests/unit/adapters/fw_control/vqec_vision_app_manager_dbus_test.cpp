@@ -82,6 +82,7 @@ public:
         association.configuration_schema_id_ = "security.fire_smoke.configuration";
         association.configuration_payload_ = {'{', '}'};
         association.output_scopes_ = {"security.fire_smoke.event"};
+        association.entitlement_expires_utc_ns_ = 9000000000000000000ULL;
         _snapshot.associations_.push_back(std::move(association));
     }
 

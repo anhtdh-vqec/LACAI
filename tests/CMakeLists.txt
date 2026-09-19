@@ -149,7 +149,7 @@ endif()
                 vqec_vision_ai_fire_smoke_feature)
             target_compile_definitions(vqec_vision_ai_app_manager_test PRIVATE
                 VQEC_VISION_AI_APP_MANIFEST_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/usecase_app_manifest.fire_smoke.example.json"
-                VQEC_VISION_AI_APP_MANIFEST_SHA256="82bafde11133220959aa131e5a5c8cb935c6f9a54d411a0d66aa145703b3b2a4"
+                VQEC_VISION_AI_APP_MANIFEST_SHA256="3b5f19a4c4ef254a172bb264a3709567190d39a49a69a2cf3ed95bbb25a1b48f"
                 VQEC_VISION_AI_FIRE_SMOKE_CONFIG_FIXTURE="${CMAKE_SOURCE_DIR}/config/defaults/fire_smoke_configuration.example.json")
             set_target_properties(vqec_vision_ai_app_manager_test
                 PROPERTIES CXX_EXTENSIONS OFF)

@@ -153,7 +153,10 @@ status vqec_vision_ai_core_applc_validate_runtime_snapshot(
             association.configuration_payload_.empty() ||
             association.configuration_payload_.size() >
                 app_lifecycle_limits::g_max_document_bytes ||
-            association.output_scopes_.size() > app_lifecycle_limits::g_max_scopes) {
+            association.output_scopes_.size() > app_lifecycle_limits::g_max_scopes ||
+            (association.entitled_ && association.entitlement_expires_utc_ns_ == 0) ||
+            (!association.entitled_ && !association.output_scopes_.empty()) ||
+            (association.desired_ && !association.installed_)) {
             return {status_code::invalid_argument, "invalid runtime app association"};
         }
         for (std::size_t previous = 0; previous < index; ++previous) {

@@ -19,6 +19,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <new>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,6 +69,9 @@
 #endif
 #if defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
 #include "vqec_vision_usecase_control_dbus.hpp"
+#endif
+#if defined(VQEC_VISION_AI_HAS_APP_MANAGER_DBUS)
+#include "vqec_vision_app_manager_dbus.hpp"
 #endif
 #include "vqec_vision_event_delivery_seam.hpp"
 #include "vqec_vision_metadata_runtime.hpp"
@@ -359,6 +363,57 @@ status vqec_vision_ai_appl_svcmn_build_model_activations(
     return {};
 }
 
+status vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
+    const service_startup_resolution& _startup, const std::string& _source_id,
+    const feature_catalog_entry& _feature, feature_configuration& _configuration,
+    std::vector<std::string>& _output_scopes) {
+    const app_runtime_association* selected = nullptr;
+    for (const auto& usecase : _startup.usecase_control.catalog_.usecases_) {
+        if (std::find(usecase.feature_ids_.begin(), usecase.feature_ids_.end(),
+                _feature.feature_id_) == usecase.feature_ids_.end()) {
+            continue;
+        }
+        for (const auto& association : _startup.runtime_control.associations_) {
+            if (association.app_id_ != usecase.usecase_id_ ||
+                association.source_id_ != _source_id || !association.is_effective()) {
+                continue;
+            }
+            if (selected != nullptr &&
+                (selected->configuration_schema_id_ !=
+                        association.configuration_schema_id_ ||
+                    selected->configuration_revision_ !=
+                        association.configuration_revision_ ||
+                    selected->configuration_sha256_ !=
+                        association.configuration_sha256_ ||
+                    selected->configuration_payload_ !=
+                        association.configuration_payload_ ||
+                    selected->output_scopes_ != association.output_scopes_)) {
+                return {status_code::invalid_state,
+                    "effective applications disagree on shared feature configuration"};
+            }
+            selected = &association;
+        }
+    }
+    if (selected == nullptr) {
+        return {status_code::unauthorized,
+            "effective feature has no runtime-control application association"};
+    }
+    if (selected->configuration_schema_id_ != _feature.configuration_schema_) {
+        return {status_code::protocol_error,
+            "runtime-control configuration schema differs from feature catalog"};
+    }
+    try {
+        _configuration.schema_id_ = selected->configuration_schema_id_;
+        _configuration.revision_ = selected->configuration_revision_;
+        _configuration.payload_ = selected->configuration_payload_;
+        _output_scopes = selected->output_scopes_;
+        return {};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "runtime feature configuration allocation failed"};
+    }
+}
+
 // Appends one FR output-scope rule per deployment source. Shared by the feature-wiring and
 // FR-only policy paths so the FR entitlement rule is defined once.
 void vqec_vision_ai_appl_svcmn_append_fr_policy_rules(output_policy& _policy,
@@ -375,6 +430,7 @@ void vqec_vision_ai_appl_svcmn_append_fr_policy_rules(output_policy& _policy,
 
 int vqec_vision_ai_appl_svcmn_run_generation(
     int _argc, char** _argv, const deployment_config* _effective_deployment,
+    const runtime_control_snapshot* _runtime_control,
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision) {
@@ -383,6 +439,9 @@ int vqec_vision_ai_appl_svcmn_run_generation(
         std::fprintf(stderr,
             "usage: vqec_ai_vision_applications --deployment <json> --model-catalog <json> "
             "[--feature-catalog <json>] [--usecase-snapshot <json>] "
+            "[--app-manager-dbus|--app-manager-dbus-session "
+            "--app-manager-service-name <name> --app-manager-object-path <path> "
+            "--app-manager-rpc-timeout-ms <ms>] "
             "[--usecase-dbus|--usecase-dbus-session "
             "--usecase-service-name <name> --usecase-object-path <path> "
             "--usecase-peer-name <name> --usecase-rpc-timeout-ms <ms> "
@@ -416,7 +475,7 @@ int vqec_vision_ai_appl_svcmn_run_generation(
     std::signal(SIGTERM, vqec_vision_ai_appl_svcmn_on_signal);
 
     auto startup = vqec_vision_ai_appl_svstr_resolve_startup(
-        args, _effective_deployment, _control_manager, _poll_control,
+        args, _effective_deployment, _runtime_control, _control_manager, _poll_control,
         []() noexcept { return g_stop_requested != 0; }, _runtime_generation,
         _pending_control_revision, g_step_interval_ns,
         g_reconcile_generation_exit_code);
@@ -741,6 +800,22 @@ int vqec_vision_ai_appl_svcmn_run_generation(
                 request.configuration_.revision_ = startup.has_usecase_control ?
                     startup.usecase_activation.config_revision_ :
                     service_harness::g_config_revision;
+                if (startup.has_runtime_control && request.desired_enabled_ &&
+                    request.entitlement_granted_ && request.resource_admitted_) {
+                    std::vector<std::string> output_scopes;
+                    const auto resolved =
+                        vqec_vision_ai_appl_svcmn_resolve_runtime_feature_configuration(
+                            startup, source.source_id_, feature,
+                            request.configuration_, output_scopes);
+                    if (resolved.code_ != status_code::ok) {
+                        std::fprintf(stderr,
+                            "runtime feature configuration rejected (%d): %s\n",
+                            static_cast<int>(resolved.code_),
+                            resolved.message_.c_str());
+                        return 1;
+                    }
+                    request.association_.attribute_scopes_ = std::move(output_scopes);
+                }
                 request_slots[request_count] = {source_slot, slot};
                 ++request_count;
             }
@@ -1751,7 +1826,49 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
         return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, 0, 0);
+    }
+    if (!args.app_manager_dbus &&
+        (!args.app_manager_service_name.empty() ||
+            !args.app_manager_object_path.empty() ||
+            args.app_manager_rpc_timeout_ms != 0)) {
+        std::fprintf(stderr,
+            "app manager DBus settings require --app-manager-dbus\n");
+        return 2;
+    }
+    if (args.app_manager_dbus) {
+        if (args.usecase_dbus || !args.production_mode ||
+            args.usecase_snapshot_path.empty() || args.feature_catalog_path.empty() ||
+            args.app_manager_service_name.empty() ||
+            args.app_manager_object_path.empty() ||
+            args.app_manager_rpc_timeout_ms <= 0) {
+            std::fprintf(stderr,
+                "app manager runtime control requires production mode, usecase and "
+                "feature catalogs, service/object names and RPC timeout; it cannot be "
+                "combined with legacy usecase DBus\n");
+            return 2;
+        }
+#if !defined(VQEC_VISION_AI_HAS_APP_MANAGER_DBUS)
+        std::fprintf(stderr,
+            "app manager DBus was requested but adapter is not built\n");
+        return 2;
+#else
+        app_manager_dbus_client client;
+        runtime_control_snapshot runtime_control;
+        const app_manager_dbus_client_config client_config{
+            args.app_manager_service_name, args.app_manager_object_path,
+            args.app_manager_rpc_timeout_ms,
+            args.app_manager_dbus_session_bus};
+        const auto fetched = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+            client_config, runtime_control);
+        if (fetched.code_ != status_code::ok) {
+            std::fprintf(stderr, "app manager snapshot failed (%d): %s\n",
+                static_cast<int>(fetched.code_), fetched.message_.c_str());
+            return 1;
+        }
+        return vqec_vision_ai_appl_svcmn_run_generation(
+            _argc, _argv, nullptr, &runtime_control, nullptr, {}, 1, 0);
+#endif
     }
     if (!args.usecase_dbus) {
         if (!args.usecase_service_name.empty() || !args.usecase_object_path.empty() ||
@@ -1761,7 +1878,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
             return 2;
         }
         return vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, nullptr, nullptr, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, 0, 0);
     }
 #if !defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
     std::fprintf(stderr, "usecase DBus was requested but adapter is not built\n");
@@ -1823,7 +1940,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     std::uint64_t pending_revision = 0;
     for (;;) {
         const int outcome = vqec_vision_ai_appl_svcmn_run_generation(
-            _argc, _argv, &current_deployment, &manager, poll_control,
+            _argc, _argv, &current_deployment, nullptr, &manager, poll_control,
             generation, pending_revision);
         if (outcome == g_reconcile_generation_exit_code) {
             last_published_deployment = current_deployment;

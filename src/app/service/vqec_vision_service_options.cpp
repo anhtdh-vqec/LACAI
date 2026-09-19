@@ -60,6 +60,18 @@ bool vqec_vision_ai_appl_svopt_parse(int _argc, char** _argv, parsed_arguments& 
             _args.feature_catalog_path = _argv[++index];
         } else if (option == "--usecase-snapshot" && has_value) {
             _args.usecase_snapshot_path = _argv[++index];
+        } else if (option == "--app-manager-dbus") {
+            _args.app_manager_dbus = true;
+        } else if (option == "--app-manager-dbus-session") {
+            _args.app_manager_dbus = true;
+            _args.app_manager_dbus_session_bus = true;
+        } else if (option == "--app-manager-service-name" && has_value) {
+            _args.app_manager_service_name = _argv[++index];
+        } else if (option == "--app-manager-object-path" && has_value) {
+            _args.app_manager_object_path = _argv[++index];
+        } else if (option == "--app-manager-rpc-timeout-ms" && has_value) {
+            _args.app_manager_rpc_timeout_ms = static_cast<int>(
+                std::strtol(_argv[++index], nullptr, 10));
         } else if (option == "--usecase-dbus") {
             _args.usecase_dbus = true;
         } else if (option == "--usecase-dbus-session") {
