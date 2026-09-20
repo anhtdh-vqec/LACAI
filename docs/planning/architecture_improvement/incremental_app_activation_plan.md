@@ -3,8 +3,8 @@
 Kế hoạch triển khai activation delta và reference counting dependency dùng chung để bật, tắt hoặc
 cấu hình một ứng dụng mà không khởi động lại các ứng dụng không liên quan.
 
-**Status:** in-progress — D0–D3 và lifecycle cascade đã logic-tested; hard/native và QCS6490
-multi-app gate chưa hoàn tất.
+**Status:** completed — D0–D6 đã pass cho S04 + ứng dụng fixture dùng chung dependency trên
+QCS6490 ngày 2026-09-20; giới hạn product/released-FW vẫn được giữ tách biệt.
 **Layer:** docs. **Source:** `n/a`.
 
 ## Trách nhiệm
@@ -37,9 +37,9 @@ cho FR, hút thuốc hoặc bất kỳ usecase chưa có golden/model gate.
 | D1 | Logic-tested phạm vi fake-port | Active mask ở pump; lifecycle add/remove từng slot trong session | `2 -> 1` không lifecycle; `1 -> 0` chỉ drain/unload slot đích; slot khác tiếp tục submit/result |
 | D2 | Logic-tested | Candidate manager/fan-out, transactional pipeline rebind, output policy candidate | Config/disable chỉ thay owner đích; owner khác giữ pointer/state; input lỗi giữ wiring cũ |
 | D3 | Service reconciler | So sánh snapshot, capacity của app đã cài, apply/fallback, publish revision/metrics | Desired/config/entitlement không thoát generation khi capacity/identity tương thích |
-| D4 | Hard tests | Fault injection, eSDK/QEMU full suite, target-native tests | Load/drain failure, source loss, in-flight disable, rapid toggle, App Manager restart không leak/ACK sớm |
-| D5 | Board gate | Hai app fixture + S04 trên QCS6490, VLC/FPS/CPU/RSS/lifecycle log | Chuỗi toggle đạt điều kiện đóng; ghi rõ fixture và phần chưa phải product acceptance |
-| D6 | Chuẩn hóa tài liệu | Trạng thái, capability matrix, implementation status, board record | Tài liệu khớp source/evidence; không còn claim full-generation cho toggle tương thích |
+| D4 | Completed | Fault injection, eSDK/QEMU 172/172, 30 lần lặp hai race test và 10 lần native | Load/drain, in-flight, multi-source barrier, graph rearm, shutdown và App Manager independence pass |
+| D5 | Completed | S04 + shared-model probe trên QCS6490, RTSP/FPS/CPU/RSS/lifecycle log | 20 transition/5 giây + restart/config; PID/epoch giữ nguyên; 30.124 FPS, 13.40% CPU |
+| D6 | Completed | ADR accepted, capability/status/board record và hồ sơ validation | Source/evidence/giới hạn fixture đồng bộ; replacement boundary được ghi rõ |
 
 ## Kế hoạch kiểm thử chi tiết
 
@@ -88,11 +88,26 @@ cho FR, hút thuốc hoặc bất kỳ usecase chưa có golden/model gate.
 Mỗi commit chỉ chứa thay đổi thuộc mốc tương ứng; không push. Sau mỗi source step chạy source/docs
 layout và test liên quan bằng eSDK trước khi commit.
 
+## Kết quả đóng plan
+
+- Source runtime dùng complete-snapshot diff, reference count suy diễn, transactional feature/output
+  rebind, mutable primary/secondary lifecycle và global activation-quiesce barrier cho async worker.
+- Full eSDK/QEMU pass 172/172; hai test nhạy race pass 30 lần liên tiếp và bản native pass 10 lần
+  liên tiếp trên đúng machine ID.
+- Candidate `39ffe8d` chạy 20 chuyển trạng thái, mỗi chuyển trạng thái cách 5 giây. Service PID
+  `4448`, source epoch `1` và preview liên tục; App Manager restart không thay PID service.
+- Preview đạt 30.124 FPS ở 1920x1080; workload hai app đạt 13.40% một logical core. RSS tăng ròng
+  1,600 KiB qua stress và không tăng theo vòng; log không có source/session/execution fault.
+- Hồ sơ exact digest, số đo và giới hạn acceptance nằm tại
+  [incremental activation validation](../../testing/incremental_app_activation_validation.md).
+
 ## Giới hạn và việc tiếp theo
 
 - Plan không productize FR hoặc hút thuốc; chúng cần model/golden/quality gate riêng.
 - Artifact update và app install bổ sung capacity có thể dùng source-local/full replacement ở baseline.
 - Released-FW acceptance và backend conformance không được suy ra từ fixture App Manager.
+- Một usecase product mới vẫn phải nộp model/golden/quality/resource evidence riêng; việc này không
+  mở lại nền activation delta đã accepted nếu package tuân đúng contract.
 
 ## See also
 

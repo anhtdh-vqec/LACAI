@@ -93,7 +93,8 @@ D-Bus replies.
 ## Limits and next work
 
 - Runtime health observation and signed provisioning remain open. Incremental shared-owner
-  replacement is source-delivered; QCS6490 multi-app acceptance remains open.
+  replacement passed the QCS6490 S04 + infrastructure-fixture gate; each additional product
+  package still needs its own model-quality and resource acceptance.
 - Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
   D-Bus replies.
 - The resolver does not authenticate catalogs or entitlements, measure hardware capacity,

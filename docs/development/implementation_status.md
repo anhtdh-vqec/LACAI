@@ -286,7 +286,7 @@ Delivered and current:
 - Camera lease Start/Stop, usecase desired-plan control, feature activation/fan-out/stage,
   output gates, preview pool and encoder ledgers are source-delivered.
 
-Current evidence: the expanded eSDK/QEMU suite passes 170/170 CTest, including the bounded
+Current evidence: the expanded eSDK/QEMU suite passes 172/172 CTest, including the bounded
 S01–S18 catalog, complete asynchronous mutation wire, deterministic S04 replay, two-app
 shared-component lifecycle and eight install/update process-crash checkpoints. On board `.102`, the
 S04/App Manager/output candidate passes nine focused native tests, the asynchronous
@@ -301,6 +301,16 @@ The 30-second cold-start average is 13.36%, with one 86% sample attributed by `p
 while App Manager and camera are absent. This is board-smoke, not model-quality, released-FW,
 leak-free or product thermal acceptance. Exact evidence and limitations are in
 [S04 validation](../testing/fire_smoke_product_slice_validation.md).
+
+Per-app activation is now an accepted runtime mechanism. Complete App Manager snapshots are
+diffed into exact feature/model/cascade deltas; shared counts are derived from effective consumers,
+and a global async-worker quiesce barrier creates one mutation point without restarting unrelated
+sources. The race-sensitive tests pass 30 repeated QEMU and ten repeated native iterations. The
+exact `.102` candidate completed twenty five-second transitions for S04 plus a shared-model probe,
+a configuration-only update and an App Manager restart with service PID/source epoch unchanged.
+It sustained 30.124 RTSP FPS and measured 13.40% service CPU. This is infrastructure-fixture
+acceptance, not product acceptance for a second usecase; see
+[incremental activation validation](../testing/incremental_app_activation_validation.md).
 
 Open release gates (not delivered): released-FW camera/ring/RTSP/evidence conformance, hardware
 DMA completion and BSP recovery, golden/model accuracy calibration, attendance/liveness,
@@ -442,9 +452,10 @@ capability, not by model identity.
   `tools/build/vqec_vision_prepare_zvec.sh`. CMake downloads no sibling source tree implicitly.
 - `vqec_ai_vision_applications` has reference, fake and Qualcomm production composition.
   `vqec_vision_ai_manifest_check` checks metadata only.
-- The expanded eSDK configuration passes 170/170 CTest tests under SDK QEMU (2026-09-20).
-  Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`;
-  this focused rerun is not a new full native-suite count.
+- The expanded eSDK configuration passes 172/172 CTest tests under SDK QEMU (2026-09-20).
+  Nine focused S04/App Manager/metadata/evidence binaries pass natively on `.102`; the two
+  activation race binaries additionally pass ten repeated native iterations. These focused
+  reruns are not a new full native-suite count.
 - Deterministic S04 semantic replay is delivered. Model-quality golden and live released-FW/model
   integration suites remain external/planned gates.
 - `.github/workflows/ci.yml` runs structural, host ASan/UBSan, advisory clang-tidy and

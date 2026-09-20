@@ -190,6 +190,18 @@ after drained generation replacement; an App Manager restart and reverse startup
 passed. Host capture measured H.264 1920×1080 at 30.124 FPS. The scene remained almost black, so
 this adds no model accuracy or overlay-placement claim.
 
+The incremental-activation candidate at service source commit `39ffe8d` used exact service
+SHA-256 `e5c17d24b32b0c1eb92674b7223fd4c7e8a6394514ef944fb638e3addc6c362c`.
+S04 and an installed shared-model probe completed twenty desired-state transitions at five-second
+intervals, one configuration delta, a ten-second App Manager outage/restart and a further off/on
+cycle. Service PID `4448` and source epoch `1` did not change; every interval advanced the ring.
+The warm two-app sample was 13.40% of one logical core, and host capture was H.264 1920x1080 at
+30.124 FPS. Full eSDK/QEMU passed 172/172, the two race tests passed 30 repeated QEMU iterations
+and their exact native binaries passed ten iterations. The deterministic test-pattern source
+makes this lifecycle/resource evidence, not released-FW or second-usecase product acceptance.
+Exact hashes and limits are in
+[incremental activation validation](incremental_app_activation_validation.md).
+
 ## Evidence record
 
 Every new board result records:
@@ -227,4 +239,5 @@ record and the exact candidate digest. Remove temporary uploads after results ar
 - [Board workspace](board_workspace.md)
 - [QNN validation](qnn_board_validation.md)
 - [FR production validation](face_recognition_production_validation.md)
+- [Incremental activation validation](incremental_app_activation_validation.md)
 - [DSP optimization plan](../planning/architecture_improvement/dsp_multiplatform_optimization_plan.md)

@@ -3,8 +3,8 @@
 This document defines the internal runtime boundary that applies one validated App Manager snapshot
 without restarting unrelated application dependencies.
 
-**Status:** source-delivered — planner, primary-slot and secondary-cascade deltas are
-logic-tested; QCS6490 multi-app acceptance remains open.
+**Status:** accepted — planner, primary/secondary lifecycle and async serialization passed
+eSDK/QEMU, repeated native tests and the QCS6490 two-app fixture gate on 2026-09-20.
 **Layer:** runtime. **Source:** `n/a`.
 
 ## Responsibility
@@ -111,13 +111,15 @@ fact even though output authority is already revoked.
 
 ## Limits and next work
 
-- QCS6490 multi-app continuity and resource evidence are not yet complete.
+- The accepted QCS6490 evidence uses S04 plus an infrastructure shared-model probe. A second
+  product usecase still needs its own package, golden/model-quality and resource evidence.
 - Model artifact updates and capacity additions use an explicit replacement path in the first
   implementation.
 - More than one independent secondary graph on one source requires multi-consumer frame-retention
   admission and is rejected by this baseline; root-model sharing for the eighteen-app software
   ceiling is not subject to that restriction.
 - Multi-model temporal joins need their own compatible feature-instance identity before sharing.
+- Released-FW and long thermal/capacity qualification remain separate integration gates.
 
 ## See also
 
@@ -126,3 +128,4 @@ fact even though output authority is already revoked.
 - [Multi-model source session](multi_model_session.md)
 - [Feature fan-out](feature_fanout.md)
 - [FW usecase activation](../contracts/fw_usecase_control.md)
+- [Validation evidence](../testing/incremental_app_activation_validation.md)

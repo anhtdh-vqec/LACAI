@@ -88,6 +88,9 @@ are retained and never retroactively updated.
 The [fire/smoke product slice validation](testing/fire_smoke_product_slice_validation.md)
 records the exact S04/App Manager/no-data/startup/toggle/reference-evidence candidate and its
 remaining external gates.
+The [incremental application activation validation](testing/incremental_app_activation_validation.md)
+records the exact per-app delta/shared-reference candidate, repeated race tests and QCS6490
+two-app fixture evidence.
 
 ## Research
 
@@ -102,7 +105,8 @@ transactional, columnar and moving-feature sources used by the P2 redesign.
 0003 owned QNN engine, 0004 FR gallery/index, 0005 scalable model integration,
 0006 unwired execution infrastructure, proposed 0007 versioned FastRPC operations, and
 0008 transactional metadata store baseline, accepted 0009 spatiotemporal metadata tiering, and
-proposed 0010 AI-owned usecase application lifecycle.
+proposed 0010 AI-owned usecase application lifecycle, proposed 0011 durable evidence transport and
+accepted 0012 incremental application activation.
 
 ## Operations
 
