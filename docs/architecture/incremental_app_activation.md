@@ -3,7 +3,8 @@
 This document defines the internal runtime boundary that applies one validated App Manager snapshot
 without restarting unrelated application dependencies.
 
-**Status:** planned — ADR 0012 defines the decision; source and board gates remain open.
+**Status:** source-delivered — planner, primary-slot and secondary-cascade deltas are
+logic-tested; QCS6490 multi-app acceptance remains open.
 **Layer:** runtime. **Source:** `n/a`.
 
 ## Responsibility
@@ -24,6 +25,13 @@ and quality policy. Two consumers share only when every field that affects execu
 For each effective `(source_id, app_id)` association, the resolver adds that application once to
 each required root-model consumer set. `consumer_count` is the size of that derived set. Repeated
 features inside one application cannot accidentally over-count the same root dependency.
+
+An explicitly packaged secondary component is counted separately from its primary root. Its
+identity includes the secondary model version/target/artifact/semantic/preprocess contract and the
+immutable primary slot. A secondary graph is prepared for installed compatible applications but
+remains stopped at count zero. The current production cascade owner admits one secondary graph per
+source; a second conflicting secondary identity is rejected as unsupported instead of being
+silently shared.
 
 | Count transition | Runtime action |
 |---|---|
@@ -51,10 +59,16 @@ The control executor performs one transition at a time:
    candidate if validation or allocation fails.
 3. Publish the candidate output policy and feature bindings on the serialized executor. This
    removes revoked output before old model work can be delivered.
-4. Submit target model masks to affected source sessions. Running shared slots continue normally.
-5. Each session performs at most one bounded lifecycle step per progress call while its other
+4. Close the execution gate and quiesce a changed secondary cascade before requesting its graph
+   lifecycle transition. A `N -> N-1`, `N-1 > 0` transition makes no graph call.
+5. Submit target primary-model masks to affected source sessions. Running shared slots continue
+   normally.
+6. Each session performs at most one bounded lifecycle step per progress call while its other
    active slots continue frame/result progress.
-6. Publish the applied snapshot revision only when every requested slot is running or fully drained.
+7. Reopen a secondary execution gate only after its graph reports `running`; an inactive root result
+   retires the exact retained frame without alignment or secondary submission.
+8. Publish the applied snapshot revision only when every requested slot and cascade is running or
+   fully drained.
    A failed added slot faults only its consumer applications; an uncertain drain requires recovery.
 
 The pipeline may still return a result accepted before disable. Its captured policy revision and
@@ -86,9 +100,12 @@ fact even though output authority is already revoked.
 
 ## Limits and next work
 
-- Source delivery and QCS6490 evidence are not yet complete.
+- QCS6490 multi-app continuity and resource evidence are not yet complete.
 - Model artifact updates and capacity additions use an explicit replacement path in the first
   implementation.
+- More than one independent secondary graph on one source requires multi-consumer frame-retention
+  admission and is rejected by this baseline; root-model sharing for the eighteen-app software
+  ceiling is not subject to that restriction.
 - Multi-model temporal joins need their own compatible feature-instance identity before sharing.
 
 ## See also

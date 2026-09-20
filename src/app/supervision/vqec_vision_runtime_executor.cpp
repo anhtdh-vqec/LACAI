@@ -43,6 +43,12 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
         if (polled.code_ != status_code::ok) {
             return polled;
         }
+        if (!cascade_active_[source]) {
+            metrics_.cascade_tasks_accepted_ += completion.report_.accepted_;
+            metrics_.cascade_embeddings_ += completion.report_.embedded_;
+            metrics_.cascade_tasks_failed_ += completion.report_.failed_;
+            continue;
+        }
         const auto composition_snapshot =
             composition_.vqec_vision_ai_cntr_acomp_get_snapshot();
         pending_tracked_ = {};
@@ -119,9 +125,11 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
                 pump_report.result_ticket_.source_frame_id_,
                 pump_report.result_ticket_.source_pts_ns_};
             cascade_coordinator_report discarded_report;
-            const auto retired = cascade->vqec_vision_ai_appl_cscrd_process(
-                _steady_now_ns, empty, cascade_aligned_, cascade_embeddings_,
-                discarded_report);
+            const auto retired = cascade_active_[source_index]
+                ? cascade->vqec_vision_ai_appl_cscrd_process(
+                    _steady_now_ns, empty, cascade_aligned_, cascade_embeddings_,
+                    discarded_report)
+                : cascade->vqec_vision_ai_appl_cscrd_retire(empty);
             if (retired.code_ != status_code::ok) {
                 return retired;
             }
@@ -133,8 +141,10 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
                 pump_report.result_ticket_.source_epoch_,
                 pump_report.result_ticket_.source_frame_id_,
                 pump_report.result_ticket_.source_pts_ns_};
-            const auto retired = cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
-                _steady_now_ns, empty);
+            const auto retired = cascade_active_[source_index]
+                ? cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
+                    _steady_now_ns, empty)
+                : cascade_worker->vqec_vision_ai_appl_cxwrk_retire(empty);
             if (retired.code_ != status_code::ok) {
                 return retired;
             }
@@ -159,13 +169,18 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     pending_report_.has_tracked_ = true;
     pending_report_.has_feature_fanout_ = pipeline_report.has_feature_fanout_;
     if (cascade != nullptr && pipeline_report.result_.model_slot_ == cascade_root_slot) {
-        const auto cascaded = cascade->vqec_vision_ai_appl_cscrd_process(
-            _steady_now_ns, pending_tracked_[cascade_root_slot], cascade_aligned_,
-            cascade_embeddings_, pending_report_.cascade_);
-        pending_report_.has_cascade_ = true;
-        metrics_.cascade_tasks_accepted_ += pending_report_.cascade_.accepted_;
-        metrics_.cascade_embeddings_ += pending_report_.cascade_.embedded_;
-        metrics_.cascade_tasks_failed_ += pending_report_.cascade_.failed_;
+        const auto cascaded = cascade_active_[source_index]
+            ? cascade->vqec_vision_ai_appl_cscrd_process(
+                _steady_now_ns, pending_tracked_[cascade_root_slot], cascade_aligned_,
+                cascade_embeddings_, pending_report_.cascade_)
+            : cascade->vqec_vision_ai_appl_cscrd_retire(
+                pending_tracked_[cascade_root_slot]);
+        pending_report_.has_cascade_ = cascade_active_[source_index];
+        if (cascade_active_[source_index]) {
+            metrics_.cascade_tasks_accepted_ += pending_report_.cascade_.accepted_;
+            metrics_.cascade_embeddings_ += pending_report_.cascade_.embedded_;
+            metrics_.cascade_tasks_failed_ += pending_report_.cascade_.failed_;
+        }
         if (cascaded.code_ != status_code::ok &&
             pending_report_.first_error_code_ == status_code::ok) {
             pending_report_.first_error_code_ = cascaded.code_;
@@ -173,9 +188,12 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_step(
     }
     if (cascade_worker != nullptr &&
         pipeline_report.result_.model_slot_ == cascade_root_slot) {
-        const auto scheduled = cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
-            _steady_now_ns, pending_tracked_[cascade_root_slot],
-            pending_report_.captured_policy_revision_);
+        const auto scheduled = cascade_active_[source_index]
+            ? cascade_worker->vqec_vision_ai_appl_cxwrk_schedule(
+                _steady_now_ns, pending_tracked_[cascade_root_slot],
+                pending_report_.captured_policy_revision_)
+            : cascade_worker->vqec_vision_ai_appl_cxwrk_retire(
+                pending_tracked_[cascade_root_slot]);
         if (scheduled.code_ != status_code::ok &&
             pending_report_.first_error_code_ == status_code::ok) {
             pending_report_.first_error_code_ = scheduled.code_;
@@ -282,6 +300,7 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_bind_cascade(
             "runtime cascade result reservation failed"};
     }
     cascade_coordinators_[_source_index] = &_coordinator;
+    cascade_active_[_source_index] = true;
     return {};
 }
 
@@ -298,6 +317,19 @@ status runtime_executor::vqec_vision_ai_appl_rtexe_bind_cascade_worker(
         return {status_code::invalid_argument, "invalid runtime cascade worker binding"};
     }
     cascade_workers_[_source_index] = &_worker;
+    cascade_active_[_source_index] = true;
+    return {};
+}
+
+status runtime_executor::vqec_vision_ai_appl_rtexe_set_cascade_active(
+    std::uint16_t _source_index, bool _active) noexcept {
+    if (_source_index >= source_count_ ||
+        (cascade_coordinators_[_source_index] == nullptr &&
+         cascade_workers_[_source_index] == nullptr)) {
+        return {status_code::invalid_argument,
+            "cascade activation source is not bound"};
+    }
+    cascade_active_[_source_index] = _active;
     return {};
 }
 

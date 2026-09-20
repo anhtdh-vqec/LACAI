@@ -211,6 +211,21 @@ status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_schedule(
     return {};
 }
 
+status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_retire(
+    const observation_batch& _batch) noexcept {
+    cascade_frame_lease_port* lease = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        lease = config_.lease_;
+    }
+    if (lease == nullptr || _batch.frame_.source_epoch_ == 0 ||
+        _batch.frame_.frame_id_ == 0) {
+        return {status_code::invalid_argument,
+            "cascade retire requires a configured frame identity"};
+    }
+    return lease->vqec_vision_ai_ports_cflse_retire(_batch.frame_);
+}
+
 status cascade_execution_worker::vqec_vision_ai_appl_cxwrk_poll_completion(
     cascade_worker_completion& _completion) {
     std::lock_guard<std::mutex> lock(mutex_);

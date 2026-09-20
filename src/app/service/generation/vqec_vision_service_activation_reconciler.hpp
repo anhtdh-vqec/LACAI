@@ -6,6 +6,7 @@
 #include <string>
 
 #include "vqec_vision_service_feature_activation.hpp"
+#include "vqec_vision_service_cascade_runtime.hpp"
 
 namespace vqec::vision::ai {
 
@@ -23,6 +24,9 @@ public:
 
     [[nodiscard]] status vqec_vision_ai_appl_svacr_apply_snapshot(
         const runtime_control_snapshot& _runtime, std::uint64_t _steady_now_ns);
+    [[nodiscard]] status vqec_vision_ai_appl_svacr_bind_cascade_owners(
+        std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners)
+        noexcept;
 
     [[nodiscard]] std::uint64_t
     vqec_vision_ai_appl_svacr_get_applied_revision() const noexcept;
@@ -37,6 +41,8 @@ private:
     const feature_processor_registry* feature_registry_{nullptr};
     const std::string* fallback_attribute_schema_{nullptr};
     output_gate* output_gate_{nullptr};
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>*
+        cascade_owners_{nullptr};
     std::unique_ptr<service_startup_resolution> pending_startup_;
 };
 

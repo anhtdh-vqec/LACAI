@@ -225,6 +225,16 @@ status vqec_vision_ai_appl_svxlp_run(
                     cascades_started.message_.c_str());
                 break;
             }
+            const auto cascades_synced =
+                vqec_vision_ai_appl_svcsc_sync_executor(
+                    cascade_owners, executor);
+            if (cascades_synced.code_ != status_code::ok) {
+                first_error_code = cascades_synced.code_;
+                std::fprintf(stderr, "cascade execution gate failed (%d): %s\n",
+                    static_cast<int>(cascades_synced.code_),
+                    cascades_synced.message_.c_str());
+                break;
+            }
         }
 
         runtime_executor_report report;

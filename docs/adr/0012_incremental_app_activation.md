@@ -30,6 +30,9 @@ running.
 - One feature instance is owned per effective `(source, app, feature, configuration)` association,
   except that exact compatible instances may be shared only under an explicit equivalent identity.
   Model graphs are shared by exact dependency identity and numeric model slot.
+- Explicit secondary model components have an independent derived consumer count bound to their
+  primary slot. The first baseline admits one secondary graph per source and rejects a conflicting
+  second identity until frame retention supports multiple independent cascade consumers.
 - Revocation and disable first publish the candidate output policy and remove the obsolete feature
   binding on the serialized executor. The model slot then stops accepting work, drains real backend
   completion and unloads only when its reference count changes from one to zero.
@@ -66,6 +69,8 @@ running.
 
 - The source session needs mutable per-slot scheduling and graph lifecycle while preserving the
   immutable slot identity of its prepared capacity set.
+- The secondary cascade owner needs the same zero/retain/release semantics: a closed executor gate,
+  quiescent worker, restartable graph session and completion barrier before snapshot publication.
 - Feature fan-out needs a serialized transactional rebind rather than a generation-lifetime-only
   borrow.
 - Admission distinguishes prepared capacity from currently active resource demand. Preparing an

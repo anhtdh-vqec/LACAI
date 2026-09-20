@@ -85,6 +85,10 @@ public:
         std::vector<alignment_result>& _aligned,
         std::vector<embedding_result>& _embeddings,
         cascade_coordinator_report& _report);
+    // Closes the exact cascade-root retention without alignment or secondary inference.
+    // Activation uses this path while a prepared secondary graph has no consumers.
+    [[nodiscard]] status vqec_vision_ai_appl_cscrd_retire(
+        const observation_batch& _tracked) noexcept;
     // File/offline path: the caller already owns the exact frame represented by _tracked.
     [[nodiscard]] status vqec_vision_ai_appl_cscrd_process_frame(
         std::uint64_t _steady_now_ns, const raw_frame& _frame,

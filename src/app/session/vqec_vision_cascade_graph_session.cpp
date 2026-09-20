@@ -186,17 +186,78 @@ status cascade_graph_session::vqec_vision_ai_appl_cgses_step(
 
 status cascade_graph_session::vqec_vision_ai_appl_cgses_request_stop(
     std::uint64_t _steady_now_ns) {
+    return vqec_vision_ai_appl_cgses_request_active(false, _steady_now_ns);
+}
+
+status cascade_graph_session::vqec_vision_ai_appl_cgses_validate_active(
+    bool _desired_active, std::uint64_t _steady_now_ns) const {
+    if (_steady_now_ns == std::numeric_limits<std::uint64_t>::max() ||
+        _steady_now_ns < last_now_ns_) {
+        return {status_code::invalid_argument,
+            "cascade activation delta requires monotonic steady time"};
+    }
+    if (state_ == cascade_graph_session_state::faulted) {
+        return last_error_;
+    }
+    const bool is_starting = state_ == cascade_graph_session_state::configuring ||
+        state_ == cascade_graph_session_state::loading ||
+        state_ == cascade_graph_session_state::binding ||
+        state_ == cascade_graph_session_state::starting;
+    const bool is_stopping = state_ == cascade_graph_session_state::draining ||
+        state_ == cascade_graph_session_state::unloading;
+    if ((is_starting || is_stopping) && _desired_active != desired_active_) {
+        return {status_code::invalid_state,
+            "cascade activation delta is already in progress"};
+    }
+    return {};
+}
+
+status cascade_graph_session::vqec_vision_ai_appl_cgses_request_active(
+    bool _desired_active, std::uint64_t _steady_now_ns) {
+    const auto valid = vqec_vision_ai_appl_cgses_validate_active(
+        _desired_active, _steady_now_ns);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
     const auto time = vqec_vision_ai_appl_cgses_check_time(_steady_now_ns);
     if (time.code_ != status_code::ok) {
         return time;
     }
+    if (_desired_active) {
+        desired_active_ = true;
+        if (state_ == cascade_graph_session_state::running ||
+            state_ == cascade_graph_session_state::idle ||
+            state_ == cascade_graph_session_state::configuring ||
+            state_ == cascade_graph_session_state::loading ||
+            state_ == cascade_graph_session_state::binding ||
+            state_ == cascade_graph_session_state::starting) {
+            return state_ == cascade_graph_session_state::running
+                ? status{} : status{status_code::pending,
+                    "cascade graph activation is pending"};
+        }
+        if (config_.graph_ == nullptr) {
+            return {status_code::invalid_argument,
+                "cascade graph session has no graph"};
+        }
+        const auto graph_state = config_.graph_->vqec_vision_ai_ports_infgr_get_state();
+        if (graph_state != inference_graph_state::empty &&
+            graph_state != inference_graph_state::configured) {
+            return {status_code::invalid_state,
+                "stopped cascade graph is not restartable"};
+        }
+        last_error_ = {};
+        is_recovery_required_ = false;
+        start_ns_ = _steady_now_ns;
+        state_ = graph_state == inference_graph_state::empty
+            ? cascade_graph_session_state::configuring
+            : cascade_graph_session_state::loading;
+        return {status_code::pending, "cascade graph activation accepted"};
+    }
+    desired_active_ = false;
     if (state_ == cascade_graph_session_state::stopped ||
         state_ == cascade_graph_session_state::draining ||
         state_ == cascade_graph_session_state::unloading) {
         return {};
-    }
-    if (state_ == cascade_graph_session_state::faulted) {
-        return last_error_;
     }
     if (state_ == cascade_graph_session_state::idle) {
         state_ = cascade_graph_session_state::stopped;

@@ -250,6 +250,71 @@ void vqec_vision_ai_unit_adtst_check_configuration_and_capacity_delta() {
     }
 }
 
+void vqec_vision_ai_unit_adtst_check_cascade_reference_counts() {
+    auto models = vqec_vision_ai_unit_adtst_make_models();
+    auto embedding = vqec_vision_ai_unit_adtst_make_model("embedding", '9');
+    embedding.role_ = model_role::secondary;
+    embedding.depends_on_ = {{"shared_a", "1.0", "qcs6490"}};
+    embedding.tensor_width_ = 112;
+    embedding.tensor_height_ = 112;
+    models.models_.push_back(std::move(embedding));
+    auto deployment = vqec_vision_ai_unit_adtst_make_deployment();
+    deployment.sources_[0].cascade_ = {2, 4, 4U * g_mebibyte};
+    auto runtime = vqec_vision_ai_unit_adtst_make_runtime(true);
+    for (const std::size_t association_index : {0U, 2U}) {
+        app_runtime_component component;
+        component.component_id_ = "embedding";
+        component.component_version_ = "1.0";
+        component.type_ = app_component_type::model;
+        component.target_id_ = "qcs6490";
+        component.artifact_sha256_ = std::string(64, '9');
+        component.artifact_bytes_ = 1024;
+        component.semantic_contract_sha256_ = std::string(64, '8');
+        component.model_role_ = app_model_role::secondary;
+        component.immutable_location_ = "/opt/lacai/apps/fixture/embedding";
+        runtime.associations_[association_index].components_.push_back(
+            std::move(component));
+    }
+    const auto build = [&](const runtime_control_snapshot& _runtime) {
+        app_activation_plan plan;
+        const auto planned = vqec_vision_ai_core_acdel_build_plan(
+            deployment, models, vqec_vision_ai_unit_adtst_make_features(),
+            vqec_vision_ai_unit_adtst_make_usecases(), _runtime, plan);
+        if (planned.code_ != status_code::ok) {
+            throw std::runtime_error(planned.message_);
+        }
+        return plan;
+    };
+    const auto previous = build(runtime);
+    if (previous.cascade_dependencies_.size() != 1 ||
+        previous.cascade_dependencies_[0].consumer_count_ != 2 ||
+        previous.cascade_dependencies_[0].root_model_slot_ != 0) {
+        throw std::runtime_error("cascade dependency plan is incorrect");
+    }
+    runtime.snapshot_revision_ = 2;
+    runtime.desired_revision_ = 2;
+    runtime.associations_[0].desired_ = false;
+    const auto retained = build(runtime);
+    app_activation_delta delta;
+    if (vqec_vision_ai_core_acdel_build_delta(previous, retained, delta).code_ !=
+            status_code::ok || delta.cascade_dependencies_.size() != 1 ||
+        delta.cascade_dependencies_[0].kind_ != model_dependency_delta_kind::retain ||
+        delta.cascade_dependencies_[0].previous_consumer_count_ != 2 ||
+        delta.cascade_dependencies_[0].candidate_consumer_count_ != 1) {
+        throw std::runtime_error("shared cascade retain delta is incorrect");
+    }
+    runtime.snapshot_revision_ = 3;
+    runtime.desired_revision_ = 3;
+    runtime.associations_[2].desired_ = false;
+    const auto released = build(runtime);
+    if (vqec_vision_ai_core_acdel_build_delta(retained, released, delta).code_ !=
+            status_code::ok || delta.cascade_dependencies_.size() != 1 ||
+        delta.cascade_dependencies_[0].kind_ != model_dependency_delta_kind::release ||
+        delta.cascade_dependencies_[0].candidate_consumer_count_ != 0) {
+        throw std::runtime_error("last cascade consumer release is incorrect");
+    }
+}
+
 void vqec_vision_ai_unit_adtst_check_transactional_rejection() {
     auto runtime = vqec_vision_ai_unit_adtst_make_runtime(true);
     app_activation_plan plan;
@@ -283,6 +348,7 @@ int main() {
         vqec::vision::ai::vqec_vision_ai_unit_adtst_check_eighteen_app_reference_counts();
         vqec::vision::ai::vqec_vision_ai_unit_adtst_check_shared_retain_and_release();
         vqec::vision::ai::vqec_vision_ai_unit_adtst_check_configuration_and_capacity_delta();
+        vqec::vision::ai::vqec_vision_ai_unit_adtst_check_cascade_reference_counts();
         vqec::vision::ai::vqec_vision_ai_unit_adtst_check_transactional_rejection();
     } catch (const std::exception&) {
         return 1;

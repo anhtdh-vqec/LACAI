@@ -354,6 +354,30 @@ int vqec_vision_ai_unit_cxwts_test_stop_retires_late_primary() {
     return 0;
 }
 
+int vqec_vision_ai_unit_cxwts_test_inactive_dependency_retires_without_work() {
+    fake_lease lease;
+    fake_aligner aligner;
+    aligner.template_ = vqec_vision_ai_unit_cxwts_make_template();
+    cascade_coordinator_config config;
+    config.aligner_ = &aligner;
+    config.lease_ = &lease;
+    config.template_ = aligner.template_;
+    config.max_tasks_per_frame_ = 1;
+    cascade_execution_worker worker;
+    if (worker.vqec_vision_ai_appl_cxwrk_configure(config).code_ != status_code::ok) {
+        return 1;
+    }
+    const auto batch = vqec_vision_ai_unit_cxwts_make_batch(1, 400, 1);
+    if (worker.vqec_vision_ai_appl_cxwrk_retire(batch).code_ != status_code::ok ||
+        lease.retire_calls_ != 1 || lease.acquire_calls_ != 0 ||
+        worker.vqec_vision_ai_appl_cxwrk_get_metrics().tasks_accepted_ != 0) {
+        std::cerr << "FAIL: inactive cascade dependency performed secondary work"
+                  << std::endl;
+        return 1;
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main() {
@@ -371,6 +395,9 @@ int main() {
     }
     if (vqec_vision_ai_unit_cxwts_test_stop_retires_late_primary() != 0) {
         return 5;
+    }
+    if (vqec_vision_ai_unit_cxwts_test_inactive_dependency_retires_without_work() != 0) {
+        return 6;
     }
     std::cout << "PASS: all cascade execution worker tests passed" << std::endl;
     return 0;

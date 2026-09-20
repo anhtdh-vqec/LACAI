@@ -10,8 +10,11 @@
 #include "vqec_vision_cascade_graph_session.hpp"
 #include "vqec_vision_production_platform.hpp"
 #include "vqec_vision_source_session.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_activation_delta.hpp"
 
 namespace vqec::vision::ai {
+
+class runtime_executor;
 
 struct service_cascade_owner {
     production_cascade_binding binding_;
@@ -20,6 +23,8 @@ struct service_cascade_owner {
     std::unique_ptr<cascade_coordinator> coordinator_;
     std::unique_ptr<cascade_execution_worker> worker_;
     std::uint16_t root_model_slot_{g_invalid_model_slot};
+    bool desired_active_{true};
+    bool active_{false};
 };
 
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_start_graph_sessions(
@@ -42,6 +47,23 @@ struct service_cascade_owner {
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_start_ready_graphs(
     std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
     const std::array<bool, deployment_limits::g_max_sources>& _source_ready);
+[[nodiscard]] status vqec_vision_ai_appl_svcsc_initialize_activation(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    const app_activation_plan& _plan, runtime_executor& _executor,
+    std::uint64_t _steady_now_ns);
+[[nodiscard]] status vqec_vision_ai_appl_svcsc_validate_activation(
+    const std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    const app_activation_plan& _plan, std::uint64_t _steady_now_ns);
+[[nodiscard]] status vqec_vision_ai_appl_svcsc_request_activation(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    const app_activation_plan& _plan, runtime_executor& _executor,
+    std::uint64_t _steady_now_ns);
+[[nodiscard]] status vqec_vision_ai_appl_svcsc_sync_executor(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners,
+    runtime_executor& _executor);
+[[nodiscard]] bool vqec_vision_ai_appl_svcsc_is_activation_complete(
+    const std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners)
+    noexcept;
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_stop_graphs(
     std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners);
 [[nodiscard]] status vqec_vision_ai_appl_svcsc_drain_workers(

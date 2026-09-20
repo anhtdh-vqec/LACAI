@@ -21,8 +21,8 @@ observation remain open. **Layer:** runtime.
 - Apply installed, entitled, desired, supported, compatible and resource-admitted gates
   to every `(source_id, usecase_id)` association.
 - Must not authenticate catalogs or entitlements, measure hardware capacity, load models or
-  mutate a live runtime; those belong to the trusted provisioning boundary, admission
-  provider and generation owner.
+  mutate hardware directly; those belong to the trusted provisioning boundary, admission
+  provider and serialized generation reconciler.
 
 ## Effective deployment
 
@@ -45,9 +45,11 @@ Missing model assignment leaves the caller's prior projection unchanged. Product
 this record through feature reconciliation and derives output scopes from it.
 
 The resolver is transactional: malformed, incomplete or duplicate snapshots leave its
-output objects unchanged. The service now implements full-generation replacement: stop
-scheduling/output, drain backend work and source leases, destroy obsolete owners, then
-construct the candidate.
+output objects unchanged. For a compatible prepared-capacity snapshot, the service derives
+per-application feature changes and reference-counted primary/cascade dependency deltas inside the
+running generation. It first replaces output authority and feature bindings, then reconciles only
+the affected model owners. Artifact/capacity/source identity changes and all-off remain explicit
+generation-replacement boundaries.
 
 ## Startup loader
 
@@ -90,8 +92,8 @@ D-Bus replies.
 
 ## Limits and next work
 
-- Runtime health observation, signed provisioning and incremental shared-owner replacement
-  remain open.
+- Runtime health observation and signed provisioning remain open. Incremental shared-owner
+  replacement is source-delivered; QCS6490 multi-app acceptance remains open.
 - Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
   D-Bus replies.
 - The resolver does not authenticate catalogs or entitlements, measure hardware capacity,

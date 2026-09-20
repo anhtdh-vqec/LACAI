@@ -55,6 +55,10 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_schedule(
         std::uint64_t _steady_now_ns, const observation_batch& _batch,
         std::uint64_t _policy_revision = 0);
+    // Retires a cascade-root frame without scheduling secondary work. Used while the
+    // prepared secondary dependency has zero effective application consumers.
+    [[nodiscard]] status vqec_vision_ai_appl_cxwrk_retire(
+        const observation_batch& _batch) noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_poll_completion(
         cascade_worker_completion& _completion);
     [[nodiscard]] status vqec_vision_ai_appl_cxwrk_quiescent_reset(

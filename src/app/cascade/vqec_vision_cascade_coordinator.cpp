@@ -237,6 +237,16 @@ status cascade_coordinator::vqec_vision_ai_appl_cscrd_process(
         _steady_now_ns, *lease_, _tracked, _aligned, _embeddings, _report);
 }
 
+status cascade_coordinator::vqec_vision_ai_appl_cscrd_retire(
+    const observation_batch& _tracked) noexcept {
+    if (lease_ == nullptr || _tracked.frame_.source_epoch_ == 0 ||
+        _tracked.frame_.frame_id_ == 0) {
+        return {status_code::invalid_argument,
+            "cascade retire requires a configured frame identity"};
+    }
+    return lease_->vqec_vision_ai_ports_cflse_retire(_tracked.frame_);
+}
+
 status cascade_coordinator::vqec_vision_ai_appl_cscrd_process_frame(
     std::uint64_t _steady_now_ns, const raw_frame& _frame,
     const observation_batch& _tracked, std::vector<alignment_result>& _aligned,

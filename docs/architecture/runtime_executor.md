@@ -99,6 +99,10 @@ idle until the corresponding source session crosses the first-frame gate, and is
 started before that primary graph can produce schedulable results.
 Shutdown drains the primary composition and retained tasks before the secondary graph is
 drained and unloaded. Startup or stop failure remains visible as a non-zero service result.
+Runtime snapshot reconciliation can close the cascade execution gate independently of the primary
+slot. While closed, a root result retires its exact frame retention without alignment or secondary
+submission; late worker completions are consumed but cannot be routed. The gate reopens only after
+the reference-counted graph returns to `running`.
 
 It is built only when the JSON loaders and the reference backend are enabled. The
 development fixture set is not a usecase and must be replaced during integration.

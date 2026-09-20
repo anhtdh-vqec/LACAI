@@ -30,13 +30,14 @@ const model_catalog_entry* vqec_vision_ai_core_acdel_find_model(
 }
 
 const app_runtime_component* vqec_vision_ai_core_acdel_find_model_component(
-    const app_runtime_association& _association, const std::string& _model_id) noexcept {
+    const app_runtime_association& _association, const std::string& _model_id,
+    app_model_role _role) noexcept {
     const auto found = std::find_if(
         _association.components_.begin(), _association.components_.end(),
-        [&_model_id](const auto& _component) {
+        [&_model_id, _role](const auto& _component) {
             return _component.type_ == app_component_type::model &&
                 _component.component_id_ == _model_id &&
-                _component.model_role_ == app_model_role::primary;
+                _component.model_role_ == _role;
         });
     return found == _association.components_.end() ? nullptr : &*found;
 }
@@ -93,7 +94,7 @@ status vqec_vision_ai_core_acdel_add_model_consumer(
     const model_catalog_entry& _model, std::uint16_t _source_slot,
     std::uint16_t _model_slot, bool _is_effective) {
     const auto* component = vqec_vision_ai_core_acdel_find_model_component(
-        _association, _model.model_id_);
+        _association, _model.model_id_, app_model_role::primary);
     if (component == nullptr || component->component_version_ != _model.model_version_) {
         return {status_code::incompatible_plugin,
             "application model component differs from immutable model catalog"};
@@ -148,6 +149,114 @@ status vqec_vision_ai_core_acdel_add_model_consumer(
         static_cast<std::uint16_t>(reference->consumer_app_ids_.size());
     _plan.sources_[_source_slot].active_model_mask_ = static_cast<std::uint16_t>(
         _plan.sources_[_source_slot].active_model_mask_ | (1U << _model_slot));
+    return {};
+}
+
+cascade_dependency_reference* vqec_vision_ai_core_acdel_find_cascade_reference(
+    app_activation_plan& _plan, std::uint16_t _source_slot) noexcept {
+    const auto found = std::find_if(
+        _plan.cascade_dependencies_.begin(), _plan.cascade_dependencies_.end(),
+        [_source_slot](const auto& _reference) {
+            return _reference.source_slot_ == _source_slot;
+        });
+    return found == _plan.cascade_dependencies_.end() ? nullptr : &*found;
+}
+
+status vqec_vision_ai_core_acdel_add_cascade_consumer(
+    app_activation_plan& _plan, const app_runtime_association& _association,
+    const model_catalog_entry& _model, std::uint16_t _source_slot,
+    std::uint16_t _root_model_slot, bool _is_effective) {
+    const auto* component = vqec_vision_ai_core_acdel_find_model_component(
+        _association, _model.model_id_, app_model_role::secondary);
+    if (component == nullptr || component->component_version_ != _model.model_version_ ||
+        component->target_id_ != _model.target_id_) {
+        return {status_code::incompatible_plugin,
+            "application cascade component differs from immutable model catalog"};
+    }
+    auto* reference = vqec_vision_ai_core_acdel_find_cascade_reference(
+        _plan, _source_slot);
+    if (reference == nullptr) {
+        if (_plan.cascade_dependencies_.size() ==
+            activation_delta_limits::g_max_cascade_dependencies) {
+            return {status_code::resource_exhausted,
+                "activation cascade dependency limit reached"};
+        }
+        cascade_dependency_reference created;
+        created.source_id_ = _association.source_id_;
+        created.model_id_ = _model.model_id_;
+        created.model_version_ = _model.model_version_;
+        created.target_id_ = _model.target_id_;
+        created.artifact_sha256_ = component->artifact_sha256_;
+        created.semantic_contract_sha256_ = component->semantic_contract_sha256_;
+        created.preprocess_contract_ = _model.preprocess_contract_;
+        created.source_slot_ = _source_slot;
+        created.root_model_slot_ = _root_model_slot;
+        _plan.cascade_dependencies_.push_back(std::move(created));
+        reference = &_plan.cascade_dependencies_.back();
+    } else if (reference->model_id_ != _model.model_id_ ||
+        reference->model_version_ != _model.model_version_ ||
+        reference->target_id_ != _model.target_id_ ||
+        reference->artifact_sha256_ != component->artifact_sha256_ ||
+        reference->semantic_contract_sha256_ != component->semantic_contract_sha256_ ||
+        reference->preprocess_contract_ != _model.preprocess_contract_ ||
+        reference->root_model_slot_ != _root_model_slot) {
+        return {status_code::unsupported,
+            "one source cannot prepare conflicting cascade dependencies"};
+    }
+    if (!_is_effective ||
+        std::find(reference->consumer_app_ids_.begin(),
+            reference->consumer_app_ids_.end(), _association.app_id_) !=
+            reference->consumer_app_ids_.end()) {
+        return {};
+    }
+    if (reference->consumer_app_ids_.size() == usecase_activation_limits::g_max_usecases ||
+        reference->consumer_app_ids_.size() >=
+            std::numeric_limits<std::uint16_t>::max()) {
+        return {status_code::resource_exhausted,
+            "cascade consumer reference count limit reached"};
+    }
+    reference->consumer_app_ids_.push_back(_association.app_id_);
+    reference->consumer_count_ =
+        static_cast<std::uint16_t>(reference->consumer_app_ids_.size());
+    return {};
+}
+
+status vqec_vision_ai_core_acdel_add_cascade_components(
+    app_activation_plan& _plan, const app_runtime_association& _association,
+    const usecase_catalog_entry& _usecase, const model_catalog& _models,
+    const source_deployment_config& _source, std::uint16_t _source_slot) {
+    for (const auto& component : _association.components_) {
+        if (component.type_ != app_component_type::model ||
+            component.model_role_ != app_model_role::secondary) {
+            continue;
+        }
+        const auto* model = vqec_vision_ai_core_acdel_find_model(
+            _models, component.component_id_);
+        if (model == nullptr || model->role_ != model_role::secondary ||
+            model->depends_on_.size() != 1U) {
+            return {status_code::unsupported,
+                "application cascade component has no supported catalog dependency"};
+        }
+        const auto& root_id = model->depends_on_[0].model_id_;
+        if (std::find(_usecase.root_model_ids_.begin(),
+                _usecase.root_model_ids_.end(), root_id) ==
+            _usecase.root_model_ids_.end()) {
+            return {status_code::incompatible_plugin,
+                "application cascade component is outside the usecase dependency graph"};
+        }
+        std::uint16_t root_model_slot = activation_delta_limits::g_invalid_slot;
+        const auto resolved = vqec_vision_ai_core_acdel_find_model_slot(
+            _source, root_id, root_model_slot);
+        if (resolved.code_ != status_code::ok) {
+            return resolved;
+        }
+        const auto added = vqec_vision_ai_core_acdel_add_cascade_consumer(
+            _plan, _association, *model, _source_slot, root_model_slot,
+            _association.is_effective());
+        if (added.code_ != status_code::ok) {
+            return added;
+        }
+    }
     return {};
 }
 
@@ -222,6 +331,16 @@ const model_dependency_reference* vqec_vision_ai_core_acdel_find_reference(
                 _reference.model_slot_ == _model_slot;
         });
     return found == _plan.model_dependencies_.end() ? nullptr : &*found;
+}
+
+const cascade_dependency_reference* vqec_vision_ai_core_acdel_find_cascade_reference(
+    const app_activation_plan& _plan, std::uint16_t _source_slot) noexcept {
+    const auto found = std::find_if(
+        _plan.cascade_dependencies_.begin(), _plan.cascade_dependencies_.end(),
+        [_source_slot](const auto& _reference) {
+            return _reference.source_slot_ == _source_slot;
+        });
+    return found == _plan.cascade_dependencies_.end() ? nullptr : &*found;
 }
 
 }  // namespace
@@ -304,6 +423,11 @@ status vqec_vision_ai_core_acdel_build_plan(
                 if (added.code_ != status_code::ok) {
                     return added;
                 }
+            }
+            const auto cascades = vqec_vision_ai_core_acdel_add_cascade_components(
+                candidate, association, *usecase, _models, source, source_slot);
+            if (cascades.code_ != status_code::ok) {
+                return cascades;
             }
             if (association.is_effective()) {
                 const auto added = vqec_vision_ai_core_acdel_add_feature_instance(
@@ -392,6 +516,52 @@ status vqec_vision_ai_core_acdel_build_delta(
                     (candidate_count == 0 ? model_dependency_delta_kind::release :
                         model_dependency_delta_kind::retain);
                 candidate_delta.model_dependencies_.push_back(std::move(change));
+            }
+
+            const auto* previous_cascade =
+                vqec_vision_ai_core_acdel_find_cascade_reference(
+                    _previous, source_slot);
+            const auto* candidate_cascade =
+                vqec_vision_ai_core_acdel_find_cascade_reference(
+                    _candidate, source_slot);
+            if (previous_cascade == nullptr && candidate_cascade != nullptr) {
+                candidate_delta.requires_capacity_replacement_ = true;
+            }
+            if (previous_cascade != nullptr && candidate_cascade != nullptr &&
+                (previous_cascade->model_id_ != candidate_cascade->model_id_ ||
+                 previous_cascade->model_version_ != candidate_cascade->model_version_ ||
+                 previous_cascade->target_id_ != candidate_cascade->target_id_ ||
+                 previous_cascade->artifact_sha256_ !=
+                    candidate_cascade->artifact_sha256_ ||
+                 previous_cascade->semantic_contract_sha256_ !=
+                    candidate_cascade->semantic_contract_sha256_ ||
+                 previous_cascade->preprocess_contract_ !=
+                    candidate_cascade->preprocess_contract_ ||
+                 previous_cascade->root_model_slot_ !=
+                    candidate_cascade->root_model_slot_)) {
+                candidate_delta.requires_capacity_replacement_ = true;
+            }
+            const auto previous_cascade_count = previous_cascade == nullptr
+                ? 0 : previous_cascade->consumer_count_;
+            const auto candidate_cascade_count = candidate_cascade == nullptr
+                ? 0 : candidate_cascade->consumer_count_;
+            if (previous_cascade_count != candidate_cascade_count) {
+                cascade_dependency_delta change;
+                change.source_id_ = _candidate.sources_[source_slot].source_id_;
+                change.model_id_ = candidate_cascade != nullptr
+                    ? candidate_cascade->model_id_ : previous_cascade->model_id_;
+                change.source_slot_ = source_slot;
+                change.root_model_slot_ = candidate_cascade != nullptr
+                    ? candidate_cascade->root_model_slot_
+                    : previous_cascade->root_model_slot_;
+                change.previous_consumer_count_ = previous_cascade_count;
+                change.candidate_consumer_count_ = candidate_cascade_count;
+                change.kind_ = previous_cascade_count == 0
+                    ? model_dependency_delta_kind::acquire
+                    : (candidate_cascade_count == 0
+                        ? model_dependency_delta_kind::release
+                        : model_dependency_delta_kind::retain);
+                candidate_delta.cascade_dependencies_.push_back(std::move(change));
             }
         }
 

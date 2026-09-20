@@ -14,6 +14,8 @@ app. **Source:** `src/app/session/vqec_vision_cascade_graph_session.cpp`,
 - Borrows one `inference_graph_port` and immutable activation metadata.
 - Validates an empty graph, then advances it through configure, load, source binding and
   start using bounded, serialized `step` calls.
+- Accepts serialized active/inactive requests so a prepared graph can stop at reference count zero
+  and restart at zero-to-one without replacing its primary source session.
 - Must not insert the secondary graph into the full-frame cadence or the RAW fan-out owned
   by `multi_model_session`.
 - Keeps every vendor type out of this owner.
@@ -38,6 +40,12 @@ unsettled backend is reported as recovery-required; validation failure while the
 remains empty is not. Neither condition authorizes early destruction of a graph that may
 still own hardware resources.
 
+The application activation plan derives the effective consumer count. `2 -> 1` keeps the graph
+running and performs no lifecycle call. `1 -> 0` closes the executor gate, waits for the bounded
+worker to become quiescent, drains and unloads. `0 -> 1` restarts the same prepared graph only after
+the primary source has crossed its first-frame gate, then reopens execution. A conflicting request
+while start/stop is already in progress is rejected; it cannot create two concurrent transitions.
+
 ## Portability and source binding
 
 The source binding describes the source identity and color/synchronization contract used to
@@ -59,7 +67,8 @@ adapters implement the same graph port; no vendor type enters this owner.
 
 ## Limits and next work
 
-- Initial integration uses one synchronous secondary graph for each active source.
+- Initial integration uses one secondary graph for each active source; production invokes it
+  through the bounded worker while the synchronous coordinator remains a compatibility path.
 - Sharing a graph across sources, asynchronous in-flight task scheduling and context
   sharing require a separate admission and lifecycle design backed by target measurements.
 - Compile/QEMU tests prove state-machine behavior only. They do not prove QNN, HTP, DMA,

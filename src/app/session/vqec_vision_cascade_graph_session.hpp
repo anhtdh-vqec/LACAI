@@ -44,6 +44,10 @@ public:
     cascade_graph_session& operator=(const cascade_graph_session& _other) = delete;
 
     [[nodiscard]] status vqec_vision_ai_appl_cgses_step(std::uint64_t _steady_now_ns);
+    [[nodiscard]] status vqec_vision_ai_appl_cgses_validate_active(
+        bool _desired_active, std::uint64_t _steady_now_ns) const;
+    [[nodiscard]] status vqec_vision_ai_appl_cgses_request_active(
+        bool _desired_active, std::uint64_t _steady_now_ns);
     [[nodiscard]] status vqec_vision_ai_appl_cgses_request_stop(
         std::uint64_t _steady_now_ns);
     [[nodiscard]] cascade_graph_session_state
@@ -66,6 +70,7 @@ private:
     std::uint64_t last_now_ns_{0};
     std::uint64_t start_ns_{0};
     std::uint64_t stop_ns_{0};
+    bool desired_active_{true};
     bool is_recovery_required_{false};
 };
 

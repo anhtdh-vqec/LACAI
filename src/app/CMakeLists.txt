@@ -102,17 +102,6 @@ target_link_libraries(vqec_vision_ai_service_feature_activation PUBLIC
 set_target_properties(vqec_vision_ai_service_feature_activation
     PROPERTIES CXX_EXTENSIONS OFF)
 
-add_library(vqec_vision_ai_service_activation_reconciler STATIC
-    service/generation/vqec_vision_service_activation_reconciler.cpp)
-target_include_directories(vqec_vision_ai_service_activation_reconciler PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>)
-target_link_libraries(vqec_vision_ai_service_activation_reconciler PUBLIC
-    vqec_vision_ai_service_feature_activation
-    vqec_vision_ai_runtime_composition_factory)
-set_target_properties(vqec_vision_ai_service_activation_reconciler
-    PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
 add_library(vqec_vision_ai_metadata_service STATIC
@@ -415,9 +404,25 @@ if(TARGET vqec_vision_ai_production_platform)
         vqec_vision_ai_production_platform
         vqec_vision_ai_cascade_graph_session
         vqec_vision_ai_cascade_coordinator
+        vqec_vision_ai_runtime_executor
         vqec_vision_ai_service_options)
     set_target_properties(vqec_vision_ai_service_cascade_runtime
         PROPERTIES CXX_EXTENSIONS OFF)
+
+    if(TARGET vqec_vision_ai_service_feature_activation)
+        add_library(vqec_vision_ai_service_activation_reconciler STATIC
+            service/generation/vqec_vision_service_activation_reconciler.cpp)
+        target_include_directories(vqec_vision_ai_service_activation_reconciler PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>)
+        target_link_libraries(vqec_vision_ai_service_activation_reconciler PUBLIC
+            vqec_vision_ai_service_feature_activation
+            vqec_vision_ai_runtime_composition_factory
+            vqec_vision_ai_service_cascade_runtime)
+        set_target_properties(vqec_vision_ai_service_activation_reconciler
+            PROPERTIES CXX_EXTENSIONS OFF)
+    endif()
 
     add_library(vqec_vision_ai_service_enrollment_runtime STATIC
         service/enrollment/vqec_vision_service_enrollment_runtime.cpp)

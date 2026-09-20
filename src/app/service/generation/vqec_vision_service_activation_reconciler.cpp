@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "vqec/vision/ai/contracts/lifecycle/vqec_vision_activation_delta.hpp"
+#include "vqec_vision_service_cascade_runtime.hpp"
 
 namespace vqec::vision::ai {
 
@@ -36,12 +37,29 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_complete_pending
                 "model activation delta is still in progress"};
         }
     }
+    if (cascade_owners_ != nullptr &&
+        !vqec_vision_ai_appl_svcsc_is_activation_complete(
+            *cascade_owners_)) {
+        return {status_code::pending,
+            "cascade activation delta is still in progress"};
+    }
     const auto committed_revision =
         pending_startup_->runtime_control.snapshot_revision_;
     *startup_ = std::move(*pending_startup_);
     pending_startup_.reset();
     std::printf("activation delta committed snapshot=%llu\n",
         static_cast<unsigned long long>(committed_revision));
+    return {};
+}
+
+status service_activation_reconciler::vqec_vision_ai_appl_svacr_bind_cascade_owners(
+    std::array<service_cascade_owner, deployment_limits::g_max_sources>& _owners)
+    noexcept {
+    if (startup_ == nullptr || cascade_owners_ != nullptr) {
+        return {status_code::invalid_argument,
+            "service activation reconciler received invalid cascade owners"};
+    }
+    cascade_owners_ = &_owners;
     return {};
 }
 
@@ -140,6 +158,23 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_apply_snapshot(
                 return valid_mask;
             }
         }
+        if (!delta.cascade_dependencies_.empty()) {
+            if (cascade_owners_ == nullptr) {
+                return {status_code::unsupported,
+                    "cascade activation requires a prepared generation owner"};
+            }
+            const auto valid_cascades =
+                vqec_vision_ai_appl_svcsc_validate_activation(
+                    *cascade_owners_,
+                    candidate_startup.activation_plan, _steady_now_ns);
+            if (valid_cascades.code_ == status_code::invalid_state) {
+                return {status_code::pending,
+                    "previous cascade activation delta is still in progress"};
+            }
+            if (valid_cascades.code_ != status_code::ok) {
+                return valid_cascades;
+            }
+        }
 
         auto candidate_features = std::make_unique<service_feature_activation>();
         const auto configured = candidate_features->vqec_vision_ai_appl_svfac_configure(
@@ -180,6 +215,20 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_apply_snapshot(
             return {status_code::invalid_state,
                 "prevalidated feature rebind failed after authority publication"};
         }
+        if (cascade_owners_ != nullptr) {
+            const auto cascades_requested =
+                vqec_vision_ai_appl_svcsc_request_activation(
+                    *cascade_owners_,
+                    candidate_startup.activation_plan,
+                    *bundle_->vqec_vision_ai_appl_rcfac_get_executor(),
+                    _steady_now_ns);
+            if (cascades_requested.code_ != status_code::ok &&
+                cascades_requested.code_ != status_code::pending) {
+                output_gate_->vqec_vision_ai_core_otgat_invalidate();
+                return {status_code::invalid_state,
+                    "prevalidated cascade delta failed after authority publication"};
+            }
+        }
         for (std::uint16_t source_slot = 0;
              source_slot < candidate_startup.activation_plan.source_count_;
              ++source_slot) {
@@ -199,10 +248,11 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_apply_snapshot(
         pending_startup_ = std::make_unique<service_startup_resolution>(
             std::move(candidate_startup));
         std::printf("activation delta accepted snapshot=%llu model_changes=%zu "
-                    "feature_changes=%zu\n",
+                    "cascade_changes=%zu feature_changes=%zu\n",
             static_cast<unsigned long long>(
                 pending_startup_->runtime_control.snapshot_revision_),
-            delta.model_dependencies_.size(), delta.feature_instances_.size());
+            delta.model_dependencies_.size(), delta.cascade_dependencies_.size(),
+            delta.feature_instances_.size());
         return vqec_vision_ai_appl_svacr_complete_pending();
     } catch (const std::bad_alloc&) {
         return {status_code::resource_exhausted,

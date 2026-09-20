@@ -335,6 +335,29 @@ int vqec_vision_ai_appl_svgen_run_generation(
             }
         }
     }
+    if (startup.has_runtime_control) {
+        const auto cascade_initialized =
+            vqec_vision_ai_appl_svcsc_initialize_activation(
+                cascade_owners, startup.activation_plan, *executor,
+                vqec_vision_ai_appl_svgen_monotonic_ns());
+        if (cascade_initialized.code_ != status_code::ok) {
+            std::fprintf(stderr, "cascade activation initialization failed (%d): %s\n",
+                static_cast<int>(cascade_initialized.code_),
+                cascade_initialized.message_.c_str());
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
+            return 1;
+        }
+        const auto cascade_bound =
+            activation_reconciler.vqec_vision_ai_appl_svacr_bind_cascade_owners(
+                cascade_owners);
+        if (cascade_bound.code_ != status_code::ok) {
+            std::fprintf(stderr, "cascade activation binding failed (%d): %s\n",
+                static_cast<int>(cascade_bound.code_),
+                cascade_bound.message_.c_str());
+            (void)vqec_vision_ai_appl_svcsc_stop_graphs(cascade_owners);
+            return 1;
+        }
+    }
     if (fr_effectively_enabled) {
         const service_cascade_owner* recognition_owner = nullptr;
         std::uint16_t recognition_source_slot = g_invalid_model_slot;

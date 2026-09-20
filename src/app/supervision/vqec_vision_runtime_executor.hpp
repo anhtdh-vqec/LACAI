@@ -105,6 +105,8 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_bind_cascade_worker(
         std::uint16_t _source_index, std::uint16_t _model_slot,
         cascade_execution_worker& _worker);
+    [[nodiscard]] status vqec_vision_ai_appl_rtexe_set_cascade_active(
+        std::uint16_t _source_index, bool _active) noexcept;
     // _policy_revision must be the revision captured with the result, never a freshly
     // read one. Only stages selected by _success_mask are dispatched.
     [[nodiscard]] status vqec_vision_ai_appl_rtexe_dispatch_events(
@@ -127,6 +129,7 @@ private:
         cascade_coordinators_{};
     std::array<cascade_execution_worker*, deployment_limits::g_max_sources>
         cascade_workers_{};
+    std::array<bool, deployment_limits::g_max_sources> cascade_active_{};
     std::array<std::uint16_t, deployment_limits::g_max_sources> cascade_root_slots_{};
     std::array<std::uint32_t, deployment_limits::g_max_sources> camera_ids_{};
     std::array<std::uint32_t, deployment_limits::g_max_sources> channel_ids_{};

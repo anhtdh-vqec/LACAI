@@ -3,7 +3,8 @@
 Kế hoạch triển khai activation delta và reference counting dependency dùng chung để bật, tắt hoặc
 cấu hình một ứng dụng mà không khởi động lại các ứng dụng không liên quan.
 
-**Status:** in-progress — D0–D2 đã logic-tested; service reconciler và QCS6490 gate chưa hoàn tất.
+**Status:** in-progress — D0–D3 và lifecycle cascade đã logic-tested; hard/native và QCS6490
+multi-app gate chưa hoàn tất.
 **Layer:** docs. **Source:** `n/a`.
 
 ## Trách nhiệm

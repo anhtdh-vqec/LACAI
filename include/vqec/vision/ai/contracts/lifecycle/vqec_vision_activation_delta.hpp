@@ -16,6 +16,10 @@ namespace vqec::vision::ai {
 namespace activation_delta_limits {
 inline constexpr std::size_t g_max_model_dependencies =
     deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source;
+// The production cascade runtime currently admits at most one secondary graph per source.
+// Keep the bound explicit until multi-secondary composition has its own owner array.
+inline constexpr std::size_t g_max_cascade_dependencies =
+    deployment_limits::g_max_sources;
 inline constexpr std::size_t g_max_feature_instances =
     usecase_activation_limits::g_max_associations * app_lifecycle_limits::g_max_features;
 inline constexpr std::uint16_t g_invalid_slot =
@@ -32,6 +36,20 @@ struct model_dependency_reference {
     std::string preprocess_contract_;
     std::uint16_t source_slot_{activation_delta_limits::g_invalid_slot};
     std::uint16_t model_slot_{activation_delta_limits::g_invalid_slot};
+    std::uint16_t consumer_count_{0};
+    std::vector<std::string> consumer_app_ids_;
+};
+
+struct cascade_dependency_reference {
+    std::string source_id_;
+    std::string model_id_;
+    std::string model_version_;
+    std::string target_id_;
+    std::string artifact_sha256_;
+    std::string semantic_contract_sha256_;
+    std::string preprocess_contract_;
+    std::uint16_t source_slot_{activation_delta_limits::g_invalid_slot};
+    std::uint16_t root_model_slot_{activation_delta_limits::g_invalid_slot};
     std::uint16_t consumer_count_{0};
     std::vector<std::string> consumer_app_ids_;
 };
@@ -58,6 +76,7 @@ struct app_activation_source_state {
 struct app_activation_plan {
     std::array<app_activation_source_state, deployment_limits::g_max_sources> sources_{};
     std::vector<model_dependency_reference> model_dependencies_;
+    std::vector<cascade_dependency_reference> cascade_dependencies_;
     std::vector<app_feature_instance> feature_instances_;
     std::uint64_t snapshot_revision_{0};
     std::uint64_t deployment_revision_{0};
@@ -80,6 +99,16 @@ struct model_dependency_delta {
     std::uint16_t candidate_consumer_count_{0};
 };
 
+struct cascade_dependency_delta {
+    std::string source_id_;
+    std::string model_id_;
+    model_dependency_delta_kind kind_{model_dependency_delta_kind::retain};
+    std::uint16_t source_slot_{activation_delta_limits::g_invalid_slot};
+    std::uint16_t root_model_slot_{activation_delta_limits::g_invalid_slot};
+    std::uint16_t previous_consumer_count_{0};
+    std::uint16_t candidate_consumer_count_{0};
+};
+
 struct feature_instance_delta {
     std::string source_id_;
     std::string app_id_;
@@ -93,6 +122,7 @@ struct app_activation_delta {
     std::array<std::uint16_t, deployment_limits::g_max_sources>
         candidate_active_model_masks_{};
     std::vector<model_dependency_delta> model_dependencies_;
+    std::vector<cascade_dependency_delta> cascade_dependencies_;
     std::vector<feature_instance_delta> feature_instances_;
     std::uint64_t previous_snapshot_revision_{0};
     std::uint64_t candidate_snapshot_revision_{0};

@@ -602,6 +602,93 @@ int main() {
     assert(tracked_count == 1);
     assert(event_count == 1);
 
+    // A prepared secondary dependency can be deactivated without stopping the source or
+    // primary graph. Work already in flight is first quiesced and any late completion is
+    // discarded behind the closed gate; subsequent primary results only retire their exact
+    // frame retention. Reopening the gate resumes cascade work on the same worker.
+    assert(executor->vqec_vision_ai_appl_rtexe_set_cascade_active(
+               0, false).code_ == status_code::ok);
+    assert(worker.vqec_vision_ai_appl_cxwrk_quiescent_reset(
+               now_ns, 1000000000ULL).code_ == status_code::ok);
+    std::uint32_t inactive_primary_results = 0;
+    for (unsigned step = 0; step < 800 && inactive_primary_results < 4;
+         ++step, now_ns += 1000000) {
+        runtime_executor_report step_report;
+        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(
+            now_ns, step_report);
+        assert(progressed.code_ == status_code::ok ||
+               progressed.code_ == status_code::pending);
+        if (!executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            continue;
+        }
+        std::array<observation_batch, deployment_limits::g_max_models_per_source>
+            inactive_tracked;
+        std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>
+            inactive_events;
+        runtime_executor_report inactive_taken;
+        assert(executor->vqec_vision_ai_appl_rtexe_take_result(
+                   inactive_tracked, inactive_events, inactive_taken).code_ ==
+               status_code::ok);
+        assert(!inactive_taken.has_cascade_);
+        ++inactive_primary_results;
+    }
+    assert(inactive_primary_results == 4);
+    const auto inactive_metrics =
+        worker.vqec_vision_ai_appl_cxwrk_get_metrics();
+    for (unsigned step = 0; step < 400 && inactive_primary_results < 7;
+         ++step, now_ns += 1000000) {
+        runtime_executor_report step_report;
+        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(
+            now_ns, step_report);
+        assert(progressed.code_ == status_code::ok ||
+               progressed.code_ == status_code::pending);
+        if (!executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            continue;
+        }
+        std::array<observation_batch, deployment_limits::g_max_models_per_source>
+            inactive_tracked;
+        std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>
+            inactive_events;
+        runtime_executor_report inactive_taken;
+        assert(executor->vqec_vision_ai_appl_rtexe_take_result(
+                   inactive_tracked, inactive_events, inactive_taken).code_ ==
+               status_code::ok);
+        assert(!inactive_taken.has_cascade_);
+        ++inactive_primary_results;
+    }
+    const auto inactive_after =
+        worker.vqec_vision_ai_appl_cxwrk_get_metrics();
+    assert(inactive_primary_results == 7 &&
+           inactive_after.tasks_accepted_ == inactive_metrics.tasks_accepted_);
+
+    assert(executor->vqec_vision_ai_appl_rtexe_set_cascade_active(
+               0, true).code_ == status_code::ok);
+    bool resumed_cascade = false;
+    for (unsigned step = 0; step < 800 && !resumed_cascade;
+         ++step, now_ns += 1000000) {
+        runtime_executor_report step_report;
+        const auto progressed = executor->vqec_vision_ai_appl_rtexe_step(
+            now_ns, step_report);
+        assert(progressed.code_ == status_code::ok ||
+               progressed.code_ == status_code::pending);
+        if (!executor->vqec_vision_ai_appl_rtexe_has_pending()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+        std::array<observation_batch, deployment_limits::g_max_models_per_source>
+            resumed_tracked;
+        std::array<feature_event_batch, feature_fanout_limits::g_max_feature_stages>
+            resumed_events;
+        runtime_executor_report resumed_taken;
+        assert(executor->vqec_vision_ai_appl_rtexe_take_result(
+                   resumed_tracked, resumed_events, resumed_taken).code_ ==
+               status_code::ok);
+        resumed_cascade = resumed_taken.has_cascade_;
+    }
+    assert(resumed_cascade &&
+           worker.vqec_vision_ai_appl_cxwrk_get_metrics().tasks_accepted_ >
+               inactive_after.tasks_accepted_);
+
     // B02: a result captured under policy revision 1 must not be relabelled by a later
     // regrant to revision 2; dispatch with the captured revision is denied, not delivered.
     bool stale_event_taken = false;
