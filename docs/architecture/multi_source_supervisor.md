@@ -78,6 +78,13 @@ control thread owns both progress and activation. The caller must also prove tha
 layers hold no pending result before mutating a bound session; the application composition
 and runtime executor add those checks.
 
+The control thread first requests the activation-quiesce barrier. While that barrier is
+held, `step` continues polling queued/in-flight completions but does not submit another
+worker command. This is required for more than one source: ordinary round-robin progress
+otherwise keeps at least one worker busy indefinitely and no common mutation point is
+guaranteed. The caller releases the barrier immediately after the bounded inspection or
+mutation, including a pending model-lifecycle result, so source progress resumes.
+
 After the control thread consumes a worker completion, no command is pending or executing;
 it samples health at that serialized handoff and caches the value before queuing more work.
 Scheduling, aggregate snapshots and stopped-state detection use this cache and never read a

@@ -145,6 +145,16 @@ status application_composition::vqec_vision_ai_appl_acomp_take_result(
     return {};
 }
 
+void application_composition::
+vqec_vision_ai_appl_acomp_request_activation_quiesce() noexcept {
+    supervisor_.vqec_vision_ai_appl_mssup_request_activation_quiesce();
+}
+
+void application_composition::
+vqec_vision_ai_appl_acomp_release_activation_quiesce() noexcept {
+    supervisor_.vqec_vision_ai_appl_mssup_release_activation_quiesce();
+}
+
 bool application_composition::vqec_vision_ai_appl_acomp_is_activation_quiescent()
     const {
     return !has_pending_result_ &&

@@ -160,6 +160,32 @@ int main() {
     }
     check(saw_slow_result);
 
+    // A multi-source activation needs one common control point. Once requested, the
+    // supervisor consumes already queued work but must not enqueue another session call.
+    supervisor.vqec_vision_ai_appl_mssup_request_activation_quiesce();
+    for (unsigned spin = 0; spin < 2000 &&
+         !supervisor.vqec_vision_ai_appl_mssup_is_quiescent(); ++spin) {
+        (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
+        std::this_thread::sleep_for(g_worker_poll_interval);
+    }
+    check(supervisor.vqec_vision_ai_appl_mssup_is_quiescent());
+    const auto fast_steps_at_barrier = fast.steps_;
+    const auto slow_steps_at_barrier = slow.steps_;
+    for (unsigned spin = 0; spin < 8; ++spin) {
+        (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
+    }
+    check(fast.steps_ == fast_steps_at_barrier &&
+          slow.steps_ == slow_steps_at_barrier);
+    supervisor.vqec_vision_ai_appl_mssup_release_activation_quiesce();
+    bool resumed = false;
+    for (unsigned spin = 0; spin < 2000 && !resumed; ++spin) {
+        (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
+        resumed = fast.steps_ > fast_steps_at_barrier ||
+            slow.steps_ > slow_steps_at_barrier;
+        std::this_thread::sleep_for(g_worker_poll_interval);
+    }
+    check(resumed);
+
     check(supervisor.vqec_vision_ai_appl_mssup_request_stop(now++).code_ == status_code::ok);
     for (unsigned spin = 0; spin < 2000; ++spin) {
         (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);

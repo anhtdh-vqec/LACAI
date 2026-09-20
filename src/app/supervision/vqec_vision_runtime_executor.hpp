@@ -120,6 +120,8 @@ public:
     [[nodiscard]] runtime_executor_metrics
     vqec_vision_ai_appl_rtexe_get_metrics() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_rtexe_has_pending() const noexcept;
+    void vqec_vision_ai_appl_rtexe_request_activation_quiesce() noexcept;
+    void vqec_vision_ai_appl_rtexe_release_activation_quiesce() noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_rtexe_is_activation_quiescent() const;
 
 private:

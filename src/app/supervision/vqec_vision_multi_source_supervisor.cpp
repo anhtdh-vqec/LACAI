@@ -263,6 +263,9 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
     };
     // One non-blocking step on the next available slot. Returns true when accepted.
     const auto request_one = [&]() -> bool {
+        if (activation_quiesce_requested_) {
+            return false;
+        }
         for (std::uint16_t offset = 0; offset < config_.source_count_; ++offset) {
             const auto index = static_cast<std::uint16_t>(
                 (static_cast<unsigned>(next_source_index_) + offset) %
@@ -307,6 +310,16 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
     }
     vqec_vision_ai_appl_mssup_refresh_state();
     return {status_code::pending, "no async source step could be requested"};
+}
+
+void multi_source_supervisor::
+vqec_vision_ai_appl_mssup_request_activation_quiesce() noexcept {
+    activation_quiesce_requested_ = true;
+}
+
+void multi_source_supervisor::
+vqec_vision_ai_appl_mssup_release_activation_quiesce() noexcept {
+    activation_quiesce_requested_ = false;
 }
 
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_request_stop(

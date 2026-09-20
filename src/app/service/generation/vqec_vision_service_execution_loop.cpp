@@ -170,12 +170,15 @@ status vqec_vision_ai_appl_svxlp_run(
             _context.poll_control_();
         }
         if (_context.reconcile_requested_ && _context.reconcile_requested_()) {
+            executor.vqec_vision_ai_appl_rtexe_request_activation_quiesce();
             if (!executor.vqec_vision_ai_appl_rtexe_is_activation_quiescent()) {
                 // The worker exclusively owns its session call. Progress below first
-                // consumes queued/in-flight work and its result; activation mutates model
-                // masks and feature wiring only at the next quiescent control point.
+                // consumes queued/in-flight work and its result. The activation barrier
+                // prevents another source from being queued, so every source reaches one
+                // common mutation point even when several async workers are enabled.
             } else if (_context.apply_runtime_control_) {
                 const auto applied = _context.apply_runtime_control_();
+                executor.vqec_vision_ai_appl_rtexe_release_activation_quiesce();
                 if (applied.code_ == status_code::ok) {
                     continue;
                 }
@@ -190,9 +193,12 @@ status vqec_vision_ai_appl_svxlp_run(
                     break;
                 }
             } else {
+                executor.vqec_vision_ai_appl_rtexe_release_activation_quiesce();
                 replacement_requested = true;
                 break;
             }
+        } else {
+            executor.vqec_vision_ai_appl_rtexe_release_activation_quiesce();
         }
         if (_context.control_manager_ != nullptr && generation_published &&
             _context.control_manager_->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {

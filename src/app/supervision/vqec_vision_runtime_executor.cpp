@@ -408,6 +408,16 @@ bool runtime_executor::vqec_vision_ai_appl_rtexe_has_pending() const noexcept {
     return has_pending_;
 }
 
+void runtime_executor::
+vqec_vision_ai_appl_rtexe_request_activation_quiesce() noexcept {
+    composition_.vqec_vision_ai_appl_acomp_request_activation_quiesce();
+}
+
+void runtime_executor::
+vqec_vision_ai_appl_rtexe_release_activation_quiesce() noexcept {
+    composition_.vqec_vision_ai_appl_acomp_release_activation_quiesce();
+}
+
 bool runtime_executor::vqec_vision_ai_appl_rtexe_is_activation_quiescent() const {
     return !has_pending_ &&
         composition_.vqec_vision_ai_appl_acomp_is_activation_quiescent();

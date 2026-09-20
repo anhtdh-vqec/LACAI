@@ -556,26 +556,28 @@ void vqec_vision_ai_ctest_rcfct_advance_to_running(
     const auto deadline = std::chrono::steady_clock::now() +
         g_async_completion_timeout;
     while (std::chrono::steady_clock::now() < deadline) {
+        _composition.vqec_vision_ai_appl_acomp_request_activation_quiesce();
+        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
+        if (_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
+            bool running = true;
+            for (std::uint16_t source = 0;
+                 source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
+                const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
+                    vqec_vision_ai_appl_mmses_get_snapshot();
+                running = running && snapshot.session_state_ ==
+                        multi_model_session_state::running &&
+                    snapshot.delta_phase_ == multi_model_delta_phase::idle;
+            }
+            if (running) {
+                _composition.vqec_vision_ai_appl_acomp_release_activation_quiesce();
+                return;
+            }
+            _composition.vqec_vision_ai_appl_acomp_release_activation_quiesce();
+        }
         const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
         assert(stepped.code_ == status_code::ok ||
                stepped.code_ == status_code::pending);
-        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
-        if (!_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
-            std::this_thread::sleep_for(g_async_poll_interval);
-            continue;
-        }
-        bool running = true;
-        for (std::uint16_t source = 0;
-             source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
-            const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
-                vqec_vision_ai_appl_mmses_get_snapshot();
-            running = running && snapshot.session_state_ ==
-                    multi_model_session_state::running &&
-                snapshot.delta_phase_ == multi_model_delta_phase::idle;
-        }
-        if (running) {
-            return;
-        }
+        std::this_thread::sleep_for(g_async_poll_interval);
     }
     assert(false && "composition did not reach running state");
 }
@@ -587,26 +589,28 @@ void vqec_vision_ai_ctest_rcfct_advance_delta(
     const auto deadline = std::chrono::steady_clock::now() +
         g_async_completion_timeout;
     while (std::chrono::steady_clock::now() < deadline) {
+        _composition.vqec_vision_ai_appl_acomp_request_activation_quiesce();
+        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
+        if (_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
+            bool complete = true;
+            for (std::uint16_t source = 0;
+                 source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
+                const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
+                    vqec_vision_ai_appl_mmses_get_snapshot();
+                complete = complete && snapshot.active_model_mask_ == _expected_mask &&
+                    snapshot.desired_model_mask_ == _expected_mask &&
+                    snapshot.delta_phase_ == multi_model_delta_phase::idle;
+            }
+            if (complete) {
+                _composition.vqec_vision_ai_appl_acomp_release_activation_quiesce();
+                return;
+            }
+            _composition.vqec_vision_ai_appl_acomp_release_activation_quiesce();
+        }
         const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
         assert(stepped.code_ == status_code::ok ||
                stepped.code_ == status_code::pending);
-        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
-        if (!_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
-            std::this_thread::sleep_for(g_async_poll_interval);
-            continue;
-        }
-        bool complete = true;
-        for (std::uint16_t source = 0;
-             source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
-            const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
-                vqec_vision_ai_appl_mmses_get_snapshot();
-            complete = complete && snapshot.active_model_mask_ == _expected_mask &&
-                snapshot.desired_model_mask_ == _expected_mask &&
-                snapshot.delta_phase_ == multi_model_delta_phase::idle;
-        }
-        if (complete) {
-            return;
-        }
+        std::this_thread::sleep_for(g_async_poll_interval);
     }
     assert(false && "model activation delta did not complete");
 }

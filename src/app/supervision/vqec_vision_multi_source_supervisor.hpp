@@ -90,6 +90,11 @@ public:
     // an independent channel, so an isolated source error is never an invisible pending.
     [[nodiscard]] status vqec_vision_ai_appl_mssup_take_fault(
         multi_source_fault_event& _fault);
+    // Stops admitting new async worker calls while allowing already queued work and
+    // unread completions to drain. The same control thread must release the barrier
+    // after it has inspected or mutated the bound sessions.
+    void vqec_vision_ai_appl_mssup_request_activation_quiesce() noexcept;
+    void vqec_vision_ai_appl_mssup_release_activation_quiesce() noexcept;
     // True only when no async worker has a queued call, executing session call or unread
     // completion. The control thread uses this serialization gate before mutating a bound
     // session for an activation delta.
@@ -119,6 +124,7 @@ private:
     std::uint16_t next_source_index_{0};
     std::uint16_t next_result_index_{0};
     bool async_mode_{false};
+    bool activation_quiesce_requested_{false};
     // Alternates the async step between requesting a source step and polling a completion,
     // so neither a slow source (blocked worker) nor a fast one (always a completion) can
     // starve the other path.
