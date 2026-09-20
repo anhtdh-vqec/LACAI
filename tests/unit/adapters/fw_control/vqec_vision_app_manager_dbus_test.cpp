@@ -382,6 +382,38 @@ void vqec_vision_ai_unit_amdtst_check_wire() {
         }
 
         vqec_vision_ai_unit_amdtst_release_name(peer, g_backend_name);
+        {
+            // Runtime startup is independent of backend process order. An absent
+            // backend owner must not consume the snapshot RPC timeout before the
+            // trusted runtime owner is checked.
+            app_manager_dbus_client runtime_client;
+            const app_manager_dbus_client_config runtime_config{
+                g_service_name, g_runtime_name, g_object_path,
+                g_rpc_timeout_ms, true};
+            auto runtime_fetch = std::async(std::launch::async,
+                [&runtime_client, &runtime_config]() {
+                    runtime_control_snapshot current;
+                    const auto fetched =
+                        runtime_client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
+                            runtime_config, current);
+                    return fetched.code_ == status_code::ok &&
+                        current.snapshot_revision_ == 4;
+                });
+            for (std::size_t iteration = 0;
+                 iteration < g_max_poll_iterations &&
+                 runtime_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                     std::future_status::ready;
+                 ++iteration) {
+                server.vqec_vision_ai_fwctl_amdbs_poll();
+                std::this_thread::sleep_for(g_poll_interval);
+            }
+            if (runtime_fetch.wait_for(std::chrono::milliseconds(0)) !=
+                    std::future_status::ready ||
+                !runtime_fetch.get()) {
+                throw std::runtime_error(
+                    "App Manager runtime snapshot depends on backend owner");
+            }
+        }
         app_manager_dbus_client client;
         const app_manager_dbus_client_config client_config{
             g_service_name, g_backend_name, g_object_path, g_rpc_timeout_ms, true};

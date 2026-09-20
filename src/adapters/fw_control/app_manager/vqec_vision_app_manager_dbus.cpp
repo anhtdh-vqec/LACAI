@@ -30,6 +30,7 @@ constexpr std::size_t g_max_signature_bytes = 64U * 1024U;
 
 struct dbus_binding {
     app_manager_port* port_{nullptr};
+    GDBusConnection* authority_connection_{nullptr};
     std::string trusted_backend_bus_name_;
     std::string trusted_runtime_bus_name_;
     int rpc_timeout_ms_{0};
@@ -578,19 +579,21 @@ bool vqec_vision_ai_fwctl_amdbs_is_named_sender(GDBusConnection* _connection,
     return matches;
 }
 
-void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection* _connection,
+void vqec_vision_ai_fwctl_amdbs_method_call(GDBusConnection*,
     const gchar* _sender, const gchar*, const gchar*, const gchar* _method_name,
     GVariant* _parameters, GDBusMethodInvocation* _invocation,
     gpointer _user_data) {
     auto* binding = static_cast<dbus_binding*>(_user_data);
     const bool is_snapshot = g_strcmp0(
         _method_name, app_manager_dbus_protocol::g_snapshot_method) == 0;
-    const bool is_backend = binding != nullptr &&
-        vqec_vision_ai_fwctl_amdbs_is_named_sender(_connection,
-            binding->trusted_backend_bus_name_, binding->rpc_timeout_ms_, _sender);
+    // Snapshot polling is the runtime's only method. Resolve that expected owner
+    // first so an offline backend cannot delay runtime startup or reconnection.
     const bool is_runtime = binding != nullptr && is_snapshot &&
-        vqec_vision_ai_fwctl_amdbs_is_named_sender(_connection,
+        vqec_vision_ai_fwctl_amdbs_is_named_sender(binding->authority_connection_,
             binding->trusted_runtime_bus_name_, binding->rpc_timeout_ms_, _sender);
+    const bool is_backend = binding != nullptr && !is_runtime &&
+        vqec_vision_ai_fwctl_amdbs_is_named_sender(binding->authority_connection_,
+            binding->trusted_backend_bus_name_, binding->rpc_timeout_ms_, _sender);
     if (!is_backend && !is_runtime) {
         g_dbus_method_invocation_return_error_literal(_invocation, G_DBUS_ERROR,
             G_DBUS_ERROR_ACCESS_DENIED,
@@ -1301,6 +1304,11 @@ struct app_manager_dbus_server::implementation : dbus_binding {
             g_dbus_connection_close(connection_, nullptr, nullptr, nullptr);
             g_object_unref(connection_);
         }
+        if (authority_connection_ != nullptr) {
+            g_dbus_connection_close(
+                authority_connection_, nullptr, nullptr, nullptr);
+            g_object_unref(authority_connection_);
+        }
         if (context_ != nullptr) {
             g_main_context_unref(context_);
         }
@@ -1337,11 +1345,22 @@ status app_manager_dbus_server::vqec_vision_ai_fwctl_amdbs_open(
         static_cast<GDBusConnectionFlags>(G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
             G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION), nullptr, nullptr,
         &error.value_);
+    if (implementation_->connection_ != nullptr) {
+        implementation_->authority_connection_ =
+            g_dbus_connection_new_for_address_sync(address,
+                static_cast<GDBusConnectionFlags>(
+                    G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+                    G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION),
+                nullptr, nullptr, &error.value_);
+    }
     g_free(address);
-    if (implementation_->connection_ == nullptr) {
+    if (implementation_->connection_ == nullptr ||
+        implementation_->authority_connection_ == nullptr) {
         return {status_code::io_error, "cannot connect to app manager DBus"};
     }
     g_dbus_connection_set_exit_on_close(implementation_->connection_, FALSE);
+    g_dbus_connection_set_exit_on_close(
+        implementation_->authority_connection_, FALSE);
     implementation_->trusted_backend_bus_name_ = _config.trusted_backend_bus_name_;
     implementation_->trusted_runtime_bus_name_ = _config.trusted_runtime_bus_name_;
     implementation_->rpc_timeout_ms_ = _config.rpc_timeout_ms_;
