@@ -12,9 +12,11 @@ It reproduces the two FW responsibilities LACAI depends on:
    message is the 104-byte native-endian FrameHeader plus one FD via SCM_RIGHTS;
    the consumer returns an 8-byte ReturnHeader ACK before the frame is released.
 
-Pixels come from the real Qualcomm camera through qtiqmmfsrc. This fixture copies
-NV12 into an ACK-gated memfd pool by default. --dma-heap selects a Linux DMA-BUF
-heap to exercise registered input; it still copies pixels and is not released FW.
+Pixels come from the real Qualcomm camera through qtiqmmfsrc by default. The explicit
+test_pattern source keeps the same control/media/ownership wire while removing camera-sensor
+availability from runtime lifecycle tests. This fixture copies NV12 into an ACK-gated memfd
+pool by default. --dma-heap selects a Linux DMA-BUF heap to exercise registered input; it
+still copies pixels and is not released FW.
 
 Run on the target (root), then start the LACAI app against:
   raw_source socket  : <socket_dir>/0_third_ai.sock
@@ -66,6 +68,11 @@ DMA_BUF_IOCTL_SYNC = (IOC_WRITE << (IOC_NR_BITS + IOC_TYPE_BITS + IOC_SIZE_BITS)
                       | ord("b") << IOC_NR_BITS)
 DMA_BUF_SYNC_WRITE = 2
 DMA_BUF_SYNC_END = 4
+SOURCE_CAMERA = "camera"
+SOURCE_TEST_PATTERN = "test_pattern"
+TEST_PATTERN_LUMA_MIN = 16
+TEST_PATTERN_LUMA_RANGE = 219
+TEST_PATTERN_CHROMA_NEUTRAL = 128
 
 INTROSPECTION_XML = """
 <node>
@@ -93,6 +100,8 @@ def parse_args():
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--channel", type=int, default=0)
     parser.add_argument("--consumer", default="ai")
+    parser.add_argument("--source", choices=(SOURCE_CAMERA, SOURCE_TEST_PATTERN),
+                        default=SOURCE_CAMERA)
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
@@ -189,8 +198,19 @@ class CameraPipeline:
         self.pipeline = None
         self.appsink = None
         self.pool = None
+        self.test_pattern = None
+        self.next_test_frame_ns = 0
 
     def start(self):
+        if self.args.source == SOURCE_TEST_PATTERN:
+            luma_row = bytes(
+                TEST_PATTERN_LUMA_MIN + x * TEST_PATTERN_LUMA_RANGE // self.args.width
+                for x in range(self.args.width))
+            chroma_row = bytes([TEST_PATTERN_CHROMA_NEUTRAL]) * self.args.width
+            self.test_pattern = (
+                luma_row * self.args.height + chroma_row * (self.args.height // 2))
+            self.next_test_frame_ns = time.monotonic_ns()
+            return
         desc = (
             f"qtiqmmfsrc name=camsrc camera={self.args.camera} ! "
             f"video/x-raw,format=NV12,width={self.args.width},height={self.args.height},"
@@ -210,10 +230,36 @@ class CameraPipeline:
         if self.pipeline is not None:
             self.pipeline.set_state(Gst.State.NULL)
             self.pipeline = None
+        self.test_pattern = None
+        self.next_test_frame_ns = 0
 
     def next_fd(self, timeout_ns):
         if self.pool is None:
             self.pool = FramePool(self.args)
+        if self.test_pattern is not None:
+            now_ns = time.monotonic_ns()
+            wait_ns = max(0, self.next_test_frame_ns - now_ns)
+            if wait_ns > timeout_ns:
+                time.sleep(timeout_ns / Gst.SECOND)
+                return None
+            if wait_ns != 0:
+                time.sleep(wait_ns / Gst.SECOND)
+            frame_interval_ns = Gst.SECOND // self.args.fps
+            now_ns = time.monotonic_ns()
+            self.next_test_frame_ns = max(
+                self.next_test_frame_ns + frame_interval_ns,
+                now_ns + frame_interval_ns)
+            try:
+                slot = self.pool.vqec_vision_ai_tools_fwsim_acquire_slot()
+            except queue.Empty:
+                return None
+            try:
+                frame_fd = self.pool.vqec_vision_ai_tools_fwsim_write_frame(
+                    slot, self.test_pattern)
+                return frame_fd, self.pool.frame_size, slot
+            except BaseException:
+                self.pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
+                raise
         try:
             slot = self.pool.vqec_vision_ai_tools_fwsim_acquire_slot()
         except queue.Empty:

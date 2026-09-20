@@ -53,6 +53,27 @@ def vqec_vision_ai_tools_fwstt_run():
         raise AssertionError("ACKed slot was not reusable")
     pool.vqec_vision_ai_tools_fwsim_release_slot(slot)
 
+    synthetic_args = types.SimpleNamespace(
+        width=4, height=4, fps=25, max_in_flight=1, dma_heap=None,
+        socket_dir="/unused", channel=0, consumer="ai", max_frames=0,
+        source=sim.SOURCE_TEST_PATTERN)
+    synthetic = sim.CameraPipeline(synthetic_args)
+    synthetic.start()
+    synthetic.next_test_frame_ns = time.monotonic_ns()
+    synthetic_frame = synthetic.next_fd(sim.Gst.SECOND)
+    if synthetic_frame is None:
+        raise AssertionError("test-pattern source produced no frame")
+    synthetic_fd, synthetic_bytes, synthetic_slot = synthetic_frame
+    try:
+        if synthetic_bytes != synthetic_args.width * synthetic_args.height * 3 // 2:
+            raise AssertionError("test-pattern source produced an invalid byte count")
+        if len(os.pread(synthetic_fd, synthetic_bytes, 0)) != synthetic_bytes:
+            raise AssertionError("test-pattern source produced a truncated frame")
+    finally:
+        os.close(synthetic_fd)
+        synthetic.pool.vqec_vision_ai_tools_fwsim_release_slot(synthetic_slot)
+        synthetic.stop()
+
     class FixtureCamera:
         def __init__(self):
             self.pool = pool
@@ -102,7 +123,7 @@ def vqec_vision_ai_tools_fwstt_run():
         consumer.close()
         server.close()
         worker.join(timeout=2)
-    print("PASS memfd pool ownership and exact ACK/duplicate-ACK rejection")
+    print("PASS camera fixture pool, test pattern and exact ACK rejection")
 
 
 if __name__ == "__main__":

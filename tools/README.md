@@ -54,7 +54,7 @@ stable while their parent directory identifies the owner and execution environme
 
 | Tool | Purpose |
 |---|---|
-| `vqec_vision_fw_camera_sim.py` | Compatibility FW RAW camera simulator over the wire socket |
+| `vqec_vision_fw_camera_sim.py` | Compatibility FW RAW simulator with explicit camera or deterministic test-pattern pixels over the same wire/ACK path |
 | `vqec_vision_fw_camera_sim_test.py` | Device-free simulator pool/ACK ownership regression |
 | `vqec_vision_ring_rtsp.py` | Mock FW RTSP service reading the v5 encoded ring |
 | `vqec_vision_ring_rtsp_test.py` | Synthetic file-backed ring-generation regression |

@@ -32,8 +32,9 @@ inside an allowed root on the target filesystem; biometric test files are never 
 
 ## 1. Mock FW camera (`tools/fixtures/vqec_vision_fw_camera_sim.py`)
 
-Reproduces the two FW camera responsibilities LACAI depends on, sourcing pixels from the
-real Qualcomm camera through `qtiqmmfsrc`:
+Reproduces the two FW camera responsibilities LACAI depends on. Its default `camera` source
+uses the real Qualcomm camera through `qtiqmmfsrc`; the explicit `test_pattern` source emits
+deterministic NV12 while preserving the same D-Bus, socket, DMA-BUF and ACK path:
 
 - **Control:** owns the system-bus name `com.vnpt.camera.Camera` and implements
   `com.vnpt.camera.Camera1` `StartStream`/`StopStream`/`GetStatus` with `(a{sv})` string
@@ -63,6 +64,9 @@ The board fixture selects DMA-BUF backing only when explicitly requested, for ex
 confirmed with BSP; it is not a product default. `--max-in-flight` sizes the bounded pool,
 and every slot remains unavailable until its matching ACK. The device-free regression is
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/fixtures/vqec_vision_fw_camera_sim_test.py`.
+Use `--source test_pattern` (or `LACAI_CAMERA_SOURCE=test_pattern` with the board runner)
+only to isolate AI lifecycle, QNN/HTP, overlay, encode and ring behavior from sensor/HAL
+availability. It is synthetic-media evidence and never camera-sensor or released-FW acceptance.
 
 ## 2. Mock FW RTSP (`tools/fixtures/vqec_vision_ring_rtsp.py read`)
 

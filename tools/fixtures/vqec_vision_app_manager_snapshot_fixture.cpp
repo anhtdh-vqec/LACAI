@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -372,8 +373,16 @@ int main(int argc, char** argv) {
     }
     std::ifstream input(options.snapshot_path_);
     runtime_control_snapshot snapshot;
-    if (!input.is_open() ||
-        vqec_vision_ai_lifec_rcsnp_load(input, snapshot).code_ != status_code::ok) {
+    if (!input.is_open()) {
+        std::cerr << "failed to open runtime control snapshot: "
+                  << options.snapshot_path_ << '\n';
+        return 1;
+    }
+    const auto load_status = vqec_vision_ai_lifec_rcsnp_load(input, snapshot);
+    if (load_status.code_ != status_code::ok) {
+        std::cerr << "failed to load runtime control snapshot: code="
+                  << static_cast<unsigned int>(load_status.code_)
+                  << " message=" << load_status.message_ << '\n';
         return 1;
     }
     vqec_vision_ai_tools_amsfx_manager manager(std::move(snapshot));
