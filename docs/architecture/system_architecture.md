@@ -125,8 +125,10 @@ The desired-plan manager and D-Bus v1 transport are now separated from runtime o
 the adapter can change only `desired`, while trusted gates remain in AI APP. Startup
 pre-load filtering and serialized same-process generation replacement are wired. Old work
 drains before candidate construction; running is published after source-session startup.
-All-off retains only control. Signed provisioning, durable desired receipts and detailed
-runtime health observation remain open; see
+All-off retains only control. ADR 0012 defines the next runtime step: compatible per-app changes
+use derived shared-dependency reference counts and per-slot activation delta instead of replacing
+unrelated owners. Signed provisioning, durable desired receipts and detailed runtime health
+observation remain open; see
 [FR validation](../testing/face_recognition_production_validation.md).
 
 Dependent ROI models use the bounded design in

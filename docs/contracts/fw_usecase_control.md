@@ -157,9 +157,10 @@ replacement follows this order:
 6. Start source sessions and publish only after every session reports running. All-off
    publishes an empty generation and retains only the control loop.
 
-Future incremental replacement may retain compatible shared dependencies, but must preserve
-those ownership/output/readiness gates. Session readiness does not prove numerical warmup
-or continued source health.
+Incremental replacement follows ADR 0012: compatible desired/configuration/entitlement changes
+retain unrelated sources and exact shared dependencies, while incompatible identity/capacity
+changes use an explicit replacement boundary. Both paths preserve those ownership/output/readiness
+gates. Session readiness does not prove numerical warmup or continued source health.
 
 The target App Manager runtime consumer is startup-order independent. If App Manager or backend is
 absent, the service starts with a valid empty effective generation and periodically retries a full
@@ -167,13 +168,14 @@ snapshot read through its configured trusted D-Bus client name. Only a strictly 
 snapshot can trigger replacement; transport failure and stale data fail closed. Entitlement expiry
 is evaluated from the local UTC clock and triggers drain even when the control plane is absent.
 
-The initial implementation may stop and rebuild the complete runtime generation. It must
-still keep command/state reporting live and must not release buffers until actual backend
-completion. A failed candidate leaves the last valid generation running when policy still
-authorizes it; revocation always blocks unauthorized output even if teardown fails.
+The compatibility implementation may stop and rebuild a complete runtime generation. The product
+App Manager path must apply compatible toggles incrementally. Neither path may release buffers
+until actual backend completion. A failed candidate leaves the last valid generation running when
+policy still authorizes it; revocation always blocks unauthorized output even if teardown fails.
 
-The current service implements serialized full-generation replacement in the same
-process. The usecase D-Bus object outlives the runtime owners. Scheduling/rendering stops
+The current delivered service implements serialized full-generation replacement in the same
+process; ADR 0012 records the required product replacement. The usecase D-Bus object outlives the
+runtime owners. Scheduling/rendering stops
 before draining the old generation; after successful drain its owners are destroyed and the effective
 model deployment is reconstructed. All-off keeps only the control loop. FR enrollment
 is available only while its runtime is enabled; its authenticated gallery survives disable.

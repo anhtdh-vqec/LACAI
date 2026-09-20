@@ -76,6 +76,8 @@ unfinished work and do not carry current-capability claims.
 - [Fire/smoke product slice plan](planning/architecture_improvement/fire_smoke_product_slice_plan.md):
   detailed sequence to split the service main, deliver the AI-owned App Manager and productize
   S04 through configuration, metadata and evidence.
+- [Incremental app activation plan](planning/architecture_improvement/incremental_app_activation_plan.md):
+  per-application activation delta and shared dependency reference counting.
 
 ## Testing
 
