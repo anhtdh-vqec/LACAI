@@ -40,7 +40,8 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_sswrk_request_stop(
         std::uint64_t _steady_now_ns);
     [[nodiscard]] status vqec_vision_ai_appl_sswrk_poll_completion(
-        status& _step_status, tensor_result& _result, source_session_progress& _progress);
+        status& _step_status, tensor_result& _result, source_session_progress& _progress,
+        source_session_health& _health);
     // Stops accepting, joins the worker and returns. Safe to call more than once.
     [[nodiscard]] status vqec_vision_ai_appl_sswrk_drain();
     [[nodiscard]] source_session_worker_snapshot
@@ -60,6 +61,7 @@ private:
     status completion_status_;
     tensor_result completion_result_;
     source_session_progress completion_progress_;
+    source_session_health completion_health_;
     std::uint64_t steps_requested_{0};
     std::uint64_t steps_completed_{0};
     std::uint64_t rejected_{0};

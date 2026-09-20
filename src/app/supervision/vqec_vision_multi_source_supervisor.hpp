@@ -110,6 +110,8 @@ private:
     multi_source_supervisor_config config_;
     std::array<source_session_port*, deployment_limits::g_max_sources> sessions_{};
     std::array<source_session_worker, deployment_limits::g_max_sources> workers_{};
+    std::array<source_session_health, deployment_limits::g_max_sources>
+        cached_health_{};
     multi_source_supervisor_state state_{multi_source_supervisor_state::binding};
     std::array<status_code, deployment_limits::g_max_sources> source_fault_codes_{};
     std::array<multi_source_fault_event, g_max_supervisor_fault_events> fault_events_{};

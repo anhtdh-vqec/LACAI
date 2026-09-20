@@ -205,19 +205,23 @@ status vqec_vision_ai_appl_svxlp_run(
 
         if (_context.production_platform_enabled_) {
             std::array<bool, deployment_limits::g_max_sources> cascade_source_ready{};
-            for (std::uint16_t source_slot = 0;
-                 source_slot < deployment.sources_.size(); ++source_slot) {
-                const auto* session = bundle.vqec_vision_ai_appl_rcfac_get_session(source_slot);
-                if (session == nullptr) {
-                    continue;
+            if (executor.vqec_vision_ai_appl_rtexe_is_activation_quiescent()) {
+                for (std::uint16_t source_slot = 0;
+                     source_slot < deployment.sources_.size(); ++source_slot) {
+                    const auto* session =
+                        bundle.vqec_vision_ai_appl_rcfac_get_session(source_slot);
+                    if (session == nullptr) {
+                        continue;
+                    }
+                    const auto state = session->vqec_vision_ai_appl_mmses_get_snapshot().
+                        session_state_;
+                    cascade_source_ready[source_slot] =
+                        state == multi_model_session_state::configuring ||
+                        state == multi_model_session_state::loading ||
+                        state == multi_model_session_state::binding ||
+                        state == multi_model_session_state::starting ||
+                        state == multi_model_session_state::running;
                 }
-                const auto state = session->vqec_vision_ai_appl_mmses_get_snapshot().session_state_;
-                cascade_source_ready[source_slot] =
-                    state == multi_model_session_state::configuring ||
-                    state == multi_model_session_state::loading ||
-                    state == multi_model_session_state::binding ||
-                    state == multi_model_session_state::starting ||
-                    state == multi_model_session_state::running;
             }
             const auto cascades_started =
                 vqec_vision_ai_appl_svcsc_start_ready_graphs(
@@ -254,13 +258,12 @@ status vqec_vision_ai_appl_svxlp_run(
             replacement_requested = true;
             break;
         }
-        const bool source_session_quiescent =
-            stepped.code_ == status_code::ok && !report.has_cascade_;
         if (report.first_error_code_ != status_code::ok &&
             first_error_code == status_code::ok) {
             first_error_code = report.first_error_code_;
         }
-        if (!generation_published && first_error_code == status_code::ok) {
+        if (!generation_published && first_error_code == status_code::ok &&
+            executor.vqec_vision_ai_appl_rtexe_is_activation_quiescent()) {
             bool all_sources_running = true;
             for (std::uint16_t source_slot = 0;
                  source_slot < deployment.sources_.size(); ++source_slot) {
@@ -534,7 +537,8 @@ status vqec_vision_ai_appl_svxlp_run(
         }
 
         if (_context.production_platform_enabled_ &&
-            (!arguments.use_session_workers || source_session_quiescent)) {
+            (!arguments.use_session_workers ||
+             executor.vqec_vision_ai_appl_rtexe_is_activation_quiescent())) {
             for (std::uint16_t source_slot = 0;
                  source_slot < deployment.sources_.size(); ++source_slot) {
                 auto* session = bundle.vqec_vision_ai_appl_rcfac_get_session(source_slot);

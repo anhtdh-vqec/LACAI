@@ -28,7 +28,9 @@ executor.
 - `start(session)`: one worker thread owns the borrowed session.
 - `request_step(now)`: non-blocking; accepted only when no step is in flight and no
   completion is unread, otherwise `resource_exhausted` (bounded one-in-flight/one-unread).
-- `poll_completion(status, result, progress)`: non-blocking; `pending` when none is ready.
+- `poll_completion(status, result, progress, health)`: non-blocking; `pending` when none is
+  ready. Health is sampled by the worker after the serialized session call and travels in
+  the same completion handoff.
 - `request_stop(now)`: queues a session stop; an already-queued step may run first.
 - `drain()`: stops accepting, joins the worker, discards any unread completion.
 - `get_snapshot()` exposes pending, in-flight and unread-completion state under the worker
@@ -38,6 +40,8 @@ executor.
 The snapshot is an observation, not a general multi-writer lock. The activation controller
 may use it as a serialization gate because it is the same control thread that submits the
 next supervisor step; no second caller may enqueue work between the gate and the mutation.
+The control thread must use completion-captured health while async mode is active; directly
+calling `source_session_port::get_health` concurrently with a worker is forbidden.
 
 A session exception becomes an `io_error` completion; the worker never dies.
 

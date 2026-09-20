@@ -48,6 +48,7 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_bind_session(
         }
     }
     sessions_[_source_index] = &_session;
+    cached_health_[_source_index] = _session.vqec_vision_ai_appl_srcsn_get_health();
     ++bound_count_;
     return {};
 }
@@ -104,9 +105,12 @@ void multi_source_supervisor::vqec_vision_ai_appl_mssup_refresh_state() noexcept
         return;
     }
     for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
-        if (sessions_[index] == nullptr ||
-            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ !=
-                source_session_phase::stopped) {
+        if (sessions_[index] == nullptr) {
+            return;
+        }
+        const auto source = async_mode_ ? cached_health_[index] :
+            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+        if (source.phase_ != source_session_phase::stopped) {
             return;
         }
     }
@@ -193,14 +197,15 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
             status step_status;
             tensor_result candidate;
             source_session_progress progress;
+            source_session_health health;
             if (workers_[index].vqec_vision_ai_appl_sswrk_poll_completion(
-                    step_status, candidate, progress).code_ != status_code::ok) {
+                    step_status, candidate, progress, health).code_ != status_code::ok) {
                 continue;
             }
+            cached_health_[index] = health;
             _report.source_index_ = index;
             _report.source_status_ = step_status;
-            _report.source_health_ =
-                sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+            _report.source_health_ = health;
             _report.source_progress_ = progress;
             _report.has_source_ = true;
             _report.has_result_ = progress.has_result_;
@@ -225,8 +230,7 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
                 (static_cast<unsigned>(next_source_index_) + offset) %
                 config_.source_count_);
             if (sessions_[index] == nullptr ||
-                sessions_[index]->vqec_vision_ai_appl_srcsn_get_health().phase_ ==
-                    source_session_phase::stopped) {
+                cached_health_[index].phase_ == source_session_phase::stopped) {
                 continue;
             }
             if (workers_[index].vqec_vision_ai_appl_sswrk_request_step(_steady_now_ns)
@@ -350,7 +354,8 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept
         if (sessions_[index] == nullptr) {
             continue;
         }
-        const auto source = sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+        const auto source = async_mode_ ? cached_health_[index] :
+            sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
         switch (source.phase_) {
             case source_session_phase::running:
                 ++snapshot.running_sources_;

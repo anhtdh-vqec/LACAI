@@ -80,6 +80,9 @@ late.
 The quiescent check and the next progress submission share the service control thread. It
 therefore cannot be invalidated by a newly queued worker step between check and mutation.
 It is not a general lock and does not authorize any other thread to call a bound session.
+While async execution is active, ordinary supervisor health/state decisions use the health
+captured with the worker completion. Direct session diagnostics and preview handoff are
+also restricted to a quiescent control point.
 
 ## Prepared capacity and first-frame safety
 

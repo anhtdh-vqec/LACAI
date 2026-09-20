@@ -20,7 +20,8 @@ constexpr auto g_worker_poll_interval = std::chrono::milliseconds(1);
 
 class async_session final : public source_session_port {
 public:
-    explicit async_session(bool _gate) : gate_(_gate) {}
+    explicit async_session(bool _gate)
+        : gate_(_gate), control_thread_(std::this_thread::get_id()) {}
 
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _now_ns, tensor_result& _result,
@@ -49,7 +50,18 @@ public:
     }
     [[nodiscard]] source_session_health
     vqec_vision_ai_appl_srcsn_get_health() const noexcept override {
+        if (exclusive_worker_reads_.load() &&
+            std::this_thread::get_id() == control_thread_) {
+            ++unexpected_control_health_reads_;
+        }
         return health_;
+    }
+
+    void arm_exclusive_worker_reads() noexcept {
+        exclusive_worker_reads_ = true;
+    }
+    unsigned unexpected_control_health_reads() const noexcept {
+        return unexpected_control_health_reads_.load();
     }
 
     void open() {
@@ -78,6 +90,9 @@ private:
     std::condition_variable start_condition_;
     std::atomic<bool> is_open_{false};
     std::atomic<unsigned> entered_{0};
+    std::thread::id control_thread_;
+    mutable std::atomic<bool> exclusive_worker_reads_{false};
+    mutable std::atomic<unsigned> unexpected_control_health_reads_{0};
 };
 
 multi_source_supervisor_config make_config(bool _workers) {
@@ -105,6 +120,8 @@ int main() {
     check(supervisor.vqec_vision_ai_appl_mssup_bind_session(0, fast).code_ == status_code::ok);
     check(supervisor.vqec_vision_ai_appl_mssup_bind_session(1, slow).code_ == status_code::ok);
     check(supervisor.vqec_vision_ai_appl_mssup_activate().code_ == status_code::ok);
+    fast.arm_exclusive_worker_reads();
+    slow.arm_exclusive_worker_reads();
 
     tensor_result result;
     multi_source_progress_report report;
@@ -159,6 +176,8 @@ int main() {
     check(fast.stop_calls_ == 1 && slow.stop_calls_ == 1);
     check(supervisor.vqec_vision_ai_appl_mssup_get_state() ==
           multi_source_supervisor_state::stopped);
+    check(fast.unexpected_control_health_reads() == 0 &&
+          slow.unexpected_control_health_reads() == 0);
     check(supervisor.vqec_vision_ai_appl_mssup_drain().code_ == status_code::ok);
 
     std::cout << "supervisor async failures: " << failures << '\n';

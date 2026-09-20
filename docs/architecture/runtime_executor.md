@@ -46,6 +46,11 @@ async source worker has no queued, executing or unread operation. Runtime-contro
 reconciliation is deferred until this control point. This preserves the exclusive session
 caller rule during an in-place activation delta.
 
+Service diagnostics that require a concrete session snapshot and the preview-mailbox take
+follow the same rule in threaded mode. Supervisor scheduling and health reporting instead
+use the health captured by each worker completion, so the control thread never races a
+session lifecycle transition.
+
 ## Source-to-model correlation
 
 The executor never reconstructs source identity from tensor data. `source_session_progress`
