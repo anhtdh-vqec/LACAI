@@ -7,8 +7,10 @@ namespace {
 
 class fake_source_session final : public vqec::vision::ai::source_session_port {
 public:
-    explicit fake_source_session(bool _fails, bool _repeats_fault = false) :
-        fails_(_fails), repeats_fault_(_repeats_fault) {}
+    explicit fake_source_session(bool _fails, bool _repeats_fault = false,
+        bool _alternates_fault = false) :
+        fails_(_fails), repeats_fault_(_repeats_fault),
+        alternates_fault_(_alternates_fault) {}
 
     vqec::vision::ai::status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _steady_now_ns, vqec::vision::ai::tensor_result& _result,
@@ -20,6 +22,10 @@ public:
         if (fails_ && (steps_ == 1 || repeats_fault_)) {
             health_.phase_ = vqec::vision::ai::source_session_phase::draining;
             health_.first_error_code_ = vqec::vision::ai::status_code::source_lost;
+            if (alternates_fault_ && steps_ % 2U == 0U) {
+                return {vqec::vision::ai::status_code::timeout,
+                    "injected alternating timeout"};
+            }
             return {vqec::vision::ai::status_code::source_lost, "injected source loss"};
         }
         if (health_.phase_ == vqec::vision::ai::source_session_phase::draining) {
@@ -51,6 +57,7 @@ public:
 private:
     bool fails_{false};
     bool repeats_fault_{false};
+    bool alternates_fault_{false};
     vqec::vision::ai::source_session_health health_;
 };
 
@@ -139,6 +146,25 @@ int main() {
           status_code::ok);
     check(repeated_supervisor.vqec_vision_ai_appl_mssup_take_fault(fault).code_ ==
           status_code::pending);
+
+    // Deduplication is per source/code pair, not merely consecutive. A -> B -> A emits
+    // two events and retains A as the source's current fault without emitting A twice.
+    fake_source_session alternating_fault(true, true, true);
+    multi_source_supervisor alternating_supervisor({55, 66, 1});
+    check(alternating_supervisor.vqec_vision_ai_appl_mssup_bind_session(
+              0, alternating_fault).code_ == status_code::ok);
+    check(alternating_supervisor.vqec_vision_ai_appl_mssup_activate().code_ ==
+          status_code::ok);
+    check(alternating_supervisor.vqec_vision_ai_appl_mssup_step(
+              20, result, report).code_ == status_code::pending);
+    check(alternating_supervisor.vqec_vision_ai_appl_mssup_step(
+              21, result, report).code_ == status_code::pending);
+    check(alternating_supervisor.vqec_vision_ai_appl_mssup_step(
+              22, result, report).code_ == status_code::pending);
+    const auto alternating_snapshot =
+        alternating_supervisor.vqec_vision_ai_appl_mssup_get_snapshot();
+    check(alternating_snapshot.fault_event_total_ == 2 &&
+          alternating_snapshot.source_fault_codes_[0] == status_code::source_lost);
 
     std::cout << "multi-source supervisor failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;

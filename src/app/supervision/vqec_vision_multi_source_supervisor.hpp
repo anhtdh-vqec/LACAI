@@ -2,6 +2,7 @@
 #define VQEC_VISION_AI_APP_MULTI_SOURCE_SUPERVISOR_HPP
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "vqec_vision_source_session.hpp"
@@ -14,6 +15,8 @@ inline constexpr std::uint16_t g_invalid_source_index = UINT16_MAX;
 // Bounded per-source fault channel so an isolated source error stays observable even
 // though step() keeps returning pending to preserve fault isolation.
 inline constexpr std::uint16_t g_max_supervisor_fault_events = 32;
+inline constexpr std::size_t g_supervisor_status_code_count =
+    static_cast<std::size_t>(status_code::pending) + 1U;
 
 enum class multi_source_supervisor_state {
     binding,
@@ -119,6 +122,8 @@ private:
         cached_health_{};
     multi_source_supervisor_state state_{multi_source_supervisor_state::binding};
     std::array<status_code, deployment_limits::g_max_sources> source_fault_codes_{};
+    std::array<std::array<bool, g_supervisor_status_code_count>,
+        deployment_limits::g_max_sources> reported_fault_codes_{};
     std::array<multi_source_fault_event, g_max_supervisor_fault_events> fault_events_{};
     std::uint16_t bound_count_{0};
     std::uint16_t next_source_index_{0};

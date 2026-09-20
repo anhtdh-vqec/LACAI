@@ -365,10 +365,15 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_state() const noexcept {
 bool multi_source_supervisor::vqec_vision_ai_appl_mssup_record_fault(
     std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept {
     if (_source_index < deployment_limits::g_max_sources) {
-        if (source_fault_codes_[_source_index] == _code) {
+        source_fault_codes_[_source_index] = _code;
+        const auto code_index = static_cast<std::size_t>(_code);
+        if (code_index < g_supervisor_status_code_count &&
+            reported_fault_codes_[_source_index][code_index]) {
             return false;
         }
-        source_fault_codes_[_source_index] = _code;
+        if (code_index < g_supervisor_status_code_count) {
+            reported_fault_codes_[_source_index][code_index] = true;
+        }
     }
     multi_source_fault_event event;
     event.source_index_ = _source_index;
