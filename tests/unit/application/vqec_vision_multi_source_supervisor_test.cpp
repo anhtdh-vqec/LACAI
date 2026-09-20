@@ -7,7 +7,8 @@ namespace {
 
 class fake_source_session final : public vqec::vision::ai::source_session_port {
 public:
-    explicit fake_source_session(bool _fails) : fails_(_fails) {}
+    explicit fake_source_session(bool _fails, bool _repeats_fault = false) :
+        fails_(_fails), repeats_fault_(_repeats_fault) {}
 
     vqec::vision::ai::status vqec_vision_ai_appl_srcsn_step(
         std::uint64_t _steady_now_ns, vqec::vision::ai::tensor_result& _result,
@@ -16,7 +17,7 @@ public:
         (void)_result;
         _progress = {};
         ++steps_;
-        if (fails_ && steps_ == 1) {
+        if (fails_ && (steps_ == 1 || repeats_fault_)) {
             health_.phase_ = vqec::vision::ai::source_session_phase::draining;
             health_.first_error_code_ = vqec::vision::ai::status_code::source_lost;
             return {vqec::vision::ai::status_code::source_lost, "injected source loss"};
@@ -49,6 +50,7 @@ public:
 
 private:
     bool fails_{false};
+    bool repeats_fault_{false};
     vqec::vision::ai::source_session_health health_;
 };
 
@@ -112,6 +114,31 @@ int main() {
     check(healthy.stop_requests_ == 1 && faulted.stop_requests_ == 1);
     check(supervisor.vqec_vision_ai_appl_mssup_get_state() ==
           multi_source_supervisor_state::stopped);
+
+    // A fail-closed session may report the same drain timeout on every progress call
+    // until an external DMA owner returns. The supervisor retains one fault state/event
+    // instead of flooding its bounded event channel and process log.
+    fake_source_session repeated_fault(true, true);
+    multi_source_supervisor repeated_supervisor({33, 44, 1});
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_bind_session(
+              0, repeated_fault).code_ == status_code::ok);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_activate().code_ ==
+          status_code::ok);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_step(
+              10, result, report).code_ == status_code::pending);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_step(
+              11, result, report).code_ == status_code::pending);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_step(
+              12, result, report).code_ == status_code::pending);
+    const auto repeated_snapshot =
+        repeated_supervisor.vqec_vision_ai_appl_mssup_get_snapshot();
+    check(repeated_snapshot.fault_event_total_ == 1 &&
+          repeated_snapshot.faulted_sources_ == 1 &&
+          repeated_snapshot.source_fault_codes_[0] == status_code::source_lost);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_take_fault(fault).code_ ==
+          status_code::ok);
+    check(repeated_supervisor.vqec_vision_ai_appl_mssup_take_fault(fault).code_ ==
+          status_code::pending);
 
     std::cout << "multi-source supervisor failures: " << failures << '\n';
     return failures == 0 ? 0 : 1;

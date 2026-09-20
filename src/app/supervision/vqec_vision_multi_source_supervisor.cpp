@@ -180,16 +180,19 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
     _report.has_source_ = true;
     _report.has_result_ = progress.has_result_;
     if (source_code != status_code::ok && source_code != status_code::pending) {
-        std::fprintf(stderr,
-            "source session fault source=%u code=%d phase=%d message=%s\n",
-            static_cast<unsigned int>(selected_index),
-            static_cast<int>(source_code),
-            static_cast<int>(_report.source_health_.phase_),
-            _report.source_status_.message_.c_str());
         // Keep fault isolation (one source does not stop the rest) but publish the error on
-        // the independent fault channel so it is never an invisible pending.
-        vqec_vision_ai_appl_mssup_record_fault(
-            selected_index, source_code, _steady_now_ns);
+        // the independent fault channel so it is never an invisible pending. A session may
+        // return the same latched drain-timeout status on every progress call while it waits
+        // for hardware ownership to reconcile; publish and log that condition only once.
+        if (vqec_vision_ai_appl_mssup_record_fault(
+                selected_index, source_code, _steady_now_ns)) {
+            std::fprintf(stderr,
+                "source session fault source=%u code=%d phase=%d message=%s\n",
+                static_cast<unsigned int>(selected_index),
+                static_cast<int>(source_code),
+                static_cast<int>(_report.source_health_.phase_),
+                _report.source_status_.message_.c_str());
+        }
     }
     vqec_vision_ai_appl_mssup_refresh_state();
 
@@ -247,13 +250,14 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
             }
             if (step_status.code_ != status_code::ok &&
                 step_status.code_ != status_code::pending) {
-                std::fprintf(stderr,
-                    "source session fault source=%u code=%d phase=%d message=%s\n",
-                    static_cast<unsigned int>(index),
-                    static_cast<int>(step_status.code_),
-                    static_cast<int>(health.phase_), step_status.message_.c_str());
-                vqec_vision_ai_appl_mssup_record_fault(
-                    index, step_status.code_, _steady_now_ns);
+                if (vqec_vision_ai_appl_mssup_record_fault(
+                        index, step_status.code_, _steady_now_ns)) {
+                    std::fprintf(stderr,
+                        "source session fault source=%u code=%d phase=%d message=%s\n",
+                        static_cast<unsigned int>(index),
+                        static_cast<int>(step_status.code_),
+                        static_cast<int>(health.phase_), step_status.message_.c_str());
+                }
             }
             next_result_index_ = static_cast<std::uint16_t>(
                 (static_cast<unsigned>(index) + 1U) % config_.source_count_);
@@ -358,9 +362,12 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_state() const noexcept {
     return state_;
 }
 
-void multi_source_supervisor::vqec_vision_ai_appl_mssup_record_fault(
+bool multi_source_supervisor::vqec_vision_ai_appl_mssup_record_fault(
     std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept {
     if (_source_index < deployment_limits::g_max_sources) {
+        if (source_fault_codes_[_source_index] == _code) {
+            return false;
+        }
         source_fault_codes_[_source_index] = _code;
     }
     multi_source_fault_event event;
@@ -378,6 +385,7 @@ void multi_source_supervisor::vqec_vision_ai_appl_mssup_record_fault(
             (fault_event_head_ + 1U) % g_max_supervisor_fault_events);
     }
     ++fault_event_total_;
+    return true;
 }
 
 status multi_source_supervisor::vqec_vision_ai_appl_mssup_take_fault(

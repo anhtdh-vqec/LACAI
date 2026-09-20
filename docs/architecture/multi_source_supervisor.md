@@ -59,7 +59,10 @@ channel. `multi_source_supervisor_snapshot` carries `fault_event_total_`,
 `vqec_vision_ai_appl_mssup_take_fault` pops the oldest retained
 `multi_source_fault_event` (source index, code, monotonic time). A caller loop that only
 checks the step code still cannot miss the error, and counters feed telemetry
-(disconnect/fault totals). Fault duration and last-frame age remain session/telemetry
+(disconnect/fault totals). A session can repeat one latched drain-timeout result while it
+waits for external DMA ownership to reconcile; the supervisor records and logs that same
+source/code pair once instead of flooding the bounded channel. A different code for the
+source remains a new event. Fault duration and last-frame age remain session/telemetry
 fields, not supervisor guesses.
 
 ## Async execution (opt-in)

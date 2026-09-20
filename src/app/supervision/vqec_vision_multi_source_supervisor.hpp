@@ -106,7 +106,7 @@ private:
     [[nodiscard]] status vqec_vision_ai_appl_mssup_check_time(
         std::uint64_t _steady_now_ns);
     void vqec_vision_ai_appl_mssup_refresh_state() noexcept;
-    void vqec_vision_ai_appl_mssup_record_fault(
+    [[nodiscard]] bool vqec_vision_ai_appl_mssup_record_fault(
         std::uint16_t _source_index, status_code _code, std::uint64_t _at_ns) noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_mssup_step_async(
         std::uint64_t _steady_now_ns, tensor_result& _result,
