@@ -1,7 +1,8 @@
 # Multi-model source session
 
 `multi_model_session` is the default source-session design for an admitted source with
-1..16 model graphs. It implements `source_session_port`, so the existing process-level
+1..16 prepared model slots and a nonempty active subset. It implements `source_session_port`,
+so the existing process-level
 `multi_source_supervisor` can supervise a mixture of single-model compatibility sessions
 and multi-model sessions without depending on Camera Service or vendor types.
 
@@ -46,6 +47,24 @@ carries due/submitted/busy masks plus one primary model slot/ticket. If a tensor
 present, that result slot is primary; otherwise the first submitted slot is primary. The
 full set of accepted tickets remains inside the pump/individual graph ledgers and is not
 required for lifetime correctness.
+
+## Incremental model-slot activation
+
+The prepared slot order is immutable for one session, but its active mask is serialized and
+mutable. Startup configures/loads only the initial active mask. A compatible App Manager delta can
+request another nonempty mask while the session is running:
+
+- disabling clears the pump scheduling bit first, while any submitted job continues to real
+  completion; the session then drains, unloads and releases only that slot;
+- enabling an empty/configured prepared slot progresses configure/load/bind/start, resolves its
+  preprocessing target and publishes its scheduling bit only after the graph reports running;
+- another active graph and the RAW lease remain live throughout the transition;
+- transition timeout or lifecycle failure retains the slot and reports recovery-required rather
+  than clearing owners or decrementing hardware facts.
+
+The session intentionally rejects an empty target mask. All-off releases the non-restartable RAW
+source owner through the generation stop path; a later first enable creates a fresh generation and
+repeats the no-frame accelerator gate.
 
 ## Stop and partial-start rollback
 

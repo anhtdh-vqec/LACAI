@@ -32,8 +32,8 @@ cho FR, hút thuốc hoặc bất kỳ usecase chưa có golden/model gate.
 
 | Mốc | Công việc | Đầu ra | Tiêu chí nghiệm thu |
 |---|---|---|---|
-| D0 | Contract và planner | ADR 0012, kiến trúc, dependency plan/delta bounded | 18 app, shared/unique/conflict/stale/overflow tests pass; input lỗi không đổi output |
-| D1 | Mutable model slot | Active mask ở pump; lifecycle add/remove từng slot trong session | `2 -> 1` không lifecycle; `1 -> 0` chỉ drain/unload slot đích; slot khác tiếp tục submit/result |
+| D0 | Logic-tested | ADR 0012, dependency plan/delta bounded | 18 app, shared/unique/conflict/stale/capacity tests pass; input lỗi không đổi output |
+| D1 | Logic-tested phạm vi fake-port | Active mask ở pump; lifecycle add/remove từng slot trong session | `2 -> 1` không lifecycle; `1 -> 0` chỉ drain/unload slot đích; slot khác tiếp tục submit/result |
 | D2 | Feature delta | Candidate manager/fan-out, transactional pipeline rebind, output policy candidate | Config/disable chỉ thay owner đích; owner khác giữ pointer/state/counter; revoke chặn event muộn |
 | D3 | Service reconciler | So sánh snapshot, capacity của app đã cài, apply/fallback, publish revision/metrics | Desired/config/entitlement không thoát generation khi capacity/identity tương thích |
 | D4 | Hard tests | Fault injection, eSDK/QEMU full suite, target-native tests | Load/drain failure, source loss, in-flight disable, rapid toggle, App Manager restart không leak/ACK sớm |

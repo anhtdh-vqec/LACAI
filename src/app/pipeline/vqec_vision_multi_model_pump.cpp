@@ -60,6 +60,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_configure(
     bindings_ = bindings;
     cadence_ = cadence;
     model_count_ = _binding_count;
+    active_model_mask_ = static_cast<std::uint16_t>((1U << _binding_count) - 1U);
     has_cascade_root_ = false;
     for (std::uint16_t slot = 0; slot < _binding_count; ++slot) {
         has_cascade_root_ = has_cascade_root_ || bindings[slot].cascade_root_;
@@ -86,24 +87,103 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_targets() {
         return {status_code::invalid_state, "multi-model pump is not configured"};
     }
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
-        if (bindings_[slot].processor_ == nullptr) {
-            has_target_spec_[slot] = false;
+        if ((active_model_mask_ & (1U << slot)) == 0) {
             continue;
         }
-        std::vector<tensor_spec> inputs;
-        const auto specs =
-            bindings_[slot].graph_->vqec_vision_ai_ports_infgr_get_input_specs(inputs);
-        if (specs.code_ != status_code::ok) {
-            return specs;
+        const auto resolved =
+            vqec_vision_ai_appl_mmump_resolve_model_target(slot);
+        if (resolved.code_ != status_code::ok) {
+            return resolved;
         }
-        if (inputs.size() != 1) {
-            return {status_code::unsupported,
-                "tensor preprocessing requires exactly one model input"};
-        }
-        target_specs_[slot] = inputs[0];
-        has_target_spec_[slot] = true;
     }
     return use_model_workers_ ? vqec_vision_ai_appl_mmump_start_model_workers() : status{};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_resolve_model_target(
+    std::uint16_t _model_slot) {
+    if (!is_configured_ || _model_slot >= model_count_) {
+        return {status_code::invalid_argument,
+            "model target slot is outside the configured pump"};
+    }
+    if (bindings_[_model_slot].graph_->vqec_vision_ai_ports_infgr_get_state() !=
+        inference_graph_state::running) {
+        return {status_code::invalid_state,
+            "model target cannot be resolved before graph start"};
+    }
+    if (bindings_[_model_slot].processor_ == nullptr) {
+        has_target_spec_[_model_slot] = false;
+        return {};
+    }
+    return vqec_vision_ai_appl_mmump_ensure_target(_model_slot);
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_set_active_model_mask(
+    std::uint16_t _active_model_mask) {
+    if (!is_configured_ || is_stopping_ || is_failed_) {
+        return {status_code::invalid_state,
+            "multi-model pump cannot change its active model mask"};
+    }
+    const auto valid_mask = static_cast<std::uint16_t>((1U << model_count_) - 1U);
+    if ((_active_model_mask & static_cast<std::uint16_t>(~valid_mask)) != 0) {
+        return {status_code::invalid_argument,
+            "active model mask references an unbound slot"};
+    }
+    const auto enabling = static_cast<std::uint16_t>(
+        _active_model_mask & static_cast<std::uint16_t>(~active_model_mask_));
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        const auto bit = static_cast<std::uint16_t>(1U << slot);
+        if ((enabling & bit) != 0 &&
+            bindings_[slot].graph_->vqec_vision_ai_ports_infgr_get_state() !=
+                inference_graph_state::running) {
+            return {status_code::invalid_state,
+                "newly active model graph is not running"};
+        }
+    }
+    const auto disabling = static_cast<std::uint16_t>(
+        active_model_mask_ & static_cast<std::uint16_t>(~_active_model_mask));
+    for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
+        if ((disabling & (1U << slot)) == 0) {
+            continue;
+        }
+        pending_[slot].has_ = false;
+        pending_[slot].blobs_.clear();
+    }
+    active_model_mask_ = _active_model_mask;
+    return {};
+}
+
+status multi_model_pump::vqec_vision_ai_appl_mmump_release_model_slot(
+    std::uint16_t _model_slot) {
+    if (!is_configured_ || _model_slot >= model_count_ ||
+        (active_model_mask_ & (1U << _model_slot)) != 0) {
+        return {status_code::invalid_argument,
+            "only an inactive bound model slot can be released"};
+    }
+    auto& graph = *bindings_[_model_slot].graph_;
+    if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
+        vqec_vision_ai_appl_mmump_model_busy(_model_slot)) {
+        return {status_code::pending,
+            "inactive model slot still has submitted work"};
+    }
+    retained_frames_[_model_slot] = {};
+    pending_[_model_slot].has_ = false;
+    pending_[_model_slot].blobs_.clear();
+    preprocess_buffers_[_model_slot].clear();
+    has_target_spec_[_model_slot] = false;
+    target_specs_[_model_slot] = {};
+    is_armed_[_model_slot] = false;
+    return {};
+}
+
+std::uint16_t multi_model_pump::vqec_vision_ai_appl_mmump_get_active_model_mask()
+    const noexcept {
+    return active_model_mask_;
+}
+
+bool multi_model_pump::vqec_vision_ai_appl_mmump_has_model_worker_work(
+    std::uint16_t _model_slot) const noexcept {
+    return _model_slot < model_count_ &&
+        vqec_vision_ai_appl_mmump_model_busy(_model_slot);
 }
 
 void multi_model_pump::vqec_vision_ai_appl_mmump_begin_stop() noexcept {
@@ -196,6 +276,9 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
 
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         const auto& graph = *bindings_[slot].graph_;
+        if ((active_model_mask_ & (1U << slot)) == 0) {
+            continue;
+        }
         if (graph.vqec_vision_ai_ports_infgr_get_state() !=
             inference_graph_state::running) {
             _report.error_model_slot_ = slot;
@@ -241,6 +324,9 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         is_failed_ = true;
         return selected;
     }
+    _report.due_model_mask_ = selection.due_model_mask_;
+    selection.due_model_mask_ = static_cast<std::uint16_t>(
+        selection.due_model_mask_ & active_model_mask_);
     _report.due_model_mask_ = selection.due_model_mask_;
     _report.skipped_cadence_intervals_ = selection.skipped_intervals_;
 
@@ -502,7 +588,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_flush_pending(
     std::uint64_t _steady_now_ns, multi_model_pump_report& _report) {
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
         auto& pending = pending_[slot];
-        if (!pending.has_) {
+        if (!pending.has_ || (active_model_mask_ & (1U << slot)) == 0) {
             continue;
         }
         auto& graph = *bindings_[slot].graph_;

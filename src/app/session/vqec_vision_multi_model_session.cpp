@@ -71,6 +71,21 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
     }
     has_drain_result_ = false;
     drain_result_ = {};
+    const auto valid_model_mask = static_cast<std::uint16_t>(
+        (1U << config_.graph_count_) - 1U);
+    desired_model_mask_ = config_.initial_active_model_mask_ ==
+            std::numeric_limits<std::uint16_t>::max()
+        ? valid_model_mask : config_.initial_active_model_mask_;
+    if (desired_model_mask_ == 0 ||
+        (desired_model_mask_ & static_cast<std::uint16_t>(~valid_model_mask)) != 0) {
+        return {status_code::invalid_argument,
+            "initial active model mask is empty or outside prepared capacity"};
+    }
+    active_model_mask_ = 0;
+    failed_model_mask_ = 0;
+    transition_model_slot_ = g_invalid_model_slot;
+    delta_phase_ = multi_model_delta_phase::idle;
+    delta_error_ = {};
 
     const auto& source_plan = config_.graphs_[0].plan_;
     if (config_.cadence_.source_fps_numerator_ != source_plan.fps_numerator_ ||
@@ -142,6 +157,10 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
     if (configured.code_ != status_code::ok) {
         return configured;
     }
+    const auto masked = pump_.vqec_vision_ai_appl_mmump_set_active_model_mask(0);
+    if (masked.code_ != status_code::ok) {
+        return masked;
+    }
     cascade_store_.reset();
     if (has_cascade_root) {
         try {
@@ -160,6 +179,13 @@ status multi_model_session::vqec_vision_ai_appl_mmses_prepare_activation() {
         }
     }
     return {};
+}
+
+std::uint16_t multi_model_session::vqec_vision_ai_appl_mmses_find_next_start_slot()
+    const noexcept {
+    const auto pending = static_cast<std::uint16_t>(
+        desired_model_mask_ & static_cast<std::uint16_t>(~active_model_mask_));
+    return vqec_vision_ai_appl_mmses_find_first_slot(pending, config_.graph_count_);
 }
 
 status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
@@ -198,8 +224,21 @@ status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
                 graph.vqec_vision_ai_ports_infgr_poll_state();
             if (graph.vqec_vision_ai_ports_infgr_get_state() ==
                 inference_graph_state::running) {
-                ++active_graph_slot_;
-                if (active_graph_slot_ == config_.graph_count_) {
+                progress = pump_.vqec_vision_ai_appl_mmump_resolve_model_target(
+                    active_graph_slot_);
+                if (progress.code_ != status_code::ok) {
+                    break;
+                }
+                active_model_mask_ = static_cast<std::uint16_t>(
+                    active_model_mask_ | (1U << active_graph_slot_));
+                progress = pump_.vqec_vision_ai_appl_mmump_set_active_model_mask(
+                    active_model_mask_);
+                if (progress.code_ != status_code::ok) {
+                    break;
+                }
+                active_graph_slot_ =
+                    vqec_vision_ai_appl_mmses_find_next_start_slot();
+                if (active_graph_slot_ == g_invalid_model_slot) {
                     // Every graph is loaded; resolve preprocessing targets now so no frame
                     // is received before the model input identity is known (S04/O07).
                     progress = pump_.vqec_vision_ai_appl_mmump_resolve_targets();
@@ -216,6 +255,189 @@ status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
             return {status_code::invalid_state, "session is not starting a graph"};
     }
     return progress;
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_request_model_mask(
+    std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns) {
+    const auto time = vqec_vision_ai_appl_mmses_check_time(_steady_now_ns);
+    if (time.code_ != status_code::ok) {
+        return time;
+    }
+    const auto valid_model_mask = static_cast<std::uint16_t>(
+        (1U << config_.graph_count_) - 1U);
+    if (state_ != multi_model_session_state::running ||
+        delta_phase_ != multi_model_delta_phase::idle) {
+        return {status_code::invalid_state,
+            "model activation delta requires an idle running session"};
+    }
+    if (_desired_model_mask == 0 ||
+        (_desired_model_mask & static_cast<std::uint16_t>(~valid_model_mask)) != 0) {
+        return {status_code::unsupported,
+            "empty or out-of-capacity model mask requires generation replacement"};
+    }
+    if (_desired_model_mask == desired_model_mask_) {
+        return {};
+    }
+    const auto scheduled_mask = static_cast<std::uint16_t>(
+        active_model_mask_ & _desired_model_mask);
+    const auto masked = pump_.vqec_vision_ai_appl_mmump_set_active_model_mask(
+        scheduled_mask);
+    if (masked.code_ != status_code::ok) {
+        return masked;
+    }
+    desired_model_mask_ = _desired_model_mask;
+    failed_model_mask_ = static_cast<std::uint16_t>(
+        failed_model_mask_ & static_cast<std::uint16_t>(~_desired_model_mask));
+    delta_error_ = {};
+    delta_start_ns_ = _steady_now_ns;
+    return {status_code::pending, "model activation delta accepted"};
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_reconcile_model_delta(
+    std::uint64_t _steady_now_ns) {
+    if (delta_phase_ == multi_model_delta_phase::recovery_required) {
+        return {status_code::pending,
+            "model activation delta requires hardware recovery"};
+    }
+    if (delta_phase_ == multi_model_delta_phase::idle) {
+        const auto removing = static_cast<std::uint16_t>(
+            active_model_mask_ & static_cast<std::uint16_t>(~desired_model_mask_));
+        transition_model_slot_ = vqec_vision_ai_appl_mmses_find_first_slot(
+            removing, config_.graph_count_);
+        if (transition_model_slot_ != g_invalid_model_slot) {
+            delta_phase_ = multi_model_delta_phase::draining;
+        } else {
+            const auto adding = static_cast<std::uint16_t>(
+                desired_model_mask_ & static_cast<std::uint16_t>(~active_model_mask_));
+            transition_model_slot_ = vqec_vision_ai_appl_mmses_find_first_slot(
+                adding, config_.graph_count_);
+            if (transition_model_slot_ == g_invalid_model_slot) {
+                return {};
+            }
+            const auto graph_state = config_.graphs_[transition_model_slot_].graph_->
+                vqec_vision_ai_ports_infgr_get_state();
+            delta_phase_ = graph_state == inference_graph_state::empty ?
+                multi_model_delta_phase::configuring : multi_model_delta_phase::loading;
+        }
+    }
+    if (_steady_now_ns - delta_start_ns_ >= config_.stop_timeout_ns_) {
+        is_recovery_required_ = true;
+        failed_model_mask_ = static_cast<std::uint16_t>(
+            failed_model_mask_ | (1U << transition_model_slot_));
+        delta_error_ = {status_code::timeout,
+            "model activation delta deadline elapsed"};
+        delta_phase_ = multi_model_delta_phase::recovery_required;
+        return {status_code::pending, delta_error_.message_};
+    }
+
+    auto& graph_config = config_.graphs_[transition_model_slot_];
+    auto& graph = *graph_config.graph_;
+    status progress;
+    switch (delta_phase_) {
+    case multi_model_delta_phase::configuring:
+        progress = graph.vqec_vision_ai_ports_infgr_configure(graph_config.plan_);
+        if (progress.code_ == status_code::ok) {
+            delta_phase_ = multi_model_delta_phase::loading;
+        }
+        break;
+    case multi_model_delta_phase::loading:
+        progress = graph.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::configured
+            ? graph.vqec_vision_ai_ports_infgr_load()
+            : graph.vqec_vision_ai_ports_infgr_poll_state();
+        if (graph.vqec_vision_ai_ports_infgr_get_state() == inference_graph_state::ready) {
+            delta_phase_ = multi_model_delta_phase::binding;
+        }
+        break;
+    case multi_model_delta_phase::binding:
+        progress = graph.vqec_vision_ai_ports_infgr_bind_source(graph_config.binding_);
+        if (progress.code_ == status_code::ok) {
+            delta_phase_ = multi_model_delta_phase::starting;
+        }
+        break;
+    case multi_model_delta_phase::starting:
+        progress = graph.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::ready
+            ? graph.vqec_vision_ai_ports_infgr_start(
+                  graph_config.outputs_, graph_config.max_output_bytes_)
+            : graph.vqec_vision_ai_ports_infgr_poll_state();
+        if (graph.vqec_vision_ai_ports_infgr_get_state() == inference_graph_state::running) {
+            progress = pump_.vqec_vision_ai_appl_mmump_resolve_model_target(
+                transition_model_slot_);
+            if (progress.code_ == status_code::ok) {
+                active_model_mask_ = static_cast<std::uint16_t>(
+                    active_model_mask_ | (1U << transition_model_slot_));
+                progress = pump_.vqec_vision_ai_appl_mmump_set_active_model_mask(
+                    static_cast<std::uint16_t>(
+                        active_model_mask_ & desired_model_mask_));
+            }
+            if (progress.code_ == status_code::ok) {
+                delta_phase_ = multi_model_delta_phase::idle;
+                transition_model_slot_ = g_invalid_model_slot;
+            }
+        }
+        break;
+    case multi_model_delta_phase::draining:
+        if (pump_.vqec_vision_ai_appl_mmump_has_model_worker_work(
+                transition_model_slot_)) {
+            return {status_code::pending,
+                "disabled model slot is waiting for its worker"};
+        }
+        if (graph.vqec_vision_ai_ports_infgr_get_state() ==
+            inference_graph_state::running) {
+            progress = graph.vqec_vision_ai_ports_infgr_request_drain();
+            break;
+        }
+        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
+            return {status_code::pending,
+                "disabled model slot is waiting for completion"};
+        }
+        if (graph.vqec_vision_ai_ports_infgr_get_state() ==
+            inference_graph_state::draining) {
+            progress = graph.vqec_vision_ai_ports_infgr_poll_state();
+            break;
+        }
+        delta_phase_ = multi_model_delta_phase::unloading;
+        return {status_code::pending, "disabled model slot is ready to unload"};
+    case multi_model_delta_phase::unloading:
+        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
+            return {status_code::pending,
+                "disabled model slot is waiting for completion"};
+        }
+        if (graph.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::empty ||
+            graph.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::configured) {
+            progress = pump_.vqec_vision_ai_appl_mmump_release_model_slot(
+                transition_model_slot_);
+            if (progress.code_ == status_code::ok) {
+                active_model_mask_ = static_cast<std::uint16_t>(
+                    active_model_mask_ &
+                    static_cast<std::uint16_t>(~(1U << transition_model_slot_)));
+                delta_phase_ = multi_model_delta_phase::idle;
+                transition_model_slot_ = g_invalid_model_slot;
+            }
+            break;
+        }
+        progress = graph.vqec_vision_ai_ports_infgr_get_state() ==
+                inference_graph_state::unloading
+            ? graph.vqec_vision_ai_ports_infgr_poll_state()
+            : graph.vqec_vision_ai_ports_infgr_unload();
+        break;
+    case multi_model_delta_phase::idle:
+    case multi_model_delta_phase::recovery_required:
+        return {};
+    }
+    if (progress.code_ != status_code::ok && progress.code_ != status_code::pending) {
+        failed_model_mask_ = static_cast<std::uint16_t>(
+            failed_model_mask_ | (1U << transition_model_slot_));
+        delta_error_ = progress;
+        delta_phase_ = multi_model_delta_phase::recovery_required;
+        return {status_code::pending,
+            "model activation delta failed; slot retained for recovery"};
+    }
+    return delta_phase_ == multi_model_delta_phase::idle ? status{} :
+        status{status_code::pending, "model activation delta is progressing"};
 }
 
 status multi_model_session::vqec_vision_ai_appl_mmses_request_stop(
@@ -391,6 +613,8 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
                 // every graph is running, so no FW buffer is pinned during accelerator load.
                 probe = {};
                 start_ns_ = _steady_now_ns;
+                active_graph_slot_ =
+                    vqec_vision_ai_appl_mmses_find_next_start_slot();
                 state_ = multi_model_session_state::configuring;
             }
         }
@@ -419,6 +643,15 @@ status multi_model_session::vqec_vision_ai_appl_mmses_step(
             }
         } else if (_progress.model_slot_ != g_invalid_model_slot) {
             _progress.ticket_ = report.submitted_tickets_[_progress.model_slot_];
+        }
+        if (progress.code_ == status_code::ok ||
+            progress.code_ == status_code::pending) {
+            const auto reconciled =
+                vqec_vision_ai_appl_mmses_reconcile_model_delta(_steady_now_ns);
+            if (progress.code_ == status_code::pending &&
+                reconciled.code_ != status_code::ok) {
+                progress = reconciled;
+            }
         }
     } else if (state_ == multi_model_session_state::draining_graphs) {
         progress = vqec_vision_ai_appl_mmses_stop_graph(_steady_now_ns);
@@ -463,6 +696,12 @@ multi_model_session::vqec_vision_ai_appl_mmses_get_snapshot() const noexcept {
     snapshot.first_error_code_ = last_error_.code_;
     snapshot.source_readers_ = source_.vqec_vision_ai_ports_rawsr_get_outstanding();
     snapshot.graph_count_ = config_.graph_count_;
+    snapshot.active_model_mask_ = active_model_mask_;
+    snapshot.desired_model_mask_ = desired_model_mask_;
+    snapshot.failed_model_mask_ = failed_model_mask_;
+    snapshot.transition_model_slot_ = transition_model_slot_;
+    snapshot.delta_phase_ = delta_phase_;
+    snapshot.delta_error_code_ = delta_error_.code_;
     snapshot.cascade_bytes_ = cascade_store_ != nullptr ?
         cascade_store_->vqec_vision_ai_sched_cfstr_bytes() : 0;
     snapshot.is_recovery_required_ = is_recovery_required_;

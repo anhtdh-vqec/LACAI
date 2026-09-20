@@ -133,6 +133,7 @@ public:
         const vqec::vision::ai::raw_frame& _frame, std::uint64_t _steady_now_ns,
         vqec::vision::ai::submission_ticket& _ticket) override {
         (void)_steady_now_ns;
+        ++submit_calls_;
         owner_ = _frame.owner_;
         ticket_.token_.cycle_id_ = cycle_id_;
         ticket_.token_.job_id_ = _frame.descriptor_.buffer_id_;
@@ -203,6 +204,7 @@ public:
     unsigned start_calls_{0};
     unsigned drain_calls_{0};
     unsigned unload_calls_{0};
+    unsigned submit_calls_{0};
     bool can_activate_{true};
     bool can_start_{true};
     bool is_outstanding_{false};
@@ -403,6 +405,79 @@ int main() {
     // Default drain_and_discard retains nothing.
     check(session.vqec_vision_ai_appl_mmses_take_drain_result(result).code_ ==
           status_code::pending);
+
+    // Incremental per-slot activation keeps the RAW source and unrelated graph alive. The
+    // initially inactive graph is prepared but receives no configure/load call until requested.
+    {
+        fake_session_source delta_source;
+        fake_session_graph retained_graph;
+        fake_session_graph toggled_graph;
+        auto delta_config = vqec_vision_ai_unit_mmsts_make_session_config(
+            retained_graph, toggled_graph);
+        delta_config.initial_active_model_mask_ = 1;
+        multi_model_session delta_session(delta_source, delta_config);
+        check(delta_session.vqec_vision_ai_appl_mmses_step(
+                  0, result, progress).code_ == status_code::pending);
+        delta_source.vqec_vision_ai_unit_mmsts_supply_frame(100);
+        std::uint64_t now = 1;
+        while (delta_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::running && now <= 20) {
+            const auto status = delta_session.vqec_vision_ai_appl_mmses_step(
+                now++, result, progress);
+            check(status.code_ == status_code::pending || status.code_ == status_code::ok);
+        }
+        auto delta_snapshot =
+            delta_session.vqec_vision_ai_appl_mmses_get_snapshot();
+        check(delta_snapshot.active_model_mask_ == 1 &&
+              delta_snapshot.desired_model_mask_ == 1 &&
+              retained_graph.start_calls_ == 1 && toggled_graph.configure_calls_ == 0 &&
+              delta_source.start_calls_ == 1);
+
+        check(delta_session.vqec_vision_ai_appl_mmses_request_model_mask(
+                  3, now++).code_ == status_code::pending);
+        while (delta_session.vqec_vision_ai_appl_mmses_get_snapshot().active_model_mask_ != 3 &&
+               now <= 40) {
+            const auto status = delta_session.vqec_vision_ai_appl_mmses_step(
+                now++, result, progress);
+            check(status.code_ == status_code::pending || status.code_ == status_code::ok);
+        }
+        delta_snapshot = delta_session.vqec_vision_ai_appl_mmses_get_snapshot();
+        check(delta_snapshot.active_model_mask_ == 3 &&
+              delta_snapshot.delta_phase_ == multi_model_delta_phase::idle &&
+              toggled_graph.configure_calls_ == 1 && toggled_graph.load_calls_ == 1 &&
+              toggled_graph.start_calls_ == 1 && delta_source.start_calls_ == 1);
+
+        delta_source.vqec_vision_ai_unit_mmsts_supply_frame(1);
+        check(delta_session.vqec_vision_ai_appl_mmses_step(
+                  now++, result, progress).code_ == status_code::ok);
+        check(progress.submitted_model_mask_ == 3 && retained_graph.submit_calls_ == 1 &&
+              toggled_graph.submit_calls_ == 1);
+        check(delta_session.vqec_vision_ai_appl_mmses_request_model_mask(
+                  2, now++).code_ == status_code::pending);
+        retained_graph.vqec_vision_ai_unit_mmsts_complete_result();
+        toggled_graph.vqec_vision_ai_unit_mmsts_complete_result();
+        while ((delta_session.vqec_vision_ai_appl_mmses_get_snapshot().active_model_mask_ != 2 ||
+                   delta_session.vqec_vision_ai_appl_mmses_get_snapshot().delta_phase_ !=
+                       multi_model_delta_phase::idle) &&
+               now <= 70) {
+            const auto status = delta_session.vqec_vision_ai_appl_mmses_step(
+                now++, result, progress);
+            check(status.code_ == status_code::pending || status.code_ == status_code::ok);
+        }
+        delta_snapshot = delta_session.vqec_vision_ai_appl_mmses_get_snapshot();
+        check(delta_snapshot.active_model_mask_ == 2 &&
+              retained_graph.drain_calls_ == 1 && retained_graph.unload_calls_ == 1 &&
+              toggled_graph.drain_calls_ == 0 && toggled_graph.unload_calls_ == 0 &&
+              delta_source.start_calls_ == 1 && delta_source.stop_calls_ == 0);
+        delta_source.vqec_vision_ai_unit_mmsts_supply_frame(2);
+        const auto before = toggled_graph.submit_calls_;
+        const auto continued = delta_session.vqec_vision_ai_appl_mmses_step(
+            now++, result, progress);
+        check(continued.code_ == status_code::ok && progress.submitted_model_mask_ == 2 &&
+              toggled_graph.submit_calls_ == before + 1U);
+        check(delta_session.vqec_vision_ai_appl_mmses_request_model_mask(
+                  0, now++).code_ == status_code::unsupported);
+    }
 
     // Section 13: drain policy is explicit. drain_and_deliver retains the last result that
     // becomes ready while draining instead of leaving the stop semantics implicit.

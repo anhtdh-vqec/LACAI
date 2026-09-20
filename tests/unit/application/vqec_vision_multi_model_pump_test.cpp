@@ -355,6 +355,36 @@ int main() {
     check(armed_graph.arm_calls_ == 1 && armed_graph.submit_calls_ == 0 &&
           rejected_graph.submit_calls_ == 0 && report.submitted_model_mask_ == 0);
 
+    fake_raw_source delta_source;
+    fake_inference_graph retained_graph;
+    fake_inference_graph toggled_graph;
+    multi_model_pump delta_pump(delta_source);
+    const auto delta_bindings =
+        vqec_vision_ai_unit_mmpst_make_bindings(retained_graph, toggled_graph);
+    check(delta_pump.vqec_vision_ai_appl_mmump_configure(
+              cadence, delta_bindings, 2).code_ == status_code::ok);
+    check(delta_pump.vqec_vision_ai_appl_mmump_set_active_model_mask(1).code_ ==
+          status_code::ok);
+    check(delta_pump.vqec_vision_ai_appl_mmump_get_active_model_mask() == 1);
+    delta_source.vqec_vision_ai_unit_mmpst_supply_frame(
+        1, std::make_shared<int>(12));
+    check(delta_pump.vqec_vision_ai_appl_mmump_pump_step(
+              500, result, report).code_ == status_code::ok);
+    check(report.due_model_mask_ == 1 && report.submitted_model_mask_ == 1 &&
+          retained_graph.submit_calls_ == 1 && toggled_graph.submit_calls_ == 0);
+    check(delta_pump.vqec_vision_ai_appl_mmump_release_model_slot(1).code_ ==
+          status_code::ok);
+    check(delta_pump.vqec_vision_ai_appl_mmump_set_active_model_mask(3).code_ ==
+          status_code::ok);
+    delta_source.vqec_vision_ai_unit_mmpst_supply_frame(
+        2, std::make_shared<int>(13));
+    check(delta_pump.vqec_vision_ai_appl_mmump_pump_step(
+              501, result, report).code_ == status_code::ok);
+    check(report.due_model_mask_ == 3 && report.busy_model_mask_ == 1 &&
+          report.submitted_model_mask_ == 2 && toggled_graph.submit_calls_ == 1);
+    check(delta_pump.vqec_vision_ai_appl_mmump_set_active_model_mask(4).code_ ==
+          status_code::invalid_argument);
+
     fake_raw_source invalid_source;
     multi_model_pump invalid_pump(invalid_source);
     auto duplicate_bindings = bindings;

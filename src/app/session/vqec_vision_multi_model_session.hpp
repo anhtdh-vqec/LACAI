@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -25,6 +26,17 @@ enum class multi_model_session_state {
     draining_graphs,
     releasing_source,
     stopped
+};
+
+enum class multi_model_delta_phase {
+    idle,
+    configuring,
+    loading,
+    binding,
+    starting,
+    draining,
+    unloading,
+    recovery_required
 };
 
 struct multi_model_graph_config {
@@ -71,6 +83,11 @@ struct multi_model_session_config {
     // One persistent worker per active root model permits independent vendor graph owners
     // to preprocess/execute concurrently. False preserves serialized deterministic tests.
     bool use_model_workers_{false};
+    // Prepared graph slots may exceed the initially effective application set. UINT16_MAX means
+    // every configured slot for backwards-compatible callers; composition supplies an explicit
+    // derived mask for App Manager generations.
+    std::uint16_t initial_active_model_mask_{
+        std::numeric_limits<std::uint16_t>::max()};
 };
 
 struct multi_model_session_snapshot {
@@ -83,6 +100,12 @@ struct multi_model_session_snapshot {
     unsigned source_readers_{0};
     std::uint16_t graph_count_{0};
     std::uint16_t running_graph_count_{0};
+    std::uint16_t active_model_mask_{0};
+    std::uint16_t desired_model_mask_{0};
+    std::uint16_t failed_model_mask_{0};
+    std::uint16_t transition_model_slot_{g_invalid_model_slot};
+    multi_model_delta_phase delta_phase_{multi_model_delta_phase::idle};
+    status_code delta_error_code_{status_code::ok};
     std::uint64_t cascade_bytes_{0};
     bool is_recovery_required_{false};
 };
@@ -100,6 +123,10 @@ public:
         source_session_progress& _progress);
     [[nodiscard]] status vqec_vision_ai_appl_mmses_request_stop(
         std::uint64_t _steady_now_ns);
+    // Applies a nonzero target mask within the immutable prepared graph set. Calls are serialized.
+    // Disabling the final slot remains a generation/source replacement boundary.
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_request_model_mask(
+        std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns);
     [[nodiscard]] multi_model_session_snapshot
     vqec_vision_ai_appl_mmses_get_snapshot() const noexcept;
     // Moves out the result retained by a drain_and_deliver stop, then clears the slot.
@@ -145,6 +172,10 @@ private:
         std::uint64_t _steady_now_ns);
     [[nodiscard]] status vqec_vision_ai_appl_mmses_prepare_activation();
     [[nodiscard]] status vqec_vision_ai_appl_mmses_start_graph();
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_reconcile_model_delta(
+        std::uint64_t _steady_now_ns);
+    [[nodiscard]] std::uint16_t vqec_vision_ai_appl_mmses_find_next_start_slot()
+        const noexcept;
     [[nodiscard]] status vqec_vision_ai_appl_mmses_stop_graph(
         std::uint64_t _steady_now_ns);
     void vqec_vision_ai_appl_mmses_record_error(const status& _error);
@@ -161,6 +192,13 @@ private:
     tensor_result drain_result_;
     std::uint16_t active_graph_slot_{0};
     std::uint16_t drain_graph_slot_{0};
+    std::uint16_t active_model_mask_{0};
+    std::uint16_t desired_model_mask_{0};
+    std::uint16_t failed_model_mask_{0};
+    std::uint16_t transition_model_slot_{g_invalid_model_slot};
+    multi_model_delta_phase delta_phase_{multi_model_delta_phase::idle};
+    status delta_error_;
+    std::uint64_t delta_start_ns_{0};
     bool has_drain_result_{false};
     bool is_recovery_required_{false};
 };

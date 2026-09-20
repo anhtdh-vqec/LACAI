@@ -71,6 +71,21 @@ public:
     // after its graph is loaded and before any frame is received, so the per-frame path
     // performs no metadata lookup (S04/O07). A non-preprocessing binding is unaffected.
     [[nodiscard]] status vqec_vision_ai_appl_mmump_resolve_targets();
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_resolve_model_target(
+        std::uint16_t _model_slot);
+    // Serialized activation boundary. A disabled slot accepts no new work, but an already
+    // submitted job is still polled to real completion. Newly enabled slots must already be
+    // running; lifecycle remains owned by multi_model_session.
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_set_active_model_mask(
+        std::uint16_t _active_model_mask);
+    // Clears one inactive, fully completed slot before graph unload/reload. It never treats
+    // disable or timeout as hardware completion.
+    [[nodiscard]] status vqec_vision_ai_appl_mmump_release_model_slot(
+        std::uint16_t _model_slot);
+    [[nodiscard]] std::uint16_t
+    vqec_vision_ai_appl_mmump_get_active_model_mask() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_mmump_has_model_worker_work(
+        std::uint16_t _model_slot) const noexcept;
     // Binds the session-owned cascade frame store before the first frame is received. The
     // pump borrows it and retains cascade-root frames under the source key. It does not
     // complete or retire entries on stop; the session owns that drain.
@@ -161,6 +176,7 @@ private:
     std::uint64_t last_source_epoch_{0};
     std::uint64_t last_now_ns_{0};
     std::uint16_t model_count_{0};
+    std::uint16_t active_model_mask_{0};
     std::uint16_t result_cursor_{0};
     // One retained frame per model slot, released when a new submission replaces it or the
     // pump stops. This is what keeps the owner alive from submission to result take.

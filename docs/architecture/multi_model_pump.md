@@ -1,8 +1,8 @@
 # Multi-model RAW frame fan-out
 
 `multi_model_pump` is the bounded frame-path primitive for one logical FW RAW source and
-1..16 already-started model graphs. This document defines its one-receive shared-lifetime
-rule, its bounded scheduling and its composition boundary.
+1..16 prepared model slots. This document defines its one-receive shared-lifetime rule,
+bounded scheduling, mutable active-slot mask and composition boundary.
 
 **Status:** source-delivered — portable source delivered; its fake-port binary passes
 natively on QCS6490. **Layer:** app. **Source:**
@@ -48,6 +48,10 @@ its owner; stop clears it before source reconciliation.
 
 - graph bindings, arm state and submission tickets use fixed arrays with a hard ceiling of
   16 model slots;
+- the serialized active-slot mask can stop new submissions to one slot without stopping frame
+  receive or another slot; an already submitted job remains polled to real completion;
+- an inactive slot releases retained frame/preprocess/arm state only after its graph and model
+  worker report no outstanding work; re-enable requires the graph to be running first;
 - model slot order equals the immutable activation/cadence order;
 - each call polls at most 16 graphs, returns at most one tensor result and receives at most
   one frame;
@@ -95,9 +99,9 @@ currently may allocate/copy in the Qualcomm implementation.
 
 ## Composition boundary
 
-`multi_model_session` owns graph lifecycle once per source, validates each graph before the
-first FW acquisition, then supplies running owners to this pump. After every graph is
-running and before any frame is received, the session calls
+`multi_model_session` owns graph lifecycle once per source, validates each prepared graph before
+the first FW acquisition, then supplies the initially active running owners to this pump. Before
+normal frame receive, the session calls
 `vqec_vision_ai_appl_mmump_resolve_targets`, which resolves and caches each preprocessing
 binding's model input identity so the per-frame path performs no metadata lookup. Per-board
 admission must reduce configured model/source counts when measured graph, memory,
