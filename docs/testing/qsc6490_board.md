@@ -190,15 +190,21 @@ after drained generation replacement; an App Manager restart and reverse startup
 passed. Host capture measured H.264 1920×1080 at 30.124 FPS. The scene remained almost black, so
 this adds no model accuracy or overlay-placement claim.
 
-The incremental-activation candidate at service source commit `39ffe8d` used exact service
-SHA-256 `e5c17d24b32b0c1eb92674b7223fd4c7e8a6394514ef944fb638e3addc6c362c`.
+The incremental-activation candidate at service source commit `8792c5b` used exact service
+SHA-256 `f02983a22c1a5e9c9be6868dc4e1629d040fe674f595afd0a64e53d95200a4d0`.
 S04 and an installed shared-model probe completed twenty desired-state transitions at five-second
 intervals, one configuration delta, a ten-second App Manager outage/restart and a further off/on
-cycle. Service PID `4448` and source epoch `1` did not change; every interval advanced the ring.
-The warm two-app sample was 13.40% of one logical core, and host capture was H.264 1920x1080 at
-30.124 FPS. Full eSDK/QEMU passed 172/172, the two race tests passed 30 repeated QEMU iterations
-and their exact native binaries passed ten iterations. The deterministic test-pattern source
-makes this lifecycle/resource evidence, not released-FW or second-usecase product acceptance.
+cycle. Service PID `7010` and source epoch `1` did not change; every interval advanced the ring.
+After a clean reboot, the warm two-app sample was 13.40% of one logical core, and real-camera host
+capture was H.264 1920x1080 at 30.000 FPS. Full eSDK/QEMU passed 172/172, the two race tests passed
+30 repeated QEMU iterations and the exact native binaries passed ten iterations. Visual review
+passed continuity, orientation, colour and overlay geometry; it is not released-FW or
+second-usecase product acceptance.
+
+A destructive mid-inference camera outage produced one `source_lost` and one `timeout` fault after
+per-source/code de-duplication. The generation was replaced, but a FastRPC call did not complete
+and preview did not resume within 180 seconds. Reboot restored the exact candidate. Automatic
+hardware recovery therefore remains unaccepted and requires a full-process replacement boundary.
 Exact hashes and limits are in
 [incremental activation validation](incremental_app_activation_validation.md).
 

@@ -97,8 +97,10 @@ running.
 All five gates passed for S04 plus the infrastructure shared-model probe. The approved eSDK/QEMU
 suite passed 172/172; race-sensitive activation tests passed 30 repeated QEMU and ten repeated
 native iterations. The exact QCS6490 candidate completed twenty five-second transitions, a
-configuration delta and App Manager restart with one service PID/source epoch, 30.124 RTSP FPS and
-13.40% service CPU. Exact digests, resource deltas and fixture limitations are recorded in
+configuration delta and App Manager restart with one service PID/source epoch. A clean rebooted
+real-camera run measured 30.000 RTSP FPS and 13.40% service CPU. Mid-inference camera loss remains
+an explicit full-process replacement boundary; it is not an automatic hardware-recovery claim.
+Exact digests, resource deltas and fixture limitations are recorded in
 [incremental activation validation](../testing/incremental_app_activation_validation.md).
 
 Acceptance is for the runtime mechanism, not for a second product usecase or released-FW boundary.

@@ -308,8 +308,10 @@ and a global async-worker quiesce barrier creates one mutation point without res
 sources. The race-sensitive tests pass 30 repeated QEMU and ten repeated native iterations. The
 exact `.102` candidate completed twenty five-second transitions for S04 plus a shared-model probe,
 a configuration-only update and an App Manager restart with service PID/source epoch unchanged.
-It sustained 30.124 RTSP FPS and measured 13.40% service CPU. This is infrastructure-fixture
-acceptance, not product acceptance for a second usecase; see
+After a clean reboot it sustained 30.000 real-camera RTSP FPS and measured 13.40% service CPU.
+Visual transport/overlay geometry passed. Automatic recovery from mid-inference camera loss did
+not resume preview within 180 seconds and remains a full-process replacement boundary. This is
+infrastructure-fixture acceptance, not product acceptance for a second usecase; see
 [incremental activation validation](../testing/incremental_app_activation_validation.md).
 
 Open release gates (not delivered): released-FW camera/ring/RTSP/evidence conformance, hardware

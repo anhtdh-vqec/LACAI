@@ -38,7 +38,7 @@ cho FR, hút thuốc hoặc bất kỳ usecase chưa có golden/model gate.
 | D2 | Logic-tested | Candidate manager/fan-out, transactional pipeline rebind, output policy candidate | Config/disable chỉ thay owner đích; owner khác giữ pointer/state; input lỗi giữ wiring cũ |
 | D3 | Service reconciler | So sánh snapshot, capacity của app đã cài, apply/fallback, publish revision/metrics | Desired/config/entitlement không thoát generation khi capacity/identity tương thích |
 | D4 | Completed | Fault injection, eSDK/QEMU 172/172, 30 lần lặp hai race test và 10 lần native | Load/drain, in-flight, multi-source barrier, graph rearm, shutdown và App Manager independence pass |
-| D5 | Completed | S04 + shared-model probe trên QCS6490, RTSP/FPS/CPU/RSS/lifecycle log | 20 transition/5 giây + restart/config; PID/epoch giữ nguyên; 30.124 FPS, 13.40% CPU |
+| D5 | Completed | S04 + shared-model probe trên QCS6490, camera thật, RTSP/FPS/CPU/RSS/lifecycle log | 20 transition/5 giây + restart/config; PID/epoch giữ nguyên; 30.000 FPS, 13.40% CPU |
 | D6 | Completed | ADR accepted, capability/status/board record và hồ sơ validation | Source/evidence/giới hạn fixture đồng bộ; replacement boundary được ghi rõ |
 
 ## Kế hoạch kiểm thử chi tiết
@@ -94,10 +94,15 @@ layout và test liên quan bằng eSDK trước khi commit.
   rebind, mutable primary/secondary lifecycle và global activation-quiesce barrier cho async worker.
 - Full eSDK/QEMU pass 172/172; hai test nhạy race pass 30 lần liên tiếp và bản native pass 10 lần
   liên tiếp trên đúng machine ID.
-- Candidate `39ffe8d` chạy 20 chuyển trạng thái, mỗi chuyển trạng thái cách 5 giây. Service PID
-  `4448`, source epoch `1` và preview liên tục; App Manager restart không thay PID service.
-- Preview đạt 30.124 FPS ở 1920x1080; workload hai app đạt 13.40% một logical core. RSS tăng ròng
-  1,600 KiB qua stress và không tăng theo vòng; log không có source/session/execution fault.
+- Candidate `8792c5b` chạy camera thật với 20 chuyển trạng thái, mỗi chuyển trạng thái cách 5 giây.
+  Service PID `7010`, source epoch `1` và preview liên tục; App Manager restart không thay PID
+  service.
+- Sau reboot sạch, preview đạt 30.000 FPS ở 1920x1080; workload hai app đạt 13.40% một logical
+  core. RSS tăng ròng 3,368 KiB qua stress và không tăng theo vòng; luồng activation bình thường
+  không có source/session/execution fault.
+- Ca cưỡng bức mất camera giữa inference xác nhận fault de-duplication nhưng không phục hồi preview
+  trong 180 giây do FastRPC chưa complete; đây vẫn là full-process replacement boundary, không
+  phải acceptance của automatic hardware recovery.
 - Hồ sơ exact digest, số đo và giới hạn acceptance nằm tại
   [incremental activation validation](../../testing/incremental_app_activation_validation.md).
 
@@ -105,6 +110,8 @@ layout và test liên quan bằng eSDK trước khi commit.
 
 - Plan không productize FR hoặc hút thuốc; chúng cần model/golden/quality gate riêng.
 - Artifact update và app install bổ sung capacity có thể dùng source-local/full replacement ở baseline.
+- Mất camera khi hardware còn in-flight có thể yêu cầu full-process replacement; plan này không
+  tuyên bố automatic FastRPC/DSP recovery.
 - Released-FW acceptance và backend conformance không được suy ra từ fixture App Manager.
 - Một usecase product mới vẫn phải nộp model/golden/quality/resource evidence riêng; việc này không
   mở lại nền activation delta đã accepted nếu package tuân đúng contract.

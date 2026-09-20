@@ -159,12 +159,12 @@ the hashes in the S04 validation record and is not released-FW evidence.
 
 For activation-delta changes, use a private candidate directory and an App Manager snapshot that
 contains at least one shared dependency and one unique dependency. The accepted 2026-09-20 run is
-under `/opt/lacai/out/incremental_activation_39ffe8d/`: it used
-`LACAI_CAMERA_SOURCE=test_pattern`, a dedicated runtime directory/ring/mount, twenty five-second
-transitions, a configuration delta and an App Manager restart. The exact contract, hashes and
-resource gates are in
-[incremental activation validation](incremental_app_activation_validation.md). Test-pattern mode
-does not replace released-FW camera or product overlay/model-quality acceptance.
+under `/opt/lacai/out/incremental_activation_8792c5b/`: it used the real camera, a dedicated
+runtime directory/ring/mount, twenty five-second transitions, a configuration delta and an App
+Manager restart. The exact contract, hashes, resource gates and the explicit non-acceptance of
+automatic FastRPC recovery after mid-inference camera loss are in
+[incremental activation validation](incremental_app_activation_validation.md). Compatibility
+camera evidence does not replace released-FW or product model-quality acceptance.
 
 ## Troubleshooting and rules
 
