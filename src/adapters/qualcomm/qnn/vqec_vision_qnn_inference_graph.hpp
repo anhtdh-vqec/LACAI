@@ -2,6 +2,7 @@
 #define VQEC_VISION_AI_QCOM_QNN_INFERENCE_GRAPH_HPP
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "vqec_vision_qnn_engine.hpp"
@@ -60,12 +61,11 @@ private:
     source_binding binding_;
     std::vector<tensor_spec> input_specs_;
     std::vector<tensor_spec> engine_outputs_;
-    submission_window window_;
+    std::unique_ptr<submission_window> window_;
     submission_ticket pending_ticket_;
     tensor_result pending_result_;
     inference_graph_state state_{inference_graph_state::empty};
     bool is_prepared_{false};
-    bool is_window_configured_{false};
     bool has_pending_{false};
 };
 

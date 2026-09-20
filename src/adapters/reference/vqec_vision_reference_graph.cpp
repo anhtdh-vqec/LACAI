@@ -90,7 +90,7 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_start(
 status reference_inference_graph::vqec_vision_ai_ports_infgr_arm(
     std::uint64_t _cycle_id, std::uint64_t _source_epoch, std::uint64_t _job_timeout_ns,
     submission_sequence_policy _sequence_policy) {
-    if (state_ != inference_graph_state::running || has_pending_) {
+    if (state_ != inference_graph_state::running || has_pending_ || window_) {
         return {status_code::invalid_state, "reference graph cannot arm in this state"};
     }
     submission_config config;
@@ -100,30 +100,31 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_arm(
     config.job_timeout_ns_ = _job_timeout_ns;
     config.capacity_ = 1;
     config.sequence_policy_ = _sequence_policy;
-    const auto configured = window_.vqec_vision_ai_core_subwn_configure(config);
+    auto window = std::make_unique<submission_window>();
+    const auto configured = window->vqec_vision_ai_core_subwn_configure(config);
     if (configured.code_ != status_code::ok) {
         return configured;
     }
-    is_window_configured_ = true;
+    window_ = std::move(window);
     return {};
 }
 
 status reference_inference_graph::vqec_vision_ai_ports_infgr_submit_frame(
     const raw_frame& _frame, std::uint64_t _steady_now_ns, submission_ticket& _ticket) {
-    if (state_ != inference_graph_state::running || !is_window_configured_) {
+    if (state_ != inference_graph_state::running || !window_) {
         return {status_code::invalid_state, "reference graph is not armed"};
     }
     if (has_pending_) {
         return {status_code::resource_exhausted, "reference graph already has a job"};
     }
     submission_ticket ticket;
-    const auto reserved = window_.vqec_vision_ai_core_subwn_reserve(
+    const auto reserved = window_->vqec_vision_ai_core_subwn_reserve(
         _frame.descriptor_.session_epoch_, _frame.descriptor_.buffer_id_,
         _frame.descriptor_.pts_ns_, _steady_now_ns, ticket);
     if (reserved.code_ != status_code::ok) {
         return reserved;
     }
-    const auto committed = window_.vqec_vision_ai_core_subwn_commit(ticket.token_);
+    const auto committed = window_->vqec_vision_ai_core_subwn_commit(ticket.token_);
     if (committed.code_ != status_code::ok) {
         return committed;
     }
@@ -148,8 +149,8 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_poll_result(
     }
     _result = std::move(pending_result_);
     // The reference backend completes immediately; both ledger events are real for it.
-    (void)window_.vqec_vision_ai_core_subwn_complete_input(pending_ticket_.token_);
-    (void)window_.vqec_vision_ai_core_subwn_complete_result(pending_ticket_.token_);
+    (void)window_->vqec_vision_ai_core_subwn_complete_input(pending_ticket_.token_);
+    (void)window_->vqec_vision_ai_core_subwn_complete_result(pending_ticket_.token_);
     retained_owner_.reset();
     pending_ticket_ = {};
     has_pending_ = false;
@@ -176,7 +177,7 @@ status reference_inference_graph::vqec_vision_ai_ports_infgr_unload() {
     outputs_.clear();
     retained_owner_.reset();
     has_pending_ = false;
-    is_window_configured_ = false;
+    window_.reset();
     state_ = inference_graph_state::configured;
     return {};
 }

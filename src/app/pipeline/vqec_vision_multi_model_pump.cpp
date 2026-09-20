@@ -210,6 +210,12 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_poll_result(
     for (std::uint16_t offset = 0; offset < model_count_; ++offset) {
         const auto slot = static_cast<std::uint16_t>(
             (result_cursor_ + offset) % model_count_);
+        // A worker owns every graph access from job acceptance through completion
+        // publication. Harvesting its completion under model_worker_mutex_ establishes
+        // the happens-before edge before this control thread reads graph state.
+        if (use_model_workers_ && vqec_vision_ai_appl_mmump_model_busy(slot)) {
+            continue;
+        }
         auto& graph = *bindings_[slot].graph_;
         if (graph.vqec_vision_ai_ports_infgr_get_outstanding() == 0) {
             continue;
@@ -234,6 +240,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_poll_result(
         if (polled.code_ != status_code::pending) {
             _report.error_model_slot_ = slot;
             is_failed_ = true;
+            failure_ = polled;
             return polled;
         }
     }
@@ -257,12 +264,15 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     }
     last_now_ns_ = _steady_now_ns;
     if (is_failed_) {
-        return {status_code::invalid_state, "pump failed; source session must drain"};
+        return failure_.code_ == status_code::ok ?
+            status{status_code::invalid_state, "pump failed; source session must drain"} :
+            failure_;
     }
 
     const auto harvested = vqec_vision_ai_appl_mmump_harvest_model_work(_report);
     if (harvested.code_ != status_code::ok) {
         is_failed_ = true;
+        failure_ = harvested;
         return harvested;
     }
 
@@ -276,7 +286,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     }
     if (source_.vqec_vision_ai_ports_rawsr_get_state() != raw_source_state::running) {
         is_failed_ = true;
-        return {status_code::invalid_state, "pump requires a running RAW source"};
+        failure_ = {status_code::invalid_state, "pump requires a running RAW source"};
+        return failure_;
     }
 
     for (std::uint16_t slot = 0; slot < model_count_; ++slot) {
@@ -288,7 +299,9 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             inference_graph_state::running) {
             _report.error_model_slot_ = slot;
             is_failed_ = true;
-            return {status_code::invalid_state, "pump requires every model graph running"};
+            failure_ = {status_code::invalid_state,
+                "pump requires every model graph running"};
+            return failure_;
         }
     }
 
@@ -302,12 +315,15 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     }
     if (received.code_ != status_code::ok) {
         is_failed_ = true;
+        failure_ = received;
         return received;
     }
     if (!frame.owner_ || frame.descriptor_.buffer_id_ == 0 ||
         frame.descriptor_.session_epoch_ == 0) {
         is_failed_ = true;
-        return {status_code::protocol_error, "RAW frame has no valid identity or owner"};
+        failure_ = {status_code::protocol_error,
+            "RAW frame has no valid identity or owner"};
+        return failure_;
     }
     has_received_frame_ = true;
     if (last_source_epoch_ != 0 &&
@@ -327,6 +343,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         frame.descriptor_.buffer_id_, selection);
     if (selected.code_ != status_code::ok) {
         is_failed_ = true;
+        failure_ = selected;
         return selected;
     }
     _report.due_model_mask_ = selection.due_model_mask_;
@@ -343,8 +360,10 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
-        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
-            vqec_vision_ai_appl_mmump_model_busy(slot)) {
+        // Check worker ownership first. Reading graph bookkeeping while the worker may
+        // be changing it is a data race, even when the read is only an admission hint.
+        if (vqec_vision_ai_appl_mmump_model_busy(slot) ||
+            graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0) {
             // drop_if_busy: skip. latest_wins/replace_pending: park the newest due input in
             // the one-slot mailbox and submit it once the graph frees up.
             model_dispatch_policy policy{model_dispatch_policy::drop_if_busy};
@@ -357,6 +376,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
                 if (stored.code_ != status_code::ok) {
                     _report.error_model_slot_ = slot;
                     is_failed_ = true;
+                    failure_ = stored;
                     return stored;
                 }
                 parked = true;
@@ -378,6 +398,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             if (armed.code_ != status_code::ok) {
                 _report.error_model_slot_ = slot;
                 is_failed_ = true;
+                failure_ = armed;
                 return armed;
             }
             is_armed_[slot] = true;
@@ -421,6 +442,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
                 }
             }
             is_failed_ = true;
+            failure_ = retained;
             return retained;
         } else {
             cascade_retained = true;
@@ -443,6 +465,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             if (queued.code_ != status_code::ok) {
                 _report.error_model_slot_ = slot;
                 is_failed_ = true;
+                failure_ = queued;
                 return queued;
             }
             if (bindings_[slot].cascade_root_) {
@@ -461,6 +484,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
             if (preprocessed.code_ != status_code::ok) {
                 _report.error_model_slot_ = slot;
                 is_failed_ = true;
+                failure_ = preprocessed;
                 return preprocessed;
             }
             // A fresh submission supersedes any parked input for this slot.
@@ -491,6 +515,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
         if (submitted.code_ != status_code::ok) {
             _report.error_model_slot_ = slot;
             is_failed_ = true;
+            failure_ = submitted;
             return submitted;
         }
     }
@@ -505,6 +530,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_pump_step(
     }
     const auto flushed = vqec_vision_ai_appl_mmump_flush_pending(_steady_now_ns, _report);
     if (flushed.code_ != status_code::ok) {
+        failure_ = flushed;
         return flushed;
     }
     if (_report.submitted_model_mask_ != 0) {
@@ -597,7 +623,8 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_flush_pending(
             continue;
         }
         auto& graph = *bindings_[slot].graph_;
-        if (graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
+        if ((use_model_workers_ && vqec_vision_ai_appl_mmump_model_busy(slot)) ||
+            graph.vqec_vision_ai_ports_infgr_get_outstanding() != 0 ||
             !is_armed_[slot]) {
             continue;
         }
@@ -616,6 +643,7 @@ status multi_model_pump::vqec_vision_ai_appl_mmump_flush_pending(
         } else if (submitted.code_ != status_code::pending) {
             _report.error_model_slot_ = slot;
             is_failed_ = true;
+            failure_ = submitted;
             return submitted;
         }
     }

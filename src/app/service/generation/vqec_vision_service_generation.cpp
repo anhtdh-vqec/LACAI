@@ -54,12 +54,14 @@ using namespace vqec::vision::ai;
 namespace {
 
 volatile std::sig_atomic_t g_stop_requested = 0;
+volatile std::sig_atomic_t g_stop_signal = 0;
 constexpr std::uint64_t g_step_interval_ns =
     service_options_limits::g_default_runtime_step_interval_ns;
 // Internal generation outcomes; recovery-required must never enter candidate rollback.
 constexpr int g_reconcile_generation_exit_code = 4;
 
-void vqec_vision_ai_appl_svgen_on_signal(int) {
+void vqec_vision_ai_appl_svgen_on_signal(int _signal) {
+    g_stop_signal = _signal;
     g_stop_requested = 1;
 }
 
@@ -514,6 +516,10 @@ int vqec_vision_ai_appl_svgen_run_generation(
         execution_result.first_error_code_ = executed.code_;
         execution_result.generation_published_ =
             _control_manager == nullptr;
+    }
+    if (g_stop_signal != 0) {
+        std::fprintf(stderr, "service stop requested by signal=%d\n",
+            static_cast<int>(g_stop_signal));
     }
 
     service_shutdown_context shutdown;

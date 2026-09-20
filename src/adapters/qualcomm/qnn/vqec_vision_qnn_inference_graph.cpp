@@ -107,7 +107,7 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_start(
 status qnn_inference_graph::vqec_vision_ai_ports_infgr_arm(
     std::uint64_t _cycle_id, std::uint64_t _source_epoch, std::uint64_t _job_timeout_ns,
     submission_sequence_policy _sequence_policy) {
-    if (state_ != inference_graph_state::running || has_pending_) {
+    if (state_ != inference_graph_state::running || has_pending_ || window_) {
         return {status_code::invalid_state, "QNN graph cannot arm in this state"};
     }
     submission_config config;
@@ -117,11 +117,12 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_arm(
     config.job_timeout_ns_ = _job_timeout_ns;
     config.capacity_ = 1;
     config.sequence_policy_ = _sequence_policy;
-    const auto configured = window_.vqec_vision_ai_core_subwn_configure(config);
+    auto window = std::make_unique<submission_window>();
+    const auto configured = window->vqec_vision_ai_core_subwn_configure(config);
     if (configured.code_ != status_code::ok) {
         return configured;
     }
-    is_window_configured_ = true;
+    window_ = std::move(window);
     return {};
 }
 
@@ -147,7 +148,7 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_tensors(
     std::uint64_t _source_epoch, std::uint64_t _source_frame_id,
     std::uint64_t _source_pts_ns, const std::vector<tensor_blob>& _inputs,
     std::uint64_t _steady_now_ns, submission_ticket& _ticket) {
-    if (state_ != inference_graph_state::running || !is_window_configured_) {
+    if (state_ != inference_graph_state::running || !window_) {
         return {status_code::invalid_state, "QNN graph is not armed"};
     }
     if (has_pending_) {
@@ -166,7 +167,7 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_tensors(
         }
     }
     submission_ticket ticket;
-    const auto reserved = window_.vqec_vision_ai_core_subwn_reserve(
+    const auto reserved = window_->vqec_vision_ai_core_subwn_reserve(
         _source_epoch, _source_frame_id, _source_pts_ns, _steady_now_ns, ticket);
     if (reserved.code_ != status_code::ok) {
         return reserved;
@@ -174,10 +175,10 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_submit_tensors(
     tensor_result result;
     const auto executed = engine_.vqec_vision_ai_qcom_qneng_execute(_inputs, result.tensors_);
     if (executed.code_ != status_code::ok) {
-        (void)window_.vqec_vision_ai_core_subwn_cancel_reserved(ticket.token_);
+        (void)window_->vqec_vision_ai_core_subwn_cancel_reserved(ticket.token_);
         return executed;
     }
-    const auto committed = window_.vqec_vision_ai_core_subwn_commit(ticket.token_);
+    const auto committed = window_->vqec_vision_ai_core_subwn_commit(ticket.token_);
     if (committed.code_ != status_code::ok) {
         return committed;
     }
@@ -201,8 +202,8 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_poll_result(
         return {status_code::pending, "QNN graph has no pending result"};
     }
     _result = std::move(pending_result_);
-    (void)window_.vqec_vision_ai_core_subwn_complete_input(pending_ticket_.token_);
-    (void)window_.vqec_vision_ai_core_subwn_complete_result(pending_ticket_.token_);
+    (void)window_->vqec_vision_ai_core_subwn_complete_input(pending_ticket_.token_);
+    (void)window_->vqec_vision_ai_core_subwn_complete_result(pending_ticket_.token_);
     pending_ticket_ = {};
     pending_result_ = {};
     has_pending_ = false;
@@ -232,7 +233,7 @@ status qnn_inference_graph::vqec_vision_ai_ports_infgr_unload() {
     input_specs_.clear();
     engine_outputs_.clear();
     binding_ = {};
-    is_window_configured_ = false;
+    window_.reset();
     is_prepared_ = false;
     state_ = inference_graph_state::configured;
     return {};

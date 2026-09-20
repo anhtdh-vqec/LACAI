@@ -1,5 +1,6 @@
 #include "vqec_vision_application_composition.hpp"
 
+#include <cstdio>
 #include <limits>
 #include <utility>
 
@@ -78,6 +79,10 @@ status application_composition::vqec_vision_ai_cntr_acomp_step(
     }
     if (snapshot_.state_ != application_composition_state::running &&
         snapshot_.state_ != application_composition_state::stopping) {
+        std::fprintf(stderr,
+            "composition progress rejected state=%d supervisor_state=%d\n",
+            static_cast<int>(snapshot_.state_),
+            static_cast<int>(supervisor_.vqec_vision_ai_appl_mssup_get_state()));
         return {status_code::invalid_state, "composition has no running sessions"};
     }
     if (has_pending_result_) {

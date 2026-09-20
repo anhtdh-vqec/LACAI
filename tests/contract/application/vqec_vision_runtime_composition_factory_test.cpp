@@ -1,7 +1,9 @@
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "vqec_vision_runtime_composition_factory.hpp"
@@ -14,6 +16,12 @@ using namespace vqec::vision::ai;
 namespace {
 
 constexpr std::uint64_t g_mib = 1024ULL * 1024ULL;
+// QEMU executes the target worker threads under host scheduler contention when CTest
+// runs in parallel. The deadline bounds a genuine deadlock while allowing those target
+// threads to be descheduled for several seconds; the expected path normally completes
+// in well under one second.
+constexpr auto g_async_completion_timeout = std::chrono::seconds(10);
+constexpr auto g_async_poll_interval = std::chrono::milliseconds(1);
 
 class vqec_vision_ai_ctest_rcfct_source final : public raw_source_port {
 public:
@@ -532,13 +540,30 @@ service_startup_resolution vqec_vision_ai_ctest_rcfct_make_startup(
 }
 #endif
 
+void vqec_vision_ai_ctest_rcfct_consume_result(
+    application_composition& _composition) {
+    tensor_result result;
+    multi_source_progress_report report;
+    const auto taken =
+        _composition.vqec_vision_ai_appl_acomp_take_result(result, report);
+    assert(taken.code_ == status_code::ok ||
+           taken.code_ == status_code::pending);
+}
+
 void vqec_vision_ai_ctest_rcfct_advance_to_running(
     application_composition& _composition,
     runtime_composition_bundle& _bundle, std::uint64_t& _now) {
-    for (unsigned attempt = 0; attempt < 64; ++attempt) {
+    const auto deadline = std::chrono::steady_clock::now() +
+        g_async_completion_timeout;
+    while (std::chrono::steady_clock::now() < deadline) {
         const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
         assert(stepped.code_ == status_code::ok ||
                stepped.code_ == status_code::pending);
+        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
+        if (!_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
+            std::this_thread::sleep_for(g_async_poll_interval);
+            continue;
+        }
         bool running = true;
         for (std::uint16_t source = 0;
              source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
@@ -559,10 +584,17 @@ void vqec_vision_ai_ctest_rcfct_advance_delta(
     application_composition& _composition,
     runtime_composition_bundle& _bundle, std::uint16_t _expected_mask,
     std::uint64_t& _now) {
-    for (unsigned attempt = 0; attempt < 64; ++attempt) {
+    const auto deadline = std::chrono::steady_clock::now() +
+        g_async_completion_timeout;
+    while (std::chrono::steady_clock::now() < deadline) {
         const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
         assert(stepped.code_ == status_code::ok ||
                stepped.code_ == status_code::pending);
+        vqec_vision_ai_ctest_rcfct_consume_result(_composition);
+        if (!_composition.vqec_vision_ai_appl_acomp_is_activation_quiescent()) {
+            std::this_thread::sleep_for(g_async_poll_interval);
+            continue;
+        }
         bool complete = true;
         for (std::uint16_t source = 0;
              source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
@@ -906,6 +938,7 @@ int main() {
             vqec_vision_ai_ctest_rcfct_make_model_activation(
                 delta_catalog.models_[1], unique_graph_b, 104);
         delta_activation.sources_[1].initial_active_model_mask_ = 1;
+        delta_activation.use_session_workers_ = true;
 
         vqec_vision_ai_ctest_rcfct_feature_factory feature_factory;
         feature_processor_registry feature_registry;

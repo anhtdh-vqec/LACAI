@@ -64,13 +64,12 @@ private:
     reference_graph_config config_;
     inference_plan plan_;
     std::vector<tensor_spec> outputs_;
-    submission_window window_;
+    std::unique_ptr<submission_window> window_;
     inference_graph_state state_{inference_graph_state::empty};
     submission_ticket pending_ticket_;
     tensor_result pending_result_;
     std::shared_ptr<const void> retained_owner_;
     std::uint64_t max_output_bytes_{0};
-    bool is_window_configured_{false};
     bool has_pending_{false};
 };
 

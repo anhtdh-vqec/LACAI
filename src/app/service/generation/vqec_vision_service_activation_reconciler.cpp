@@ -46,6 +46,10 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_complete_pending
         }
         const auto expected =
             pending_startup_->activation_plan.sources_[source_slot].active_model_mask_;
+        if (snapshot.session_state_ != multi_model_session_state::running) {
+            return {status_code::invalid_state,
+                "model activation completed after source session stopped running"};
+        }
         if (snapshot.delta_phase_ != multi_model_delta_phase::idle ||
             snapshot.active_model_mask_ != expected ||
             snapshot.desired_model_mask_ != expected) {

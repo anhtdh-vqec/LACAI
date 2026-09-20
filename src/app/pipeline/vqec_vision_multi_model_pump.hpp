@@ -197,6 +197,7 @@ private:
     bool is_configured_{false};
     bool is_stopping_{false};
     bool is_failed_{false};
+    status failure_;
 };
 
 }  // namespace vqec::vision::ai

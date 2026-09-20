@@ -110,5 +110,23 @@ int main() {
     assert(graph.vqec_vision_ai_ports_infgr_get_outstanding() == 0);
     assert(graph.vqec_vision_ai_ports_infgr_request_drain().code_ == status_code::ok);
     assert(graph.vqec_vision_ai_ports_infgr_unload().code_ == status_code::ok);
+
+    // A graph owner is reused when an app releases the final model reference and a later
+    // activation reacquires it. Each activation cycle needs a fresh one-shot submission
+    // window; stale cycle/timestamp state must not survive unload.
+    assert(graph.vqec_vision_ai_ports_infgr_load().code_ == status_code::ok);
+    assert(graph.vqec_vision_ai_ports_infgr_start(outputs, 64).code_ == status_code::ok);
+    assert(graph.vqec_vision_ai_ports_infgr_arm(2, 2, 1000000000,
+               submission_sequence_policy::unique_source_frames).code_ == status_code::ok);
+    frame.descriptor_.buffer_id_ = 1;
+    frame.descriptor_.session_epoch_ = 2;
+    frame.descriptor_.pts_ns_ = 1;
+    ticket = {};
+    assert(graph.vqec_vision_ai_ports_infgr_submit_frame(frame, 10, ticket).code_ ==
+           status_code::ok);
+    assert(ticket.token_.cycle_id_ == 2 && ticket.token_.job_id_ == 1);
+    assert(graph.vqec_vision_ai_ports_infgr_poll_result(11, result).code_ == status_code::ok);
+    assert(graph.vqec_vision_ai_ports_infgr_request_drain().code_ == status_code::ok);
+    assert(graph.vqec_vision_ai_ports_infgr_unload().code_ == status_code::ok);
     return 0;
 }
