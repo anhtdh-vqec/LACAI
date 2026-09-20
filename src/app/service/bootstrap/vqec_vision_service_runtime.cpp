@@ -150,6 +150,12 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
                     reconcile = true;
                     return;
                 }
+                if (reconcile) {
+                    // A hardware delta can span many App Manager polls. Preserve the newest
+                    // pending authority until it commits; replacing it with runtime_control
+                    // here would regress the candidate revision while a graph is loading.
+                    return;
+                }
                 pending = runtime_control;
                 if (vqec_vision_ai_appl_svcmn_expire_entitlements(
                         pending, vqec_vision_ai_appl_svcmn_utc_now_ns())) {
