@@ -374,6 +374,9 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | src/core/output/vqec_vision_output_gate.cpp | otgat | vqec_vision_ai_core_otgat_ |
 | src/core/features/vqec_vision_feature_event.cpp | ftevt | vqec_vision_ai_core_ftevt_ |
 | src/core/features/vqec_vision_feature_catalog.cpp | ftcat | vqec_vision_ai_core_ftcat_ |
+| include/vqec/vision/ai/contracts/lifecycle/vqec_vision_activation_delta.hpp | acdel | vqec_vision_ai_core_acdel_ |
+| src/core/features/vqec_vision_activation_delta.cpp | acdel | vqec_vision_ai_core_acdel_ |
+| tests/unit/core/vqec_vision_activation_delta_test.cpp | adtst | vqec_vision_ai_unit_adtst_ |
 | tests/unit/core/vqec_vision_feature_catalog_test.cpp | fctst | vqec_vision_ai_unit_fctst_ |
 | src/outputs/events/vqec_vision_feature_event_dispatch.cpp | ftdsp | vqec_vision_ai_outpt_ftdsp_ |
 | src/outputs/events/vqec_vision_event_delivery_seam.cpp | evdsm | vqec_vision_ai_outpt_evdsm_ |

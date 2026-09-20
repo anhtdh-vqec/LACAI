@@ -546,6 +546,12 @@ add_test(NAME app_manager_options
     set_target_properties(vqec_vision_ai_usecase_activation_test PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME usecase_activation_composition
         COMMAND vqec_vision_ai_usecase_activation_test)
+    add_executable(vqec_vision_ai_activation_delta_test
+        unit/core/vqec_vision_activation_delta_test.cpp)
+    target_link_libraries(vqec_vision_ai_activation_delta_test PRIVATE vqec_vision_ai_core)
+    set_target_properties(vqec_vision_ai_activation_delta_test PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME activation_delta_planner
+        COMMAND vqec_vision_ai_activation_delta_test)
     if(TARGET vqec_vision_ai_usecase_config)
         add_executable(vqec_vision_ai_usecase_config_test
             unit/runtime/vqec_vision_usecase_config_test.cpp)

@@ -25,6 +25,7 @@ add_library(vqec_vision_ai_core STATIC
     perception/vqec_vision_embedding.cpp
     perception/vqec_vision_face_gallery.cpp
     features/vqec_vision_usecase_activation.cpp
+    features/vqec_vision_activation_delta.cpp
     features/vqec_vision_feature_event.cpp
     features/vqec_vision_feature_catalog.cpp
     output/vqec_vision_output_gate.cpp
