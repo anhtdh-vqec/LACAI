@@ -481,6 +481,37 @@ int main() {
                   0, now++).code_ == status_code::unsupported);
     }
 
+    // The startup deadline is per graph, not one shared deadline for an admitted serial
+    // graph set. Each fake graph completes inside five ticks even though both need more than
+    // five ticks together; neither the RAW source nor the completed first graph is restarted.
+    {
+        fake_session_source serial_source;
+        fake_session_graph first_serial_graph;
+        fake_session_graph second_serial_graph;
+        auto serial_config = vqec_vision_ai_unit_mmsts_make_session_config(
+            first_serial_graph, second_serial_graph);
+        serial_config.startup_timeout_ns_ = 5;
+        multi_model_session serial_session(serial_source, serial_config);
+        check(serial_session.vqec_vision_ai_appl_mmses_step(
+                  0, result, progress).code_ == status_code::pending);
+        serial_source.vqec_vision_ai_unit_mmsts_supply_frame(200);
+        std::uint64_t now = 1;
+        while (serial_session.vqec_vision_ai_appl_mmses_get_snapshot().session_state_ !=
+                   multi_model_session_state::running && now <= 16) {
+            const auto status = serial_session.vqec_vision_ai_appl_mmses_step(
+                now++, result, progress);
+            check(status.code_ == status_code::pending || status.code_ == status_code::ok);
+        }
+        const auto serial_snapshot =
+            serial_session.vqec_vision_ai_appl_mmses_get_snapshot();
+        check(serial_snapshot.session_state_ == multi_model_session_state::running &&
+              serial_snapshot.first_error_code_ == status_code::ok &&
+              serial_snapshot.active_model_mask_ == 3 &&
+              first_serial_graph.start_calls_ == 1 &&
+              second_serial_graph.start_calls_ == 1 &&
+              serial_source.start_calls_ == 1 && serial_source.stop_calls_ == 0);
+    }
+
     // Section 13: drain policy is explicit. drain_and_deliver retains the last result that
     // becomes ready while draining instead of leaving the stop semantics implicit.
     {

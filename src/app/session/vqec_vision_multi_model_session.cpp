@@ -247,6 +247,11 @@ status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
                     }
                     state_ = multi_model_session_state::running;
                 } else {
+                    // startup_timeout_ns bounds one hardware graph activation. A source may
+                    // prepare several admitted graphs serially, so carrying the first graph's
+                    // deadline into the next slot would make total startup capacity-dependent
+                    // and reject a healthy later graph before its own bounded attempt.
+                    start_ns_ = last_now_ns_;
                     state_ = multi_model_session_state::configuring;
                 }
             }
