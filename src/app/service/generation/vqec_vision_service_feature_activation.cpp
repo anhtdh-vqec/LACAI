@@ -110,7 +110,7 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
     const deployment_config& _deployment, const model_catalog& _catalog,
     const feature_catalog& _features, const feature_processor_registry& _registry,
     const std::string& _fallback_attribute_schema, output_gate& _output_gate,
-    std::uint16_t _source_count) {
+    std::uint16_t _source_count, bool _apply_output_policy) {
     if (has_wiring_ || manager_.vqec_vision_ai_ftmgr_famgr_is_frozen() ||
         _source_count == 0 || _source_count > _deployment.sources_.size()) {
         return {status_code::invalid_state,
@@ -125,6 +125,7 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
         _startup.usecase_activation.policy_revision_ : service_harness::g_policy_revision;
     policy.not_before_ns_ = 0;
     policy.expires_ns_ = service_harness::g_policy_expiry_ns;
+    std::uint16_t request_count = 0;
 
     if (!_features.features_.empty()) {
         const auto configured = manager_.vqec_vision_ai_ftmgr_famgr_configure(
@@ -138,7 +139,6 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
             feature_activation_limits::g_max_associations> request_slots{};
         std::array<std::vector<std::string>,
             feature_activation_limits::g_max_associations> authorized_output_scopes{};
-        std::uint16_t request_count = 0;
         for (std::uint16_t source_slot = 0; source_slot < _source_count; ++source_slot) {
             const auto& source = _deployment.sources_[source_slot];
             for (const auto& feature : _features.features_) {
@@ -197,6 +197,7 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
                         request.configuration_.revision_;
                 }
                 request_slots[request_count] = {source_slot, slot};
+                record_slots_[request_count] = {source_slot, slot};
                 ++request_count;
             }
         }
@@ -273,9 +274,13 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
             policy, _deployment, _args.fr_feature_id,
             _args.fr_identity_attribute);
     }
-    const auto applied = _output_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
-    if (applied.code_ != status_code::ok) {
-        return applied;
+    output_policy_ = policy;
+    record_count_ = request_count;
+    if (_apply_output_policy) {
+        const auto applied = _output_gate.vqec_vision_ai_core_otgat_apply_policy(policy, 0);
+        if (applied.code_ != status_code::ok) {
+            return applied;
+        }
     }
     if (has_wiring_) {
         manager_.vqec_vision_ai_ftmgr_famgr_freeze();
@@ -283,9 +288,55 @@ status service_feature_activation::vqec_vision_ai_appl_svfac_configure(
     return {};
 }
 
+status service_feature_activation::vqec_vision_ai_appl_svfac_adopt_compatible_owners(
+    service_feature_activation& _live) {
+    if (manager_.vqec_vision_ai_ftmgr_famgr_get_count() != record_count_ ||
+        _live.manager_.vqec_vision_ai_ftmgr_famgr_get_count() !=
+            _live.record_count_) {
+        return {status_code::invalid_state,
+            "feature activation candidate or live owner is incomplete"};
+    }
+    (void)manager_.vqec_vision_ai_ftmgr_famgr_adopt_compatible_owners(
+        _live.manager_);
+    for (std::uint16_t source_slot = 0; source_slot < wiring_.source_count_;
+         ++source_slot) {
+        for (std::uint16_t model_slot = 0;
+             model_slot < deployment_limits::g_max_models_per_source; ++model_slot) {
+            auto* fanout = wiring_.sources_[source_slot].fanouts_[model_slot];
+            if (fanout == nullptr) {
+                continue;
+            }
+            std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages>
+                stages{};
+            std::uint16_t stage_count = 0;
+            for (std::uint16_t record = 0; record < record_count_; ++record) {
+                if (record_slots_[record].first != source_slot ||
+                    record_slots_[record].second != model_slot) {
+                    continue;
+                }
+                auto* stage = manager_.vqec_vision_ai_ftmgr_famgr_get_stage(record);
+                if (stage != nullptr) {
+                    stages[stage_count++] = stage;
+                }
+            }
+            const auto replaced = fanout->vqec_vision_ai_appl_ftfan_replace_stages(
+                stages, stage_count);
+            if (replaced.code_ != status_code::ok) {
+                return replaced;
+            }
+        }
+    }
+    return {};
+}
+
 const runtime_feature_activation*
 service_feature_activation::vqec_vision_ai_appl_svfac_get_wiring() const noexcept {
     return has_wiring_ ? &wiring_ : nullptr;
+}
+
+const output_policy&
+service_feature_activation::vqec_vision_ai_appl_svfac_get_output_policy() const noexcept {
+    return output_policy_;
 }
 
 }  // namespace vqec::vision::ai

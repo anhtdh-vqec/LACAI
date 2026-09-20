@@ -185,6 +185,21 @@ int main() {
                result, pump_report, 20, tracked, events, report).code_ == status_code::ok);
     assert(report.result_.is_source_gap_ && processor.last_gap_);
 
+    auto replacement_fanouts = fanouts;
+    replacement_fanouts[0] = nullptr;
+    replacement_fanouts[1] = &fanout;
+    assert(pipeline.vqec_vision_ai_appl_mmfpl_replace_fanouts(
+               replacement_fanouts).code_ == status_code::ok);
+    assert(pipeline.vqec_vision_ai_appl_mmfpl_get_fanout(0) == nullptr &&
+           pipeline.vqec_vision_ai_appl_mmfpl_get_fanout(1) == &fanout);
+    replacement_fanouts[0] = &fanout;
+    assert(pipeline.vqec_vision_ai_appl_mmfpl_replace_fanouts(
+               replacement_fanouts).code_ == status_code::invalid_argument);
+    assert(pipeline.vqec_vision_ai_appl_mmfpl_get_fanout(0) == nullptr &&
+           pipeline.vqec_vision_ai_appl_mmfpl_get_fanout(1) == &fanout);
+    assert(pipeline.vqec_vision_ai_appl_mmfpl_replace_fanouts(
+               fanouts).code_ == status_code::ok);
+
     processor.is_invalid_ = true;
     pump_report.result_ticket_ = {{1, 3}, 1, 4, 400, 900};
     result.pipeline_pts_ns_ = 900;

@@ -12,8 +12,8 @@ identity, fault isolation and report semantics.
 
 - Coordinates one tracked observation batch to a bounded set of already-activated feature
   stages.
-- Keeps slot identity stable for its immutable configuration revision and requires the
-  whole owner set to be replaced for a new revision.
+- Keeps slot identity stable while allowing one serialized, prevalidated replacement of
+  the borrowed stage set for an activation delta.
 - Performs no activation, entitlement, output delivery or automatic replacement.
 - Borrows unique stage owners.
 
@@ -21,6 +21,10 @@ identity, fault isolation and report semantics.
 
 Activation binds 1..32 stable numeric slots; the ceiling allows the current catalog and
 extensions without embedding a commercial feature list or string lookup in the frame path.
+The cold path may replace that bounded array, including replacing it with an empty set.
+Validation completes before any pointer or count changes; duplicate, null-in-range or
+inactive stages leave the live fan-out unchanged. The caller serializes replacement with
+frame processing and keeps both the old and candidate owners alive until the swap completes.
 
 One serialized call validates the tracked batch and monotonic time before invoking any
 stage. Each stage receives the same immutable observations and source-gap flag. Processing
@@ -37,8 +41,7 @@ cross-feature atomic publication claim. Slots outside the configured count are u
 
 - There is no cross-feature atomic publication claim.
 - Direct single-model dependencies are connected by the multi-model feature pipeline.
-- Feature manager composition must keep slot identity stable and replace the whole owner
-  set for a new configuration revision.
+- Replacement is process-local and serialized; it is not a lock-free hot-path mutation.
 
 ## See also
 

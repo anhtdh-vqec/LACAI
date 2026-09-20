@@ -26,6 +26,14 @@ public:
         const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
             _feature_fanouts,
         std::uint16_t _model_count);
+    // Serialized transactional replacement for one already-configured pipeline. Null fan-outs
+    // disable feature processing for that model without changing decode/tracker ownership.
+    [[nodiscard]] status vqec_vision_ai_appl_mmfpl_replace_fanouts(
+        const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
+            _feature_fanouts);
+    [[nodiscard]] status vqec_vision_ai_appl_mmfpl_validate_replacement(
+        const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
+            _feature_fanouts) const;
     [[nodiscard]] status vqec_vision_ai_appl_mmfpl_process_result(
         const tensor_result& _result, const multi_model_pump_report& _pump_report,
         std::uint64_t _now_monotonic_ns,

@@ -263,5 +263,29 @@ int main() {
     assert(rec1 != nullptr && rec1->state_ == feature_effective_state::denied &&
            rec1->processor_ == nullptr && rec1->stage_ == nullptr);
     assert(manager.vqec_vision_ai_ftmgr_famgr_get_count() == 2U);
+
+    auto* retained_stage = manager.vqec_vision_ai_ftmgr_famgr_get_stage(0);
+    manager.vqec_vision_ai_ftmgr_famgr_freeze();
+    feature_activation_manager candidate;
+    assert(candidate.vqec_vision_ai_ftmgr_famgr_configure(
+               features, models, deployment).code_ == status_code::ok);
+    assert(candidate.vqec_vision_ai_ftmgr_famgr_reconcile(
+               requests, 2, registry, snapshot).code_ == status_code::ok);
+    assert(candidate.vqec_vision_ai_ftmgr_famgr_get_stage(0) != retained_stage);
+    assert(candidate.vqec_vision_ai_ftmgr_famgr_adopt_compatible_owners(manager) == 1);
+    assert(candidate.vqec_vision_ai_ftmgr_famgr_get_stage(0) == retained_stage &&
+           manager.vqec_vision_ai_ftmgr_famgr_get_stage(0) == nullptr);
+
+    candidate.vqec_vision_ai_ftmgr_famgr_freeze();
+    auto changed_requests = requests;
+    changed_requests[0].configuration_.revision_ = 8;
+    feature_activation_manager changed_candidate;
+    assert(changed_candidate.vqec_vision_ai_ftmgr_famgr_configure(
+               features, models, deployment).code_ == status_code::ok);
+    assert(changed_candidate.vqec_vision_ai_ftmgr_famgr_reconcile(
+               changed_requests, 2, registry, snapshot).code_ == status_code::ok);
+    assert(changed_candidate.vqec_vision_ai_ftmgr_famgr_adopt_compatible_owners(
+               candidate) == 0);
+    assert(changed_candidate.vqec_vision_ai_ftmgr_famgr_get_stage(0) != retained_stage);
     return 0;
 }

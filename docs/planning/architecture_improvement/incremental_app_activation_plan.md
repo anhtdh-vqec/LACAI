@@ -3,7 +3,7 @@
 Kế hoạch triển khai activation delta và reference counting dependency dùng chung để bật, tắt hoặc
 cấu hình một ứng dụng mà không khởi động lại các ứng dụng không liên quan.
 
-**Status:** planned — ADR/kiến trúc đã được soạn; source, eSDK/QEMU và QCS6490 chưa qua gate.
+**Status:** in-progress — D0–D2 đã logic-tested; service reconciler và QCS6490 gate chưa hoàn tất.
 **Layer:** docs. **Source:** `n/a`.
 
 ## Trách nhiệm
@@ -34,7 +34,7 @@ cho FR, hút thuốc hoặc bất kỳ usecase chưa có golden/model gate.
 |---|---|---|---|
 | D0 | Logic-tested | ADR 0012, dependency plan/delta bounded | 18 app, shared/unique/conflict/stale/capacity tests pass; input lỗi không đổi output |
 | D1 | Logic-tested phạm vi fake-port | Active mask ở pump; lifecycle add/remove từng slot trong session | `2 -> 1` không lifecycle; `1 -> 0` chỉ drain/unload slot đích; slot khác tiếp tục submit/result |
-| D2 | Feature delta | Candidate manager/fan-out, transactional pipeline rebind, output policy candidate | Config/disable chỉ thay owner đích; owner khác giữ pointer/state/counter; revoke chặn event muộn |
+| D2 | Logic-tested | Candidate manager/fan-out, transactional pipeline rebind, output policy candidate | Config/disable chỉ thay owner đích; owner khác giữ pointer/state; input lỗi giữ wiring cũ |
 | D3 | Service reconciler | So sánh snapshot, capacity của app đã cài, apply/fallback, publish revision/metrics | Desired/config/entitlement không thoát generation khi capacity/identity tương thích |
 | D4 | Hard tests | Fault injection, eSDK/QEMU full suite, target-native tests | Load/drain failure, source loss, in-flight disable, rapid toggle, App Manager restart không leak/ACK sớm |
 | D5 | Board gate | Hai app fixture + S04 trên QCS6490, VLC/FPS/CPU/RSS/lifecycle log | Chuỗi toggle đạt điều kiện đóng; ghi rõ fixture và phần chưa phải product acceptance |

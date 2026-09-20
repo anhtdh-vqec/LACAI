@@ -235,6 +235,45 @@ vqec_vision_ai_appl_rcfac_get_admission() const noexcept {
     return admission_;
 }
 
+status runtime_composition_bundle::vqec_vision_ai_appl_rcfac_rebind_features(
+    const runtime_feature_activation* _features) {
+    if (composition_ == nullptr || executor_ == nullptr) {
+        return {status_code::invalid_state,
+            "runtime composition is incomplete"};
+    }
+    if (_features != nullptr) {
+        const auto valid = vqec_vision_ai_appl_rcfac_validate_feature_bindings(
+            *_features, perceptions_, source_count_,
+            composition_->vqec_vision_ai_cntr_acomp_get_snapshot().deployment_revision_,
+            composition_->vqec_vision_ai_cntr_acomp_get_snapshot().catalog_revision_);
+        if (valid.code_ != status_code::ok) {
+            return valid;
+        }
+    }
+    std::array<std::array<feature_fanout*, deployment_limits::g_max_models_per_source>,
+        deployment_limits::g_max_sources> replacements{};
+    for (std::uint16_t source_slot = 0; source_slot < source_count_; ++source_slot) {
+        if (_features != nullptr) {
+            replacements[source_slot] = _features->sources_[source_slot].fanouts_;
+        }
+        const auto valid = pipelines_[source_slot]->
+            vqec_vision_ai_appl_mmfpl_validate_replacement(
+                replacements[source_slot]);
+        if (valid.code_ != status_code::ok) {
+            return valid;
+        }
+    }
+    for (std::uint16_t source_slot = 0; source_slot < source_count_; ++source_slot) {
+        const auto replaced = pipelines_[source_slot]->
+            vqec_vision_ai_appl_mmfpl_replace_fanouts(
+                replacements[source_slot]);
+        if (replaced.code_ != status_code::ok) {
+            return replaced;
+        }
+    }
+    return {};
+}
+
 std::uint16_t runtime_composition_bundle::
 vqec_vision_ai_appl_rcfac_get_source_count() const noexcept {
     return source_count_;

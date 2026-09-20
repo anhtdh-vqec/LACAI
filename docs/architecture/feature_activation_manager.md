@@ -42,6 +42,13 @@ configuration/policy revisions, authority booleans and attribute dependency sche
 A mismatch rejects the candidate transaction; records retain the validated association.
 The unscoped request path remains for explicit development fixtures.
 
+Once borrowed, a manager is frozen. A separately reconciled candidate may adopt processor
+and stage owners from that frozen manager only when catalog/deployment object identity and
+all association identity, configuration and attribute-scope fields match exactly. Adoption
+moves ownership rather than copying state; changed or disabled associations never inherit
+temporal state. Contract tests assert both retained pointer identity and replacement on a
+configuration revision change.
+
 ## Limits and next work
 
 - Authentication, FW RAW source resolution, model artifact loading and board/hardware

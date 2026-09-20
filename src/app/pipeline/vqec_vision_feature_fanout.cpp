@@ -1,14 +1,13 @@
 #include "vqec_vision_feature_fanout.hpp"
 
 namespace vqec::vision::ai {
+namespace {
 
-status feature_fanout::vqec_vision_ai_appl_ftfan_configure(
+status vqec_vision_ai_appl_ftfan_validate_stages(
     const std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages>& _stages,
-    std::uint16_t _stage_count) {
-    if (is_configured_) {
-        return {status_code::invalid_state, "feature fan-out is already configured"};
-    }
-    if (_stage_count == 0 || _stage_count > feature_fanout_limits::g_max_feature_stages) {
+    std::uint16_t _stage_count, bool _allow_empty) {
+    if ((!_allow_empty && _stage_count == 0) ||
+        _stage_count > feature_fanout_limits::g_max_feature_stages) {
         return {status_code::invalid_argument, "invalid feature stage count"};
     }
     for (std::uint16_t slot = 0; slot < _stage_count; ++slot) {
@@ -18,13 +17,46 @@ status feature_fanout::vqec_vision_ai_appl_ftfan_configure(
         }
         for (std::uint16_t previous = 0; previous < slot; ++previous) {
             if (_stages[previous] == _stages[slot]) {
-                return {status_code::invalid_argument, "feature stage is bound more than once"};
+                return {status_code::invalid_argument,
+                    "feature stage is bound more than once"};
             }
         }
+    }
+    return {};
+}
+
+}  // namespace
+
+status feature_fanout::vqec_vision_ai_appl_ftfan_configure(
+    const std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages>& _stages,
+    std::uint16_t _stage_count) {
+    if (is_configured_) {
+        return {status_code::invalid_state, "feature fan-out is already configured"};
+    }
+    const auto valid = vqec_vision_ai_appl_ftfan_validate_stages(
+        _stages, _stage_count, false);
+    if (valid.code_ != status_code::ok) {
+        return valid;
     }
     stages_ = _stages;
     stage_count_ = _stage_count;
     is_configured_ = true;
+    return {};
+}
+
+status feature_fanout::vqec_vision_ai_appl_ftfan_replace_stages(
+    const std::array<feature_stage*, feature_fanout_limits::g_max_feature_stages>& _stages,
+    std::uint16_t _stage_count) {
+    if (!is_configured_) {
+        return {status_code::invalid_state, "feature fan-out is not configured"};
+    }
+    const auto valid = vqec_vision_ai_appl_ftfan_validate_stages(
+        _stages, _stage_count, true);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    stages_ = _stages;
+    stage_count_ = _stage_count;
     return {};
 }
 

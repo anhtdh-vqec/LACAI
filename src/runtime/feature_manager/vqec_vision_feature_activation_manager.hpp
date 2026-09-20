@@ -86,6 +86,11 @@ public:
     vqec_vision_ai_ftmgr_famgr_get_stage(std::uint16_t _slot) const noexcept;
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_ftmgr_famgr_get_count() const noexcept;
+    // Moves unchanged processor/stage owners from one frozen live manager into this validated,
+    // unfrozen candidate. Pointee addresses stay stable, so existing serialized borrows remain
+    // valid until fan-outs are rebound. Changed configuration/association owners are not moved.
+    [[nodiscard]] std::uint16_t vqec_vision_ai_ftmgr_famgr_adopt_compatible_owners(
+        feature_activation_manager& _live) noexcept;
     // Called once the owned processor/stage pointers have been lent to a fan-out. A frozen
     // manager rejects further reconcile so a live borrow cannot be invalidated; a new
     // generation needs a new manager after the old bundle and fan-outs are destroyed.

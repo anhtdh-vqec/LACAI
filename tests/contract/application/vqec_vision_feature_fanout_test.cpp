@@ -94,6 +94,20 @@ int main() {
     assert(events[0].events_[0].feature_id_ == "counting" &&
            events[1].events_[0].feature_id_ == "intrusion");
 
+    auto replacement = stages;
+    replacement[1] = nullptr;
+    assert(fanout.vqec_vision_ai_appl_ftfan_replace_stages(
+               replacement, 1).code_ == status_code::ok);
+    assert(fanout.vqec_vision_ai_appl_ftfan_get_stage_count() == 1 &&
+           fanout.vqec_vision_ai_appl_ftfan_get_stage(0) == &first_stage);
+    replacement[1] = &first_stage;
+    assert(fanout.vqec_vision_ai_appl_ftfan_replace_stages(
+               replacement, 2).code_ == status_code::invalid_argument);
+    assert(fanout.vqec_vision_ai_appl_ftfan_get_stage_count() == 1 &&
+           fanout.vqec_vision_ai_appl_ftfan_get_stage(0) == &first_stage);
+    assert(fanout.vqec_vision_ai_appl_ftfan_replace_stages(
+               stages, 2).code_ == status_code::ok);
+
     second_processor.is_invalid_ = false;
     tracked = vqec_vision_ai_ctest_ffct_make_tracked(2);
     assert(fanout.vqec_vision_ai_appl_ftfan_process(tracked, 3, true, events, report).code_ ==

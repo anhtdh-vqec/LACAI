@@ -365,6 +365,19 @@ int main() {
            first_graph.configure_count_ == 0 && second_graph.configure_count_ == 0 &&
            tracker_factory.create_count_ == 2);
 
+    runtime_feature_activation empty_features;
+    empty_features.deployment_revision_ = deployment.revision_;
+    empty_features.catalog_revision_ = catalog.revision_;
+    empty_features.source_count_ = 2;
+    assert(bundle->vqec_vision_ai_appl_rcfac_rebind_features(
+               &empty_features).code_ == status_code::ok);
+    auto stale_features = empty_features;
+    ++stale_features.catalog_revision_;
+    assert(bundle->vqec_vision_ai_appl_rcfac_rebind_features(
+               &stale_features).code_ == status_code::invalid_argument);
+    assert(bundle->vqec_vision_ai_appl_rcfac_rebind_features(
+               &empty_features).code_ == status_code::ok);
+
     auto* previous = bundle.get();
     const auto tracker_count = tracker_factory.create_count_;
     auto duplicate_source = activation;

@@ -88,6 +88,10 @@ public:
     vqec_vision_ai_appl_rcfac_get_executor() noexcept;
     [[nodiscard]] const activation_snapshot&
     vqec_vision_ai_appl_rcfac_get_admission() const noexcept;
+    // Serialized feature-only delta. Validation covers every source before any pipeline pointer
+    // changes, so malformed candidate wiring preserves the live binding set.
+    [[nodiscard]] status vqec_vision_ai_appl_rcfac_rebind_features(
+        const runtime_feature_activation* _features);
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_appl_rcfac_get_source_count() const noexcept;
     // True only when the bundle has never been activated or has fully stopped, so a

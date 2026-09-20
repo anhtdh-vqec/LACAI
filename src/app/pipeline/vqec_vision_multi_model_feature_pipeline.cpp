@@ -1,6 +1,30 @@
 #include "vqec_vision_multi_model_feature_pipeline.hpp"
 
 namespace vqec::vision::ai {
+namespace {
+
+status vqec_vision_ai_appl_mmfpl_validate_fanouts(
+    const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
+        _feature_fanouts,
+    std::uint16_t _model_count) {
+    for (std::uint16_t slot = 0; slot < _model_count; ++slot) {
+        if (_feature_fanouts[slot] == nullptr) {
+            continue;
+        }
+        if (_feature_fanouts[slot]->vqec_vision_ai_appl_ftfan_get_stage_count() == 0) {
+            return {status_code::invalid_state, "feature fan-out is not configured"};
+        }
+        for (std::uint16_t prior = 0; prior < slot; ++prior) {
+            if (_feature_fanouts[prior] == _feature_fanouts[slot]) {
+                return {status_code::invalid_argument,
+                    "stateful feature fan-out is bound to more than one model"};
+            }
+        }
+    }
+    return {};
+}
+
+}  // namespace
 
 multi_model_feature_pipeline::multi_model_feature_pipeline(
     multi_model_result_router& _result_router) noexcept
@@ -18,24 +42,42 @@ status multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_configure(
         return {status_code::invalid_argument,
             "feature pipeline model count differs from result router"};
     }
-    for (std::uint16_t slot = 0; slot < _model_count; ++slot) {
-        if (_feature_fanouts[slot] == nullptr) {
-            continue;
-        }
-        if (_feature_fanouts[slot]->vqec_vision_ai_appl_ftfan_get_stage_count() == 0) {
-            return {status_code::invalid_state, "feature fan-out is not configured"};
-        }
-        for (std::uint16_t prior = 0; prior < slot; ++prior) {
-            if (_feature_fanouts[prior] == _feature_fanouts[slot]) {
-                return {status_code::invalid_argument,
-                    "stateful feature fan-out is bound to more than one model"};
-            }
-        }
+    const auto valid = vqec_vision_ai_appl_mmfpl_validate_fanouts(
+        _feature_fanouts, _model_count);
+    if (valid.code_ != status_code::ok) {
+        return valid;
     }
     feature_fanouts_ = _feature_fanouts;
     model_count_ = _model_count;
     is_configured_ = true;
     return {};
+}
+
+status multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_replace_fanouts(
+    const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
+        _feature_fanouts) {
+    if (!is_configured_) {
+        return {status_code::invalid_state,
+            "multi-model feature pipeline is not configured"};
+    }
+    const auto valid = vqec_vision_ai_appl_mmfpl_validate_replacement(
+        _feature_fanouts);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    feature_fanouts_ = _feature_fanouts;
+    return {};
+}
+
+status multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_validate_replacement(
+    const std::array<feature_fanout*, deployment_limits::g_max_models_per_source>&
+        _feature_fanouts) const {
+    if (!is_configured_) {
+        return {status_code::invalid_state,
+            "multi-model feature pipeline is not configured"};
+    }
+    return vqec_vision_ai_appl_mmfpl_validate_fanouts(
+        _feature_fanouts, model_count_);
 }
 
 status multi_model_feature_pipeline::vqec_vision_ai_appl_mmfpl_process_result(

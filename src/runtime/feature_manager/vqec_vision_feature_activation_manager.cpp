@@ -328,6 +328,52 @@ vqec_vision_ai_ftmgr_famgr_get_count() const noexcept {
     return record_count_;
 }
 
+std::uint16_t feature_activation_manager::
+vqec_vision_ai_ftmgr_famgr_adopt_compatible_owners(
+    feature_activation_manager& _live) noexcept {
+    if (!is_configured_ || !_live.is_configured_ || !_live.is_frozen_ ||
+        features_ != _live.features_ || models_ != _live.models_ ||
+        deployment_ != _live.deployment_) {
+        return 0;
+    }
+    std::uint16_t adopted = 0;
+    for (std::uint16_t candidate_slot = 0;
+         candidate_slot < record_count_; ++candidate_slot) {
+        auto& candidate = records_[candidate_slot];
+        if (candidate.state_ != feature_effective_state::ready ||
+            candidate.stage_ == nullptr || candidate.processor_ == nullptr) {
+            continue;
+        }
+        for (std::uint16_t live_slot = 0;
+             live_slot < _live.record_count_; ++live_slot) {
+            auto& live = _live.records_[live_slot];
+            if (live.state_ != feature_effective_state::ready ||
+                live.stage_ == nullptr || live.processor_ == nullptr ||
+                candidate.source_id_ != live.source_id_ ||
+                candidate.feature_id_ != live.feature_id_ ||
+                candidate.association_.usecase_id_ != live.association_.usecase_id_ ||
+                candidate.association_.model_slot_ != live.association_.model_slot_ ||
+                candidate.association_.deployment_revision_ !=
+                    live.association_.deployment_revision_ ||
+                candidate.association_.usecase_catalog_revision_ !=
+                    live.association_.usecase_catalog_revision_ ||
+                candidate.association_.model_catalog_revision_ !=
+                    live.association_.model_catalog_revision_ ||
+                candidate.association_.config_revision_ !=
+                    live.association_.config_revision_ ||
+                candidate.association_.attribute_scopes_ !=
+                    live.association_.attribute_scopes_) {
+                continue;
+            }
+            candidate.processor_ = std::move(live.processor_);
+            candidate.stage_ = std::move(live.stage_);
+            ++adopted;
+            break;
+        }
+    }
+    return adopted;
+}
+
 void feature_activation_manager::vqec_vision_ai_ftmgr_famgr_freeze() noexcept {
     is_frozen_ = true;
 }

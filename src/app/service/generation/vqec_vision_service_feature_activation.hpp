@@ -23,10 +23,17 @@ public:
         const deployment_config& _deployment, const model_catalog& _catalog,
         const feature_catalog& _features, const feature_processor_registry& _registry,
         const std::string& _fallback_attribute_schema, output_gate& _output_gate,
-        std::uint16_t _source_count);
+        std::uint16_t _source_count, bool _apply_output_policy = true);
+
+    // Called on a fully configured candidate before pipeline rebind. Unchanged stage pointees
+    // retain identity/state; changed owners stay candidate-owned.
+    [[nodiscard]] status vqec_vision_ai_appl_svfac_adopt_compatible_owners(
+        service_feature_activation& _live);
 
     [[nodiscard]] const runtime_feature_activation*
     vqec_vision_ai_appl_svfac_get_wiring() const noexcept;
+    [[nodiscard]] const output_policy&
+    vqec_vision_ai_appl_svfac_get_output_policy() const noexcept;
 
 private:
     feature_activation_manager manager_;
@@ -34,6 +41,10 @@ private:
         deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source>
         fanouts_{};
     runtime_feature_activation wiring_{};
+    std::array<std::pair<std::uint16_t, std::uint16_t>,
+        feature_activation_limits::g_max_associations> record_slots_{};
+    output_policy output_policy_{};
+    std::uint16_t record_count_{0};
     bool has_wiring_{false};
 };
 
