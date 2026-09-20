@@ -25,6 +25,30 @@ namespace {
 
 constexpr int g_reconcile_generation_exit_code = 4;
 constexpr int g_recovery_required_exit_code = 5;
+constexpr char g_entitlement_expired_reason[] = "entitlement_expired";
+
+bool vqec_vision_ai_appl_svcmn_expire_entitlements(
+    runtime_control_snapshot& _snapshot, std::uint64_t _utc_now_ns) {
+    bool changed = false;
+    for (auto& association : _snapshot.associations_) {
+        if (!association.entitled_ ||
+            association.entitlement_expires_utc_ns_ == 0 ||
+            association.entitlement_expires_utc_ns_ > _utc_now_ns) {
+            continue;
+        }
+        association.entitled_ = false;
+        association.output_scopes_.clear();
+        association.reason_code_ = g_entitlement_expired_reason;
+        changed = true;
+    }
+    return changed;
+}
+
+std::uint64_t vqec_vision_ai_appl_svcmn_utc_now_ns() noexcept {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+}
 
 }  // namespace
 
@@ -32,7 +56,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
         return vqec_vision_ai_appl_svgen_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, {}, {}, 0, 0);
     }
     if (!args.app_manager_dbus &&
         (!args.app_manager_service_name.empty() ||
@@ -82,11 +106,16 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
             client_config, fetched_snapshot);
         if (fetched.code_ == status_code::ok) {
             runtime_control = std::move(fetched_snapshot);
+            (void)vqec_vision_ai_appl_svcmn_expire_entitlements(
+                runtime_control, vqec_vision_ai_appl_svcmn_utc_now_ns());
         } else {
             std::fprintf(stderr,
                 "app manager unavailable at startup; runtime remains disabled (%d): %s\n",
                 static_cast<int>(fetched.code_), fetched.message_.c_str());
         }
+        std::uint64_t backend_snapshot_revision =
+            fetched.code_ == status_code::ok
+                ? runtime_control.snapshot_revision_ : 0;
         std::uint64_t generation = 1;
         for (;;) {
             bool reconcile = false;
@@ -105,31 +134,48 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
                 const auto refreshed = client.vqec_vision_ai_fwctl_amdbs_fetch_snapshot(
                     client_config, candidate);
                 if (refreshed.code_ == status_code::ok &&
-                    candidate.snapshot_revision_ > runtime_control.snapshot_revision_) {
+                    candidate.snapshot_revision_ > backend_snapshot_revision) {
+                    backend_snapshot_revision = candidate.snapshot_revision_;
+                    (void)vqec_vision_ai_appl_svcmn_expire_entitlements(
+                        candidate, vqec_vision_ai_appl_svcmn_utc_now_ns());
+                    if (candidate.snapshot_revision_ <=
+                        runtime_control.snapshot_revision_) {
+                        if (runtime_control.snapshot_revision_ == UINT64_MAX) {
+                            return;
+                        }
+                        candidate.snapshot_revision_ =
+                            runtime_control.snapshot_revision_ + 1U;
+                    }
                     pending = std::move(candidate);
                     reconcile = true;
                     return;
                 }
-                const auto utc_now_ns = static_cast<std::uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::system_clock::now().time_since_epoch()).count());
                 pending = runtime_control;
-                for (auto& association : pending.associations_) {
-                    if (association.entitled_ &&
-                        association.entitlement_expires_utc_ns_ != 0 &&
-                        association.entitlement_expires_utc_ns_ <= utc_now_ns) {
-                        association.entitled_ = false;
-                        association.reason_code_ = "entitlement_expired";
-                        reconcile = true;
+                if (vqec_vision_ai_appl_svcmn_expire_entitlements(
+                        pending, vqec_vision_ai_appl_svcmn_utc_now_ns())) {
+                    if (runtime_control.snapshot_revision_ == UINT64_MAX) {
+                        return;
                     }
+                    pending.snapshot_revision_ =
+                        runtime_control.snapshot_revision_ + 1U;
+                    reconcile = true;
                 }
             };
             const std::function<bool()> is_reconcile_requested = [&]() {
                 return reconcile;
             };
+            const std::function<const runtime_control_snapshot*()>
+                get_pending_runtime_control = [&]() {
+                    return reconcile ? &pending : nullptr;
+                };
+            const std::function<void()> mark_runtime_control_applied = [&]() {
+                runtime_control = pending;
+                reconcile = false;
+            };
             const int outcome = vqec_vision_ai_appl_svgen_run_generation(
                 _argc, _argv, nullptr, &runtime_control, nullptr, poll_control,
-                is_reconcile_requested, generation, 0);
+                is_reconcile_requested, get_pending_runtime_control,
+                mark_runtime_control_applied, generation, 0);
             if (outcome == g_reconcile_generation_exit_code &&
                 generation != UINT64_MAX) {
                 if (reconcile) {
@@ -156,7 +202,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
             return 2;
         }
         return vqec_vision_ai_appl_svgen_run_generation(
-            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, 0, 0);
+            _argc, _argv, nullptr, nullptr, nullptr, {}, {}, {}, {}, 0, 0);
     }
 #if !defined(VQEC_VISION_AI_HAS_USECASE_CONTROL_DBUS)
     std::fprintf(stderr, "usecase DBus was requested but adapter is not built\n");
@@ -219,7 +265,7 @@ int vqec_vision_ai_appl_svcmn_run_service(int _argc, char** _argv) {
     for (;;) {
         const int outcome = vqec_vision_ai_appl_svgen_run_generation(
             _argc, _argv, &current_deployment, nullptr, &manager, poll_control,
-            {}, generation, pending_revision);
+            {}, {}, {}, generation, pending_revision);
         if (outcome == g_reconcile_generation_exit_code) {
             last_published_deployment = current_deployment;
             usecase_control_snapshot pending;

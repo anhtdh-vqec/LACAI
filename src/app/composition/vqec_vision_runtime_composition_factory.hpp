@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -35,6 +36,10 @@ struct runtime_source_activation {
     std::array<runtime_model_activation,
         deployment_limits::g_max_models_per_source> models_{};
     std::uint16_t model_count_{0};
+    // Nonzero subset admitted and started initially. UINT16_MAX retains the legacy meaning of
+    // every prepared slot for callers that do not use App Manager activation planning.
+    std::uint16_t initial_active_model_mask_{
+        std::numeric_limits<std::uint16_t>::max()};
 };
 
 struct runtime_composition_activation {
@@ -90,6 +95,8 @@ public:
     vqec_vision_ai_appl_rcfac_get_admission() const noexcept;
     // Serialized feature-only delta. Validation covers every source before any pipeline pointer
     // changes, so malformed candidate wiring preserves the live binding set.
+    [[nodiscard]] status vqec_vision_ai_appl_rcfac_validate_feature_rebind(
+        const runtime_feature_activation* _features) const;
     [[nodiscard]] status vqec_vision_ai_appl_rcfac_rebind_features(
         const runtime_feature_activation* _features);
     [[nodiscard]] std::uint16_t

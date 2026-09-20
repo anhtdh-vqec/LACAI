@@ -5,6 +5,9 @@
 #include <utility>
 
 #include "vqec_vision_runtime_composition_factory.hpp"
+#if defined(VQEC_VISION_AI_HAS_SERVICE_ACTIVATION_RECONCILER)
+#include "vqec_vision_service_activation_reconciler.hpp"
+#endif
 
 using namespace vqec::vision::ai;
 
@@ -22,8 +25,25 @@ public:
     }
     [[nodiscard]] status vqec_vision_ai_ports_rawsr_receive(
         raw_frame& _frame, int _timeout_ms) override {
-        (void)_frame;
         (void)_timeout_ms;
+        if (emit_frames_) {
+            frame_descriptor descriptor;
+            descriptor.buffer_id_ = next_buffer_id_++;
+            descriptor.session_epoch_ = 1;
+            descriptor.width_ = 1920;
+            descriptor.height_ = 1080;
+            descriptor.offsets_ = {0, 1920U * 1080U};
+            descriptor.strides_ = {1920, 1920};
+            descriptor.view_size_bytes_ = 1920U * 1080U * 3U / 2U;
+            descriptor.allocation_size_bytes_ = descriptor.view_size_bytes_;
+            descriptor.pts_ns_ = descriptor.buffer_id_ * 40000000ULL;
+            descriptor.dts_ns_ = UINT64_MAX;
+            descriptor.duration_ns_ = 40000000ULL;
+            _frame.descriptor_ = descriptor;
+            _frame.native_handle_ = 7;
+            _frame.owner_ = std::make_shared<unsigned>(descriptor.buffer_id_);
+            return {};
+        }
         return {status_code::pending, "fixture has no frame"};
     }
     [[nodiscard]] status vqec_vision_ai_ports_rawsr_stop(int _timeout_ms) override {
@@ -46,6 +66,8 @@ public:
 
     raw_source_state state_{raw_source_state::idle};
     unsigned start_count_{0};
+    std::uint64_t next_buffer_id_{1};
+    bool emit_frames_{false};
 };
 
 class vqec_vision_ai_ctest_rcfct_graph final : public inference_graph_port {
@@ -63,6 +85,7 @@ public:
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_load() override {
+        ++load_count_;
         state_ = inference_graph_state::ready;
         return {};
     }
@@ -79,6 +102,7 @@ public:
         std::uint64_t _max_output_bytes) override {
         (void)_outputs;
         (void)_max_output_bytes;
+        ++graph_start_count_;
         state_ = inference_graph_state::running;
         return {};
     }
@@ -105,10 +129,12 @@ public:
         return {status_code::pending, "fixture has no result"};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_request_drain() override {
+        ++drain_count_;
         state_ = inference_graph_state::drained;
         return {};
     }
     [[nodiscard]] status vqec_vision_ai_ports_infgr_unload() override {
+        ++unload_count_;
         state_ = inference_graph_state::configured;
         return {};
     }
@@ -129,7 +155,68 @@ public:
     inference_graph_state state_{inference_graph_state::empty};
     mutable unsigned validation_count_{0};
     unsigned configure_count_{0};
+    unsigned load_count_{0};
+    unsigned graph_start_count_{0};
+    unsigned drain_count_{0};
+    unsigned unload_count_{0};
 };
+
+#if defined(VQEC_VISION_AI_HAS_SERVICE_ACTIVATION_RECONCILER)
+class vqec_vision_ai_ctest_rcfct_feature final : public feature_processor_port {
+public:
+    explicit vqec_vision_ai_ctest_rcfct_feature(feature_processor_config _config)
+        : config_(std::move(_config)) {}
+
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_validate_activation(
+        const feature_processor_config& _config) const override {
+        return _config.feature_id_ == config_.feature_id_ ? status{} :
+            status{status_code::invalid_argument, "feature identity changed"};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_reset_epoch(
+        std::uint64_t _source_epoch) override {
+        epoch_ = _source_epoch;
+        return {};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftpro_process_observations(
+        const observation_batch& _tracked, std::uint64_t _now_monotonic_ns,
+        bool _is_source_gap, feature_event_batch& _events) override {
+        (void)_now_monotonic_ns;
+        (void)_is_source_gap;
+        _events.frame_ = _tracked.frame_;
+        _events.geometry_ = _tracked.geometry_;
+        return _tracked.frame_.source_epoch_ == epoch_ ? status{} :
+            status{status_code::invalid_state, "feature epoch changed"};
+    }
+
+private:
+    feature_processor_config config_;
+    std::uint64_t epoch_{0};
+};
+
+class vqec_vision_ai_ctest_rcfct_feature_factory final :
+    public feature_processor_factory_port {
+public:
+    [[nodiscard]] status vqec_vision_ai_ports_ftfac_validate_configuration(
+        const feature_catalog_entry& _feature,
+        const feature_processor_config& _processor_config,
+        const feature_configuration& _configuration) const override {
+        return _feature.feature_id_ == _processor_config.feature_id_ &&
+                _feature.configuration_schema_ == _configuration.schema_id_ ? status{} :
+            status{status_code::invalid_argument, "feature configuration changed"};
+    }
+    [[nodiscard]] status vqec_vision_ai_ports_ftfac_create_processor(
+        const feature_catalog_entry& _feature,
+        const feature_processor_config& _processor_config,
+        const feature_configuration& _configuration,
+        std::unique_ptr<feature_processor_port>& _processor) override {
+        (void)_feature;
+        (void)_configuration;
+        _processor = std::make_unique<vqec_vision_ai_ctest_rcfct_feature>(
+            _processor_config);
+        return {};
+    }
+};
+#endif
 
 class vqec_vision_ai_ctest_rcfct_decoder final : public model_decoder_port {
 public:
@@ -174,7 +261,8 @@ class vqec_vision_ai_ctest_rcfct_tracker_factory final : public tracker_factory_
 public:
     [[nodiscard]] status vqec_vision_ai_track_trfac_validate_activation(
         const std::string& _source_id, const std::string& _model_id) const override {
-        return !_source_id.empty() && _model_id == "detector" ? status{} :
+        return !_source_id.empty() &&
+                (_model_id == "detector" || _model_id == "detector_b") ? status{} :
             status{status_code::unsupported, "fixture tracker binding rejected"};
     }
     [[nodiscard]] status vqec_vision_ai_track_trfac_create_tracker(
@@ -317,6 +405,178 @@ runtime_composition_activation vqec_vision_ai_ctest_rcfct_make_activation(
         vqec_vision_ai_ctest_rcfct_make_model_activation(
             _model, _second_graph, 102);
     return activation;
+}
+
+#if defined(VQEC_VISION_AI_HAS_SERVICE_ACTIVATION_RECONCILER)
+feature_catalog vqec_vision_ai_ctest_rcfct_make_features() {
+    feature_catalog features;
+    features.schema_version_ = feature_catalog_limits::g_schema_version;
+    features.catalog_id_ = "activation_features";
+    features.model_catalog_ref_ = "models_qcs6490_v1";
+    features.revision_ = 5;
+    for (unsigned index = 0; index < 2; ++index) {
+        feature_catalog_entry feature;
+        feature.feature_id_ = "fixture_feature_" + std::to_string(index + 1U);
+        feature.feature_version_ = "1.0";
+        feature.processor_contract_ = "fixture_processor";
+        feature.configuration_schema_ = "fixture_configuration";
+        feature.model_dependencies_.push_back({"root", "detector"});
+        feature.resources_ = {4096, 4, 4, 4};
+        features.features_.push_back(std::move(feature));
+    }
+    return features;
+}
+
+usecase_catalog vqec_vision_ai_ctest_rcfct_make_usecases() {
+    usecase_catalog usecases;
+    usecases.schema_version_ = usecase_activation_limits::g_schema_version;
+    usecases.catalog_id_ = "activation_usecases";
+    usecases.model_catalog_ref_ = "models_qcs6490_v1";
+    usecases.revision_ = 6;
+    usecases.usecases_.push_back(
+        {"fixture_app_1", "1.0", {"detector"}, {"fixture_feature_1"}});
+    usecases.usecases_.push_back(
+        {"fixture_app_2", "1.0", {"detector"}, {"fixture_feature_2"}});
+    return usecases;
+}
+
+app_runtime_association vqec_vision_ai_ctest_rcfct_make_app(
+    const std::string& _source_id, unsigned _app_index,
+    std::uint64_t _configuration_revision, const std::string& _model_id) {
+    app_runtime_component component;
+    component.component_id_ = _model_id;
+    component.component_version_ = "1.0";
+    component.type_ = app_component_type::model;
+    component.target_id_ = "qcs6490";
+    component.artifact_sha256_ = std::string(
+        64, _model_id == "detector" ? 'a' : 'b');
+    component.artifact_bytes_ = 1024;
+    component.semantic_contract_sha256_ = std::string(64, 'b');
+    component.model_role_ = app_model_role::primary;
+    component.immutable_location_ = "/opt/lacai/fixture/" + _model_id;
+
+    app_runtime_association association;
+    association.app_id_ = "fixture_app_" + std::to_string(_app_index);
+    association.source_id_ = _source_id;
+    association.app_version_ = "1.0";
+    association.release_sequence_ = 1;
+    association.installed_ = true;
+    association.entitled_ = true;
+    association.desired_ = true;
+    association.supported_ = true;
+    association.compatible_ = true;
+    association.admitted_ = true;
+    association.configuration_revision_ = _configuration_revision;
+    association.configuration_sha256_ = std::string(
+        64, _configuration_revision == 1 ? 'c' : 'd');
+    association.configuration_schema_id_ = "fixture_configuration";
+    association.configuration_payload_ = {
+        static_cast<std::uint8_t>(_configuration_revision)};
+    association.output_scopes_ = {"fixture_attribute"};
+    association.components_.push_back(std::move(component));
+    association.entitlement_expires_utc_ns_ = UINT64_MAX - 1U;
+    return association;
+}
+
+runtime_control_snapshot vqec_vision_ai_ctest_rcfct_make_runtime(
+    std::uint64_t _revision) {
+    runtime_control_snapshot runtime;
+    runtime.schema_version_ = app_lifecycle_limits::g_schema_version;
+    runtime.snapshot_revision_ = _revision;
+    runtime.inventory_revision_ = 1;
+    runtime.entitlement_revision_ = 1;
+    runtime.desired_revision_ = _revision;
+    for (unsigned source = 0; source < 2; ++source) {
+        for (unsigned app = 1; app <= 2; ++app) {
+            runtime.associations_.push_back(vqec_vision_ai_ctest_rcfct_make_app(
+                "source_" + std::to_string(source), app, 1, "detector"));
+        }
+    }
+    return runtime;
+}
+
+service_startup_resolution vqec_vision_ai_ctest_rcfct_make_startup(
+    const deployment_config& _deployment, const model_catalog& _catalog,
+    const feature_catalog& _features, const usecase_catalog& _usecases,
+    const runtime_control_snapshot& _runtime) {
+    service_startup_resolution startup;
+    startup.catalog = _catalog;
+    startup.base_deployment = _deployment;
+    startup.deployment = _deployment;
+    startup.features = _features;
+    startup.runtime_control = _runtime;
+    startup.has_runtime_control = true;
+    startup.has_usecase_control = true;
+    startup.usecase_control.catalog_ = _usecases;
+    startup.usecase_control.control_revision_ = _runtime.snapshot_revision_;
+    startup.usecase_control.entitlement_revision_ = _runtime.entitlement_revision_;
+    startup.usecase_control.deployment_revision_ = _deployment.revision_;
+    for (const auto& association : _runtime.associations_) {
+        startup.usecase_control.requests_.push_back({association.source_id_,
+            association.app_id_, association.desired_, association.installed_,
+            association.entitled_, association.supported_, association.compatible_,
+            association.admitted_});
+    }
+    const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
+        startup.base_deployment, startup.catalog, startup.usecase_control.catalog_,
+        startup.usecase_control.requests_, startup.usecase_activation,
+        startup.active_deployment);
+    assert(composed.code_ == status_code::ok);
+    startup.usecase_activation.policy_revision_ = _runtime.snapshot_revision_;
+    startup.usecase_activation.config_revision_ = _runtime.snapshot_revision_;
+    assert(vqec_vision_ai_core_acdel_build_plan(
+               startup.deployment, startup.catalog, startup.features,
+               startup.usecase_control.catalog_, startup.runtime_control,
+               startup.activation_plan).code_ == status_code::ok);
+    return startup;
+}
+#endif
+
+void vqec_vision_ai_ctest_rcfct_advance_to_running(
+    application_composition& _composition,
+    runtime_composition_bundle& _bundle, std::uint64_t& _now) {
+    for (unsigned attempt = 0; attempt < 64; ++attempt) {
+        const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
+        assert(stepped.code_ == status_code::ok ||
+               stepped.code_ == status_code::pending);
+        bool running = true;
+        for (std::uint16_t source = 0;
+             source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
+            const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
+                vqec_vision_ai_appl_mmses_get_snapshot();
+            running = running && snapshot.session_state_ ==
+                    multi_model_session_state::running &&
+                snapshot.delta_phase_ == multi_model_delta_phase::idle;
+        }
+        if (running) {
+            return;
+        }
+    }
+    assert(false && "composition did not reach running state");
+}
+
+void vqec_vision_ai_ctest_rcfct_advance_delta(
+    application_composition& _composition,
+    runtime_composition_bundle& _bundle, std::uint16_t _expected_mask,
+    std::uint64_t& _now) {
+    for (unsigned attempt = 0; attempt < 64; ++attempt) {
+        const auto stepped = _composition.vqec_vision_ai_cntr_acomp_step(++_now);
+        assert(stepped.code_ == status_code::ok ||
+               stepped.code_ == status_code::pending);
+        bool complete = true;
+        for (std::uint16_t source = 0;
+             source < _bundle.vqec_vision_ai_appl_rcfac_get_source_count(); ++source) {
+            const auto snapshot = _bundle.vqec_vision_ai_appl_rcfac_get_session(source)->
+                vqec_vision_ai_appl_mmses_get_snapshot();
+            complete = complete && snapshot.active_model_mask_ == _expected_mask &&
+                snapshot.desired_model_mask_ == _expected_mask &&
+                snapshot.delta_phase_ == multi_model_delta_phase::idle;
+        }
+        if (complete) {
+            return;
+        }
+    }
+    assert(false && "model activation delta did not complete");
 }
 
 }  // namespace
@@ -511,5 +771,296 @@ int main() {
                    0, cascade_result, cascade_progress).code_ == status_code::pending);
         assert(cascade_session->vqec_vision_ai_appl_mmses_has_cascade_store());
     }
+
+    // Composition admits only the active subset while retaining a second neutral owner slot.
+    // The inactive graph must not configure/load before an explicit delta request.
+    {
+        auto capacity_catalog = vqec_vision_ai_ctest_rcfct_make_catalog();
+        auto detector_b = vqec_vision_ai_ctest_rcfct_make_model();
+        detector_b.model_id_ = "detector_b";
+        detector_b.artifact_ref_ = "detector_b.artifact";
+        detector_b.artifact_sha256_ = std::string(64, 'b');
+        detector_b.output_manifest_ref_ = "detector_b.outputs";
+        detector_b.graph_name_ = "detector_b.graph";
+        capacity_catalog.models_.push_back(detector_b);
+        auto capacity_deployment = vqec_vision_ai_ctest_rcfct_make_deployment();
+        for (auto& source : capacity_deployment.sources_) {
+            source.model_ids_.push_back("detector_b");
+            source.memory_.max_tensor_bytes_ = 16 * g_mib;
+        }
+        vqec_vision_ai_ctest_rcfct_source source_a;
+        vqec_vision_ai_ctest_rcfct_source source_b;
+        source_a.emit_frames_ = true;
+        source_b.emit_frames_ = true;
+        vqec_vision_ai_ctest_rcfct_graph graph_a0;
+        vqec_vision_ai_ctest_rcfct_graph graph_a1;
+        vqec_vision_ai_ctest_rcfct_graph graph_b0;
+        vqec_vision_ai_ctest_rcfct_graph graph_b1;
+        auto capacity_activation = vqec_vision_ai_ctest_rcfct_make_activation(
+            capacity_catalog.models_[0], source_a, source_b, graph_a0, graph_b0);
+        capacity_activation.sources_[0].model_count_ = 2;
+        capacity_activation.sources_[0].models_[1] =
+            vqec_vision_ai_ctest_rcfct_make_model_activation(
+                capacity_catalog.models_[1], graph_a1, 103);
+        capacity_activation.sources_[0].initial_active_model_mask_ = 1;
+        capacity_activation.sources_[1].model_count_ = 2;
+        capacity_activation.sources_[1].models_[1] =
+            vqec_vision_ai_ctest_rcfct_make_model_activation(
+                capacity_catalog.models_[1], graph_b1, 104);
+        capacity_activation.sources_[1].initial_active_model_mask_ = 1;
+
+        std::unique_ptr<runtime_composition_bundle> capacity_bundle;
+        assert(vqec_vision_ai_appl_rcfac_create_bundle(
+                   capacity_deployment, capacity_catalog, capacity_activation,
+                   decoders, trackers, capacity_bundle).code_ == status_code::ok);
+        assert(capacity_bundle->vqec_vision_ai_appl_rcfac_get_admission().
+                   active_model_count_ == 1);
+        auto* capacity_composition =
+            capacity_bundle->vqec_vision_ai_appl_rcfac_get_composition();
+        assert(capacity_composition->vqec_vision_ai_cntr_acomp_activate().code_ ==
+            status_code::ok);
+        std::uint64_t capacity_now = 0;
+        vqec_vision_ai_ctest_rcfct_advance_to_running(
+            *capacity_composition, *capacity_bundle, capacity_now);
+        assert(graph_a0.graph_start_count_ == 1 && graph_b0.graph_start_count_ == 1 &&
+               graph_a1.configure_count_ == 0 && graph_b1.configure_count_ == 0 &&
+               graph_a1.load_count_ == 0 && graph_b1.load_count_ == 0);
+        for (std::uint16_t source_slot = 0; source_slot < 2; ++source_slot) {
+            assert(capacity_bundle->vqec_vision_ai_appl_rcfac_get_session(source_slot)->
+                       vqec_vision_ai_appl_mmses_request_model_mask(
+                           3, ++capacity_now).code_ == status_code::pending);
+        }
+        vqec_vision_ai_ctest_rcfct_advance_delta(
+            *capacity_composition, *capacity_bundle, 3, capacity_now);
+        assert(graph_a1.graph_start_count_ == 1 && graph_b1.graph_start_count_ == 1 &&
+               source_a.start_count_ == 1 && source_b.start_count_ == 1);
+        assert(capacity_composition->vqec_vision_ai_cntr_acomp_request_stop(
+                   ++capacity_now).code_ == status_code::pending);
+        for (unsigned attempt = 0; attempt < 64 &&
+             capacity_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ !=
+                 application_composition_state::stopped; ++attempt) {
+            const auto stopped =
+                capacity_composition->vqec_vision_ai_cntr_acomp_step(++capacity_now);
+            assert(stopped.code_ == status_code::ok ||
+                   stopped.code_ == status_code::pending);
+        }
+        assert(capacity_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ ==
+            application_composition_state::stopped);
+    }
+
+#if defined(VQEC_VISION_AI_HAS_SERVICE_ACTIVATION_RECONCILER)
+    // A complete App Manager snapshot is reconciled inside one running generation. Both
+    // applications share the detector: removing the first consumer changes only its feature
+    // owner; the graph/source remain running. A configuration delta then replaces only the
+    // remaining feature stage. All-off remains an explicit generation boundary.
+    {
+        auto delta_catalog = vqec_vision_ai_ctest_rcfct_make_catalog();
+        auto unique_model = vqec_vision_ai_ctest_rcfct_make_model();
+        unique_model.model_id_ = "detector_b";
+        unique_model.artifact_ref_ = "detector_b.artifact";
+        unique_model.artifact_sha256_ = std::string(64, 'b');
+        unique_model.output_manifest_ref_ = "detector_b.outputs";
+        unique_model.graph_name_ = "detector_b.graph";
+        delta_catalog.models_.push_back(unique_model);
+        auto delta_deployment = vqec_vision_ai_ctest_rcfct_make_deployment();
+        for (auto& source : delta_deployment.sources_) {
+            source.model_ids_.push_back("detector_b");
+            source.memory_.max_tensor_bytes_ = 16 * g_mib;
+        }
+        auto delta_features = vqec_vision_ai_ctest_rcfct_make_features();
+        auto unique_feature = delta_features.features_.front();
+        unique_feature.feature_id_ = "fixture_feature_3";
+        unique_feature.model_dependencies_[0].model_id_ = "detector_b";
+        delta_features.features_.push_back(std::move(unique_feature));
+        auto delta_usecases = vqec_vision_ai_ctest_rcfct_make_usecases();
+        delta_usecases.usecases_.push_back(
+            {"fixture_app_3", "1.0", {"detector_b"}, {"fixture_feature_3"}});
+        auto runtime = vqec_vision_ai_ctest_rcfct_make_runtime(1);
+        for (unsigned source = 0; source < 2; ++source) {
+            auto unique_app = vqec_vision_ai_ctest_rcfct_make_app(
+                "source_" + std::to_string(source), 3, 1, "detector_b");
+            unique_app.desired_ = false;
+            runtime.associations_.push_back(std::move(unique_app));
+        }
+        auto startup = vqec_vision_ai_ctest_rcfct_make_startup(
+            delta_deployment, delta_catalog, delta_features, delta_usecases,
+            runtime);
+
+        vqec_vision_ai_ctest_rcfct_source source_a;
+        vqec_vision_ai_ctest_rcfct_source source_b;
+        source_a.emit_frames_ = true;
+        source_b.emit_frames_ = true;
+        vqec_vision_ai_ctest_rcfct_graph graph_a;
+        vqec_vision_ai_ctest_rcfct_graph graph_b;
+        vqec_vision_ai_ctest_rcfct_graph unique_graph_a;
+        vqec_vision_ai_ctest_rcfct_graph unique_graph_b;
+        auto delta_activation = vqec_vision_ai_ctest_rcfct_make_activation(
+            delta_catalog.models_[0], source_a, source_b, graph_a, graph_b);
+        delta_activation.sources_[0].model_count_ = 2;
+        delta_activation.sources_[0].models_[1] =
+            vqec_vision_ai_ctest_rcfct_make_model_activation(
+                delta_catalog.models_[1], unique_graph_a, 103);
+        delta_activation.sources_[0].initial_active_model_mask_ = 1;
+        delta_activation.sources_[1].model_count_ = 2;
+        delta_activation.sources_[1].models_[1] =
+            vqec_vision_ai_ctest_rcfct_make_model_activation(
+                delta_catalog.models_[1], unique_graph_b, 104);
+        delta_activation.sources_[1].initial_active_model_mask_ = 1;
+
+        vqec_vision_ai_ctest_rcfct_feature_factory feature_factory;
+        feature_processor_registry feature_registry;
+        assert(feature_registry.vqec_vision_ai_ftmgr_ftreg_register_factory(
+                   "fixture_processor", feature_factory).code_ == status_code::ok);
+        parsed_arguments arguments;
+        output_gate gate;
+        auto feature_owner = std::make_unique<service_feature_activation>();
+        assert(feature_owner->vqec_vision_ai_appl_svfac_configure(
+                   startup, arguments, startup.deployment, startup.catalog,
+                   startup.features, feature_registry, "fixture_attribute", gate,
+                   delta_activation.source_count_).code_ == status_code::ok);
+        auto* initial_wiring =
+            feature_owner->vqec_vision_ai_appl_svfac_get_wiring();
+        assert(initial_wiring != nullptr);
+        auto* retained_feature_a = initial_wiring->sources_[0].fanouts_[0]->
+            vqec_vision_ai_appl_ftfan_get_stage(1);
+        auto* retained_feature_b = initial_wiring->sources_[1].fanouts_[0]->
+            vqec_vision_ai_appl_ftfan_get_stage(1);
+
+        std::unique_ptr<runtime_composition_bundle> delta_bundle;
+        assert(vqec_vision_ai_appl_rcfac_create_bundle(
+                   startup.deployment, startup.catalog, delta_activation, decoders,
+                   trackers, delta_bundle, initial_wiring).code_ == status_code::ok);
+        auto* delta_composition =
+            delta_bundle->vqec_vision_ai_appl_rcfac_get_composition();
+        assert(delta_composition->vqec_vision_ai_cntr_acomp_activate().code_ ==
+            status_code::ok);
+        std::uint64_t now = 0;
+        vqec_vision_ai_ctest_rcfct_advance_to_running(
+            *delta_composition, *delta_bundle, now);
+        const auto first_start_count = source_a.start_count_;
+        const auto second_start_count = source_b.start_count_;
+        const auto first_graph_start_count = graph_a.graph_start_count_;
+        const auto second_graph_start_count = graph_b.graph_start_count_;
+
+        service_activation_reconciler reconciler;
+        assert(reconciler.vqec_vision_ai_appl_svacr_configure(
+                   startup, arguments, *delta_bundle, feature_owner,
+                   feature_registry, "fixture_attribute", gate).code_ ==
+            status_code::ok);
+        auto acquired_runtime = runtime;
+        acquired_runtime.snapshot_revision_ = 2;
+        acquired_runtime.desired_revision_ = 2;
+        for (auto& association : acquired_runtime.associations_) {
+            if (association.app_id_ == "fixture_app_3") {
+                association.desired_ = true;
+            }
+        }
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   acquired_runtime, ++now).code_ == status_code::pending);
+        vqec_vision_ai_ctest_rcfct_advance_delta(
+            *delta_composition, *delta_bundle, 3, now);
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   acquired_runtime, ++now).code_ == status_code::ok);
+        assert(unique_graph_a.graph_start_count_ == 1 &&
+               unique_graph_b.graph_start_count_ == 1 &&
+               source_a.start_count_ == first_start_count &&
+               source_b.start_count_ == second_start_count);
+
+        auto retained_runtime = acquired_runtime;
+        retained_runtime.snapshot_revision_ = 3;
+        retained_runtime.desired_revision_ = 3;
+        for (auto& association : retained_runtime.associations_) {
+            if (association.app_id_ == "fixture_app_1") {
+                association.desired_ = false;
+            }
+        }
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   retained_runtime, ++now).code_ == status_code::ok);
+        vqec_vision_ai_ctest_rcfct_advance_delta(
+            *delta_composition, *delta_bundle, 3, now);
+        const auto* retained_wiring =
+            feature_owner->vqec_vision_ai_appl_svfac_get_wiring();
+        assert(retained_wiring != nullptr &&
+               retained_wiring->sources_[0].fanouts_[0]->
+                   vqec_vision_ai_appl_ftfan_get_stage_count() == 1 &&
+               retained_wiring->sources_[0].fanouts_[0]->
+                   vqec_vision_ai_appl_ftfan_get_stage(0) == retained_feature_a &&
+               retained_wiring->sources_[1].fanouts_[0]->
+                   vqec_vision_ai_appl_ftfan_get_stage(0) == retained_feature_b);
+        assert(source_a.start_count_ == first_start_count &&
+               source_b.start_count_ == second_start_count &&
+               graph_a.graph_start_count_ == first_graph_start_count &&
+               graph_b.graph_start_count_ == second_graph_start_count &&
+               graph_a.drain_count_ == 0 && graph_b.drain_count_ == 0);
+
+        auto configured_runtime = retained_runtime;
+        configured_runtime.snapshot_revision_ = 4;
+        configured_runtime.inventory_revision_ = 2;
+        for (auto& association : configured_runtime.associations_) {
+            if (association.app_id_ == "fixture_app_2") {
+                association.configuration_revision_ = 2;
+                association.configuration_sha256_ = std::string(64, 'd');
+                association.configuration_payload_ = {2};
+            }
+        }
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   configured_runtime, ++now).code_ == status_code::ok);
+        const auto* configured_wiring =
+            feature_owner->vqec_vision_ai_appl_svfac_get_wiring();
+        assert(configured_wiring->sources_[0].fanouts_[0]->
+                   vqec_vision_ai_appl_ftfan_get_stage(0) != retained_feature_a &&
+               configured_wiring->sources_[1].fanouts_[0]->
+                   vqec_vision_ai_appl_ftfan_get_stage(0) != retained_feature_b &&
+               source_a.start_count_ == first_start_count &&
+               source_b.start_count_ == second_start_count &&
+               graph_a.drain_count_ == 0 && graph_b.drain_count_ == 0);
+
+        auto released_runtime = configured_runtime;
+        released_runtime.snapshot_revision_ = 5;
+        released_runtime.desired_revision_ = 5;
+        for (auto& association : released_runtime.associations_) {
+            if (association.app_id_ == "fixture_app_2") {
+                association.desired_ = false;
+            }
+        }
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   released_runtime, ++now).code_ == status_code::pending);
+        vqec_vision_ai_ctest_rcfct_advance_delta(
+            *delta_composition, *delta_bundle, 2, now);
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   released_runtime, ++now).code_ == status_code::ok);
+        assert(graph_a.drain_count_ == 1 && graph_b.drain_count_ == 1 &&
+               graph_a.unload_count_ == 1 && graph_b.unload_count_ == 1 &&
+               unique_graph_a.drain_count_ == 0 && unique_graph_b.drain_count_ == 0 &&
+               unique_graph_a.graph_start_count_ == 1 &&
+               unique_graph_b.graph_start_count_ == 1 &&
+               source_a.start_count_ == first_start_count &&
+               source_b.start_count_ == second_start_count);
+
+        auto all_off = released_runtime;
+        all_off.snapshot_revision_ = 6;
+        all_off.desired_revision_ = 6;
+        for (auto& association : all_off.associations_) {
+            association.desired_ = false;
+        }
+        assert(reconciler.vqec_vision_ai_appl_svacr_apply_snapshot(
+                   all_off, ++now).code_ == status_code::unsupported);
+        assert(reconciler.vqec_vision_ai_appl_svacr_get_applied_revision() == 5 &&
+               gate.vqec_vision_ai_core_otgat_get_revision() == 5);
+
+        assert(delta_composition->vqec_vision_ai_cntr_acomp_request_stop(
+                   ++now).code_ == status_code::pending);
+        for (unsigned attempt = 0; attempt < 64 &&
+             delta_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ !=
+                 application_composition_state::stopped; ++attempt) {
+            const auto stopped =
+                delta_composition->vqec_vision_ai_cntr_acomp_step(++now);
+            assert(stopped.code_ == status_code::ok ||
+                   stopped.code_ == status_code::pending);
+        }
+        assert(delta_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ ==
+            application_composition_state::stopped);
+    }
+#endif
     return 0;
 }

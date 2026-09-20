@@ -11,6 +11,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_usecase_config.hpp"
 #include "vqec_vision_usecase_control_manager.hpp"
+#include "vqec/vision/ai/contracts/lifecycle/vqec_vision_activation_delta.hpp"
 #include "vqec/vision/ai/contracts/lifecycle/vqec_vision_app_lifecycle.hpp"
 
 namespace vqec::vision::ai {
@@ -20,12 +21,17 @@ struct service_startup_resolution {
     bool should_run{false};
     int exit_code{0};
     model_catalog catalog;
+    // Immutable authority loaded from deployment metadata. `deployment` is the prepared
+    // capacity for this generation; `active_deployment` is the current effective subset.
+    deployment_config base_deployment;
     deployment_config deployment;
+    deployment_config active_deployment;
     feature_catalog features;
     model_package_registry model_packages;
     usecase_control_snapshot usecase_control;
     usecase_activation_snapshot usecase_activation;
     runtime_control_snapshot runtime_control;
+    app_activation_plan activation_plan;
     bool has_usecase_control{false};
     bool has_runtime_control{false};
     bool use_reference_platform{false};
@@ -52,6 +58,14 @@ struct service_feature_authority_state {
 [[nodiscard]] status vqec_vision_ai_appl_svstr_apply_runtime_models(
     const runtime_control_snapshot& _runtime, model_catalog& _catalog,
     model_package_registry& _registry);
+
+// Reprojects a newer complete App Manager snapshot against metadata already authenticated for the
+// live generation. The generation capacity is never expanded here. Unsupported source/capacity or
+// artifact changes are returned to the caller as an explicit replacement boundary.
+[[nodiscard]] status vqec_vision_ai_appl_svstr_reconcile_runtime_control(
+    const service_startup_resolution& _current,
+    const runtime_control_snapshot& _runtime,
+    service_startup_resolution& _candidate);
 
 [[nodiscard]] service_feature_authority_state
 vqec_vision_ai_appl_svstr_resolve_feature_authority(

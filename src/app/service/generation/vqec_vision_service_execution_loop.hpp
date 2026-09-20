@@ -12,7 +12,6 @@ namespace vqec::vision::ai {
 
 struct model_catalog;
 struct parsed_arguments;
-struct runtime_feature_activation;
 class face_enrollment_port;
 class metadata_runtime;
 class output_gate;
@@ -39,9 +38,9 @@ struct service_execution_context {
     std::array<service_cascade_owner, deployment_limits::g_max_sources>*
         cascade_owners_{nullptr};
     usecase_control_manager* control_manager_{nullptr};
-    const runtime_feature_activation* feature_wiring_{nullptr};
     std::function<void()> poll_control_{};
     std::function<bool()> reconcile_requested_{};
+    std::function<status()> apply_runtime_control_{};
     std::function<bool()> stop_requested_{};
     std::uint64_t runtime_generation_{0};
     std::uint64_t pending_control_revision_{0};

@@ -125,6 +125,8 @@ public:
         std::uint64_t _steady_now_ns);
     // Applies a nonzero target mask within the immutable prepared graph set. Calls are serialized.
     // Disabling the final slot remains a generation/source replacement boundary.
+    [[nodiscard]] status vqec_vision_ai_appl_mmses_validate_model_mask(
+        std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns) const;
     [[nodiscard]] status vqec_vision_ai_appl_mmses_request_model_mask(
         std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns);
     [[nodiscard]] multi_model_session_snapshot

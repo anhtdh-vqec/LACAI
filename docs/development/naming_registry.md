@@ -726,6 +726,8 @@ App lifecycle registrations (source delivered):
 | tests/unit/application/vqec_vision_service_shutdown_test.cpp | sshtst | vqec_vision_ai_unit_sshtst_ |
 | src/app/service/generation/vqec_vision_service_feature_activation.hpp | svfac | vqec_vision_ai_appl_svfac_ |
 | src/app/service/generation/vqec_vision_service_feature_activation.cpp | svfac | vqec_vision_ai_appl_svfac_ |
+| src/app/service/generation/vqec_vision_service_activation_reconciler.hpp | svacr | vqec_vision_ai_appl_svacr_ |
+| src/app/service/generation/vqec_vision_service_activation_reconciler.cpp | svacr | vqec_vision_ai_appl_svacr_ |
 | tests/unit/application/vqec_vision_service_feature_activation_test.cpp | sfatst | vqec_vision_ai_unit_sfatst_ |
 | src/app/service/generation/vqec_vision_service_platform.hpp | svplt | vqec_vision_ai_appl_svplt_ |
 | src/app/service/generation/vqec_vision_service_platform.cpp | svplt | vqec_vision_ai_appl_svplt_ |

@@ -18,6 +18,9 @@ class usecase_control_manager;
     vqec::vision::ai::usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
     const std::function<bool()>& _is_runtime_reconcile_requested,
+    const std::function<const vqec::vision::ai::runtime_control_snapshot*()>&
+        _get_pending_runtime_control,
+    const std::function<void()>& _mark_runtime_control_applied,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision);
 
 [[nodiscard]] std::uint64_t

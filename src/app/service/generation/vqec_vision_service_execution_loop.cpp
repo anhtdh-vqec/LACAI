@@ -170,8 +170,25 @@ status vqec_vision_ai_appl_svxlp_run(
             _context.poll_control_();
         }
         if (_context.reconcile_requested_ && _context.reconcile_requested_()) {
-            replacement_requested = true;
-            break;
+            if (_context.apply_runtime_control_) {
+                const auto applied = _context.apply_runtime_control_();
+                if (applied.code_ == status_code::ok) {
+                    continue;
+                }
+                if (applied.code_ == status_code::pending) {
+                    // The executor step below progresses the accepted per-slot lifecycle.
+                    // The complete snapshot remains pending until all sessions report the
+                    // requested active mask.
+                } else if (applied.code_ != status_code::unsupported) {
+                    return applied;
+                } else {
+                    replacement_requested = true;
+                    break;
+                }
+            } else {
+                replacement_requested = true;
+                break;
+            }
         }
         if (_context.control_manager_ != nullptr && generation_published &&
             _context.control_manager_->vqec_vision_ai_ftmgr_ucmgr_has_pending()) {
@@ -278,7 +295,7 @@ status vqec_vision_ai_appl_svxlp_run(
             if (taken_status.code_ == status_code::ok) {
                 routed_source_mask |= 1U << taken.source_index_;
                 feature_dispatch_report dispatch_report;
-                if (taken.has_feature_fanout_ && _context.feature_wiring_ != nullptr) {
+                if (taken.has_feature_fanout_) {
                     const auto dispatched =
                         executor.vqec_vision_ai_appl_rtexe_dispatch_events(
                             events, taken.source_index_, taken.model_slot_,

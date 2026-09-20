@@ -305,6 +305,12 @@ add_test(NAME app_manager_options
         contract/application/vqec_vision_runtime_composition_factory_test.cpp)
     target_link_libraries(vqec_vision_ai_runtime_composition_factory_test
         PRIVATE vqec_vision_ai_runtime_composition_factory)
+    if(TARGET vqec_vision_ai_service_activation_reconciler)
+        target_link_libraries(vqec_vision_ai_runtime_composition_factory_test
+            PRIVATE vqec_vision_ai_service_activation_reconciler)
+        target_compile_definitions(vqec_vision_ai_runtime_composition_factory_test PRIVATE
+            VQEC_VISION_AI_HAS_SERVICE_ACTIVATION_RECONCILER=1)
+    endif()
     set_target_properties(vqec_vision_ai_runtime_composition_factory_test
         PROPERTIES CXX_EXTENSIONS OFF)
     add_test(NAME runtime_composition_factory_contract

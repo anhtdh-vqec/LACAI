@@ -43,8 +43,11 @@ const app_runtime_component* vqec_vision_ai_core_acdel_find_model_component(
 
 bool vqec_vision_ai_core_acdel_is_prepared(
     const app_runtime_association& _association) noexcept {
-    return _association.installed_ && _association.entitled_ &&
-        _association.supported_ && _association.compatible_ && _association.admitted_;
+    // Entitlement and desired state authorize active work, not neutral owner preparation.
+    // Keeping an installed compatible app in the prepared set allows an entitlement revoke
+    // followed by renewal to reuse the same immutable capacity without loading hardware early.
+    return _association.installed_ && _association.supported_ &&
+        _association.compatible_ && _association.admitted_;
 }
 
 status vqec_vision_ai_core_acdel_find_source_slot(
@@ -91,8 +94,7 @@ status vqec_vision_ai_core_acdel_add_model_consumer(
     std::uint16_t _model_slot, bool _is_effective) {
     const auto* component = vqec_vision_ai_core_acdel_find_model_component(
         _association, _model.model_id_);
-    if (component == nullptr || component->component_version_ != _model.model_version_ ||
-        component->artifact_sha256_ != _model.artifact_sha256_) {
+    if (component == nullptr || component->component_version_ != _model.model_version_) {
         return {status_code::incompatible_plugin,
             "application model component differs from immutable model catalog"};
     }

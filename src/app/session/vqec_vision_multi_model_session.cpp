@@ -257,11 +257,11 @@ status multi_model_session::vqec_vision_ai_appl_mmses_start_graph() {
     return progress;
 }
 
-status multi_model_session::vqec_vision_ai_appl_mmses_request_model_mask(
-    std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns) {
-    const auto time = vqec_vision_ai_appl_mmses_check_time(_steady_now_ns);
-    if (time.code_ != status_code::ok) {
-        return time;
+status multi_model_session::vqec_vision_ai_appl_mmses_validate_model_mask(
+    std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns) const {
+    if (_steady_now_ns == UINT64_MAX || _steady_now_ns < last_now_ns_) {
+        return {status_code::invalid_argument,
+            "model activation delta requires monotonic time"};
     }
     const auto valid_model_mask = static_cast<std::uint16_t>(
         (1U << config_.graph_count_) - 1U);
@@ -274,6 +274,20 @@ status multi_model_session::vqec_vision_ai_appl_mmses_request_model_mask(
         (_desired_model_mask & static_cast<std::uint16_t>(~valid_model_mask)) != 0) {
         return {status_code::unsupported,
             "empty or out-of-capacity model mask requires generation replacement"};
+    }
+    return {};
+}
+
+status multi_model_session::vqec_vision_ai_appl_mmses_request_model_mask(
+    std::uint16_t _desired_model_mask, std::uint64_t _steady_now_ns) {
+    const auto valid = vqec_vision_ai_appl_mmses_validate_model_mask(
+        _desired_model_mask, _steady_now_ns);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    const auto time = vqec_vision_ai_appl_mmses_check_time(_steady_now_ns);
+    if (time.code_ != status_code::ok) {
+        return time;
     }
     if (_desired_model_mask == desired_model_mask_) {
         return {};

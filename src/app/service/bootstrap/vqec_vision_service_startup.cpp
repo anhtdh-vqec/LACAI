@@ -76,6 +76,94 @@ status vqec_vision_ai_appl_svstr_project_runtime_control(
     return {};
 }
 
+const source_deployment_config* vqec_vision_ai_appl_svstr_find_source(
+    const deployment_config& _deployment, const std::string& _source_id,
+    std::uint16_t* _slot = nullptr) noexcept {
+    for (std::uint16_t slot = 0; slot < _deployment.sources_.size(); ++slot) {
+        if (_deployment.sources_[slot].source_id_ == _source_id) {
+            if (_slot != nullptr) {
+                *_slot = slot;
+            }
+            return &_deployment.sources_[slot];
+        }
+    }
+    return nullptr;
+}
+
+status vqec_vision_ai_appl_svstr_build_capacity_deployment(
+    const deployment_config& _base, const deployment_config& _active,
+    const app_activation_plan& _base_plan, deployment_config& _capacity) {
+    try {
+        auto candidate = _base;
+        candidate.sources_.clear();
+        for (const auto& active_source : _active.sources_) {
+            std::uint16_t base_slot = activation_delta_limits::g_invalid_slot;
+            const auto* base_source = vqec_vision_ai_appl_svstr_find_source(
+                _base, active_source.source_id_, &base_slot);
+            if (base_source == nullptr || base_slot >= _base_plan.source_count_) {
+                return {status_code::invalid_state,
+                    "effective source is absent from activation capacity plan"};
+            }
+            auto prepared_source = *base_source;
+            prepared_source.model_ids_.clear();
+            const auto prepared_mask =
+                _base_plan.sources_[base_slot].prepared_model_mask_;
+            for (std::uint16_t model_slot = 0;
+                 model_slot < base_source->model_ids_.size(); ++model_slot) {
+                if ((prepared_mask & (1U << model_slot)) != 0) {
+                    prepared_source.model_ids_.push_back(
+                        base_source->model_ids_[model_slot]);
+                }
+            }
+            if (prepared_source.model_ids_.empty()) {
+                return {status_code::invalid_state,
+                    "effective source has no prepared model capacity"};
+            }
+            for (const auto& active_model : active_source.model_ids_) {
+                if (std::find(prepared_source.model_ids_.begin(),
+                        prepared_source.model_ids_.end(), active_model) ==
+                    prepared_source.model_ids_.end()) {
+                    return {status_code::invalid_state,
+                        "effective model is absent from prepared capacity"};
+                }
+            }
+            candidate.sources_.push_back(std::move(prepared_source));
+        }
+        _capacity = std::move(candidate);
+        return {};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "prepared deployment allocation failed"};
+    }
+}
+
+runtime_control_snapshot vqec_vision_ai_appl_svstr_filter_runtime_sources(
+    const runtime_control_snapshot& _runtime,
+    const deployment_config& _deployment) {
+    auto filtered = _runtime;
+    filtered.associations_.clear();
+    for (const auto& association : _runtime.associations_) {
+        if (vqec_vision_ai_appl_svstr_find_source(
+                _deployment, association.source_id_) != nullptr) {
+            filtered.associations_.push_back(association);
+        }
+    }
+    return filtered;
+}
+
+bool vqec_vision_ai_appl_svstr_has_same_sources(
+    const deployment_config& _left, const deployment_config& _right) noexcept {
+    if (_left.sources_.size() != _right.sources_.size()) {
+        return false;
+    }
+    for (std::size_t slot = 0; slot < _left.sources_.size(); ++slot) {
+        if (_left.sources_[slot].source_id_ != _right.sources_[slot].source_id_) {
+            return false;
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 bool vqec_vision_ai_appl_svstr_load_model_catalog(
@@ -167,7 +255,8 @@ status vqec_vision_ai_appl_svstr_apply_runtime_models(
     model_package_registry& _registry) {
     std::vector<std::pair<std::string, std::string>> selected_models;
     for (const auto& association : _runtime.associations_) {
-        if (!association.is_effective()) {
+        if (!association.installed_ || !association.supported_ ||
+            !association.compatible_ || !association.admitted_) {
             continue;
         }
         for (const auto& component : association.components_) {
@@ -219,6 +308,65 @@ status vqec_vision_ai_appl_svstr_apply_runtime_models(
         }
     }
     return vqec_vision_ai_core_mprgy_validate_registry(_registry, _catalog);
+}
+
+status vqec_vision_ai_appl_svstr_reconcile_runtime_control(
+    const service_startup_resolution& _current,
+    const runtime_control_snapshot& _runtime,
+    service_startup_resolution& _candidate) {
+    if (!_current.has_runtime_control || !_current.has_usecase_control ||
+        _current.base_deployment.sources_.empty() ||
+        _current.deployment.sources_.empty()) {
+        return {status_code::invalid_state,
+            "live generation has no App Manager activation authority"};
+    }
+    try {
+        auto candidate = _current;
+        auto control = _current.usecase_control;
+        const auto projected = vqec_vision_ai_appl_svstr_project_runtime_control(
+            _runtime, _current.base_deployment, control);
+        if (projected.code_ != status_code::ok) {
+            return projected;
+        }
+        usecase_activation_snapshot activation;
+        deployment_config active;
+        const auto composed = vqec_vision_ai_core_ucact_compose_effective_deployment(
+            _current.base_deployment, _current.catalog, control.catalog_,
+            control.requests_, activation, active);
+        if (composed.code_ != status_code::ok) {
+            return composed;
+        }
+        if (active.sources_.empty() ||
+            !vqec_vision_ai_appl_svstr_has_same_sources(
+                active, _current.deployment)) {
+            return {status_code::unsupported,
+                "activation changes the live source generation set"};
+        }
+        activation.policy_revision_ = control.control_revision_;
+        activation.config_revision_ = _runtime.snapshot_revision_;
+        const auto filtered = vqec_vision_ai_appl_svstr_filter_runtime_sources(
+            _runtime, _current.deployment);
+        app_activation_plan plan;
+        const auto planned = vqec_vision_ai_core_acdel_build_plan(
+            _current.deployment, _current.catalog, _current.features,
+            control.catalog_, filtered, plan);
+        if (planned.code_ != status_code::ok) {
+            return planned.code_ == status_code::incompatible_plugin
+                ? status{status_code::unsupported,
+                    "activation requires model capacity or artifact replacement"}
+                : planned;
+        }
+        candidate.runtime_control = _runtime;
+        candidate.usecase_control = std::move(control);
+        candidate.usecase_activation = std::move(activation);
+        candidate.active_deployment = std::move(active);
+        candidate.activation_plan = std::move(plan);
+        _candidate = std::move(candidate);
+        return {};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "runtime activation candidate allocation failed"};
+    }
 }
 
 service_feature_authority_state
@@ -281,6 +429,7 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
         result.exit_code = 1;
         return result;
     }
+    result.base_deployment = result.deployment;
     if (!_args.feature_catalog_path.empty() &&
         !vqec_vision_ai_appl_svstr_load_feature_catalog(
             _args.feature_catalog_path, result.features)) {
@@ -326,8 +475,45 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
         activation_snapshot.policy_revision_ = control.control_revision_;
         activation_snapshot.config_revision_ = _runtime_control == nullptr ?
             control.control_revision_ : _runtime_control->snapshot_revision_;
-        result.deployment = _effective_deployment == nullptr
-            ? std::move(effective_deployment) : *_effective_deployment;
+        result.active_deployment = _effective_deployment == nullptr
+            ? effective_deployment : *_effective_deployment;
+        if (_runtime_control != nullptr && _effective_deployment == nullptr &&
+            !result.active_deployment.sources_.empty()) {
+            app_activation_plan base_plan;
+            const auto planned = vqec_vision_ai_core_acdel_build_plan(
+                result.base_deployment, result.catalog, result.features,
+                control.catalog_, *_runtime_control, base_plan);
+            deployment_config capacity;
+            const auto capacity_built = planned.code_ == status_code::ok
+                ? vqec_vision_ai_appl_svstr_build_capacity_deployment(
+                    result.base_deployment, result.active_deployment,
+                    base_plan, capacity)
+                : planned;
+            if (capacity_built.code_ != status_code::ok) {
+                std::fprintf(stderr,
+                    "runtime activation capacity rejected (%d): %s\n",
+                    static_cast<int>(capacity_built.code_),
+                    capacity_built.message_.c_str());
+                result.exit_code = 1;
+                return result;
+            }
+            const auto filtered = vqec_vision_ai_appl_svstr_filter_runtime_sources(
+                *_runtime_control, capacity);
+            const auto capacity_plan = vqec_vision_ai_core_acdel_build_plan(
+                capacity, result.catalog, result.features, control.catalog_,
+                filtered, result.activation_plan);
+            if (capacity_plan.code_ != status_code::ok) {
+                std::fprintf(stderr,
+                    "runtime activation plan rejected (%d): %s\n",
+                    static_cast<int>(capacity_plan.code_),
+                    capacity_plan.message_.c_str());
+                result.exit_code = 1;
+                return result;
+            }
+            result.deployment = std::move(capacity);
+        } else {
+            result.deployment = result.active_deployment;
+        }
         result.usecase_control = control;
         result.usecase_activation = std::move(activation_snapshot);
         result.has_usecase_control = true;
@@ -335,7 +521,7 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
                     "active_sources=%zu\n",
             static_cast<unsigned long long>(control.control_revision_),
             static_cast<unsigned long long>(control.entitlement_revision_),
-            result.deployment.sources_.size());
+            result.active_deployment.sources_.size());
     } else if (_effective_deployment != nullptr) {
         result.deployment = *_effective_deployment;
     }
@@ -399,7 +585,9 @@ service_startup_resolution vqec_vision_ai_appl_svstr_resolve_startup(
         return result;
     }
     bool has_active_secondary_model = false;
-    for (const auto& source : result.deployment.sources_) {
+    const auto& effective_for_features = result.active_deployment.sources_.empty()
+        ? result.deployment : result.active_deployment;
+    for (const auto& source : effective_for_features.sources_) {
         for (const auto& model : result.catalog.models_) {
             if (model.role_ == model_role::secondary &&
                 vqec_vision_ai_core_mdcat_source_activates_model(source, model)) {

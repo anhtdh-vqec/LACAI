@@ -67,6 +67,9 @@ target_include_directories(vqec_vision_ai_service_options PUBLIC
 target_link_libraries(vqec_vision_ai_service_options PUBLIC vqec_vision_ai_core)
 set_target_properties(vqec_vision_ai_service_options PROPERTIES CXX_EXTENSIONS OFF)
 
+if(TARGET vqec_vision_ai_model_catalog_config AND
+   TARGET vqec_vision_ai_feature_catalog_config AND
+   TARGET vqec_vision_ai_deployment_config)
 add_library(vqec_vision_ai_service_startup STATIC
     service/bootstrap/vqec_vision_service_startup.cpp)
 target_include_directories(vqec_vision_ai_service_startup PUBLIC
@@ -99,29 +102,18 @@ target_link_libraries(vqec_vision_ai_service_feature_activation PUBLIC
 set_target_properties(vqec_vision_ai_service_feature_activation
     PROPERTIES CXX_EXTENSIONS OFF)
 
-# Generation-scoped platform owner. It keeps platform adapters, registries, sources and
-# graph recipes alive for exactly one runtime generation. Vendor engines are still opened
-# by the session only after the first valid source frame is observed.
-add_library(vqec_vision_ai_service_platform STATIC
-    service/generation/vqec_vision_service_platform.cpp
-    platform/vqec_vision_fake_platform.cpp
-    platform/vqec_vision_reference_platform.cpp
-    platform/vqec_vision_fixture_detector.cpp)
-target_include_directories(vqec_vision_ai_service_platform PUBLIC
+add_library(vqec_vision_ai_service_activation_reconciler STATIC
+    service/generation/vqec_vision_service_activation_reconciler.cpp)
+target_include_directories(vqec_vision_ai_service_activation_reconciler PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
-target_link_libraries(vqec_vision_ai_service_platform PUBLIC
-    vqec_vision_ai_service_startup
-    vqec_vision_ai_service_feature_registry
-    vqec_vision_ai_production_platform
-    vqec_vision_ai_runtime_composition_factory
-    vqec_vision_ai_reference
-    vqec_vision_ai_admission)
-set_target_properties(vqec_vision_ai_service_platform PROPERTIES CXX_EXTENSIONS OFF)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>)
+target_link_libraries(vqec_vision_ai_service_activation_reconciler PUBLIC
+    vqec_vision_ai_service_feature_activation
+    vqec_vision_ai_runtime_composition_factory)
+set_target_properties(vqec_vision_ai_service_activation_reconciler
+    PROPERTIES CXX_EXTENSIONS OFF)
+endif()
 
 add_library(vqec_vision_ai_metadata_service STATIC
     service/output/vqec_vision_metadata_service.cpp)
@@ -383,6 +375,32 @@ if(TARGET vqec_vision_ai_qnn_engine AND TARGET vqec_vision_ai_qualcomm AND
     set_target_properties(vqec_vision_ai_production_platform PROPERTIES CXX_EXTENSIONS OFF)
 endif()
 
+# Generation-scoped platform owner. It keeps platform adapters, registries, sources and
+# graph recipes alive for exactly one runtime generation. Vendor engines are still opened
+# by the session only after the first valid source frame is observed.
+if(TARGET vqec_vision_ai_service_startup AND TARGET vqec_vision_ai_production_platform)
+    add_library(vqec_vision_ai_service_platform STATIC
+        service/generation/vqec_vision_service_platform.cpp
+        platform/vqec_vision_fake_platform.cpp
+        platform/vqec_vision_reference_platform.cpp
+        platform/vqec_vision_fixture_detector.cpp)
+    target_include_directories(vqec_vision_ai_service_platform PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/bootstrap>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/service/generation>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/composition>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/feature_manager>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/runtime/model_registry>)
+    target_link_libraries(vqec_vision_ai_service_platform PUBLIC
+        vqec_vision_ai_service_startup
+        vqec_vision_ai_service_feature_registry
+        vqec_vision_ai_production_platform
+        vqec_vision_ai_runtime_composition_factory
+        vqec_vision_ai_reference
+        vqec_vision_ai_admission)
+    set_target_properties(vqec_vision_ai_service_platform PROPERTIES CXX_EXTENSIONS OFF)
+endif()
+
 # Service-owned cascade graph/session lifecycle, separated from the generation controller.
 if(TARGET vqec_vision_ai_production_platform)
     add_library(vqec_vision_ai_service_cascade_runtime STATIC
@@ -470,6 +488,7 @@ if(TARGET vqec_vision_ai_production_platform AND TARGET vqec_vision_ai_reference
         vqec_vision_ai_service_options
         vqec_vision_ai_service_startup
         vqec_vision_ai_service_feature_activation
+        vqec_vision_ai_service_activation_reconciler
         vqec_vision_ai_service_platform
         vqec_vision_ai_service_cascade_runtime
         vqec_vision_ai_service_enrollment_runtime

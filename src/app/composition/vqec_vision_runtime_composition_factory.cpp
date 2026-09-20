@@ -12,6 +12,58 @@ namespace {
 constexpr std::size_t g_max_runtime_graphs =
     deployment_limits::g_max_sources * deployment_limits::g_max_models_per_source;
 
+const model_catalog_entry* vqec_vision_ai_appl_rcfac_find_model(
+    const model_catalog& _catalog, const std::string& _model_id) noexcept {
+    for (const auto& model : _catalog.models_) {
+        if (model.model_id_ == _model_id) {
+            return &model;
+        }
+    }
+    return nullptr;
+}
+
+status vqec_vision_ai_appl_rcfac_build_active_deployment(
+    const deployment_config& _capacity,
+    const runtime_composition_activation& _activation,
+    deployment_config& _active) {
+    try {
+        if (_capacity.sources_.size() != _activation.source_count_) {
+            return {status_code::invalid_argument,
+                "prepared deployment differs from runtime source count"};
+        }
+        auto candidate = _capacity;
+        for (std::uint16_t source_slot = 0;
+             source_slot < _activation.source_count_; ++source_slot) {
+            const auto& prepared = _capacity.sources_[source_slot];
+            const auto& source_activation = _activation.sources_[source_slot];
+            const auto valid_mask = static_cast<std::uint16_t>(
+                (1U << prepared.model_ids_.size()) - 1U);
+            const auto active_mask = source_activation.initial_active_model_mask_ ==
+                    std::numeric_limits<std::uint16_t>::max()
+                ? valid_mask : source_activation.initial_active_model_mask_;
+            if (active_mask == 0 ||
+                (active_mask & static_cast<std::uint16_t>(~valid_mask)) != 0) {
+                return {status_code::unsupported,
+                    "initial active model set is empty or outside prepared capacity"};
+            }
+            auto& active_source = candidate.sources_[source_slot];
+            active_source.model_ids_.clear();
+            for (std::uint16_t model_slot = 0;
+                 model_slot < prepared.model_ids_.size(); ++model_slot) {
+                if ((active_mask & (1U << model_slot)) != 0) {
+                    active_source.model_ids_.push_back(
+                        prepared.model_ids_[model_slot]);
+                }
+            }
+        }
+        _active = std::move(candidate);
+        return {};
+    } catch (const std::bad_alloc&) {
+        return {status_code::resource_exhausted,
+            "active admission deployment allocation failed"};
+    }
+}
+
 // A model is a cascade root when some secondary catalog model depends on its exact
 // immutable identity. Its frames are then retained for the dependents.
 bool vqec_vision_ai_appl_rcfac_is_cascade_root(
@@ -235,8 +287,8 @@ vqec_vision_ai_appl_rcfac_get_admission() const noexcept {
     return admission_;
 }
 
-status runtime_composition_bundle::vqec_vision_ai_appl_rcfac_rebind_features(
-    const runtime_feature_activation* _features) {
+status runtime_composition_bundle::vqec_vision_ai_appl_rcfac_validate_feature_rebind(
+    const runtime_feature_activation* _features) const {
     if (composition_ == nullptr || executor_ == nullptr) {
         return {status_code::invalid_state,
             "runtime composition is incomplete"};
@@ -261,6 +313,23 @@ status runtime_composition_bundle::vqec_vision_ai_appl_rcfac_rebind_features(
                 replacements[source_slot]);
         if (valid.code_ != status_code::ok) {
             return valid;
+        }
+    }
+    return {};
+}
+
+status runtime_composition_bundle::vqec_vision_ai_appl_rcfac_rebind_features(
+    const runtime_feature_activation* _features) {
+    const auto valid = vqec_vision_ai_appl_rcfac_validate_feature_rebind(
+        _features);
+    if (valid.code_ != status_code::ok) {
+        return valid;
+    }
+    std::array<std::array<feature_fanout*, deployment_limits::g_max_models_per_source>,
+        deployment_limits::g_max_sources> replacements{};
+    for (std::uint16_t source_slot = 0; source_slot < source_count_; ++source_slot) {
+        if (_features != nullptr) {
+            replacements[source_slot] = _features->sources_[source_slot].fanouts_;
         }
     }
     for (std::uint16_t source_slot = 0; source_slot < source_count_; ++source_slot) {
@@ -308,9 +377,15 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             return valid_policy;
         }
 
+        deployment_config active_deployment;
+        const auto active_built = vqec_vision_ai_appl_rcfac_build_active_deployment(
+            _deployment, _activation, active_deployment);
+        if (active_built.code_ != status_code::ok) {
+            return active_built;
+        }
         activation_snapshot admission;
         const auto admitted = vqec_vision_ai_admis_actsp_build_snapshot(
-            _deployment, _catalog, _activation.hardware_profile_, admission);
+            active_deployment, _catalog, _activation.hardware_profile_, admission);
         if (admitted.code_ != status_code::ok) {
             return admitted;
         }
@@ -344,7 +419,6 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
             if (admitted_source.deployment_index_ != source_slot ||
                 source_activation.source_id_ != source.source_id_ ||
                 source_activation.source_ == nullptr ||
-                source_activation.model_count_ != admitted_source.model_count_ ||
                 source_activation.model_count_ != source.model_ids_.size()) {
                 return {status_code::invalid_argument,
                     "runtime source activation differs from deployment slot"};
@@ -363,6 +437,8 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
 
             auto& session_config = session_configs[source_slot];
             session_config.graph_count_ = source_activation.model_count_;
+            session_config.initial_active_model_mask_ =
+                source_activation.initial_active_model_mask_;
             session_config.cadence_.source_fps_numerator_ =
                 source.profile_.fps_numerator_;
             session_config.cadence_.source_fps_denominator_ =
@@ -380,16 +456,14 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
 
             for (std::uint16_t model_slot = 0;
                  model_slot < source_activation.model_count_; ++model_slot) {
-                const auto catalog_index =
-                    admitted_source.catalog_model_indices_[model_slot];
-                if (catalog_index >= _catalog.models_.size() ||
-                    _catalog.models_[catalog_index].model_id_ !=
-                        source.model_ids_[model_slot]) {
+                const auto* catalog_model = vqec_vision_ai_appl_rcfac_find_model(
+                    _catalog, source.model_ids_[model_slot]);
+                if (catalog_model == nullptr) {
                     return {status_code::invalid_argument,
-                        "admitted model index differs from immutable catalog"};
+                        "prepared model disappeared from immutable catalog"};
                 }
                 const auto composed = vqec_vision_ai_appl_rcfac_compose_model(
-                    source, _catalog.models_[catalog_index],
+                    source, *catalog_model,
                     source_activation.models_[model_slot], graphs, cycles,
                     registered_graphs, session_config.graphs_[model_slot],
                     session_config.cadence_, model_slot,
@@ -398,7 +472,7 @@ status vqec_vision_ai_appl_rcfac_create_bundle(
                     return composed;
                 }
                 const bool is_cascade_root = vqec_vision_ai_appl_rcfac_is_cascade_root(
-                    _catalog, _catalog.models_[catalog_index]);
+                    _catalog, *catalog_model);
                 session_config.graphs_[model_slot].cascade_root_ = is_cascade_root;
                 if (is_cascade_root && source.cascade_.max_bytes_ == 0) {
                     return {status_code::invalid_argument,

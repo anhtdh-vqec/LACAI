@@ -24,6 +24,7 @@
 #include "vqec_vision_service_options.hpp"
 #include "vqec_vision_service_fixture.hpp"
 #include "vqec_vision_service_feature_activation.hpp"
+#include "vqec_vision_service_activation_reconciler.hpp"
 #include "vqec_vision_service_execution_loop.hpp"
 #include "vqec_vision_service_platform.hpp"
 #include "vqec_vision_service_shutdown.hpp"
@@ -86,6 +87,9 @@ int vqec_vision_ai_appl_svgen_run_generation(
     usecase_control_manager* _control_manager,
     const std::function<void()>& _poll_control,
     const std::function<bool()>& _is_runtime_reconcile_requested,
+    const std::function<const runtime_control_snapshot*()>&
+        _get_pending_runtime_control,
+    const std::function<void()>& _mark_runtime_control_applied,
     std::uint64_t _runtime_generation, std::uint64_t _pending_control_revision) {
     parsed_arguments args;
     if (!vqec_vision_ai_appl_svopt_parse(_argc, _argv, args)) {
@@ -138,10 +142,10 @@ int vqec_vision_ai_appl_svgen_run_generation(
     if (!startup.should_run) {
         return startup.exit_code;
     }
-    model_catalog catalog = std::move(startup.catalog);
-    deployment_config deployment = std::move(startup.deployment);
-    feature_catalog features = std::move(startup.features);
-    model_package_registry model_packages = std::move(startup.model_packages);
+    auto& catalog = startup.catalog;
+    auto& deployment = startup.deployment;
+    auto& features = startup.features;
+    auto& model_packages = startup.model_packages;
     const bool use_reference_platform = startup.use_reference_platform;
     const bool use_production_platform = startup.use_production_platform;
     const bool fr_effectively_enabled = startup.fr_effectively_enabled;
@@ -160,6 +164,25 @@ int vqec_vision_ai_appl_svgen_run_generation(
     auto& trackers = platform.vqec_vision_ai_appl_svplt_get_trackers();
     auto& feature_registry = platform.vqec_vision_ai_appl_svplt_get_features();
     auto& activation = platform.vqec_vision_ai_appl_svplt_get_activation();
+    if (startup.has_runtime_control) {
+        if (startup.activation_plan.source_count_ != activation.source_count_) {
+            std::fprintf(stderr,
+                "runtime activation plan differs from prepared source count\n");
+            return 1;
+        }
+        for (std::uint16_t source_slot = 0;
+             source_slot < activation.source_count_; ++source_slot) {
+            if (startup.activation_plan.sources_[source_slot].source_id_ !=
+                    activation.sources_[source_slot].source_id_ ||
+                startup.activation_plan.sources_[source_slot].active_model_mask_ == 0) {
+                std::fprintf(stderr,
+                    "runtime activation plan has an invalid initial model mask\n");
+                return 1;
+            }
+            activation.sources_[source_slot].initial_active_model_mask_ =
+                startup.activation_plan.sources_[source_slot].active_model_mask_;
+        }
+    }
     const auto& tracker_contract =
         platform.vqec_vision_ai_appl_svplt_get_tracker_contract();
     const auto& attribute_schema_id =
@@ -186,8 +209,8 @@ int vqec_vision_ai_appl_svgen_run_generation(
         output_runtime.vqec_vision_ai_appl_svout_is_metadata_required();
     auto& active_event_sink = output_runtime.vqec_vision_ai_appl_svout_get_sink();
 
-    service_feature_activation feature_activation;
-    const auto feature_configured = feature_activation.vqec_vision_ai_appl_svfac_configure(
+    auto feature_activation = std::make_unique<service_feature_activation>();
+    const auto feature_configured = feature_activation->vqec_vision_ai_appl_svfac_configure(
         startup, args, deployment, catalog, features, feature_registry,
         attribute_schema_id, output_policy_gate, activation.source_count_);
     if (feature_configured.code_ != status_code::ok) {
@@ -197,7 +220,7 @@ int vqec_vision_ai_appl_svgen_run_generation(
         return 1;
     }
     const auto* feature_wiring =
-        feature_activation.vqec_vision_ai_appl_svfac_get_wiring();
+        feature_activation->vqec_vision_ai_appl_svfac_get_wiring();
     const auto delivery_started =
         output_runtime.vqec_vision_ai_appl_svout_start_delivery();
     if (delivery_started.code_ != status_code::ok) {
@@ -221,6 +244,19 @@ int vqec_vision_ai_appl_svgen_run_generation(
     if (executor == nullptr) {
         std::fprintf(stderr, "runtime composition returned no executor\n");
         return 1;
+    }
+    service_activation_reconciler activation_reconciler;
+    if (startup.has_runtime_control) {
+        const auto reconciler_configured =
+            activation_reconciler.vqec_vision_ai_appl_svacr_configure(
+                startup, args, *bundle, feature_activation, feature_registry,
+                attribute_schema_id, output_policy_gate);
+        if (reconciler_configured.code_ != status_code::ok) {
+            std::fprintf(stderr, "activation reconciler failed (%d): %s\n",
+                static_cast<int>(reconciler_configured.code_),
+                reconciler_configured.message_.c_str());
+            return 1;
+        }
     }
     std::array<service_cascade_owner, deployment_limits::g_max_sources> cascade_owners;
     std::unique_ptr<embedding_index_port> recognition_index;
@@ -416,9 +452,25 @@ int vqec_vision_ai_appl_svgen_run_generation(
     execution.enrollment_port_ = enrollment_port;
     execution.cascade_owners_ = &cascade_owners;
     execution.control_manager_ = _control_manager;
-    execution.feature_wiring_ = feature_wiring;
     execution.poll_control_ = _poll_control;
     execution.reconcile_requested_ = _is_runtime_reconcile_requested;
+    if (startup.has_runtime_control && _get_pending_runtime_control) {
+        execution.apply_runtime_control_ = [&]() {
+            const auto* pending = _get_pending_runtime_control();
+            if (pending == nullptr) {
+                return status{status_code::invalid_state,
+                    "runtime reconcile requested without a pending snapshot"};
+            }
+            const auto applied = activation_reconciler.
+                vqec_vision_ai_appl_svacr_apply_snapshot(
+                    *pending, vqec_vision_ai_appl_svgen_monotonic_ns());
+            if (applied.code_ == status_code::ok &&
+                _mark_runtime_control_applied) {
+                _mark_runtime_control_applied();
+            }
+            return applied;
+        };
+    }
     execution.stop_requested_ = []() noexcept {
         return g_stop_requested != 0;
     };

@@ -254,7 +254,7 @@ void vqec_vision_ai_unit_adtst_check_transactional_rejection() {
     auto runtime = vqec_vision_ai_unit_adtst_make_runtime(true);
     app_activation_plan plan;
     plan.snapshot_revision_ = 77;
-    runtime.associations_[0].components_[0].artifact_sha256_ = std::string(64, '9');
+    runtime.associations_[2].components_[0].artifact_sha256_ = std::string(64, '9');
     const auto rejected = vqec_vision_ai_core_acdel_build_plan(
         vqec_vision_ai_unit_adtst_make_deployment(),
         vqec_vision_ai_unit_adtst_make_models(),
