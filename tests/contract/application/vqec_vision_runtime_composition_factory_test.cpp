@@ -1087,13 +1087,17 @@ int main() {
 
         assert(delta_composition->vqec_vision_ai_cntr_acomp_request_stop(
                    ++now).code_ == status_code::pending);
-        for (unsigned attempt = 0; attempt < 64 &&
-             delta_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ !=
-                 application_composition_state::stopped; ++attempt) {
+        const auto stop_deadline = std::chrono::steady_clock::now() +
+            g_async_completion_timeout;
+        while (std::chrono::steady_clock::now() < stop_deadline &&
+               delta_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ !=
+                   application_composition_state::stopped) {
             const auto stopped =
                 delta_composition->vqec_vision_ai_cntr_acomp_step(++now);
             assert(stopped.code_ == status_code::ok ||
                    stopped.code_ == status_code::pending);
+            vqec_vision_ai_ctest_rcfct_consume_result(*delta_composition);
+            std::this_thread::sleep_for(g_async_poll_interval);
         }
         assert(delta_composition->vqec_vision_ai_cntr_acomp_get_snapshot().state_ ==
             application_composition_state::stopped);
