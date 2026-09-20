@@ -180,6 +180,11 @@ std::uint16_t multi_model_pump::vqec_vision_ai_appl_mmump_get_active_model_mask(
     return active_model_mask_;
 }
 
+std::uint64_t multi_model_pump::vqec_vision_ai_appl_mmump_get_source_epoch()
+    const noexcept {
+    return last_source_epoch_;
+}
+
 bool multi_model_pump::vqec_vision_ai_appl_mmump_has_model_worker_work(
     std::uint16_t _model_slot) const noexcept {
     return _model_slot < model_count_ &&

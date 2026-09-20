@@ -107,6 +107,7 @@ struct multi_model_session_snapshot {
     multi_model_delta_phase delta_phase_{multi_model_delta_phase::idle};
     status_code delta_error_code_{status_code::ok};
     std::uint64_t cascade_bytes_{0};
+    std::uint64_t source_epoch_{0};
     bool is_recovery_required_{false};
 };
 

@@ -84,6 +84,8 @@ public:
         std::uint16_t _model_slot);
     [[nodiscard]] std::uint16_t
     vqec_vision_ai_appl_mmump_get_active_model_mask() const noexcept;
+    [[nodiscard]] std::uint64_t
+    vqec_vision_ai_appl_mmump_get_source_epoch() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_mmump_has_model_worker_work(
         std::uint16_t _model_slot) const noexcept;
     // Binds the session-owned cascade frame store before the first frame is received. The

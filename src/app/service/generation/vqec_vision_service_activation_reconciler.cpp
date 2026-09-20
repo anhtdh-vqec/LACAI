@@ -8,6 +8,22 @@
 #include "vqec_vision_service_cascade_runtime.hpp"
 
 namespace vqec::vision::ai {
+namespace {
+
+const char* vqec_vision_ai_appl_svacr_delta_kind_name(
+    model_dependency_delta_kind _kind) noexcept {
+    switch (_kind) {
+        case model_dependency_delta_kind::acquire:
+            return "acquire";
+        case model_dependency_delta_kind::retain:
+            return "retain";
+        case model_dependency_delta_kind::release:
+            return "release";
+    }
+    return "invalid";
+}
+
+}  // namespace
 
 status service_activation_reconciler::vqec_vision_ai_appl_svacr_complete_pending() {
     if (pending_startup_ == nullptr) {
@@ -42,6 +58,18 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_complete_pending
             *cascade_owners_)) {
         return {status_code::pending,
             "cascade activation delta is still in progress"};
+    }
+    for (std::uint16_t source_slot = 0;
+         source_slot < pending_startup_->activation_plan.source_count_;
+         ++source_slot) {
+        const auto* session =
+            bundle_->vqec_vision_ai_appl_rcfac_get_session(source_slot);
+        const auto snapshot = session->vqec_vision_ai_appl_mmses_get_snapshot();
+        std::fprintf(stderr,
+            "activation source committed source=%s epoch=%llu active_mask=0x%04x\n",
+            pending_startup_->activation_plan.sources_[source_slot].source_id_.c_str(),
+            static_cast<unsigned long long>(snapshot.source_epoch_),
+            static_cast<unsigned int>(snapshot.active_model_mask_));
     }
     const auto committed_revision =
         pending_startup_->runtime_control.snapshot_revision_;
@@ -247,6 +275,25 @@ status service_activation_reconciler::vqec_vision_ai_appl_svacr_apply_snapshot(
         *feature_owner_ = std::move(candidate_features);
         pending_startup_ = std::make_unique<service_startup_resolution>(
             std::move(candidate_startup));
+        for (const auto& change : delta.model_dependencies_) {
+            std::fprintf(stderr,
+                "activation model delta source=%s model=%s slot=%u kind=%s refs=%u->%u\n",
+                change.source_id_.c_str(), change.model_id_.c_str(),
+                static_cast<unsigned int>(change.model_slot_),
+                vqec_vision_ai_appl_svacr_delta_kind_name(change.kind_),
+                static_cast<unsigned int>(change.previous_consumer_count_),
+                static_cast<unsigned int>(change.candidate_consumer_count_));
+        }
+        for (const auto& change : delta.cascade_dependencies_) {
+            std::fprintf(stderr,
+                "activation cascade delta source=%s model=%s root_slot=%u "
+                "kind=%s refs=%u->%u\n",
+                change.source_id_.c_str(), change.model_id_.c_str(),
+                static_cast<unsigned int>(change.root_model_slot_),
+                vqec_vision_ai_appl_svacr_delta_kind_name(change.kind_),
+                static_cast<unsigned int>(change.previous_consumer_count_),
+                static_cast<unsigned int>(change.candidate_consumer_count_));
+        }
         std::printf("activation delta accepted snapshot=%llu model_changes=%zu "
                     "cascade_changes=%zu feature_changes=%zu\n",
             static_cast<unsigned long long>(

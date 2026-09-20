@@ -452,6 +452,7 @@ int main() {
                   now++, result, progress).code_ == status_code::ok);
         check(progress.submitted_model_mask_ == 3 && retained_graph.submit_calls_ == 1 &&
               toggled_graph.submit_calls_ == 1);
+        check(delta_session.vqec_vision_ai_appl_mmses_get_snapshot().source_epoch_ == 3);
         check(delta_session.vqec_vision_ai_appl_mmses_request_model_mask(
                   2, now++).code_ == status_code::pending);
         retained_graph.vqec_vision_ai_unit_mmsts_complete_result();
@@ -466,6 +467,7 @@ int main() {
         }
         delta_snapshot = delta_session.vqec_vision_ai_appl_mmses_get_snapshot();
         check(delta_snapshot.active_model_mask_ == 2 &&
+              delta_snapshot.source_epoch_ == 3 &&
               retained_graph.drain_calls_ == 1 && retained_graph.unload_calls_ == 1 &&
               toggled_graph.drain_calls_ == 0 && toggled_graph.unload_calls_ == 0 &&
               delta_source.start_calls_ == 1 && delta_source.stop_calls_ == 0);

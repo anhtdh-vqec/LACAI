@@ -718,6 +718,7 @@ multi_model_session::vqec_vision_ai_appl_mmses_get_snapshot() const noexcept {
     snapshot.delta_error_code_ = delta_error_.code_;
     snapshot.cascade_bytes_ = cascade_store_ != nullptr ?
         cascade_store_->vqec_vision_ai_sched_cfstr_bytes() : 0;
+    snapshot.source_epoch_ = pump_.vqec_vision_ai_appl_mmump_get_source_epoch();
     snapshot.is_recovery_required_ = is_recovery_required_;
     for (std::uint16_t slot = 0;
          slot < config_.graph_count_ &&
