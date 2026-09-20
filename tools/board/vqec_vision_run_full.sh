@@ -24,6 +24,7 @@ g_runtime_step_interval_us=${LACAI_RUNTIME_STEP_INTERVAL_US:-8000}
 g_source_recovery_backoff_ms=${LACAI_SOURCE_RECOVERY_BACKOFF_MS:-1000}
 g_service=${LACAI_SERVICE:-$g_root/bin/vqec_ai_vision_applications}
 g_app_manager=${LACAI_APP_MANAGER:-$g_root/bin/vqec_vision_app_manager}
+g_app_manager_snapshot=${LACAI_APP_MANAGER_SNAPSHOT:-}
 g_app_control=${LACAI_APP_CONTROL:-$g_root/bin/vqec_vision_app_manager_control}
 g_evidence_probe=${LACAI_EVIDENCE_PROBE:-$g_root/bin/vqec_vision_evidence_probe}
 g_dsp_v1_dir=${LACAI_DSP_V1_DIR:-$g_root/dsp/v1}
@@ -559,12 +560,17 @@ if [ "$g_evidence_reference_receiver" -eq 1 ]; then
         "$g_root/tools/fixtures/vqec_vision_evidence_receiver.py"
 fi
 vqec_vision_ai_tools_rnful_require_file "$g_metadata_profile"
-for app_file in "$g_app_public_key" "$g_app_catalog" "$g_app_manifest" "$g_app_configuration" \
-    "$g_app_package_signature" "$g_app_entitlement" \
-    "$g_app_entitlement_signature" "$g_app_model_component" \
-    "$g_app_labels_component"; do
-    vqec_vision_ai_tools_rnful_require_file "$app_file"
-done
+if [ -n "$g_app_manager_snapshot" ]; then
+    vqec_vision_ai_tools_rnful_require_file "$g_app_manager_snapshot"
+    vqec_vision_ai_tools_rnful_require_file "$g_app_configuration"
+else
+    for app_file in "$g_app_public_key" "$g_app_catalog" "$g_app_manifest" \
+        "$g_app_configuration" "$g_app_package_signature" "$g_app_entitlement" \
+        "$g_app_entitlement_signature" "$g_app_model_component" \
+        "$g_app_labels_component"; do
+        vqec_vision_ai_tools_rnful_require_file "$app_file"
+    done
+fi
 if [ ! -c "$g_dma_heap" ]; then
     echo "registered DMA-BUF heap is unavailable: $g_dma_heap" >&2
     exit 1
@@ -694,25 +700,39 @@ if [ "$g_evidence_reference_receiver" -eq 1 ]; then
     fi
 fi
 
-setsid "$g_app_manager" \
-    --target "$g_app_target_id" \
-    --device-id "$(sed -n '1p' /etc/machine-id)" \
-    --max-resident-bytes 536870912 --max-tensor-bytes 134217728 \
-    --max-active-incidents 32 --max-events-per-second 64 \
-    --app-catalog "$g_app_catalog" \
-    --database "$g_app_database" --max-database-bytes 67108864 \
-    --content-store "$g_app_content_store_dir" \
-    --max-content-store-bytes "$g_app_content_store_bytes" \
-    --max-content-blob-bytes "$g_app_content_blob_bytes" \
-    --max-content-blob-count "$g_app_content_blob_count" \
-    --busy-timeout-ms 5000 --public-key "$g_app_public_key" \
-    --key-id "$g_app_key_id" --service-name "$g_app_service_name" \
-    --object-path "$g_app_object_path" \
-    --trusted-backend-name "$g_app_backend_name" \
-    --trusted-runtime-name "$g_app_runtime_name" \
-    --rpc-timeout-ms "$g_app_rpc_timeout_ms" --callbacks-per-poll 16 \
-    --poll-interval-ms 10 --session \
-    >"$g_root/out/app_manager.log" 2>&1 </dev/null &
+if [ -n "$g_app_manager_snapshot" ]; then
+    # Acceptance-only mode: the peer still uses the production D-Bus v1 boundary and a
+    # fully validated snapshot. It does not prove package signature or entitlement flows.
+    setsid "$g_app_manager" \
+        --snapshot "$g_app_manager_snapshot" \
+        --service-name "$g_app_service_name" \
+        --object-path "$g_app_object_path" \
+        --backend-name "$g_app_backend_name" \
+        --runtime-name "$g_app_runtime_name" \
+        --rpc-timeout-ms "$g_app_rpc_timeout_ms" --callbacks 16 \
+        --poll-ms 10 \
+        >"$g_root/out/app_manager.log" 2>&1 </dev/null &
+else
+    setsid "$g_app_manager" \
+        --target "$g_app_target_id" \
+        --device-id "$(sed -n '1p' /etc/machine-id)" \
+        --max-resident-bytes 536870912 --max-tensor-bytes 134217728 \
+        --max-active-incidents 32 --max-events-per-second 64 \
+        --app-catalog "$g_app_catalog" \
+        --database "$g_app_database" --max-database-bytes 67108864 \
+        --content-store "$g_app_content_store_dir" \
+        --max-content-store-bytes "$g_app_content_store_bytes" \
+        --max-content-blob-bytes "$g_app_content_blob_bytes" \
+        --max-content-blob-count "$g_app_content_blob_count" \
+        --busy-timeout-ms 5000 --public-key "$g_app_public_key" \
+        --key-id "$g_app_key_id" --service-name "$g_app_service_name" \
+        --object-path "$g_app_object_path" \
+        --trusted-backend-name "$g_app_backend_name" \
+        --trusted-runtime-name "$g_app_runtime_name" \
+        --rpc-timeout-ms "$g_app_rpc_timeout_ms" --callbacks-per-poll 16 \
+        --poll-interval-ms 10 --session \
+        >"$g_root/out/app_manager.log" 2>&1 </dev/null &
+fi
 g_app_manager_pid=$!
 echo "$g_app_manager_pid" >"$g_run_dir/app_manager.pid"
 
@@ -730,7 +750,8 @@ if [ ! -s "$g_snapshot_path" ]; then
     exit 1
 fi
 
-if [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; then
+if [ -z "$g_app_manager_snapshot" ] &&
+   [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; then
     g_entitlement_digest=$(sha256sum "$g_app_entitlement" | cut -d ' ' -f 1)
     g_entitlement_operation="entitlement.$g_entitlement_digest"
     g_entitlement_operation=$(vqec_vision_ai_tools_rnful_submit_operation entitlement \
@@ -742,7 +763,8 @@ if [ "$(vqec_vision_ai_tools_rnful_association_field entitled)" != "true" ]; the
         "$g_entitlement_operation" "$g_operation_state_committed"
     vqec_vision_ai_tools_rnful_control snapshot >"$g_snapshot_path"
 fi
-if [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; then
+if [ -z "$g_app_manager_snapshot" ] &&
+   [ "$(vqec_vision_ai_tools_rnful_association_field installed)" != "true" ]; then
     g_inventory_revision=$(vqec_vision_ai_tools_rnful_snapshot_field inventory_revision)
     g_manifest_digest=$(sha256sum "$g_app_manifest" | cut -d ' ' -f 1)
     g_install_operation="install.$g_manifest_digest"
@@ -777,7 +799,6 @@ fi
 
 # Start the FW camera producer last. This is the canonical dependency-order test:
 # the AI service must survive with neither App Manager nor media available, and the
-# Qualcomm graph/DSP/HTP path must remain unopened until a real frame is received.
 sleep "$g_camera_start_delay_seconds"
 if ! kill -0 "$g_service_pid" 2>/dev/null; then
     echo "service stopped while camera media was unavailable" >&2

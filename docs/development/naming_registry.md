@@ -412,6 +412,7 @@ Preview boundary additions: `src/core/media/vqec_vision_preview_contract.cpp` us
 | tools/board/vqec_vision_board_native_tests.sh | bntst | vqec_vision_ai_tools_bntst_ |
 | tools/board/vqec_vision_preview_acceptance.sh | pvacc | no named functions; top-level host acceptance flow |
 | tools/board/vqec_vision_run_full.sh | rnful | vqec_vision_ai_tools_rnful_ |
+| tools/fixtures/vqec_vision_app_manager_snapshot_fixture.cpp | amsfx | vqec_vision_ai_tools_amsfx_ (port overrides retain `vqec_vision_ai_ports_apmgr_`; `main` is the language entrypoint) |
 | tools/checks/vqec_vision_check_docs_layout.sh | dclay | vqec_vision_ai_tools_dclay_ |
 | tools/contracts/vqec_vision_check_integration_contract.py | icchk | vqec_vision_ai_tcont_icchk_ |
 | tools/fixtures/vqec_vision_fw_camera_sim.py | fwsim | vqec_vision_ai_tools_fwsim_ |

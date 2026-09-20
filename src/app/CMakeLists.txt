@@ -56,6 +56,17 @@ if(TARGET vqec_vision_ai_app_manager_dbus)
     target_link_libraries(vqec_vision_app_manager_control PRIVATE
         vqec_vision_ai_app_manager_dbus)
     set_target_properties(vqec_vision_app_manager_control PROPERTIES CXX_EXTENSIONS OFF)
+    if(TARGET vqec_vision_ai_app_manifest AND TARGET vqec_vision_ai_artifact_digest)
+        add_executable(vqec_vision_app_manager_snapshot_fixture
+            ${CMAKE_SOURCE_DIR}/tools/fixtures/vqec_vision_app_manager_snapshot_fixture.cpp)
+        target_link_libraries(vqec_vision_app_manager_snapshot_fixture PRIVATE
+            vqec_vision_ai_app_manager_dbus
+            vqec_vision_ai_app_manifest
+            vqec_vision_ai_artifact_digest
+            Threads::Threads)
+        set_target_properties(vqec_vision_app_manager_snapshot_fixture
+            PROPERTIES CXX_EXTENSIONS OFF)
+    endif()
 endif()
 
 # Cold-path startup option parsing, split out of the service main translation unit so it
