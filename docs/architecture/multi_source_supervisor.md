@@ -22,7 +22,7 @@ composition and threaded execution are delivered, board qualification remains pe
 
 The composition root first authenticates configuration, builds an immutable activation
 snapshot, resolves every `raw_source_ref`, and constructs a complete source lifecycle,
-vendor graph, retention domain and session for each admitted slot. It then:
+  vendor graph, retention domain and session for each admitted slot. It then:
 
 1. constructs the supervisor with the exact deployment/catalog revisions and source count;
 2. binds each session to its fixed activation-snapshot index exactly once;
@@ -41,8 +41,8 @@ Each `step` advances at most one non-stopped slot, then rotates the cursor. Cons
 busy source cannot consume an unbounded number of operations before another source is
 visited. Receive and result polling inside a running session are non-blocking. Startup,
 graph state changes and FW RPCs may still block for their explicitly bounded backend/RPC
-timeout; true wall-time isolation requires one serialized executor per source and will be
-added at the service-runtime layer.
+timeout. In async mode, one serialized worker per source provides wall-time isolation from
+a blocking session call.
 
 The report always carries the numeric source index and the source's original status.
 Per-source progress has fixed due/submitted/busy masks plus a primary numeric model slot;
@@ -70,6 +70,13 @@ one non-blocking step on the next available slot, so a blocking backend call ins
 source cannot stall the control loop or the other sources. Faults are still isolated onto
 the fault channel, stop queues a session stop per worker, and `drain()` joins every worker
 (the destructor also drains). Synchronous behavior remains the default.
+
+`is_quiescent()` is the activation-control serialization gate. In async mode it is true
+only when every configured worker is running and none has a queued command, an executing
+session call or an unread completion. In synchronous mode it is true because the same
+control thread owns both progress and activation. The caller must also prove that upper
+layers hold no pending result before mutating a bound session; the application composition
+and runtime executor add those checks.
 
 ## Stop and recovery
 
@@ -102,8 +109,8 @@ output generations from being retagged as a new source cycle.
   transactional session-owner construction remain pending.
 - Service-level replacement of a completely drained source-loss generation is delivered.
   Per-source restart inside this supervisor and BSP/released-FW recovery remain open.
-- True wall-time isolation requires one serialized executor per source and will be added at
-  the service-runtime layer.
+- Async per-source wall-time isolation is delivered. Automatic per-slot restart remains
+  outside this supervisor.
 - RTSP URI, credentials, codec and decoder state remain outside AI APP. The portable
   `multi_model_pump` fans one received frame out to due running graphs while holding one
   shared lease until every graph releases it; `multi_model_session` configures, starts and

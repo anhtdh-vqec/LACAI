@@ -94,6 +94,8 @@ int main() {
 
         const auto started = std::chrono::steady_clock::now();
         check(worker.vqec_vision_ai_appl_sswrk_request_step(1000).code_ == status_code::ok);
+        const auto queued = worker.vqec_vision_ai_appl_sswrk_get_snapshot();
+        check(queued.has_pending_ || queued.has_inflight_);
         check(session.wait_started(1));
         check(worker.vqec_vision_ai_appl_sswrk_request_step(2000).code_ ==
               status_code::resource_exhausted);
@@ -121,6 +123,9 @@ int main() {
         }
         check(completed && step_status.code_ == status_code::pending &&
               progress.has_result_ && result.pipeline_pts_ns_ == 1000);
+        const auto quiescent = worker.vqec_vision_ai_appl_sswrk_get_snapshot();
+        check(!quiescent.has_pending_ && !quiescent.has_inflight_ &&
+              !quiescent.has_completion_);
 
         check(worker.vqec_vision_ai_appl_sswrk_request_stop(3000).code_ == status_code::ok);
         completed = false;

@@ -380,4 +380,18 @@ multi_source_supervisor::vqec_vision_ai_appl_mssup_get_snapshot() const noexcept
     return snapshot;
 }
 
+bool multi_source_supervisor::vqec_vision_ai_appl_mssup_is_quiescent() const {
+    if (!async_mode_) {
+        return true;
+    }
+    for (std::uint16_t index = 0; index < config_.source_count_; ++index) {
+        const auto worker = workers_[index].vqec_vision_ai_appl_sswrk_get_snapshot();
+        if (!worker.is_running_ || worker.has_pending_ || worker.has_inflight_ ||
+            worker.has_completion_) {
+            return false;
+        }
+    }
+    return true;
+}
+
 }  // namespace vqec::vision::ai

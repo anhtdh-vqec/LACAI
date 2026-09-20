@@ -408,4 +408,9 @@ bool runtime_executor::vqec_vision_ai_appl_rtexe_has_pending() const noexcept {
     return has_pending_;
 }
 
+bool runtime_executor::vqec_vision_ai_appl_rtexe_is_activation_quiescent() const {
+    return !has_pending_ &&
+        composition_.vqec_vision_ai_appl_acomp_is_activation_quiescent();
+}
+
 }  // namespace vqec::vision::ai

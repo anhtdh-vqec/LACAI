@@ -16,6 +16,7 @@ public:
         std::uint16_t _source_index, source_session_port& _session);
     [[nodiscard]] status vqec_vision_ai_appl_acomp_take_result(
         tensor_result& _result, multi_source_progress_report& _report);
+    [[nodiscard]] bool vqec_vision_ai_appl_acomp_is_activation_quiescent() const;
     [[nodiscard]] status vqec_vision_ai_cntr_acomp_validate() override;
     [[nodiscard]] status vqec_vision_ai_cntr_acomp_activate() override;
     [[nodiscard]] status vqec_vision_ai_cntr_acomp_step(

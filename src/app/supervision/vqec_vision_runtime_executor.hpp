@@ -120,6 +120,7 @@ public:
     [[nodiscard]] runtime_executor_metrics
     vqec_vision_ai_appl_rtexe_get_metrics() const noexcept;
     [[nodiscard]] bool vqec_vision_ai_appl_rtexe_has_pending() const noexcept;
+    [[nodiscard]] bool vqec_vision_ai_appl_rtexe_is_activation_quiescent() const;
 
 private:
     application_composition& composition_;

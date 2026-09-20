@@ -128,6 +128,7 @@ int main() {
     }
     // The slow source is blocked in its worker; the control step must return quickly.
     check(slow.wait_started(1));
+    check(!supervisor.vqec_vision_ai_appl_mssup_is_quiescent());
     const auto started = std::chrono::steady_clock::now();
     (void)supervisor.vqec_vision_ai_appl_mssup_step(now++, result, report);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(

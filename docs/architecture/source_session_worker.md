@@ -7,7 +7,7 @@ never stalls the control/source scheduler.
 **Status:** logic-tested — device-free source delivered and tested; the supervisor async
 mode drives sessions through it, and the service exposes it through
 `--source-execution threaded`. **Layer:** app.
-**Source:** `src/app/session/vqec_vision_source_session_worker.{hpp,cpp}`.
+**Source:** `src/app/supervision/vqec_vision_source_session_worker.{hpp,cpp}`.
 
 ## Responsibility
 
@@ -31,7 +31,13 @@ executor.
 - `poll_completion(status, result, progress)`: non-blocking; `pending` when none is ready.
 - `request_stop(now)`: queues a session stop; an already-queued step may run first.
 - `drain()`: stops accepting, joins the worker, discards any unread completion.
+- `get_snapshot()` exposes pending, in-flight and unread-completion state under the worker
+  mutex. A control owner may mutate the bound session only when all three are false.
 - The session still sees a single serialized caller, so its ownership rules are unchanged.
+
+The snapshot is an observation, not a general multi-writer lock. The activation controller
+may use it as a serialization gate because it is the same control thread that submits the
+next supervisor step; no second caller may enqueue work between the gate and the mutation.
 
 A session exception becomes an `io_error` completion; the worker never dies.
 

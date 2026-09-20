@@ -15,6 +15,7 @@ struct source_session_worker_snapshot {
     std::uint64_t steps_completed_{0};
     std::uint64_t rejected_{0};
     bool is_running_{false};
+    bool has_pending_{false};
     bool has_inflight_{false};
     bool has_completion_{false};
 };

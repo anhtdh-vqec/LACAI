@@ -90,6 +90,10 @@ public:
     // an independent channel, so an isolated source error is never an invisible pending.
     [[nodiscard]] status vqec_vision_ai_appl_mssup_take_fault(
         multi_source_fault_event& _fault);
+    // True only when no async worker has a queued call, executing session call or unread
+    // completion. The control thread uses this serialization gate before mutating a bound
+    // session for an activation delta.
+    [[nodiscard]] bool vqec_vision_ai_appl_mssup_is_quiescent() const;
     // Joins every session worker (async mode). Safe to call without activation or twice.
     [[nodiscard]] status vqec_vision_ai_appl_mssup_drain();
 

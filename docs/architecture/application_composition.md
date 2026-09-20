@@ -33,6 +33,11 @@ pending without advancing sessions. The executor must consume this slot promptly
 including during shutdown, to allow drain to progress. Stop requests still latch while
 a result awaits delivery.
 
+`is_activation_quiescent()` is true only when this handoff is empty and the supervisor is
+quiescent. It is the composition-level half of the activation serialization contract: a
+delta cannot rebind feature owners or change a model mask while a worker call or a result
+that depends on the previous binding remains outstanding.
+
 ## Stop and recovery
 
 Stop is allowed immediately after activation and is repeatable while draining. Later

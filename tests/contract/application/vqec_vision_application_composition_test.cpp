@@ -61,6 +61,7 @@ int main() {
            status_code::ok);
     assert(composition.vqec_vision_ai_cntr_acomp_validate().code_ == status_code::ok);
     assert(composition.vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
+    assert(composition.vqec_vision_ai_appl_acomp_is_activation_quiescent());
     assert(composition.vqec_vision_ai_cntr_acomp_step(10).code_ ==
            status_code::pending);
     assert(composition.vqec_vision_ai_cntr_acomp_step(9).code_ ==
@@ -81,6 +82,7 @@ int main() {
     assert(delivery.vqec_vision_ai_cntr_acomp_validate().code_ == status_code::ok);
     assert(delivery.vqec_vision_ai_cntr_acomp_activate().code_ == status_code::ok);
     assert(delivery.vqec_vision_ai_cntr_acomp_step(1).code_ == status_code::ok);
+    assert(!delivery.vqec_vision_ai_appl_acomp_is_activation_quiescent());
     assert(delivery.vqec_vision_ai_cntr_acomp_step(2).code_ == status_code::pending);
     assert(producer.steps_ == 1);
     assert(delivery.vqec_vision_ai_cntr_acomp_validate().code_ == status_code::invalid_state);
@@ -91,6 +93,7 @@ int main() {
     tensor_result result;
     multi_source_progress_report report;
     assert(delivery.vqec_vision_ai_appl_acomp_take_result(result, report).code_ == status_code::ok);
+    assert(delivery.vqec_vision_ai_appl_acomp_is_activation_quiescent());
     assert(result.pipeline_pts_ns_ == 123 && report.source_index_ == 0 &&
            report.source_progress_.ticket_.source_frame_id_ == 42);
     assert(delivery.vqec_vision_ai_appl_acomp_take_result(result, report).code_ == status_code::pending);

@@ -40,6 +40,12 @@ transfers the tracked observations, feature-event batches and report together, o
 While occupied, further steps return `pending` so the caller cannot silently drop a
 result. Taking a result is not permission to publish it.
 
+`is_activation_quiescent()` composes three conditions: the executor has no routed result
+awaiting delivery, the application composition has no tensor awaiting handoff, and every
+async source worker has no queued, executing or unread operation. Runtime-control
+reconciliation is deferred until this control point. This preserves the exclusive session
+caller rule during an in-place activation delta.
+
 ## Source-to-model correlation
 
 The executor never reconstructs source identity from tensor data. `source_session_progress`

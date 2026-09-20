@@ -170,7 +170,11 @@ status vqec_vision_ai_appl_svxlp_run(
             _context.poll_control_();
         }
         if (_context.reconcile_requested_ && _context.reconcile_requested_()) {
-            if (_context.apply_runtime_control_) {
+            if (!executor.vqec_vision_ai_appl_rtexe_is_activation_quiescent()) {
+                // The worker exclusively owns its session call. Progress below first
+                // consumes queued/in-flight work and its result; activation mutates model
+                // masks and feature wiring only at the next quiescent control point.
+            } else if (_context.apply_runtime_control_) {
                 const auto applied = _context.apply_runtime_control_();
                 if (applied.code_ == status_code::ok) {
                     continue;

@@ -140,6 +140,12 @@ status application_composition::vqec_vision_ai_appl_acomp_take_result(
     return {};
 }
 
+bool application_composition::vqec_vision_ai_appl_acomp_is_activation_quiescent()
+    const {
+    return !has_pending_result_ &&
+        supervisor_.vqec_vision_ai_appl_mssup_is_quiescent();
+}
+
 application_composition_snapshot
 application_composition::vqec_vision_ai_cntr_acomp_get_snapshot() const noexcept {
     return snapshot_;

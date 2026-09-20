@@ -57,23 +57,29 @@ The control executor performs one transition at a time:
 1. Validate a strictly newer complete snapshot and build the candidate dependency plan.
 2. Build candidate feature processors, fan-outs and output policy off-path; reject the whole
    candidate if validation or allocation fails.
-3. Publish the candidate output policy and feature bindings on the serialized executor. This
+3. Wait for the activation control point: no executor result, composition tensor, queued
+   worker command, executing session call or unread worker completion may remain.
+4. Publish the candidate output policy and feature bindings on the serialized executor. This
    removes revoked output before old model work can be delivered.
-4. Close the execution gate and quiesce a changed secondary cascade before requesting its graph
+5. Close the execution gate and quiesce a changed secondary cascade before requesting its graph
    lifecycle transition. A `N -> N-1`, `N-1 > 0` transition makes no graph call.
-5. Submit target primary-model masks to affected source sessions. Running shared slots continue
+6. Submit target primary-model masks to affected source sessions. Running shared slots continue
    normally.
-6. Each session performs at most one bounded lifecycle step per progress call while its other
+7. Each session performs at most one bounded lifecycle step per progress call while its other
    active slots continue frame/result progress.
-7. Reopen a secondary execution gate only after its graph reports `running`; an inactive root result
+8. Reopen a secondary execution gate only after its graph reports `running`; an inactive root result
    retires the exact retained frame without alignment or secondary submission.
-8. Publish the applied snapshot revision only when every requested slot and cascade is running or
+9. Publish the applied snapshot revision only when every requested slot and cascade is running or
    fully drained.
    A failed added slot faults only its consumer applications; an uncertain drain requires recovery.
 
 The pipeline may still return a result accepted before disable. Its captured policy revision and
 payload scopes are checked against the new output gate, so it cannot regain authorization by being
 late.
+
+The quiescent check and the next progress submission share the service control thread. It
+therefore cannot be invalidated by a newly queued worker step between check and mutation.
+It is not a general lock and does not authorize any other thread to call a bound session.
 
 ## Prepared capacity and first-frame safety
 

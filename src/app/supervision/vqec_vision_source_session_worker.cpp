@@ -156,6 +156,7 @@ source_session_worker::vqec_vision_ai_appl_sswrk_get_snapshot() const {
     snapshot.steps_completed_ = steps_completed_;
     snapshot.rejected_ = rejected_;
     snapshot.is_running_ = is_running_;
+    snapshot.has_pending_ = pending_ != worker_command::none;
     snapshot.has_inflight_ = has_inflight_;
     snapshot.has_completion_ = has_completion_;
     return snapshot;
