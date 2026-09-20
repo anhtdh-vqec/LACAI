@@ -78,10 +78,11 @@ control thread owns both progress and activation. The caller must also prove tha
 layers hold no pending result before mutating a bound session; the application composition
 and runtime executor add those checks.
 
-Async health is sampled on the worker immediately after its session call and cached by the
-supervisor when that completion is consumed. Scheduling, aggregate snapshots and stopped
-state detection use this cache; they never call a worker-owned session from the control
-thread. This is part of the exclusive-caller contract, not only a diagnostics optimization.
+After the control thread consumes a worker completion, no command is pending or executing;
+it samples health at that serialized handoff and caches the value before queuing more work.
+Scheduling, aggregate snapshots and stopped-state detection use this cache and never read a
+session concurrently with a worker call. This is part of the exclusive-caller contract, not
+only a diagnostics optimization.
 
 ## Stop and recovery
 

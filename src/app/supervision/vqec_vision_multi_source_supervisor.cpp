@@ -1,5 +1,6 @@
 #include "vqec_vision_multi_source_supervisor.hpp"
 
+#include <cstdio>
 #include <limits>
 #include <utility>
 
@@ -114,6 +115,8 @@ void multi_source_supervisor::vqec_vision_ai_appl_mssup_refresh_state() noexcept
             return;
         }
     }
+    std::fprintf(stderr,
+        "source supervisor stopped after every source reported stopped health\n");
     state_ = multi_source_supervisor_state::stopped;
 }
 
@@ -161,10 +164,28 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step(
     _report.source_index_ = selected_index;
     _report.source_status_ = std::move(source_status);
     _report.source_health_ = selected->vqec_vision_ai_appl_srcsn_get_health();
+    if (_report.source_health_.phase_ != cached_health_[selected_index].phase_) {
+        std::fprintf(stderr,
+            "source session phase source=%u previous=%d current=%d status=%d error=%d "
+            "message=%s\n",
+            static_cast<unsigned int>(selected_index),
+            static_cast<int>(cached_health_[selected_index].phase_),
+            static_cast<int>(_report.source_health_.phase_),
+            static_cast<int>(source_code),
+            static_cast<int>(_report.source_health_.first_error_code_),
+            _report.source_status_.message_.c_str());
+    }
+    cached_health_[selected_index] = _report.source_health_;
     _report.source_progress_ = progress;
     _report.has_source_ = true;
     _report.has_result_ = progress.has_result_;
     if (source_code != status_code::ok && source_code != status_code::pending) {
+        std::fprintf(stderr,
+            "source session fault source=%u code=%d phase=%d message=%s\n",
+            static_cast<unsigned int>(selected_index),
+            static_cast<int>(source_code),
+            static_cast<int>(_report.source_health_.phase_),
+            _report.source_status_.message_.c_str());
         // Keep fault isolation (one source does not stop the rest) but publish the error on
         // the independent fault channel so it is never an invisible pending.
         vqec_vision_ai_appl_mssup_record_fault(
@@ -197,10 +218,22 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
             status step_status;
             tensor_result candidate;
             source_session_progress progress;
-            source_session_health health;
             if (workers_[index].vqec_vision_ai_appl_sswrk_poll_completion(
-                    step_status, candidate, progress, health).code_ != status_code::ok) {
+                    step_status, candidate, progress).code_ != status_code::ok) {
                 continue;
+            }
+            // poll_completion clears the worker's unread-completion state. The control
+            // thread has not queued the next command yet, so this diagnostic read is
+            // serialized with the worker-owned session call.
+            const auto health =
+                sessions_[index]->vqec_vision_ai_appl_srcsn_get_health();
+            if (health.phase_ != cached_health_[index].phase_) {
+                std::fprintf(stderr,
+                    "source session phase source=%u previous=%d current=%d error=%d\n",
+                    static_cast<unsigned int>(index),
+                    static_cast<int>(cached_health_[index].phase_),
+                    static_cast<int>(health.phase_),
+                    static_cast<int>(health.first_error_code_));
             }
             cached_health_[index] = health;
             _report.source_index_ = index;
@@ -214,6 +247,11 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_step_async(
             }
             if (step_status.code_ != status_code::ok &&
                 step_status.code_ != status_code::pending) {
+                std::fprintf(stderr,
+                    "source session fault source=%u code=%d phase=%d message=%s\n",
+                    static_cast<unsigned int>(index),
+                    static_cast<int>(step_status.code_),
+                    static_cast<int>(health.phase_), step_status.message_.c_str());
                 vqec_vision_ai_appl_mssup_record_fault(
                     index, step_status.code_, _steady_now_ns);
             }
@@ -286,6 +324,8 @@ status multi_source_supervisor::vqec_vision_ai_appl_mssup_request_stop(
     }
 
     status first_error;
+    std::fprintf(stderr, "source supervisor stop requested state=%d\n",
+        static_cast<int>(state_));
     state_ = multi_source_supervisor_state::stopping;
     for (std::uint16_t index = 0;
          index < config_.source_count_ && index < sessions_.size(); ++index) {

@@ -61,12 +61,10 @@ void source_session_worker::vqec_vision_ai_appl_sswrk_worker_main() noexcept {
         } catch (...) {
             step_status = {status_code::io_error, "session step raised an exception"};
         }
-        const auto health = session_->vqec_vision_ai_appl_srcsn_get_health();
         std::lock_guard<std::mutex> lock(mutex_);
         completion_status_ = step_status;
         completion_result_ = std::move(result);
         completion_progress_ = progress;
-        completion_health_ = health;
         has_completion_ = true;
         has_inflight_ = false;
         if (command == worker_command::step) {
@@ -110,8 +108,7 @@ status source_session_worker::vqec_vision_ai_appl_sswrk_request_stop(
 }
 
 status source_session_worker::vqec_vision_ai_appl_sswrk_poll_completion(
-    status& _step_status, tensor_result& _result, source_session_progress& _progress,
-    source_session_health& _health) {
+    status& _step_status, tensor_result& _result, source_session_progress& _progress) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!has_completion_) {
         return {status_code::pending, "no session completion is ready"};
@@ -119,11 +116,9 @@ status source_session_worker::vqec_vision_ai_appl_sswrk_poll_completion(
     _step_status = std::move(completion_status_);
     _result = std::move(completion_result_);
     _progress = completion_progress_;
-    _health = completion_health_;
     completion_status_ = {};
     completion_result_ = {};
     completion_progress_ = {};
-    completion_health_ = {};
     has_completion_ = false;
     return {};
 }
@@ -150,7 +145,6 @@ status source_session_worker::vqec_vision_ai_appl_sswrk_drain() {
     completion_status_ = {};
     completion_result_ = {};
     completion_progress_ = {};
-    completion_health_ = {};
     return {};
 }
 

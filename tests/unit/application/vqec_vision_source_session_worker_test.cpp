@@ -28,7 +28,6 @@ public:
         }
         std::unique_lock<std::mutex> lock(mutex_);
         condition_.wait(lock, [this]() { return is_open_.load(); });
-        health_.phase_ = source_session_phase::running;
         ++steps_;
         _progress = {};
         _progress.has_result_ = true;
@@ -42,12 +41,11 @@ public:
     [[nodiscard]] status vqec_vision_ai_appl_srcsn_request_stop(
         std::uint64_t) override {
         ++stop_calls_;
-        health_.phase_ = source_session_phase::stopped;
         return {};
     }
     [[nodiscard]] source_session_health
     vqec_vision_ai_appl_srcsn_get_health() const noexcept override {
-        return health_;
+        return {};
     }
 
     void open() {
@@ -74,7 +72,6 @@ private:
     std::condition_variable start_condition_;
     std::atomic<bool> is_open_{false};
     std::atomic<unsigned> entered_{0};
-    source_session_health health_;
 };
 
 }  // namespace
@@ -109,9 +106,8 @@ int main() {
         status step_status;
         tensor_result result;
         source_session_progress progress;
-        source_session_health health;
         check(worker.vqec_vision_ai_appl_sswrk_poll_completion(
-                  step_status, result, progress, health).code_ == status_code::pending);
+                  step_status, result, progress).code_ == status_code::pending);
 
         session.open();
         // Wait for the completion to appear.
@@ -119,14 +115,13 @@ int main() {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
         while (!completed && std::chrono::steady_clock::now() < deadline) {
             if (worker.vqec_vision_ai_appl_sswrk_poll_completion(
-                    step_status, result, progress, health).code_ == status_code::ok) {
+                    step_status, result, progress).code_ == status_code::ok) {
                 completed = true;
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
         check(completed && step_status.code_ == status_code::pending &&
-              health.phase_ == source_session_phase::running &&
               progress.has_result_ && result.pipeline_pts_ns_ == 1000);
         const auto quiescent = worker.vqec_vision_ai_appl_sswrk_get_snapshot();
         check(!quiescent.has_pending_ && !quiescent.has_inflight_ &&
@@ -136,14 +131,13 @@ int main() {
         completed = false;
         while (!completed && std::chrono::steady_clock::now() < deadline) {
             if (worker.vqec_vision_ai_appl_sswrk_poll_completion(
-                    step_status, result, progress, health).code_ == status_code::ok) {
+                    step_status, result, progress).code_ == status_code::ok) {
                 completed = true;
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
-        check(completed && session.stop_calls_ == 1 &&
-              health.phase_ == source_session_phase::stopped);
+        check(completed && session.stop_calls_ == 1);
         check(worker.vqec_vision_ai_appl_sswrk_drain().code_ == status_code::ok);
         const auto snapshot = worker.vqec_vision_ai_appl_sswrk_get_snapshot();
         check(!snapshot.is_running_ && snapshot.steps_requested_ == 1 &&
@@ -161,12 +155,11 @@ int main() {
         status step_status;
         tensor_result result;
         source_session_progress progress;
-        source_session_health health;
         bool completed = false;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
         while (!completed && std::chrono::steady_clock::now() < deadline) {
             if (worker.vqec_vision_ai_appl_sswrk_poll_completion(
-                    step_status, result, progress, health).code_ == status_code::ok) {
+                    step_status, result, progress).code_ == status_code::ok) {
                 completed = true;
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
