@@ -1,14 +1,15 @@
 # Usecase activation before model loading
 
-`vqec_vision_usecase_activation` is the vendor-neutral cold-path resolver between the FW
-commercial control plane and runtime composition. Its base deployment is the maximum
+`vqec_vision_usecase_activation` is the vendor-neutral cold-path resolver between the AI-owned
+App Manager control plane and runtime composition. Its base deployment is the maximum
 authenticated source/model assignment. A complete activation snapshot applies installed,
 entitled, desired, supported, compatible and resource-admitted gates to every
 `(source_id, usecase_id)` association.
 
-**Status:** source-delivered — resolver, strict startup loader, serialized desired-plan
-manager and D-Bus v1 transport are source-delivered; signed provisioning and runtime health
-observation remain open. **Layer:** runtime.
+**Status:** source-delivered — resolver and strict startup loader are integrated with the
+signed, durable App Manager snapshot path; the legacy serialized desired-plan D-Bus adapter
+remains a compatibility boundary. Detailed per-app runtime health attribution remains open.
+**Layer:** runtime.
 **Source:** `src/core/features/vqec_vision_usecase_activation.cpp`,
 `src/runtime/feature_manager/vqec_vision_usecase_config.{hpp,cpp}`,
 `src/runtime/feature_manager/vqec_vision_usecase_control_manager.{hpp,cpp}`,
@@ -16,7 +17,7 @@ observation remain open. **Layer:** runtime.
 
 ## Responsibility
 
-- Resolve the effective root-model deployment from the FW commercial control plane before
+- Resolve the effective root-model deployment from the AI-owned application control plane before
   any vendor graph loads.
 - Apply installed, entitled, desired, supported, compatible and resource-admitted gates
   to every `(source_id, usecase_id)` association.
@@ -74,29 +75,28 @@ provisioning/admission boundary, not self-asserted D-Bus authority.
 - distinguishes the active generation from a candidate, reporting old work as running or
   draining and new work as loading until the runtime owner publishes it.
 
-`vqec_vision_usecase_control_dbus` implements the exact v1 wire methods behind the neutral
-port. It resolves a configured FW peer to one unique D-Bus sender, bounds request bytes and
-callback progress, and never accepts entitlement/admission fields from the caller. Bus
-name and object path are installation configuration.
+`vqec_vision_usecase_control_dbus` implements the legacy desired-only v1 compatibility methods
+behind the neutral port. New product lifecycle control uses AppManager1 asynchronous operations
+and complete snapshots. Both paths bind the configured peer to one unique D-Bus sender, bound
+request bytes and never accept entitlement/admission fields from the caller. Bus name and object
+path are installation configuration.
 
 ## Executable generation ownership
 
-The executable now owns manager/transport across runtime generations. `--usecase-dbus`
-(or `--usecase-dbus-session`) enables desired-plan commands with explicit installation
-names/timeouts/budgets. Initial status remains loading until all source-session phases are
-running. New desired commands are rejected during initial loading or pending reconciliation.
-Recovery-required prevents constructing another generation. All-off publishes an empty
-runtime and keeps the control object live without platform preparation or source acquisition.
-Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
-D-Bus replies.
+The App Manager snapshot consumer is the product authority. The optional `--usecase-dbus`
+(or `--usecase-dbus-session`) path enables legacy desired-plan compatibility with explicit
+installation names/timeouts/budgets. Initial status remains loading until all source-session
+phases are running. New desired commands are rejected during initial loading or pending
+reconciliation. Recovery-required prevents constructing another generation. All-off publishes an
+empty runtime and keeps the control path live without platform preparation or source acquisition.
 
 ## Limits and next work
 
-- Runtime health observation and signed provisioning remain open. Incremental shared-owner
-  replacement passed the QCS6490 S04 + infrastructure-fixture gate; each additional product
-  package still needs its own model-quality and resource acceptance.
-- Live desired plans/receipts are process-local; synchronous prepare/enrollment can delay
-  D-Bus replies.
+- Signed provisioning and durable lifecycle receipts are delivered through App Manager. Detailed
+  per-app health/cost attribution and real backend conformance remain open.
+- Incremental shared-owner replacement passed the QCS6490 S04 + infrastructure-fixture gate;
+  each additional product package still needs its own model-quality and resource acceptance.
+- Legacy desired-plan receipts are process-local; the App Manager path owns durable operations.
 - The resolver does not authenticate catalogs or entitlements, measure hardware capacity,
   load models or mutate a live runtime.
 

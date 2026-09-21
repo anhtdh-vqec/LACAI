@@ -2,10 +2,11 @@
 
 This document is the current architecture direction for LACAI: the layer boundaries,
 ownership, data flow, contract roles and resource rules for the AI APP that replaces
-`ai_app` in FW. Unified baseline: 2026-09-15.
+`ai_app` in FW. Unified baseline: 2026-09-20.
 
 **Status:** accepted — the current Qualcomm workload passed its declared five-minute AI APP
-30 FPS / average-CPU gate on `.98`; external release gates remain listed below.
+30 FPS / average-CPU gate on the recorded QCS6490 target; external release gates remain listed
+below.
 **Layer:** reference. **Source:** `n/a`.
 
 ## Responsibility
@@ -17,17 +18,19 @@ ownership, data flow, contract roles and resource rules for the AI APP that repl
   entitlement enforcement, output schema and performance measurement, plus enrollment,
   matching, protected gallery, key lifecycle and index synchronization through neutral
   storage/index ports.
-- FW has agreed to meet this boundary; this does not replace released-FW integration
-  verification or feature acceptance.
+- This is the AI APP-required boundary. BSP+FW producer sign-off and released-FW integration
+  verification remain acceptance gates.
 
 ## Boundaries and principles
 
 - Unified FW RAW Source Service belongs to FW BSP/FW software; AI APP is a consumer under
   the same lease contract on AI Camera and AI Box. AI Box RTSP demux/decode belongs to FW.
 - AI Model delivers a model integration package, not only a binary.
-- FW software owns installation/supervision, config endpoint and evidence
-  storage/upload. FW sends only authorized enrollment/remove commands for FR; FW provides
-  transport/UI.
+- AI APP owns the usecase App Manager, signed entitlement/package verification, immutable
+  content store, inventory, configuration and desired-state contract. Backend follows the
+  AI-owned D-Bus facade. FW owns base-system launch/health integration, not usecase inventory.
+- FW owns RTSP/UI/recording and persistent evidence media. AI APP owns event/evidence command
+  semantics, authorization, durable handoff and AI metadata/query state.
 - BSP owns driver/ISP/SDK, memory interoperability, cache/fence/reset contracts.
 - No OpenCV. QNN/FastCV/GStreamer only in adapter or benchmark tools.
 - One ai service process at v1; module by dependency, not process per usecase.
@@ -73,7 +76,8 @@ FW RAW NV12/FD -> source scheduling -> preprocess/inference -> tracks
                                                                   |
                                                 released RTSP -> MediaMTX -> UI
 
-Legacy AI D-Bus -> compatibility adapter -> serialized model/runtime control
+Backend D-Bus -> AI-owned App Manager -> complete snapshot -> runtime reconciliation
+Legacy desired-only D-Bus -----------------------------> compatibility adapter
 ```
 
 AI APP owns burned-in preview overlay, encoding and ring production. FW retains
@@ -121,15 +125,14 @@ compatible and admitted gates; only that filtered deployment may load vendor gra
 [usecase activation](usecase_activation.md) and the
 [FW contract](../contracts/fw_usecase_control.md).
 
-The desired-plan manager and D-Bus v1 transport are now separated from runtime ownership:
-the adapter can change only `desired`, while trusted gates remain in AI APP. Startup
-pre-load filtering and serialized same-process generation replacement are wired. Old work
-drains before candidate construction; running is published after source-session startup.
-All-off retains only control. ADR 0012 defines the next runtime step: compatible per-app changes
-use derived shared-dependency reference counts and per-slot activation delta instead of replacing
-unrelated owners. Signed provisioning, durable desired receipts and detailed runtime health
-observation remain open; see
-[FR validation](../testing/face_recognition_production_validation.md).
+The AI-owned App Manager persists signed entitlement, package inventory, configuration and
+desired state, then publishes a complete revisioned snapshot. The runtime can change only
+execution state; trusted gates remain independent and fail closed. Startup pre-load filtering is
+wired, all-off retains only control and no accelerator is loaded before the first valid frame.
+Accepted ADR 0012 applies compatible changes through derived shared-dependency reference counts
+and per-slot activation delta instead of replacing unrelated owners. Detailed per-app runtime
+cost attribution and real backend conformance remain open; see [App Manager](app_manager.md) and
+[incremental activation](incremental_app_activation.md).
 
 Dependent ROI models use the bounded design in
 [cascade inference](cascade_inference.md). They retain the exact source frame through
@@ -148,7 +151,7 @@ Do not infer non-copy-tensor from the FW RAW input being a DMA-BUF.
 | core | status, clock, lease primitives, bounded queue, geometry | contracts, std |
 | runtime | lifecycle, graph, scheduling, admission, registry | contracts, core |
 | perception | decode, tracker, typed attrs, pose, embedding, OCR | contracts, core |
-| features | rules for 13 usecases, traffic | contracts, core, perception |
+| features | rules for the stable S01–S18 catalog and traffic extensions | contracts, core, perception |
 | adapters | camera/FW transport/vendor implementation | contracts, core, SDK private |
 | outputs | routing, serialization, delivery policy | contracts, core |
 | app | composition root, wiring concrete components | all above |
@@ -191,17 +194,18 @@ workload/fault gates are accepted for the version 1 baseline.
 
 ## Thread model and lifecycle
 
-Control loop serializes config/license/start/stop; input thread receives frames;
-bounded workers call the backend; one state executor per source; output worker is
-separate. Do not default to multiple threads/contexts per model; must measure SDK thread
-safety.
+The App Manager worker serializes entitlement, package, configuration and desired-state
+mutations. The runtime control loop serializes snapshot reconciliation and start/stop; input
+threads receive frames, bounded workers call the backend, one state executor advances each source
+and output workers remain separate. Do not default to multiple threads/contexts per model; SDK
+thread safety must be measured.
 
 Feature state: installed -> eligible -> loading -> ready -> running;
 branches disabled, unsupported, denied, resource_limited, degraded, faulted.
 desired_enabled differs from effective_state; reason_code must always be returnable to FW.
 
-Start: validate config/license -> resolve dependencies -> resource admission ->
-load model + warmup -> acquire source -> run -> publish readiness.
+Start: validate snapshot -> resolve dependencies -> resource admission -> acquire source -> wait
+for the first valid frame -> load model + warmup -> run -> publish readiness.
 Stop: reject new work -> drop safely unsubmitted work -> drain submitted jobs ->
 close outputs at revision boundary -> release leases -> release model/context.
 Timeout drain: report fault/quarantine; coordinate BSP reset/quiesce; do not self-ACK
@@ -242,16 +246,13 @@ AND resource_admitted. Disabling a feature removes only dependencies with no rem
 consumer. On entitlement revoke: block sensitive output immediately by revision, drain
 compute; do not publish old results after revoke. Offline revocation has agreed limits.
 
-Proposed packages: ai-runtime; ai-backend-qualcomm; ai-feature-<bundle>;
-ai-model-<model>-<target>. Bundle is the deployment unit, feature_id is the commercial
-unit. Each catalog model maps exactly to deployment metadata/artifact through
-[model package registry](model_package_registry.md); runtime does not use one implicit
-path for all models.
-Manifest pins runtime ABI/backend/model compatibility; staging + validate +
-controlled restart + health check + rollback coordinated with FW.
-Model signed/checksum-verified, directory readonly; state/config at FW-provided locations.
-Do not upgrade an active .so then hot unload; do not treat IPK dependencies as
-guaranteeing atomic multi-package update.
+The commercial unit is one declarative `.vqapp`; it is not a process and cannot carry install
+scripts or native plug-ins. App Manager verifies its Ed25519 signature, entitlement, exact
+component size/digest and semantic compatibility before atomically committing immutable content
+and inventory. Each catalog model maps exactly to deployment metadata/artifact through
+[model package registry](model_package_registry.md); runtime does not use one implicit path for
+all models. Incompatible artifact changes use controlled generation replacement or restart; they
+are never hot-unloaded from active vendor execution.
 
 ## Observability
 
@@ -267,7 +268,8 @@ Logs have source/job/model/feature/correlation id, no per-frame INFO or biometri
   acceptance remain incomplete.
 - Fully capability/config-driven backend selection remains an unfinished goal; production
   currently binds generic FastRPC v1 cDSP preprocessing and owned QNN through neutral ports.
-- Signed provisioning, durable desired receipts and detailed runtime health observation
+- Signed provisioning, durable operation receipts and complete runtime snapshots are delivered.
+  Production key rotation, real backend conformance and detailed per-app cost/health attribution
   remain open.
 - Not yet included: graph editor, arbitrary third-party plugins, hotload, universal
   optimizer, writing our own vector database engine, or guaranteeing the same workload on
@@ -277,6 +279,7 @@ Logs have source/job/model/feature/correlation id, no per-frame INFO or biometri
 
 ## See also
 
+- [end-to-end system operation and team boundaries](system_operation_flow.md)
 - [implementation status](../development/implementation_status.md)
 - [documentation map](../../README.md)
 - [architecture alignment review](../development/architecture_alignment_review.md)

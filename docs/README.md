@@ -33,6 +33,9 @@ and [capability matrix](development/capability_matrix.md); this map only routes.
 boundary, Qualcomm adapter, perception/feature pipeline, runtime composition and output.
 Read [system architecture](architecture/system_architecture.md) first, then the module that
 owns the boundary you are changing.
+For the complete boot, install, activation, inference, metadata, evidence and shutdown flows,
+including the three-team communication diagrams, see
+[end-to-end system operation](architecture/system_operation_flow.md).
 For production resource input, see the
 [hardware admission profile](architecture/hardware_admission_profile.md).
 For DSP ownership and the generic protocol requirements, see the
